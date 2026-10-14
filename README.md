@@ -12,7 +12,7 @@ that player should see or do (a secret word, their own buttons, a text box). Nob
 | Who runs the game | the big screen's browser tab | Node on this laptop | Node on this laptop |
 | Phones join over | Wi-Fi or mobile data | Wi-Fi or mobile data | the same Wi-Fi only |
 | Needs internet | yes | yes | no |
-| Outside services | PeerJS introductions, a relay for mobile data (Metered) | a Cloudflare tunnel | none |
+| Outside services | PeerJS introductions, a relay for mobile data (Metered, login kept on the big screen) | a Cloudflare tunnel | none |
 
 All three run the same games.
 
@@ -30,9 +30,19 @@ Players scan the QR code (or open the site and type the 4-letter room code). Not
 
 - **Refreshing the big screen** keeps the same room code. Phones reconnect by themselves, back in the lobby.
 - **Keep the big-screen tab in front.** Browsers slow down hidden tabs, which makes the game lag.
-- Phones that can't connect directly (most on mobile data) go through the **relay server** set in
-  `public/js/config.js`. There are no working free public relays, so this needs a (free) Metered account.
-- **`check.html`** on the site tests a phone's network in 10 seconds: green means it can play from there.
+- **`check.html`** on the site tests a network in 10 seconds: green means that device can play from there.
+
+#### The relay login (do this once on the big-screen computer)
+
+Phones that can't reach the big screen directly (most on mobile data) go through a relay server (Metered).
+Click **Relay** at the bottom of the big screen's lobby and enter the Metered username and password. They're
+kept in that browser on that computer only: **never in the code, on GitHub, or sent to phones**. Phones don't
+need them, because the big screen reserves the relay address and phones connect to it.
+Without it the big screen shows a warning, and phones on mobile data may not get in.
+
+For testing on this computer, the same login can go in `relay.local.json` in the project folder
+(`{ "username": "...", "credential": "..." }`). Git ignores that file, and only `npm run site`, which only this
+computer can reach, ever reads it.
 
 ### Laptop + internet link
 
@@ -183,8 +193,10 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
 ```
 
 - **`tools/bots.html?room=ABCD&n=20`** (on the site) adds 20 fake phones that play by themselves, each a real WebRTC
-  connection. Add `&relay=1` to force them through the relay, like phones on mobile data.
-- **`?relay=1`** / **`?tls=1`** on any page force the relay / only the relay on port 443.
+  connection.
+- **`host.html?relay=1`** makes the big screen send every phone through the relay (like phones on mobile data);
+  **`host.html?tls=1`** uses only the relay over TLS on port 443 (like a strict school network). Each player's
+  chip shows RELAY or DIRECT.
 - `test/load.mjs` does the same for the laptop server, measuring data use and tap delay through the tunnel.
 
 ## Publishing the website
