@@ -1,0 +1,149 @@
+/* Shared look for the big screen and the phones, plus building blocks games can use. */
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+:root {
+  --bg: #120f26;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel-solid: #221d47;
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #f6f4ff;
+  --muted: #a7a1d0;
+  --accent: #ffd23f;
+  --ink: #1a1500;          /* text on bright buttons */
+  --good: #3ddc97;
+  --bad: #ff5c6c;
+  --me: var(--accent);     /* on phones: this player's color */
+  --radius: 18px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  color: var(--text);
+  line-height: 1.35;
+  background:
+    radial-gradient(60rem 40rem at 5% -15%, rgba(124, 77, 255, 0.38), transparent 60%),
+    radial-gradient(50rem 36rem at 105% 115%, rgba(255, 77, 109, 0.26), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.01em; }
+button, input { font: inherit; color: inherit; }
+
+.logo { font-size: 2.6rem; font-weight: 900; letter-spacing: -0.03em; }
+.logo span { color: var(--accent); }
+
+/* ---------- Building blocks for games ---------- */
+
+.stack  { display: flex; flex-direction: column; gap: 1rem; }
+.row    { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; }
+.fill   { flex: 1; min-height: 0; }
+.grid   { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem; }
+.card   { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.2rem; }
+.muted  { color: var(--muted); }
+.small  { font-size: 0.85em; }
+.big    { font-size: 1.6em; font-weight: 800; }
+.huge   { font-size: 3em; font-weight: 900; line-height: 1; }
+.pc     { color: var(--c); font-weight: 800; }   /* player-colored text: style="--c:${p.color}" */
+
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 16px;
+  padding: 0.75em 1.4em;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ink);
+  background: var(--accent);
+  box-shadow: 0 0.3em 0 rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s, filter 0.15s;
+  touch-action: manipulation;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.06); }
+.btn:active:not(:disabled) { transform: translateY(0.2em); box-shadow: 0 0.1em 0 rgba(0, 0, 0, 0.35); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.btn-xl { font-size: 1.35rem; padding: 0.8em 1.6em; border-radius: 20px; }
+.btn.btn-sm { font-size: 0.9rem; padding: 0.45em 0.9em; border-radius: 12px; }
+.btn.block { display: block; width: 100%; }
+.btn.secondary { background: #3a3370; color: var(--text); }
+.btn.ghost { background: transparent; color: var(--muted); box-shadow: none; }
+.btn.me { background: var(--me); }
+
+/* Countdown bubble: <span class="timer" data-deadline="${view.deadline}"></span> */
+.timer {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4em;
+  height: 2.4em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  border: 3px solid var(--accent);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.timer.deadline-low { border-color: var(--bad); color: var(--bad); animation: throb 1s ease-in-out infinite; }
+@keyframes throb { 50% { transform: scale(1.08); } }
+
+/* Player chips */
+.player-chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.chip {
+  --c: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45em 0.95em 0.45em 0.65em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  border: 2px solid var(--c);
+  font-weight: 800;
+}
+.chip-dot { width: 0.8em; height: 0.8em; border-radius: 50%; background: var(--c); flex: none; }
+.chip-vip { color: var(--accent); }
+.chip-away { font-size: 0.75em; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.chip.away { opacity: 0.5; border-style: dashed; }
+.chip.pop { animation: pop-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pop-in { from { transform: scale(0.4); opacity: 0; } }
+
+/* Where the game draws. Games get a .game-root that fills it. */
+.stage { position: relative; display: flex; flex-direction: column; }
+.game-root { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+
+.stage-error {
+  margin: 2rem auto;
+  max-width: 40rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius);
+  background: rgba(255, 92, 108, 0.12);
+  border: 2px solid var(--bad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.stage-error pre { white-space: pre-wrap; margin: 0; font-size: 0.9em; }
+
+.offline {
+  position: fixed;
+  left: 50%;
+  top: 1rem;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.4);
+}
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 1.1rem 1.3rem; }
+.panel h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.8rem; }
+.empty { color: var(--muted); font-weight: 600; }

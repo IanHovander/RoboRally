@@ -1,0 +1,135 @@
+/* The big screen. Everything is sized in rem, and rem grows with the window, so it fills a TV. */
+
+html.host { font-size: clamp(13px, 0.95vw + 3px, 30px); }
+html.host body { overflow: hidden; }
+.host .screen { height: 100vh; display: flex; flex-direction: column; }
+
+/* ---------- Lobby ---------- */
+
+.lobby { padding: 2rem 2.8rem; gap: 1.6rem; }
+.lobby-head { display: flex; align-items: center; gap: 2rem; }
+.lobby-head .logo { font-size: 3.2rem; }
+.last-result {
+  margin-left: auto;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  background: rgba(255, 210, 63, 0.12);
+  border: 2px solid var(--accent);
+  font-weight: 800;
+}
+
+.lobby-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 24rem) 1fr; gap: 2rem; }
+
+.join-card {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.6rem;
+  text-align: center;
+  border-radius: 28px;
+  background: #fff;
+  color: #18143a;
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.4);
+  transform: rotate(-1.5deg);
+}
+.join-title { font-size: 1.6rem; font-weight: 900; }
+.qr { width: 100%; max-width: min(19rem, 36vh); aspect-ratio: 1; image-rendering: pixelated; }
+.join-or { color: #77729a; font-weight: 700; font-size: 0.95rem; }
+.join-text { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.01em; word-break: break-all; color: #4b25e0; }
+.join-text.long { font-size: 1.1rem; word-break: normal; overflow-wrap: anywhere; }
+.join-hint { color: #77729a; font-size: 0.9rem; }
+.join-local { margin-top: 0.3rem; padding-top: 0.6rem; border-top: 1px solid #e6e3f3; color: #77729a; font-size: 0.9rem; }
+.join-local b { color: #18143a; }
+
+.denied { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 2rem; text-align: center; }
+.denied p { max-width: 30rem; font-size: 1.2rem; color: var(--muted); }
+.denied .btn { text-decoration: none; }
+
+.lobby-main { display: flex; flex-direction: column; gap: 1.3rem; min-height: 0; }
+.lobby-main .panel.grow { flex: 1; min-height: 0; overflow: auto; }
+.lobby-main .chip { font-size: 1.25rem; position: relative; }
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  margin-left: 0.4em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.count:empty { display: none; }
+
+.chip-kick {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.1em;
+  margin-left: -0.2em;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.chip:hover .chip-kick, .chip.away .chip-kick { opacity: 1; }
+.chip-kick:hover { color: var(--bad); }
+
+.game-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+.game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.1rem 1.3rem;
+  text-align: left;
+  border-radius: 20px;
+  border: 3px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+}
+.game-card:hover { background: rgba(255, 255, 255, 0.09); }
+.game-card.selected { border-color: var(--accent); background: rgba(255, 210, 63, 0.1); transform: translateY(-2px); }
+.game-name { font-size: 1.5rem; font-weight: 900; }
+.game-desc { color: var(--muted); }
+.game-meta { margin-top: auto; padding-top: 0.4rem; font-size: 0.85rem; font-weight: 800; color: var(--accent); }
+
+.start-row { display: flex; align-items: center; gap: 1.5rem; }
+.start-row .btn { font-size: 1.6rem; }
+.start-problem { color: var(--muted); font-weight: 600; }
+
+/* ---------- In a game ---------- */
+
+.game-screen .stage { flex: 1; min-height: 0; overflow: hidden; }
+.game-bar {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 0.5rem 1.2rem;
+  background: rgba(0, 0, 0, 0.28);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.game-bar-title { color: var(--text); }
+.game-bar b { color: var(--text); }
+.spacer { flex: 1; }
+
+.error-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.5rem;
+  z-index: 90;
+  max-width: 34rem;
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: #3a1020;
+  border: 2px solid var(--bad);
+  font-size: 0.85rem;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.error-close { border: 0; background: transparent; cursor: pointer; color: var(--muted); }

@@ -1,0 +1,66 @@
+// Big screen for Tap Race: one lane per player, runners move as people tap.
+import { html } from '/js/ui.js';
+
+export default function (root) {
+  root.innerHTML = `
+    <div class="tr-host">
+      <div class="tr-banner"></div>
+      <div class="tr-lanes"></div>
+      <div class="tr-overlay"></div>
+    </div>`;
+  const banner = root.querySelector('.tr-banner');
+  const lanesEl = root.querySelector('.tr-lanes');
+  const overlay = root.querySelector('.tr-overlay');
+  const lanes = new Map(); // player id -> lane elements, so runners glide instead of being redrawn
+  let shownPhase = null;
+
+  return {
+    update(view) {
+      if (view.phase !== shownPhase) {
+        shownPhase = view.phase;
+        banner.innerHTML = view.phase === 'countdown'
+          ? html`Get ready… <span class="tr-sub">First to ${view.goal} taps wins</span>`
+          : view.phase === 'go'
+            ? html`TAP TAP TAP! <span class="tr-sub">First to ${view.goal} taps wins</span>`
+            : html`Race over!`;
+        overlay.innerHTML = view.phase === 'countdown'
+          ? html`<div class="tr-countdown" data-deadline="${view.goAt}"></div>`
+          : view.phase === 'done' && view.winner
+            ? html`<div class="tr-winner" style="--c:${view.winner.color}">
+                <div class="tr-trophy">🏆</div>
+                <div class="tr-winner-name">${view.winner.name} wins!</div>
+              </div>`
+            : '';
+      }
+
+      lanesEl.style.setProperty('--n', view.lanes.length);
+      const present = new Set();
+      for (const lane of view.lanes) {
+        present.add(lane.id);
+        let el = lanes.get(lane.id);
+        if (!el) {
+          const row = document.createElement('div');
+          row.className = 'tr-lane';
+          row.innerHTML = `
+            <div class="tr-name"></div>
+            <div class="tr-track"><div class="tr-fill"></div><div class="tr-runner"></div></div>
+            <div class="tr-taps"></div>`;
+          lanesEl.append(row);
+          el = { row, name: row.querySelector('.tr-name'), runner: row.querySelector('.tr-runner'), taps: row.querySelector('.tr-taps') };
+          lanes.set(lane.id, el);
+        }
+        el.row.style.setProperty('--c', lane.color);
+        el.row.style.setProperty('--p', Math.min(1, lane.taps / view.goal));
+        el.name.textContent = lane.name;
+        el.runner.textContent = lane.name.slice(0, 1).toUpperCase();
+        el.taps.textContent = lane.taps;
+      }
+      for (const [id, el] of lanes) {
+        if (!present.has(id)) {
+          el.row.remove();
+          lanes.delete(id);
+        }
+      }
+    },
+  };
+}

@@ -1,0 +1,194 @@
+import { exec, spawn } from 'node:child_process';
+import dns from 'node:dns/promises';
+import fs from 'node:fs';
+import { createServer } from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import express from 'express';
+import QRCode from 'qrcode';
+import { Server } from 'socket.io';
+import { isPublicGameFile, loadGames } from './games.js';
+import { lanAddresses } from './network.js';
+import { Room } from './room.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// npm start -- --port 4000 --url https://my-tunnel.example.com
+const { values: opts } = parseArgs({
+  options: {
+    port: { type: 'string', short: 'p' },
+    url: { type: 'string' }, // the address phones should use (e.g. a tunnel); shown as the QR code
+    open: { type: 'boolean' }, // open the big screen in the browser
+    online: { type: 'boolean' }, // start a free Cloudflare tunnel so phones can join over the internet
+  },
+  strict: false,
+});
+const PORT = Number(opts.port || process.env.PORT || 3000);
+
+// A bug in one game shouldn't end game night: log it and keep going.
+process.on('uncaughtException', (err) => console.error('[server] Unexpected error (still running):', err));
+process.on('unhandledRejection', (err) => console.error('[server] Unexpected error (still running):', err));
+
+const games = await loadGames(path.join(ROOT, 'games'));
+
+const app = express();
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-cache'); // always pick up edited game files on reload
+  next();
+});
+app.use('/games', (req, res, next) => (isPublicGameFile(req.path) ? next() : res.status(404).end()));
+app.use('/games', express.static(path.join(ROOT, 'games'), { index: false, dotfiles: 'deny' }));
+app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, { pingInterval: 10_000, pingTimeout: 10_000 });
+const room = new Room(io, games);
+
+const localUrl = `http://localhost:${PORT}`;
+const lan = lanAddresses();
+const lanUrl = lan.length ? `http://${lan[0].address}:${PORT}` : null;
+const homeUrl = opts.url || process.env.PUBLIC_URL || lanUrl || localUrl;
+await setJoinUrl(homeUrl);
+
+async function setJoinUrl(url) {
+  url = String(url).replace(/\/+$/, '');
+  const qr = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#14112aff', light: '#ffffffff' } });
+  // When the QR code points at the internet, also show the Wi-Fi address: it's faster for people in the room.
+  const local = lanUrl && url !== lanUrl ? lanUrl.replace(/^https?:\/\//, '') : null;
+  room.setJoin({ url, text: url.replace(/^https?:\/\//, ''), qr, local });
+}
+
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n  Port ${PORT} is already in use. Is the game already running in another window?`);
+    console.error(`  Close that one, or pick another port:  npm start -- --port ${PORT + 1}\n`);
+  } else {
+    console.error(err);
+  }
+  process.exit(1);
+});
+
+httpServer.listen(PORT, () => {
+  const gameNames = [...games.values()].map((g) => g.name).join(', ') || '(none found in games/)';
+  console.log('');
+  console.log('  Game Night is running!');
+  console.log('');
+  console.log(`  Big screen:   ${localUrl}/host`);
+  console.log(`  Phones join:  ${room.join.url}`);
+  for (const extra of lan.slice(1)) console.log(`         (or)   http://${extra.address}:${PORT}   [${extra.name}]`);
+  console.log('');
+  console.log(`  Games: ${gameNames}`);
+  console.log('  Press Ctrl+C to stop.');
+  console.log('');
+  if (opts.open) openBrowser(`${localUrl}/host`);
+  if (opts.online) startTunnel();
+});
+
+function openBrowser(url) {
+  const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
+
+/**
+ * Free, no-account Cloudflare "quick tunnel": gives this server a public https address that
+ * anyone can open. The game still runs here; Cloudflare just passes the traffic along.
+ * The address is different every time.
+ */
+function startTunnel() {
+  const exe = findCloudflared();
+  if (!exe) {
+    console.log('  cloudflared is not installed, so there is no internet link (Wi-Fi still works).');
+    console.log('  Install it once with:  winget install --id Cloudflare.cloudflared');
+    console.log('  (Mac: brew install cloudflared). Then run  npm run online  again.\n');
+    return;
+  }
+  console.log('  Opening an internet link with cloudflared (takes a few seconds)...\n');
+
+  const child = spawn(exe, ['tunnel', '--no-autoupdate', '--url', localUrl], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  let url = null;
+  let registered = false;
+  let live = false;
+  let recent = []; // cloudflared's last few lines, shown if something goes wrong
+
+  const watch = (chunk) => {
+    const text = String(chunk);
+    recent = [...recent, ...text.split(/\r?\n/).filter(Boolean)].slice(-12);
+    url ??= text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i)?.[0] ?? null;
+    registered ||= /Registered tunnel connection/i.test(text);
+    if (url && registered && !live) {
+      live = true;
+      goLive(url);
+    }
+  };
+  child.stdout.on('data', watch);
+  child.stderr.on('data', watch);
+  child.on('error', (err) => console.error('  cloudflared failed to start:', err.message));
+  child.on('exit', (code) => {
+    if (live) {
+      console.log('\n  The internet link closed. The QR code is back to the Wi-Fi address.\n');
+      setJoinUrl(homeUrl);
+    } else if (code !== null) {
+      console.log(`  cloudflared stopped (exit code ${code}) before the link was ready. Its last words:`);
+      for (const line of recent) console.log(`    ${line}`);
+      console.log('');
+    }
+  });
+  process.on('exit', () => child.kill());
+  process.on('SIGINT', () => process.exit(0));
+  process.on('SIGTERM', () => process.exit(0));
+}
+
+/**
+ * Point the QR code at the tunnel once its name exists. For a second or so after cloudflared prints
+ * the address, DNS still says "no such name", and a phone that asks then can stay locked out for a
+ * long time (the "no" gets remembered). So ask Cloudflare's own nameservers, which remember nothing,
+ * until the name is there.
+ */
+async function goLive(url) {
+  const host = new URL(url).hostname;
+  let ready = false;
+  try {
+    const nameservers = await dns.resolveNs(host.split('.').slice(-2).join('.'));
+    const ips = (await Promise.all(nameservers.map((ns) => dns.resolve4(ns).catch(() => [])))).flat();
+    if (!ips.length) throw new Error('no nameserver addresses');
+    const authority = new dns.Resolver({ timeout: 1500, tries: 1 });
+    authority.setServers(ips);
+    for (let tries = 0; tries < 60 && !ready; tries++) {
+      ready = await authority.resolve4(host).then(() => true, () => false);
+      if (!ready) await sleep(500);
+    }
+  } catch {
+    // Can't ask the nameservers directly on this network: just give it plenty of time.
+  }
+  await sleep(ready ? 1500 : 10_000); // a little extra so every Cloudflare server has it
+  await setJoinUrl(url);
+  console.log(`  Internet link ready:  ${url}`);
+  console.log('  The QR code on the big screen now points there, so phones can join from anywhere.');
+  console.log('  This address changes each time you start. The big screen itself only works on this computer or your Wi-Fi.\n');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Look on the PATH, then where the installers put it (a terminal opened before installing won't have it on the PATH yet). */
+function findCloudflared() {
+  if (process.env.CLOUDFLARED) return process.env.CLOUDFLARED;
+  const exe = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
+  const dirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  if (process.platform === 'win32') {
+    dirs.push(
+      path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'cloudflared'),
+      path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'cloudflared'),
+    );
+  } else {
+    dirs.push('/opt/homebrew/bin', '/usr/local/bin');
+  }
+  for (const dir of dirs) {
+    const file = path.join(dir, exe);
+    if (fs.existsSync(file)) return file;
+  }
+  return null;
+}
