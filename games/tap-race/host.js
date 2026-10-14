@@ -1,5 +1,6 @@
 // Big screen for Tap Race: one lane per player, runners move as people tap.
 import { html } from '../../js/ui.js';
+import { avatar } from '../../js/avatar.js';
 
 export default function (root) {
   root.innerHTML = `
@@ -19,16 +20,16 @@ export default function (root) {
       if (view.phase !== shownPhase) {
         shownPhase = view.phase;
         banner.innerHTML = view.phase === 'countdown'
-          ? html`Get ready… <span class="tr-sub">First to ${view.goal} taps wins</span>`
+          ? html`Get Ready… <span class="tr-sub">First to ${view.goal} taps wins</span>`
           : view.phase === 'go'
-            ? html`TAP TAP TAP! <span class="tr-sub">First to ${view.goal} taps wins</span>`
-            : html`Race over!`;
+            ? html`Tap Tap Tap! <span class="tr-sub">First to ${view.goal} taps wins</span>`
+            : html`Race Over!`;
         overlay.innerHTML = view.phase === 'countdown'
           ? html`<div class="tr-countdown" data-deadline="${view.goAt}"></div>`
           : view.phase === 'done' && view.winner
             ? html`<div class="tr-winner" style="--c:${view.winner.color}">
-                <div class="tr-trophy">🏆</div>
-                <div class="tr-winner-name">${view.winner.name} wins!</div>
+                <div class="tr-trophy">${avatar(view.winner, { mood: 'happy' })}</div>
+                <div class="tr-winner-name">${view.winner.name} Wins!</div>
               </div>`
             : '';
       }
@@ -50,12 +51,12 @@ export default function (root) {
             <div class="tr-taps"></div>`;
           lanesEl.append(row);
           el = { row, name: row.querySelector('.tr-name'), runner: row.querySelector('.tr-runner'), taps: row.querySelector('.tr-taps') };
+          el.runner.innerHTML = avatar(lane);
           lanes.set(lane.id, el);
         }
         el.row.style.setProperty('--c', lane.color);
         el.row.style.setProperty('--p', Math.min(1, lane.taps / view.goal));
         el.name.textContent = lane.name;
-        el.runner.textContent = lane.name.slice(0, 1).toUpperCase();
         el.taps.textContent = lane.taps;
       }
       for (const [id, el] of lanes) {

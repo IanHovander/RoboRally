@@ -1,5 +1,6 @@
 // The big screen (laptop / TV): lobby with QR code, then the game's host view.
 import { html } from './ui.js';
+import { avatar } from './avatar.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
@@ -126,7 +127,7 @@ function renderLobby(room) {
         seenPlayers.add(p.id);
         return html`
           <div class="chip ${isNew && 'pop'} ${!p.connected && 'away'}" style="--c:${p.color}">
-            <span class="chip-dot"></span>
+            ${avatar(p)}
             <span class="chip-name">${p.name}</span>
             ${p.isVip && html`<span class="chip-vip" title="First to join: can start games from their phone">★</span>`}
             ${!p.connected && html`<span class="chip-away">away</span>`}
@@ -135,6 +136,7 @@ function renderLobby(room) {
           </div>`;
       })}`
     : html`<div class="empty">Waiting for players. Scan the code to join!</div>`;
+  $('players').classList.toggle('still', room.players.length > 16); // a crowd of bobbing robots is too busy
 
   $('games').innerHTML = html`${room.games.map(
     (g) => html`

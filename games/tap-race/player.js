@@ -5,7 +5,7 @@ export default function (root, api) {
   root.innerHTML = `
     <div class="tr-phone">
       <div class="tr-msg"></div>
-      <button class="tr-tap off" type="button">TAP!</button>
+      <button class="tr-tap off" type="button">Tap!</button>
       <div class="tr-progress"><div class="tr-progress-fill"></div></div>
       <div class="tr-mine"></div>
     </div>`;
@@ -33,15 +33,15 @@ export default function (root, api) {
       fill.style.width = `${Math.min(100, (view.taps / view.goal) * 100)}%`;
 
       if (view.phase === 'countdown') {
-        msg.innerHTML = html`Get ready… <span class="timer" data-deadline="${view.goAt}"></span>`;
-        button.textContent = 'WAIT';
+        msg.innerHTML = html`Get Ready… <span class="timer" data-deadline="${view.goAt}"></span>`;
+        button.textContent = 'Wait';
         mine.textContent = `First to ${view.goal} wins`;
       } else if (view.phase === 'go') {
-        msg.textContent = 'GO GO GO!';
-        button.textContent = 'TAP!';
+        msg.textContent = 'Go Go Go!';
+        button.textContent = 'Tap!';
         mine.textContent = `${view.taps} / ${view.goal}`;
       } else {
-        msg.textContent = view.won ? '🏆 You win!' : `${view.winnerName} wins!`;
+        msg.textContent = view.won ? '🏆 You Win!' : `${view.winnerName} Wins!`;
         button.textContent = view.won ? '🏆' : `#${view.place}`;
         mine.textContent = `You got ${view.taps} taps`;
       }

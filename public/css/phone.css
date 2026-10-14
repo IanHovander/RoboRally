@@ -20,63 +20,80 @@ html.phone { font-size: 17px; }
   padding: max(1.2rem, env(safe-area-inset-top)) 1.2rem max(1.2rem, env(safe-area-inset-bottom));
 }
 .center-screen { align-items: center; justify-content: center; text-align: center; }
+.phone .logo { --icon: 4.6rem; }
 
+/* Connecting: the panther breathes */
 .spinner {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  border: 5px solid var(--line);
-  border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
+  width: 3.4rem;
+  height: 4rem;
+  background: var(--white);
+  -webkit-mask: url("../img/panther.png") center / contain no-repeat;
+  mask: url("../img/panther.png") center / contain no-repeat;
+  animation: breathe 1.2s ease-in-out infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes breathe { 50% { opacity: 0.35; transform: scale(0.94); } }
 
 /* ---------- Join ---------- */
 
-.join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1rem; }
-.join-form label { font-weight: 800; font-size: 1.15rem; }
+.bot-parade { display: flex; align-items: flex-end; gap: 0.35rem; margin-top: 0.6rem; }
+.bot-parade .bot { width: 4.1rem; height: 4.1rem; }
+.bot-parade .bot:nth-child(3) { width: 5rem; height: 5rem; }
+
+.join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.6rem; }
+.join-form label { font-family: var(--display); font-size: 2.1rem; line-height: 1; }
 .phone input[type], .phone input:not([type]) {
+  --cut: 0.7rem;
   width: 100%;
-  padding: 0.8rem 1rem;
-  font-size: 1.4rem; /* 16px+ stops iPhones from zooming in */
-  font-weight: 800;
+  padding: 0.5rem 1rem 0.3rem;
+  font-family: var(--display);
+  font-size: 2.2rem; /* 16px+ stops iPhones from zooming in */
+  font-weight: 400;
+  line-height: 1.1;
   text-align: center;
-  border-radius: 16px;
-  border: 3px solid var(--line);
-  background: rgba(0, 0, 0, 0.25);
+  color: var(--field-ink);
+  background: var(--field);
+  border: 0;
+  border-bottom: 0.3rem solid var(--field-edge);
+  border-radius: 0;
   outline: none;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
 }
-.phone input:focus { border-color: var(--accent); }
-.phone input.code-input { font-size: 2.2rem; letter-spacing: 0.3em; text-transform: uppercase; }
-.form-error { color: var(--bad); font-weight: 700; }
+.phone input:focus { border-bottom-color: var(--field-focus); }
+.phone .code-input { letter-spacing: 0.3em; text-transform: uppercase; }
+.form-error { padding: 0.4em 0.7em; background: var(--band); color: var(--white); font-weight: 700; }
 .host-link { color: var(--muted); font-size: 0.9rem; margin-top: 1.5rem; }
 
 /* ---------- Waiting room ---------- */
 
 .me-card {
+  --cut: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.9rem 1.1rem;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--me) 20%, transparent);
-  border: 3px solid var(--me);
+  gap: 0.9rem;
+  padding: 0.8rem 1.1rem 0.7rem 0.8rem;
+  background: var(--panel-solid);
+  border-left: 0.4rem solid var(--me);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
 }
-.me-dot { width: 1.1rem; height: 1.1rem; border-radius: 50%; background: var(--me); flex: none; }
-.me-name { font-size: 1.5rem; font-weight: 900; }
-.vip { display: flex; flex-direction: column; gap: 0.8rem; border-color: var(--accent); }
-.vip h2 { color: var(--accent); margin: 0; }
+.me-card .bot { width: 5.4rem; height: 5.4rem; margin: -0.5rem 0; }
+.me-name { font-family: var(--display); font-size: 2.6rem; font-weight: 400; line-height: 1; padding-top: 0.12em; }
+#wait-title { font-size: 3.4rem; }
+.vip { display: flex; flex-direction: column; gap: 0.8rem; }
+.vip h2 { margin: 0; }
 .vip-games { display: flex; flex-direction: column; gap: 0.5rem; }
 .vip-game {
-  padding: 0.8rem 1rem;
-  border-radius: 14px;
-  border: 3px solid transparent;
-  background: rgba(255, 255, 255, 0.07);
-  font-weight: 800;
-  font-size: 1.1rem;
+  --cut: 0.7rem;
+  padding: 0.75rem 1rem 0.5rem;
+  border: 0;
+  border-left: 0.3rem solid transparent;
+  background: var(--card);
+  font-family: var(--display);
+  font-size: 1.7rem;
+  line-height: 1;
   text-align: left;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
 }
-.vip-game.selected { border-color: var(--accent); background: rgba(255, 210, 63, 0.12); }
+.vip-game.selected { background: var(--pick); border-left-color: var(--pick-edge); color: var(--pick-ink); }
 
 /* ---------- In a game ---------- */
 
@@ -85,14 +102,14 @@ html.phone { font-size: 17px; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.65rem 1rem;
-  padding-top: max(0.65rem, env(safe-area-inset-top));
-  background: color-mix(in srgb, var(--me) 22%, var(--bg));
-  border-bottom: 3px solid var(--me);
-  font-weight: 900;
+  padding: 0.45rem 1rem 0.4rem;
+  padding-top: max(0.45rem, env(safe-area-inset-top));
+  background: var(--black);
+  border-bottom: 0.2rem solid var(--me);
 }
-.bar-name { font-size: 1.1rem; }
-.bar-btn { border: 0; background: rgba(0, 0, 0, 0.25); border-radius: 10px; padding: 0.3rem 0.7rem; font-weight: 900; letter-spacing: 0.1em; }
+.phone-bar .bot { width: 2.9rem; height: 2.9rem; margin: -0.3rem 0; }
+.bar-name { font-family: var(--display); font-size: 1.7rem; line-height: 1; padding-top: 0.12em; }
+.bar-btn { border: 0; background: var(--off-black); border-radius: var(--radius); padding: 0.3rem 0.7rem; font-weight: 700; letter-spacing: 0.1em; }
 .spacer { flex: 1; }
 .phone .stage { flex: 1; min-height: 0; overflow: auto; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 
@@ -106,8 +123,7 @@ html.phone { font-size: 17px; }
   flex-direction: column;
   gap: 0.7rem;
   padding: 1.2rem 1.2rem max(1.2rem, env(safe-area-inset-bottom));
-  background: var(--panel-solid);
-  border-top: 1px solid var(--line);
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -1rem 3rem rgba(0, 0, 0, 0.5);
+  background: var(--black);
+  border-top: 0.3rem solid var(--stripe);
+  box-shadow: 0 -1rem 3rem rgba(0, 0, 0, 0.6);
 }

@@ -176,6 +176,11 @@ export default function (root, api) {
   `<form data-action="...">`, submitting sends the form's fields.
 - **`api.send(type, payload)`** sends an action from code and resolves with whatever the action returned.
 - `api.you` (this phone's player), `api.players`, `api.now()` (game time), `api.vibrate(ms)`.
+- **`avatar(player)`** (from `../../js/avatar.js`) draws that player's robot: one of 12 posed characters in their color,
+  the same on every screen. `avatar(player, { mood: 'happy' })` for winners; disconnected players doze off by themselves.
+- The look follows the Iron Panthers brand: colors are CSS variables in `css/base.css` (`--red`, `--red-hi`, `--black`…),
+  headings use Teko and body text Roboto. The game-show styling is `css/arena.css`, switched on by `data-theme="arena"`
+  on the `<html>` tag; remove it for the plainer red, black and white look.
 - Ready-made classes: `btn btn-xl btn-sm secondary block me`, `card`, `stack`, `row`, `center`, `fill`, `grid`,
   `muted`, `big`, `huge`, `timer`, `chip`, `pc` (player-colored text, `style="--c:${p.color}"`). On phones,
   `var(--me)` is the player's color.

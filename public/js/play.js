@@ -1,5 +1,6 @@
 // The phone: join with a name, wait in the lobby, then show the game's player view.
 import { html } from './ui.js';
+import { avatar } from './avatar.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
@@ -68,6 +69,13 @@ socket.on('replaced', () => {
 });
 
 // ---------- join ----------
+
+// a few robots say hello under the logo
+const PARADE = [['#4dabf7', 2], ['#ffd43b', 0], ['#cccccc', 6], ['#51cf66', 7], ['#cc5de8', 11]]; // [color, pose]
+for (const logo of document.querySelectorAll('.center-screen > .logo')) {
+  const bots = PARADE.map(([color, pose], i) => avatar({ id: `hello${i}`, color }, { pose }));
+  logo.insertAdjacentHTML('afterend', String(html`<div class="bot-parade">${bots}</div>`));
+}
 
 $('name').value = store.get('localStorage', NAME) ?? '';
 $('host-link').hidden = !isLocal;
@@ -162,6 +170,10 @@ function render() {
   }
 
   document.documentElement.style.setProperty('--me', you.color);
+  const robot = String(avatar(you));
+  for (const dot of document.querySelectorAll('.me-dot')) {
+    if (dot.dataset.robot !== robot) dot.innerHTML = dot.dataset.robot = robot; // only when it changes, so it keeps bobbing
+  }
   if (room.screen === 'game' && room.game && state.inGame) {
     show('game');
     $('bar-name').textContent = you.name;
@@ -178,7 +190,7 @@ function render() {
 function renderWait(room, you) {
   const inLobby = room.screen === 'lobby';
   $('wait-name').textContent = you.name;
-  $('wait-title').textContent = inLobby ? "You're in!" : 'Game in progress';
+  $('wait-title').textContent = inLobby ? "You're In!" : 'Game in Progress';
   $('wait-msg').textContent = inLobby
     ? you.isVip
       ? ''
@@ -198,7 +210,7 @@ function renderWait(room, you) {
   $('wait-players').innerHTML = html`${room.players.map(
     (p) => html`
       <div class="chip ${!p.connected && 'away'}" style="--c:${p.color}">
-        <span class="chip-dot"></span><span class="chip-name">${p.name}</span>
+        ${avatar(p)}<span class="chip-name">${p.name}</span>
         ${p.isVip && html`<span class="chip-vip">★</span>`}
       </div>`,
   )}`;

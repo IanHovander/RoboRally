@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en" class="host">
+<html lang="en" class="host" data-theme="arena">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Game Night · Big Screen</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="icon" type="image/png" href="img/favicon.png">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/host.css">
   <script type="module" src="js/host.js"></script>
@@ -14,11 +14,12 @@
     <header class="lobby-head">
       <div class="logo">Game <span>Night</span></div>
       <div id="last-result" class="last-result" hidden></div>
+      <div class="team-tag">Iron Panthers · FRC 5026</div>
     </header>
 
     <div class="lobby-body">
       <aside class="join-card">
-        <div class="join-title">Join on your phone</div>
+        <div class="join-title">Join on Your Phone</div>
         <img id="qr" class="qr" alt="QR code for joining">
         <div class="join-or">or go to</div>
         <div id="join-text" class="join-text"></div>
@@ -33,11 +34,11 @@
           <div id="players" class="player-chips"></div>
         </div>
         <div class="panel grow">
-          <h2>Pick a game</h2>
+          <h2>Pick a Game</h2>
           <div id="games" class="game-cards"></div>
         </div>
         <div class="start-row">
-          <button id="start" class="btn btn-xl">Start game</button>
+          <button id="start" class="btn btn-xl">Start Game</button>
           <div id="start-problem" class="start-problem"></div>
           <span class="spacer"></span>
           <button id="relay-btn" class="btn btn-sm secondary" hidden>Relay</button>
@@ -53,7 +54,7 @@
       <span>Join: <b id="join-mini"></b></span>
       <span class="spacer"></span>
       <button class="btn btn-sm secondary" data-lobby="restart">Restart</button>
-      <button class="btn btn-sm secondary" data-lobby="end">Back to lobby</button>
+      <button class="btn btn-sm secondary" data-lobby="end">Back to Lobby</button>
     </footer>
   </section>
 
