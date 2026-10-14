@@ -64,17 +64,18 @@ html.host body { overflow: hidden; }
 .join-text { font-family: var(--display); font-size: 2.5rem; font-weight: 400; line-height: 1; padding-top: 0.1em; word-break: break-all; color: var(--black); }
 .join-text.long { font-size: 1.5rem; word-break: normal; overflow-wrap: anywhere; }
 .join-code {
-  margin: 0.2rem 0 0.1rem;
-  padding: 0.3rem 0.8rem 0.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0.3rem 0 0.1rem;
+  padding: 0.45rem 1.1rem 0.2rem;
   border-radius: 0.5rem;
   background: var(--black);
   color: var(--white);
-  font-family: var(--display);
-  font-size: 3.4rem;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.14em;
 }
+.join-code span { font-size: 1rem; font-weight: 700; color: var(--grey); }
+.join-code b { font-family: var(--display); font-size: 3.6rem; font-weight: 400; line-height: 1; letter-spacing: 0.12em; padding-left: 0.12em; }
 .join-hint { color: #555; font-weight: 700; font-size: 1.05rem; line-height: 1.3; }
 .join-local { margin-top: 0.3rem; padding-top: 0.6rem; border-top: 1px solid #e3e3e3; color: #555; font-size: 1.05rem; font-weight: 700; }
 .join-local b { color: var(--black); }
@@ -118,8 +119,9 @@ html.host body { overflow: hidden; }
 }
 .count:empty { display: none; }
 
-.chip-link { font-size: 0.65em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1em 0.45em; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
-.chip-link.relay { color: #ffd8a8; }
+/* how a phone is connected (website version): "direct", or "relay" when it goes through the relay server */
+.chip-link { font-family: var(--font); font-size: 0.55em; font-weight: 700; padding: 0.15em 0.5em; border-radius: 4px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
+.chip-link.relay { background: var(--red-hi); color: var(--white); }
 .chip-kick {
   border: 0;
   background: transparent;
@@ -161,7 +163,7 @@ html.host body { overflow: hidden; }
 .game-card.selected .game-meta { color: var(--pick-edge); }
 
 .start-row { display: flex; align-items: center; gap: 1.5rem; }
-.start-row .btn { font-size: 2.6rem; padding-inline: 1.8em; }
+.start-row .btn-xl { font-size: 2.6rem; padding-inline: 1.8em; }
 .start-problem { color: var(--muted); font-size: 1.25rem; font-weight: 700; }
 
 /* ---------- In a game ---------- */

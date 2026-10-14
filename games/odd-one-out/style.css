@@ -13,8 +13,8 @@
   line-height: 1;
   clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
 }
-.ooo-cat { color: var(--muted); font-weight: 700; }
-.ooo-cat b { font-family: var(--display); font-size: 2.2rem; font-weight: 400; color: var(--text); vertical-align: -0.1em; }
+.ooo-cat { color: var(--muted); font-weight: 700; line-height: 1; }
+.ooo-cat b { font-family: var(--display); font-size: 2.2rem; font-weight: 400; color: var(--text); }
 .timer-lg { font-size: 1.7rem; }
 
 .ooo-title { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
@@ -100,8 +100,8 @@
 /* ---------- Phone ---------- */
 
 .ooo-phone { display: flex; flex-direction: column; gap: 1rem; }
-.ooo-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-family: var(--display); font-size: 1.5rem; line-height: 1; color: var(--muted); }
-.ooo-top .timer { font-size: 1.15rem; }
+.ooo-top { display: flex; align-items: center; gap: 0.8rem; font-family: var(--display); font-size: 1.5rem; line-height: 1; color: var(--muted); }
+.ooo-top .timer { margin-left: auto; font-size: 1.15rem; }
 .ooo-h { text-align: center; font-size: 2.6rem; }
 .ooo-wait { text-align: center; color: var(--muted); font-weight: 700; padding: 1rem; }
 
@@ -175,8 +175,8 @@
 
 /* ---------- Showtime theme (css/arena.css) ---------- */
 
-:root[data-theme="arena"] .ooo-round { clip-path: none; border: 0; border-radius: 0.5rem; rotate: -3deg; box-shadow: 0.25rem 0.3rem 0 rgba(0, 0, 0, 0.35); }
-:root[data-theme="arena"] .ooo-cat { padding: 0.35rem 0.9rem 0.2rem; background: var(--white); color: var(--black); border: var(--outline) solid var(--black); border-radius: 0.5rem; box-shadow: 0.25rem 0.3rem 0 var(--black); rotate: 1.5deg; }
+:root[data-theme="arena"] .ooo-round { clip-path: none; border: var(--outline) solid var(--black); border-radius: 0.5rem; rotate: -3deg; box-shadow: 0.25rem 0.3rem 0 rgba(0, 0, 0, 0.35); }
+:root[data-theme="arena"] .ooo-cat { padding: 0.45rem 0.9rem 0.2rem; background: var(--white); color: var(--black); border: var(--outline) solid var(--black); border-radius: 0.5rem; box-shadow: 0.25rem 0.3rem 0 var(--black); rotate: 1.5deg; }
 :root[data-theme="arena"] .ooo-cat b { color: var(--red-hi); }
 :root[data-theme="arena"] .ooo-title p, :root[data-theme="arena"] .ooo-top, :root[data-theme="arena"] .ooo-wait { color: var(--white); }
 

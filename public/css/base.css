@@ -143,6 +143,7 @@ button, input { font: inherit; color: inherit; }
 
 .btn {
   appearance: none;
+  white-space: nowrap;
   border: 0;
   border-bottom: 0.2em solid var(--accent-edge);
   padding: 0.42em 1.4em 0.3em;
@@ -215,14 +216,7 @@ button, input { font: inherit; color: inherit; }
 }
 .chip .bot { width: 2.5em; height: 2.5em; margin: -0.45em -0.15em -0.35em -0.1em; }
 .chip-name { padding-top: 0.12em; }
-.chip-dot, .me-dot {
-  width: 0.75em;
-  height: 0.86em;
-  flex: none;
-  background: var(--c, var(--me));
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-}
-.chip-dot:has(.bot), .me-dot:has(.bot) { width: auto; height: auto; background: none; clip-path: none; }
+.me-dot { display: flex; flex: none; }   /* holds the player's robot (play.js) */
 .chip-vip { color: var(--stripe); font-family: var(--font); font-size: 0.75em; }
 .chip-away { font-family: var(--font); font-size: 0.6em; font-weight: 700; color: var(--muted); }
 .chip.away { opacity: 0.55; border-bottom-style: dashed; }

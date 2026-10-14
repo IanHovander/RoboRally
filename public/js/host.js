@@ -96,14 +96,14 @@ function render() {
 
   $('join-text').textContent = room.join.text;
   $('join-text').classList.toggle('long', room.join.text.length > 24);
-  $('join-mini').textContent = room.join.text;
+  $('join-mini').textContent = room.join.code ? `${room.join.text} · code ${room.join.code}` : room.join.text;
   $('join-hint').textContent = room.join.url.startsWith('https:')
     ? 'Works from anywhere with internet'
     : 'Phones need to be on the same Wi-Fi as this computer';
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
   $('join-code').hidden = !room.join.code;
-  $('join-code').textContent = room.join.code ? `Room code ${room.join.code}` : '';
+  $('join-code').innerHTML = room.join.code ? html`<span>Room code</span><b>${room.join.code}</b>` : '';
 
   const error = state.error;
   $('error-text').textContent = error ?? '';

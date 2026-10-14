@@ -35,9 +35,9 @@ html.phone { font-size: 17px; }
 
 /* ---------- Join ---------- */
 
-.bot-parade { display: flex; align-items: flex-end; gap: 0.35rem; margin-top: 0.6rem; }
-.bot-parade .bot { width: 4.1rem; height: 4.1rem; }
-.bot-parade .bot:nth-child(3) { width: 5rem; height: 5rem; }
+.bot-parade { display: flex; align-items: flex-end; gap: 0.3rem; max-width: 100%; margin-top: 0.6rem; }
+.bot-parade .bot { width: min(3.9rem, 16vw); height: auto; aspect-ratio: 1; }
+.bot-parade .bot:nth-child(3) { width: min(4.8rem, 20vw); }
 
 .join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.6rem; }
 .join-form label { font-family: var(--display); font-size: 2.1rem; line-height: 1; }
