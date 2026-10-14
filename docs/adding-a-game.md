@@ -91,9 +91,8 @@ npm test
 
 `npm test` must print `ALL PASSED` before you change anything. If it doesn't, stop and find out why.
 
-**Pull the latest first.** The original repo is getting a visual style update around now. Before starting,
-make sure you have it (`gh repo sync` or `git pull upstream main`), and follow whatever `public/css/base.css`
-offers at that point. The structure and APIs in this document don't depend on the styling.
+**Pull the latest first** (`gh repo sync` or `git pull upstream main`), so you build on the current look.
+The structure and APIs in this document don't depend on the styling.
 
 **Privacy (recommended):** keep the owner's email out of the public commit history:
 
@@ -219,14 +218,27 @@ export default function (root, api) {
 - **Redrawing everything** in `update()` is fine. For smooth animation, keep elements and update them in place (see `games/tap-race/host.js`).
 - **On phones:** `var(--me)` is the player's color. The leader (first player) has `isVip`, so give them the
   "next round" button too, in case nobody is near the big screen's mouse.
+- **Show players as their robot:** `import { avatar } from '../../js/avatar.js'`, then `${avatar(p)}` inside `html`.
+  Each player has one of 12 posed robots in their color, the same on every screen. Size it with CSS
+  (`.mg-thing .bot { width: 3rem; height: 3rem; }`). `avatar(p, { mood: 'happy' })` for winners; players who
+  drop out doze off by themselves.
 
 ### `style.css`
 
 - **Prefix every class** with a short code for your game (`mg-…`), like `tr-` and `ooo-` in the examples.
   Game stylesheets share the page with each other.
-- **Use the shared variables and building blocks** from `public/css/base.css`, not hard-coded colors, so the site's style refresh carries over to your game.
-  - Variables: `--accent`, `--text`, `--muted`, `--panel`, `--line`, `--good`, `--bad`, `--me`, and `--c` for a player's color via `style="--c:${p.color}"`.
+- **Use the shared variables and building blocks** from `public/css/base.css`, not hard-coded colors.
+  - Brand colors (Iron Panthers): `--red`, `--red-hi`, `--black`, `--off-black`, `--grey`, `--white`. Don't add others;
+    players' own colors (`--c`, `--me`) are the only exception.
+  - Roles: `--accent`, `--text`, `--muted`, `--panel`, `--line`, `--me`, and `--c` for a player's color via `style="--c:${p.color}"`.
+  - Fonts: `var(--display)` (Teko) for headings and big numbers, in title case; `var(--font)` (Roboto) for sentences.
+    Use weights 400 or 300 for Teko, and 400 or 700 for Roboto.
   - Classes: `btn btn-xl btn-sm secondary block me`, `card`, `stack`, `row`, `center`, `fill`, `grid`, `muted`, `big`, `huge`, `timer`, `chip`, `pc`.
+- **The game-show look** (white sticker cards, black outlines, hard shadows) is in `public/css/arena.css`, under
+  `:root[data-theme="arena"]`. To match it, add the same kind of rule for your own classes; the two example
+  games' `style.css` files end with their versions.
+- **The big screen is read from across a room:** keep text big and bold, and put labels on a solid background
+  rather than straight on the busy red.
 
 ---
 

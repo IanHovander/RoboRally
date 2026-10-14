@@ -120,7 +120,7 @@ html.host body { overflow: hidden; }
 .count:empty { display: none; }
 
 /* how a phone is connected (website version): "direct", or "relay" when it goes through the relay server */
-.chip-link { font-family: var(--font); font-size: 0.55em; font-weight: 700; padding: 0.15em 0.5em; border-radius: 4px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
+.chip-link { font-family: var(--font); font-size: 0.5em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15em 0.5em; border-radius: 4px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
 .chip-link.relay { background: var(--red-hi); color: var(--white); }
 .chip-kick {
   border: 0;
