@@ -2,6 +2,7 @@
 // play.js (on / emit / timeout().emit / connected / connect) so the phone page works the same
 // whether the game runs on the laptop server or in the big screen's browser.
 import { ClientSocket, loadPeerJS, peerOptions, PROTOCOL, roomPeerId } from './common.js';
+import { getRelay } from './relay.js';
 
 const SILENT_MS = 6000; // the big screen answers our clock question every 2 s; silence this long = gone
 const WELCOME_MS = 12_000; // give up on a connection attempt after this long and try again
@@ -97,7 +98,7 @@ export class PeerSocket extends ClientSocket {
   async newPeer() {
     const Peer = await loadPeerJS();
     this.peer?.destroy();
-    const peer = new Peer(peerOptions());
+    const peer = new Peer(peerOptions({}, getRelay()));
     this.peer = peer;
     peer.on('error', (err) => this.peerError(peer, err));
     return new Promise((resolve, reject) => {

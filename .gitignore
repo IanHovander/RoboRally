@@ -1,6 +1,5 @@
 node_modules/
 dist/
 
-# Secrets: the relay (TURN) login for local testing. Never commit or publish.
-relay.local.json
+# Settings that stay on this computer
 *.local.json

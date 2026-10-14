@@ -30,14 +30,14 @@ if (mode === 'server') {
   setUpRelayButton();
 }
 
-/** Website only: the relay login lives in this browser (see net/relay.js), entered here once. */
+/** Website only: the relay login is built in (config.js); this button lets one computer use another one. */
 async function setUpRelayButton() {
-  const { loadRelay, saveRelay, forgetRelay } = await import('./net/relay.js');
-  const relay = await loadRelay();
+  const { getRelay, saveRelay, forgetRelay } = await import('./net/relay.js');
+  const relay = getRelay();
   const button = $('relay-btn');
   const dialog = $('relay-dialog');
   button.hidden = false;
-  button.textContent = relay ? (relay.local ? 'Relay: test login' : 'Relay: set up ✓') : 'Relay: not set up';
+  button.textContent = relay ? (relay.builtIn ? 'Relay: built in ✓' : 'Relay: own login ✓') : 'Relay: not set up';
   button.addEventListener('click', () => {
     $('relay-user').value = '';
     $('relay-pass').value = '';

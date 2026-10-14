@@ -1,34 +1,26 @@
-// The relay (TURN) login. It's a secret, so it is never in the code, on GitHub, or sent to phones:
-// - On the website, it's typed in once on the big-screen computer (the Relay button) and kept in that
-//   browser's storage.
-// - When testing on this computer, `npm run site` also offers relay.local.json from the project folder
-//   (git ignores that file, and no other server sends it).
-// Only the big screen uses the relay: it reserves a relay address, and phones reach it through that,
-// so phones never need the login.
+// Which relay (TURN) login to use: one entered with the big screen's Relay button (kept in this browser
+// only), otherwise the one built into config.js. Phones use the built-in one too, so a phone on a strict
+// network can reach the relay itself over port 443.
+import config from '../config.js';
 
 const KEY = 'gamenight.relay';
 const valid = (v) => v && typeof v.username === 'string' && v.username && typeof v.credential === 'string' && v.credential;
 
-/** { username, credential } or null if this computer has no relay login. */
-export async function loadRelay() {
+/** { username, credential, builtIn } or null if there's no relay login at all. */
+export function getRelay() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY));
-    if (valid(saved)) return { username: saved.username, credential: saved.credential };
+    if (valid(saved)) return { username: saved.username, credential: saved.credential, builtIn: false };
   } catch {}
-  try {
-    const res = await fetch(new URL('../relay.local.json', import.meta.url), { cache: 'no-store' });
-    if (res.ok) {
-      const local = await res.json();
-      if (valid(local)) return { username: local.username, credential: local.credential, local: true };
-    }
-  } catch {}
-  return null;
+  const login = config.turnLogin;
+  return valid(login) ? { username: login.username, credential: login.credential, builtIn: true } : null;
 }
 
 export function saveRelay(username, credential) {
   localStorage.setItem(KEY, JSON.stringify({ username: username.trim(), credential: credential.trim() }));
 }
 
+/** Back to the built-in login. */
 export function forgetRelay() {
   localStorage.removeItem(KEY);
 }

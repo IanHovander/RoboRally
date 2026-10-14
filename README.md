@@ -32,17 +32,15 @@ Players scan the QR code (or open the site and type the 4-letter room code). Not
 - **Keep the big-screen tab in front.** Browsers slow down hidden tabs, which makes the game lag.
 - **`check.html`** on the site tests a network in 10 seconds: green means that device can play from there.
 
-#### The relay login (do this once on the big-screen computer)
+#### The relay
 
-Phones that can't reach the big screen directly (most on mobile data) go through a relay server (Metered).
-Click **Relay** at the bottom of the big screen's lobby and enter the Metered username and password. They're
-kept in that browser on that computer only: **never in the code, on GitHub, or sent to phones**. Phones don't
-need them, because the big screen reserves the relay address and phones connect to it.
-Without it the big screen shows a warning, and phones on mobile data may not get in.
+Phones that can't reach the big screen directly (most on mobile data, and phones on strict Wi-Fi) go through a
+relay server (Metered). Its login is **built into `public/js/config.js`, and it is public on purpose**: anyone can
+read it, and the worst they can do is use up the free relay allowance (20 GB a month). If that happens, make a
+new login in the Metered dashboard (that turns the old one off) and put it in `config.js`.
 
-For testing on this computer, the same login can go in `relay.local.json` in the project folder
-(`{ "username": "...", "credential": "..." }`). Git ignores that file, and only `npm run site`, which only this
-computer can reach, ever reads it.
+To use a different login on one computer, click **Relay** at the bottom of the big screen's lobby. It's kept in
+that browser only, and "Forget it" goes back to the built-in one.
 
 ### Laptop + internet link
 

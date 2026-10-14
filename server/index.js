@@ -39,7 +39,7 @@ app.use((req, res, next) => {
   res.set('Cache-Control', 'no-cache'); // always pick up edited game files on reload
   next();
 });
-// Secrets such as relay.local.json are never sent, even if one ends up inside public/.
+// Settings that stay on this computer (*.local.json) are never sent, even if one ends up inside public/.
 app.use((req, res, next) => {
   let p = req.path;
   try {

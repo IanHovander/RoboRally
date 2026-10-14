@@ -10,7 +10,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'dist');
 const serverOnly = (file) => /(^|[\\/])([^\\/]+\.)?server\.js$/i.test(file);
 
-const secret = (file) => /\.local\.json$/i.test(file); // e.g. relay.local.json: never published
+const secret = (file) => /\.local\.json$/i.test(file); // settings that stay on this computer: never published
 
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'public'), OUT, { recursive: true, filter: (src) => !secret(src) });

@@ -41,9 +41,8 @@ export const loadPeerJS = () => loadVendor('peerjs.min.js').then(() => window.pe
 export const loadQrCode = () => loadVendor('qrcode.js').then(() => window.qrcode);
 
 /**
- * How to connect: STUN (helps devices find a route to each other) plus, on the big screen only,
- * the relay for when they can't. `relay` is the big screen's { username, credential } (relay.js);
- * phones pass nothing, so they never hold the login.
+ * How to connect: STUN (helps devices find a route to each other) plus the relay for when they
+ * can't. `relay` is the { username, credential } from relay.js (null = no relay).
  * Testing switches for the big screen's address: ?relay=1 sends every phone through the relay,
  * ?tls=1 uses only the relay on port 443 (what gets through the strictest networks).
  * (PeerJS's built-in relays and Metered's no-account relays stopped working; checked Oct 2026.)

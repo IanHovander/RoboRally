@@ -3,7 +3,7 @@
 import { loadGames } from '../core/games.js';
 import { Room } from '../core/room.js';
 import { linkType, loadPeerJS, loadQrCode, localPair, peerOptions, PROTOCOL, RoomConn, roomPeerId } from './common.js';
-import { loadRelay } from './relay.js';
+import { getRelay } from './relay.js';
 
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I, L or O: too easy to misread
 const SAVED = 'gamenight.host'; // { code, token }: lets a refreshed tab get the same room code back
@@ -20,7 +20,8 @@ export async function hostInBrowser({ onStatus }) {
     return new Promise(() => {});
   }
   onStatus('Setting up the room…');
-  const [Peer, qrcode, games, relay] = await Promise.all([loadPeerJS(), loadQrCode(), loadGames(), loadRelay()]);
+  const [Peer, qrcode, games] = await Promise.all([loadPeerJS(), loadQrCode(), loadGames()]);
+  const relay = getRelay();
   const room = new Room(games);
   const phones = new Set(); // RoomConn for each connected phone
 
@@ -43,7 +44,7 @@ export async function hostInBrowser({ onStatus }) {
       retryDelay = 1000;
       writeSaved({ code, token });
       room.setJoin(joinInfo(code, qrcode));
-      onStatus(relay ? null : 'No relay login on this computer, so phones on mobile data may not be able to join. Set it up with the Relay button.');
+      onStatus(relay ? null : 'No relay login, so phones on mobile data may not be able to join. Set one up with the Relay button.');
     });
     peer.on('connection', (dc) => acceptPhone(dc));
     peer.on('disconnected', () => {
