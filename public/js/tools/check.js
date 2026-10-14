@@ -1,19 +1,30 @@
-// Network check (check.html): can this phone, on this network, play the website version?
+// Network check (check.html): can this device, on this network, play the website version?
+// On a phone it checks what phones need. On the big-screen computer (which has the relay login)
+// it also checks each way of reaching the relay.
 import config from '../config.js';
-import { hasRelay, loadPeerJS, peerOptions } from '../net/common.js';
+import { loadPeerJS, peerOptions } from '../net/common.js';
+import { loadRelay } from '../net/relay.js';
 import { html } from '../ui.js';
 
 const $ = (id) => document.getElementById(id);
-const turnUrl = (test) => config.turn.urls.find(test);
+const relay = await loadRelay();
+const turnUrl = (test) => config.turnUrls.find(test);
 
 const CHECKS = [
   { id: 'intro', name: 'Introduction server', note: config.peerServer.host, run: introServer },
-  { id: 'stun', name: 'Finding a direct route', note: 'STUN', run: stun },
-  { id: 'udp', name: 'Relay over UDP', note: 'port 80', run: () => relay(turnUrl((u) => u.startsWith('turn:') && !u.includes('transport='))) },
-  { id: 'tcp', name: 'Relay over TCP', note: 'port 80', run: () => relay(turnUrl((u) => u.startsWith('turn:') && u.includes('transport=tcp'))) },
-  { id: 'tls', name: 'Relay over TLS', note: 'port 443, gets through strict networks', run: () => relay(turnUrl((u) => u.startsWith('turns:'))) },
+  { id: 'stun', name: 'Finding a route out', note: 'STUN, port 80', run: stun },
+  ...(relay
+    ? [
+        { id: 'udp', name: 'Relay over UDP', note: 'port 80', run: () => checkRelay(turnUrl((u) => u.startsWith('turn:') && !u.includes('transport='))) },
+        { id: 'tcp', name: 'Relay over TCP', note: 'port 80', run: () => checkRelay(turnUrl((u) => u.startsWith('turn:') && u.includes('transport=tcp'))) },
+        { id: 'tls', name: 'Relay over TLS', note: 'port 443, gets through strict networks', run: () => checkRelay(turnUrl((u) => u.startsWith('turns:'))) },
+      ]
+    : []),
 ];
 
+$('who').textContent = relay
+  ? 'This is the big-screen computer (it has the relay login), so the relay is checked too.'
+  : 'Checking what a phone needs to join.';
 $('again').addEventListener('click', runAll);
 runAll();
 
@@ -50,15 +61,14 @@ function draw(results) {
 }
 
 function verdict(r) {
-  const anyRelay = r.udp.ok || r.tcp.ok || r.tls.ok;
   let ok = false;
   let text;
-  if (!r.intro.ok) text = "This network blocks the service that connects phones to the big screen. Turn Wi-Fi off and use mobile data.";
-  else if (!hasRelay()) text = "The website has no relay server set up, so phones that can't connect directly won't get in. (Fix: js/config.js.)";
-  else if (!anyRelay) text = 'This network blocks the relay server. Direct connections might still work, but mobile data is safer.';
+  if (!r.intro.ok) text = 'This network blocks the service that connects phones to the big screen. Turn Wi-Fi off and use mobile data.';
+  else if (!r.stun.ok) text = "This network blocks the connections the game needs. Turn Wi-Fi off and use mobile data.";
+  else if (relay && !(r.udp.ok || r.tcp.ok || r.tls.ok)) text = "The relay isn't reachable from here (or the login is wrong). Phones on mobile data may not get in.";
   else {
     ok = true;
-    text = '✅ Good to go: this phone can join from this network.';
+    text = relay ? '✅ Good to go: this computer can host, relay included.' : '✅ Good to go: this phone can join from this network.';
   }
   $('verdict').className = `verdict ${ok ? 'ok' : 'bad'}`;
   $('verdict').textContent = text;
@@ -80,25 +90,20 @@ async function introServer() {
 }
 
 async function stun() {
-  const found = await gather({ iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }] }, 'srflx', 5000);
-  if (!found) throw new Error('No route found (this network may block it)');
+  const found = await gather({ iceServers: [{ urls: config.stunUrls }] }, 'srflx', 6000);
+  if (!found) throw new Error('Blocked (this network may not allow it)');
   return 'Works';
 }
 
-async function relay(url) {
-  if (!hasRelay() || !url) throw new Error('Not set up on this website');
-  const found = await gather(
-    { iceServers: [{ urls: [url], username: config.turn.username, credential: config.turn.credential }], iceTransportPolicy: 'relay' },
-    'relay',
-    8000,
-  );
-  if (!found) throw new Error('Blocked or not answering');
+async function checkRelay(url) {
+  const found = await gather({ iceServers: [{ urls: [url], username: relay.username, credential: relay.credential }], iceTransportPolicy: 'relay' }, 'relay', 8000);
+  if (!found) throw new Error('Blocked, or the login was refused');
   return 'Works';
 }
 
 /** Ask the browser for connection candidates; resolves true as soon as one of `type` shows up. */
-async function gather(config, type, ms) {
-  const pc = new RTCPeerConnection(config);
+async function gather(rtcConfig, type, ms) {
+  const pc = new RTCPeerConnection(rtcConfig);
   try {
     return await new Promise((resolve) => {
       setTimeout(() => resolve(false), ms);

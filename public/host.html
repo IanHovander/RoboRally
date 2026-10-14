@@ -39,6 +39,8 @@
         <div class="start-row">
           <button id="start" class="btn btn-xl">Start game</button>
           <div id="start-problem" class="start-problem"></div>
+          <span class="spacer"></span>
+          <button id="relay-btn" class="btn btn-sm secondary" hidden>Relay</button>
         </div>
       </div>
     </div>
@@ -54,6 +56,23 @@
       <button class="btn btn-sm secondary" data-lobby="end">Back to lobby</button>
     </footer>
   </section>
+
+  <dialog id="relay-dialog" class="relay-dialog">
+    <form method="dialog" class="stack">
+      <h2>Relay login</h2>
+      <p class="muted">
+        Phones on mobile data usually reach this big screen through a relay server (Metered). Its login stays in this
+        browser on this computer only: it's never put on the website or sent to phones.
+      </p>
+      <label>Username <input id="relay-user" autocomplete="off" spellcheck="false"></label>
+      <label>Password <input id="relay-pass" type="password" autocomplete="off"></label>
+      <div class="row">
+        <button class="btn" value="save">Save</button>
+        <button class="btn secondary" value="forget">Forget it</button>
+        <button class="btn ghost" value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="error" class="error-toast" hidden>
     <span id="error-text"></span>

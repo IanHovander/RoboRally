@@ -41,33 +41,27 @@ export const loadPeerJS = () => loadVendor('peerjs.min.js').then(() => window.pe
 export const loadQrCode = () => loadVendor('qrcode.js').then(() => window.qrcode);
 
 /**
- * How to connect: STUN (helps devices find each other) plus relays for when they can't.
- * Testing switches in the page address: ?relay=1 forces every connection through a relay,
+ * How to connect: STUN (helps devices find a route to each other) plus, on the big screen only,
+ * the relay for when they can't. `relay` is the big screen's { username, credential } (relay.js);
+ * phones pass nothing, so they never hold the login.
+ * Testing switches for the big screen's address: ?relay=1 sends every phone through the relay,
  * ?tls=1 uses only the relay on port 443 (what gets through the strictest networks).
+ * (PeerJS's built-in relays and Metered's no-account relays stopped working; checked Oct 2026.)
  */
-export function iceConfig() {
+export function iceConfig(relay = null) {
   const params = new URLSearchParams(location.search);
-  const metered = config.turn.username
-    ? [{ urls: config.turn.urls, username: config.turn.username, credential: config.turn.credential }]
-    : [];
-  if (params.has('tls')) {
-    return {
-      iceServers: metered.map((s) => ({ ...s, urls: s.urls.filter((u) => u.startsWith('turns:')) })),
-      iceTransportPolicy: 'relay',
-    };
+  const turn = relay ? [{ urls: config.turnUrls, username: relay.username, credential: relay.credential }] : [];
+  if (relay && params.has('tls')) {
+    return { iceServers: turn.map((s) => ({ ...s, urls: s.urls.filter((u) => u.startsWith('turns:')) })), iceTransportPolicy: 'relay' };
   }
-  // (PeerJS's built-in relays and Metered's old no-account relays no longer work, as of Oct 2026.)
   return {
-    iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }, ...metered],
-    iceTransportPolicy: params.has('relay') ? 'relay' : 'all',
+    iceServers: [{ urls: config.stunUrls }, ...turn],
+    iceTransportPolicy: relay && params.has('relay') ? 'relay' : 'all',
   };
 }
 
-/** Is a relay set up? Without one, most phones on cellular data can't reach the big screen. */
-export const hasRelay = () => !!config.turn.username;
-
-export function peerOptions(extra = {}) {
-  return { ...config.peerServer, config: iceConfig(), debug: 1, ...extra };
+export function peerOptions(extra = {}, relay = null) {
+  return { ...config.peerServer, config: iceConfig(relay), debug: 1, ...extra };
 }
 
 /** 'relay' or 'direct': how a WebRTC connection actually ended up connected (null if not yet). */

@@ -10,13 +10,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'dist');
 const serverOnly = (file) => /(^|[\\/])([^\\/]+\.)?server\.js$/i.test(file);
 
+const secret = (file) => /\.local\.json$/i.test(file); // e.g. relay.local.json: never published
+
 fs.rmSync(OUT, { recursive: true, force: true });
-fs.cpSync(path.join(ROOT, 'public'), OUT, { recursive: true });
+fs.cpSync(path.join(ROOT, 'public'), OUT, { recursive: true, filter: (src) => !secret(src) });
 
 const games = findGames(path.join(ROOT, 'games'));
 for (const game of games) {
   // A game with server-only files (server.js / *.server.js) needs the laptop server; skip those files.
-  fs.cpSync(game.dir, path.join(OUT, 'games', game.id), { recursive: true, filter: (src) => !serverOnly(src) });
+  fs.cpSync(game.dir, path.join(OUT, 'games', game.id), { recursive: true, filter: (src) => !serverOnly(src) && !secret(src) });
 }
 fs.writeFileSync(path.join(OUT, 'games', 'index.json'), JSON.stringify(games.map(({ id, hasStyle }) => ({ id, hasStyle })), null, 2));
 fs.writeFileSync(path.join(OUT, '.nojekyll'), ''); // tell GitHub Pages to serve the files exactly as they are

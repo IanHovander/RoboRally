@@ -39,6 +39,14 @@ app.use((req, res, next) => {
   res.set('Cache-Control', 'no-cache'); // always pick up edited game files on reload
   next();
 });
+// Secrets such as relay.local.json are never sent, even if one ends up inside public/.
+app.use((req, res, next) => {
+  let p = req.path;
+  try {
+    p = decodeURIComponent(p);
+  } catch {}
+  return /\.local\.json$/i.test(p) ? res.status(404).end() : next();
+});
 // The same pages also work as a website (GitHub Pages), where the big screen's browser runs the
 // game. Served from here they talk to this server instead.
 app.get('/js/mode.js', (req, res) => res.type('text/javascript').send("export default 'server';\n"));

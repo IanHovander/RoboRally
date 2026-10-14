@@ -26,6 +26,32 @@ const lobby = (cmd, extra) => socket.emit('lobby', { cmd, ...extra });
 if (mode === 'server') {
   socket.on('connect', () => banner(null));
   socket.on('disconnect', () => banner('Lost connection to the game server. Reconnecting…'));
+} else {
+  setUpRelayButton();
+}
+
+/** Website only: the relay login lives in this browser (see net/relay.js), entered here once. */
+async function setUpRelayButton() {
+  const { loadRelay, saveRelay, forgetRelay } = await import('./net/relay.js');
+  const relay = await loadRelay();
+  const button = $('relay-btn');
+  const dialog = $('relay-dialog');
+  button.hidden = false;
+  button.textContent = relay ? (relay.local ? 'Relay: test login' : 'Relay: set up ✓') : 'Relay: not set up';
+  button.addEventListener('click', () => {
+    $('relay-user').value = '';
+    $('relay-pass').value = '';
+    dialog.showModal();
+  });
+  dialog.addEventListener('close', () => {
+    const user = $('relay-user').value.trim();
+    const pass = $('relay-pass').value.trim();
+    $('relay-pass').value = '';
+    if (dialog.returnValue === 'save' && user && pass) saveRelay(user, pass);
+    else if (dialog.returnValue === 'forget') forgetRelay();
+    else return;
+    location.reload(); // connections are set up when the page loads
+  });
 }
 socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {

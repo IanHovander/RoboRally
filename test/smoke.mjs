@@ -54,6 +54,7 @@ try {
     ['/games/tap-race/style.css', 200], ['/host', 200], ['/host.html', 200], ['/', 200], ['/js/core/room.js', 200],
     ['/games/x/server.js', 404], ['/games/x/secret.server.js', 404], ['/games/x/%73erver.js', 404], ['/games/x/server.js.', 404],
     ['/games/x/..%2fx%2fserver.js', 404], ['/games/_template/rules.js', 200],
+    ['/relay.local.json', 404], ['/js/relay.local.json', 404], ['/js/relay%2elocal.json', 404], ['/js/config.js', 200],
   ]) {
     const res = await fetch(URL + path);
     check(res.status === want, `GET ${path} -> ${res.status} (want ${want})`);
