@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/phone.css">
   <style>
+    .screen > .logo { align-self: center; margin-top: 0.4rem; }
+    .intro { text-align: center; }
     /* white = it works, black with a red stripe = it doesn't */
     .checks { display: flex; flex-direction: column; gap: 0.7rem; }
     .check {
@@ -29,7 +31,7 @@
 <body>
   <section class="screen">
     <div class="logo">Network <span>check</span></div>
-    <p class="muted">Can this phone play from here?</p>
+    <p class="muted intro">Can this phone play from here?</p>
     <p id="who" class="muted small"></p>
     <div id="checks" class="checks"></div>
     <div id="verdict" class="verdict">Checking…</div>

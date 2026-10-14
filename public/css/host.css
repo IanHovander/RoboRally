@@ -11,6 +11,8 @@ html.host body { overflow: hidden; }
 .lobby-head .logo { --icon: 5.6rem; }
 .team-tag {
   margin-left: auto;
+  align-self: flex-start;   /* a corner label: its top lines up with the top of the logo's hexagon */
+  margin-top: 0.35rem;
   font-family: var(--display);
   font-size: 2.1rem;
   font-weight: 400;
@@ -29,7 +31,7 @@ html.host body { overflow: hidden; }
   line-height: 1;
   clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
 }
-.last-result:not([hidden]) + .team-tag { margin-left: 0; }
+/* with two auto margins, a result sits in the middle of the header and the team tag stays in the corner */
 
 .lobby-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 23rem) 1fr; gap: 2.2rem; }
 
