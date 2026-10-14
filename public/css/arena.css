@@ -195,6 +195,7 @@
 :root[data-theme="arena"] .bot-parade .bot:nth-child(even) { rotate: 5deg; }
 :root[data-theme="arena"] .me-card { rotate: -1.5deg; box-shadow: inset 0.5rem 0 0 var(--me), var(--drop); border-left-width: var(--outline); }
 :root[data-theme="arena"] .me-name { color: var(--black); }
+:root[data-theme="arena"].phone .panel h2 { align-self: center; }
 :root[data-theme="arena"] .vip-game { border-left-width: var(--outline); box-shadow: 0.2rem 0.25rem 0 var(--black); }
 :root[data-theme="arena"] .vip-game.selected { background: var(--black); color: var(--white); }
 :root[data-theme="arena"] .phone-bar { border-bottom: var(--outline) solid var(--black); box-shadow: inset 0 -0.35rem 0 var(--me); }
