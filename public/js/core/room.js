@@ -1,5 +1,6 @@
-import crypto from 'node:crypto';
-import { isLocalNetwork } from './network.js';
+// The game room: players, lobby, and the game being played. This file runs in two places:
+// on the laptop's Node server (server/index.js) and inside the big screen's browser tab when
+// the website hosts the game (js/net/peer-host.js). It doesn't care how screens are connected.
 
 const COLORS = [
   '#ff4d6d', '#4dabf7', '#ffd43b', '#51cf66', '#cc5de8', '#ff922b',
@@ -31,13 +32,17 @@ const BIG_MESSAGE = 15_000; // WebRTC can't carry messages over 16 KB, so warn w
  *   'session' {token, name}         a phone's key for getting its seat back after a reconnect
  *   'join-info' {url, text, qr}     (big screen only) where phones should go
  *   'kicked' / 'replaced'           this phone was removed / opened somewhere else
- *   'host-denied'                   someone tried to open the big screen from the internet
+ *
+ * A connection ("conn") is anything shaped like a socket.io socket:
+ *   { id, data: {}, emit(event, ...args), on(event, handler), disconnect(), canSend?() }
+ * Handlers get the message's arguments plus, when the sender wants a reply, a reply function last.
+ * The code that owns the connection calls room.connect(conn, { role, token, name }) and decides the
+ * role, because only it knows whether that screen may be the big screen.
  */
 export class Room {
-  constructor(io, games) {
-    this.io = io;
+  constructor(games) {
     this.games = games;
-    this.conns = new Map(); // connection id -> connection (socket)
+    this.conns = new Map(); // connection id -> connection
     this.players = new Map(); // id -> { id, token, name, color, connected, socketId }
     this.join = { url: '', text: '', qr: '' };
     this.screen = 'lobby';
@@ -50,7 +55,6 @@ export class Room {
     this.lastSyncAt = 0;
     this.vip = undefined; // cached vipId(); undefined = work it out again
     this.warnedBig = false;
-    io.on('connection', (socket) => guard('connection', () => this.onConnection(socket)));
   }
 
   setJoin(join) {
@@ -63,24 +67,20 @@ export class Room {
 
   // ---------- connections ----------
 
-  onConnection(socket) {
-    // How far behind its connection is; skipped phones get the latest view once it catches up.
-    socket.canSend ??= () => (socket.conn?.writeBuffer?.length ?? 0) < 32;
-    const auth = socket.handshake.auth ?? {};
-    if (auth.role === 'host') {
-      // The big screen can kick players and end games, so it only works from this computer or
-      // the home network, never through the public internet link.
-      if (!isLocalNetwork(socket.handshake.address, socket.handshake.headers)) {
-        socket.emit('host-denied');
-        socket.disconnect();
-        return;
-      }
+  /** A screen connected. `role` is 'host' (big screen) or 'player' (phone). */
+  connect(socket, { role, token, name } = {}) {
+    guard('connection', () => this.onConnection(socket, role, token, name));
+  }
+
+  onConnection(socket, role, token, name) {
+    socket.data ??= {};
+    if (role === 'host') {
       socket.data.role = 'host';
       socket.emit('join-info', this.join);
     } else {
       socket.data.role = 'player';
       // A phone that has played before sends its token so it gets its seat back.
-      if (typeof auth.token === 'string') this.attach(socket, auth.token, auth.name);
+      if (typeof token === 'string') this.attach(socket, token, name);
     }
     this.conns.set(socket.id, socket);
     socket.on('join', (msg, ack) => guard('join', () => reply(ack, this.onJoin(socket, msg))));
@@ -120,7 +120,7 @@ export class Room {
         if (this.players.size >= MAX_PLAYERS) return { ok: false, error: 'Sorry, the room is full' };
         player = this.addPlayer(name);
       }
-      player.token = crypto.randomUUID();
+      player.token = randomHex(16);
     }
 
     // Still attached to an older connection (e.g. a duplicated tab)? Retire that one.
@@ -166,7 +166,7 @@ export class Room {
   addPlayer(name) {
     const used = new Set([...this.players.values()].map((p) => p.color));
     const color = COLORS.find((c) => !used.has(c)) ?? COLORS[this.players.size % COLORS.length];
-    const player = { id: 'p' + crypto.randomBytes(4).toString('hex'), token: null, name, color, connected: false, socketId: null };
+    const player = { id: 'p' + randomHex(4), token: null, name, color, connected: false, socketId: null };
     this.players.set(player.id, player);
     return player;
   }
@@ -257,7 +257,7 @@ export class Room {
         console.error(`\n[${info.id}] Error in setup:\n`, err);
         this.stopGame();
         this.screen = 'lobby';
-        this.lastResult = `${info.name} crashed while starting. Check the server window for the error.`;
+        this.lastResult = `${info.name} crashed while starting. The error is in the server window (or the browser console).`;
       }
     }
     this.scheduleSync();
@@ -295,21 +295,31 @@ export class Room {
   // ---------- sending views ----------
 
   scheduleSync() {
-    if (this.syncTimer) return;
+    if (this.syncTimer) {
+      // A browser can hold timers back by up to a second when the big screen's tab isn't in front.
+      // If the update is overdue and something new happens, send it now instead of waiting.
+      if (Date.now() > this.syncDue + 100) this.runSync();
+      return;
+    }
     const wait = Math.max(0, this.lastSyncAt + SYNC_EVERY_MS - Date.now());
-    this.syncTimer = setTimeout(() => {
-      this.syncTimer = null;
-      this.lastSyncAt = Date.now();
-      guard('sync', () => this.sync());
-    }, wait);
+    this.syncDue = Date.now() + wait;
+    this.syncTimer = setTimeout(() => this.runSync(), wait);
+  }
+
+  runSync() {
+    clearTimeout(this.syncTimer);
+    this.syncTimer = null;
+    this.lastSyncAt = Date.now();
+    guard('sync', () => this.sync());
   }
 
   meta() {
     const selected = this.games.get(this.selectedGameId);
     return {
       screen: this.screen,
-      join: { url: this.join.url, text: this.join.text, local: this.join.local ?? null },
-      players: [...this.players.keys()].map((id) => this.publicPlayer(id)),
+      join: { url: this.join.url, text: this.join.text, local: this.join.local ?? null, code: this.join.code ?? null },
+      // `link`: how that phone is connected ('direct' / 'relay'), when the connection knows.
+      players: [...this.players.values()].map((p) => ({ ...this.publicPlayer(p.id), link: this.conns.get(p.socketId)?.link ?? null })),
       games: [...this.games.values()].map(({ id, name, description, minPlayers, maxPlayers, hasStyle }) => ({
         id, name, description, minPlayers, maxPlayers, hasStyle,
       })),
@@ -493,6 +503,11 @@ class GameSession {
     for (const handle of this.timers.values()) clearTimeout(handle);
     this.timers.clear();
   }
+}
+
+/** Random hex string. Works in Node and in any browser page (crypto.randomUUID needs https). */
+function randomHex(bytes) {
+  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function cleanName(name) {

@@ -1,26 +1,39 @@
 // The big screen (laptop / TV): lobby with QR code, then the game's host view.
 import { html } from './ui.js';
-import { connect, createApi, GameStage, onState } from './client.js';
+import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
 let dismissedError = null;
 const seenPlayers = new Set();
 
-const socket = connect({ role: 'host' });
+/** The red bar at the top: a problem with the connection (null hides it). */
+function banner(text) {
+  $('offline').textContent = text ?? '';
+  $('offline').hidden = !text;
+}
+
+// On the laptop server, this page connects to it. On the website, this page IS the server:
+// the game runs right here and phones connect to it over WebRTC.
+const socket =
+  mode === 'server'
+    ? await connect({ role: 'host' })
+    : await import('./net/peer-host.js').then(({ hostInBrowser }) => hostInBrowser({ onStatus: banner }));
 const api = createApi(socket, 'host', () => state);
 const stage = new GameStage($('stage'), 'host', api);
 const lobby = (cmd, extra) => socket.emit('lobby', { cmd, ...extra });
 
-socket.on('connect', () => ($('offline').hidden = true));
-socket.on('disconnect', () => ($('offline').hidden = false));
+if (mode === 'server') {
+  socket.on('connect', () => banner(null));
+  socket.on('disconnect', () => banner('Lost connection to the game server. Reconnecting…'));
+}
 socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {
   document.body.innerHTML = html`
     <div class="denied">
       <div class="logo">Game <span>Night</span></div>
       <p>The big screen only opens on the computer running the game (or on its Wi-Fi).</p>
-      <a class="btn btn-xl" href="/">Join as a player instead</a>
+      <a class="btn btn-xl" href="./">Join as a player instead</a>
     </div>`;
 });
 onState(socket, (next) => {
@@ -62,6 +75,8 @@ function render() {
     : 'Phones need to be on the same Wi-Fi as this computer';
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
+  $('join-code').hidden = !room.join.code;
+  $('join-code').textContent = room.join.code ? `Room code ${room.join.code}` : '';
 
   const error = state.error;
   $('error-text').textContent = error ?? '';
@@ -89,6 +104,7 @@ function renderLobby(room) {
             <span class="chip-name">${p.name}</span>
             ${p.isVip && html`<span class="chip-vip" title="First to join: can start games from their phone">★</span>`}
             ${!p.connected && html`<span class="chip-away">away</span>`}
+            ${p.connected && p.link && html`<span class="chip-link ${p.link}" title="${p.link === 'relay' ? 'Connected through a relay server' : 'Connected directly'}">${p.link}</span>`}
             <button class="chip-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}">✕</button>
           </div>`;
       })}`
@@ -111,5 +127,5 @@ function renderLobby(room) {
 
 function playerRange(g) {
   if (g.minPlayers === g.maxPlayers) return `${g.minPlayers} players`;
-  return g.maxPlayers >= 24 ? `${g.minPlayers}+ players` : `${g.minPlayers}–${g.maxPlayers} players`;
+  return g.maxPlayers >= 32 ? `${g.minPlayers}+ players` : `${g.minPlayers}–${g.maxPlayers} players`;
 }

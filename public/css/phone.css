@@ -47,6 +47,7 @@ html.phone { font-size: 17px; }
   outline: none;
 }
 .phone input:focus { border-color: var(--accent); }
+.phone input.code-input { font-size: 2.2rem; letter-spacing: 0.3em; text-transform: uppercase; }
 .form-error { color: var(--bad); font-weight: 700; }
 .host-link { color: var(--muted); font-size: 0.9rem; margin-top: 1.5rem; }
 

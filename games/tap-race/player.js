@@ -1,5 +1,5 @@
 // Phone for Tap Race: one giant button.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root, api) {
   root.innerHTML = `

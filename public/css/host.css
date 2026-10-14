@@ -39,6 +39,16 @@ html.host body { overflow: hidden; }
 .join-or { color: #77729a; font-weight: 700; font-size: 0.95rem; }
 .join-text { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.01em; word-break: break-all; color: #4b25e0; }
 .join-text.long { font-size: 1.1rem; word-break: normal; overflow-wrap: anywhere; }
+.join-code {
+  margin: 0.2rem 0 0.1rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 12px;
+  background: #18143a;
+  color: var(--accent);
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
 .join-hint { color: #77729a; font-size: 0.9rem; }
 .join-local { margin-top: 0.3rem; padding-top: 0.6rem; border-top: 1px solid #e6e3f3; color: #77729a; font-size: 0.9rem; }
 .join-local b { color: #18143a; }
@@ -63,6 +73,8 @@ html.host body { overflow: hidden; }
 }
 .count:empty { display: none; }
 
+.chip-link { font-size: 0.65em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1em 0.45em; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
+.chip-link.relay { color: #ffd8a8; }
 .chip-kick {
   border: 0;
   background: transparent;

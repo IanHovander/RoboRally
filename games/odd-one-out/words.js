@@ -1,4 +1,5 @@
-// Secret words. The ".server.js" ending means browsers can never download this file.
+// The words. Each phone only ever receives its own word (or "you're the spy") from playerView,
+// but this list itself is public, so a determined player could read it.
 export const CATEGORIES = [
   { name: 'Animals', words: ['Giraffe', 'Penguin', 'Kangaroo', 'Octopus', 'Elephant', 'Shark', 'Owl', 'Snail', 'Zebra', 'Camel', 'Dolphin', 'Spider', 'Frog', 'Lion', 'Bat', 'Turtle'] },
   { name: 'Food', words: ['Pizza', 'Spaghetti', 'Pancake', 'Sushi', 'Ice cream', 'Popcorn', 'Banana', 'Taco', 'Burger', 'Soup', 'Cheese', 'Watermelon', 'Cereal', 'Chocolate', 'Hot dog', 'Carrot'] },

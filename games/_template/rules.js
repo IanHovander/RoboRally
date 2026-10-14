@@ -1,9 +1,10 @@
 // A tiny game to copy when making your own.
 //   1. Copy this folder and rename it, e.g. games/my-game  (folders starting with _ are ignored)
-//   2. Restart the server. Your game shows up in the lobby.
+//   2. Restart the server (or `npm run build` for the website). Your game shows up in the lobby.
 //
-// This file runs on the laptop and is the only place the real game state lives.
-// Phones and the big screen never see the state directly, only the "views" you build below.
+// This file runs in one place (the laptop server, or the big screen's browser on the website), and
+// that's the only place the real game state lives. Phones and the big screen's display never see the
+// state directly, only the "views" you build below.
 
 export default {
   name: 'Button Mash',

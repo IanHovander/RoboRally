@@ -48,16 +48,20 @@ const view = (c) => c.self?.view;
 const you = (c) => c.self?.you;
 
 try {
-  // --- static file rules ---
+  // --- files: pages, games, and the rule that server-only files are never sent ---
   for (const [path, want] of [
-    ['/games/odd-one-out/server.js', 404], ['/games/odd-one-out/words.server.js', 404], ['/games/odd-one-out/SERVER.JS', 404],
-    ['/games/odd-one-out/%73erver.js', 404], ['/games/odd-one-out/server.js.', 404], ['/games/odd-one-out/server.js%20', 404],
-    ['/games/odd-one-out/..%2fodd-one-out%2fserver.js', 404], ['/games/odd-one-out%5Cserver.js', 404],
-    ['/games/odd-one-out/player.js', 200], ['/games/tap-race/style.css', 200], ['/host', 200], ['/', 200],
+    ['/games/odd-one-out/rules.js', 200], ['/games/odd-one-out/words.js', 200], ['/games/odd-one-out/player.js', 200],
+    ['/games/tap-race/style.css', 200], ['/host', 200], ['/host.html', 200], ['/', 200], ['/js/core/room.js', 200],
+    ['/games/x/server.js', 404], ['/games/x/secret.server.js', 404], ['/games/x/%73erver.js', 404], ['/games/x/server.js.', 404],
+    ['/games/x/..%2fx%2fserver.js', 404], ['/games/_template/rules.js', 200],
   ]) {
     const res = await fetch(URL + path);
     check(res.status === want, `GET ${path} -> ${res.status} (want ${want})`);
   }
+  const modeJs = await (await fetch(URL + '/js/mode.js')).text();
+  check(modeJs.includes("'server'"), 'the laptop server tells pages they are in server mode');
+  const list = await (await fetch(URL + '/games/index.json')).json();
+  check(list.map((g) => g.id).join() === 'odd-one-out,tap-race' && list.every((g) => g.hasStyle), 'games/index.json lists the games');
 
   // --- joining ---
   const host = client({ role: 'host' });

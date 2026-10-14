@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game Night · Test players</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <style>
+    body { padding: 1.5rem; }
+    main { max-width: 52rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+    form { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end; }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 700; color: var(--muted); font-size: 0.9rem; }
+    input { padding: 0.5rem 0.7rem; border-radius: 10px; border: 2px solid var(--line); background: rgba(0, 0, 0, 0.25); font-weight: 800; width: 7rem; }
+    #bots { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.5rem; }
+    .bot { padding: 0.5rem 0.7rem; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 0.85rem; }
+    .bot b { display: block; }
+    .bot.on { border-color: var(--good); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Test players</h1>
+    <p class="muted">
+      Fake phones for trying a game with lots of players. Each one is a real WebRTC connection to the big screen,
+      and they play by themselves (Tap Race and Odd One Out). Add <code>&amp;relay=1</code> to the address to send them
+      all through the relay server, like phones on cellular data.
+    </p>
+    <form id="form">
+      <label>Room code <input id="room" maxlength="4" required></label>
+      <label>How many <input id="count" type="number" min="1" max="31" value="10"></label>
+      <button class="btn">Add players</button>
+      <button class="btn secondary" type="button" id="stop">Remove all</button>
+    </form>
+    <p id="summary" class="big"></p>
+    <div id="bots"></div>
+  </main>
+  <script type="module" src="../js/tools/bots.js"></script>
+</body>
+</html>

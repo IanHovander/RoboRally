@@ -8,9 +8,9 @@ import { parseArgs } from 'node:util';
 import express from 'express';
 import QRCode from 'qrcode';
 import { Server } from 'socket.io';
-import { isPublicGameFile, loadGames } from './games.js';
-import { lanAddresses } from './network.js';
-import { Room } from './room.js';
+import { Room } from '../public/js/core/room.js';
+import { findGames, isPublicGameFile, loadGames } from './games.js';
+import { isLocalNetwork, lanAddresses } from './network.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -30,7 +30,8 @@ const PORT = Number(opts.port || process.env.PORT || 3000);
 process.on('uncaughtException', (err) => console.error('[server] Unexpected error (still running):', err));
 process.on('unhandledRejection', (err) => console.error('[server] Unexpected error (still running):', err));
 
-const games = await loadGames(path.join(ROOT, 'games'));
+const GAMES_DIR = path.join(ROOT, 'games');
+const games = await loadGames(GAMES_DIR);
 
 const app = express();
 app.disable('x-powered-by');
@@ -38,6 +39,10 @@ app.use((req, res, next) => {
   res.set('Cache-Control', 'no-cache'); // always pick up edited game files on reload
   next();
 });
+// The same pages also work as a website (GitHub Pages), where the big screen's browser runs the
+// game. Served from here they talk to this server instead.
+app.get('/js/mode.js', (req, res) => res.type('text/javascript').send("export default 'server';\n"));
+app.get('/games/index.json', (req, res) => res.json(findGames(GAMES_DIR).map(({ id, hasStyle }) => ({ id, hasStyle }))));
 app.use('/games', (req, res, next) => (isPublicGameFile(req.path) ? next() : res.status(404).end()));
 app.use('/games', express.static(path.join(ROOT, 'games'), { index: false, dotfiles: 'deny' }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
@@ -50,7 +55,25 @@ const io = new Server(httpServer, {
   // Game updates are repetitive JSON, so compressing them shrinks what a hotspot has to upload.
   perMessageDeflate: { threshold: 512 },
 });
-const room = new Room(io, games);
+const room = new Room(games);
+
+io.on('connection', (socket) => {
+  const auth = socket.handshake.auth ?? {};
+  // How far behind this connection is; the room skips it until it catches up.
+  socket.canSend = () => (socket.conn?.writeBuffer?.length ?? 0) < 32;
+  if (auth.role !== 'host') {
+    // A phone that has played before sends its token so it gets its seat back.
+    return room.connect(socket, { role: 'player', token: auth.token, name: auth.name });
+  }
+  // The big screen can kick players and end games, so it only works from this computer or
+  // the home network, never through the public internet link.
+  if (!isLocalNetwork(socket.handshake.address, socket.handshake.headers)) {
+    socket.emit('host-denied');
+    socket.disconnect();
+    return;
+  }
+  room.connect(socket, { role: 'host' });
+});
 
 const localUrl = `http://localhost:${PORT}`;
 const lan = lanAddresses();

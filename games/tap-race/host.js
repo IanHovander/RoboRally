@@ -1,5 +1,5 @@
 // Big screen for Tap Race: one lane per player, runners move as people tap.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root) {
   root.innerHTML = `

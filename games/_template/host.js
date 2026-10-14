@@ -1,5 +1,5 @@
 // The big screen. update(view) runs every time hostView() returns something new.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root, api) {
   return {

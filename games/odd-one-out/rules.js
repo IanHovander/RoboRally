@@ -3,7 +3,7 @@
 //
 // This example shows: secret per-player info (playerView), phases, timers,
 // actions that reply with an error, and buttons on the big screen (hostActions).
-import { CATEGORIES } from './words.server.js';
+import { CATEGORIES } from './words.js';
 
 const CLUE_SECONDS = 60;
 const VOTE_SECONDS = 45;

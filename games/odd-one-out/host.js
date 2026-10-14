@@ -1,5 +1,5 @@
 // Big screen for Odd One Out.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root) {
   let shown = null;

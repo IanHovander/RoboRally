@@ -1,5 +1,5 @@
 // Phone for Odd One Out.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root, api) {
   let view = null;

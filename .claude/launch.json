@@ -14,6 +14,13 @@
       "runtimeArgs": ["server/index.js", "--online", "--port", "3100"],
       "port": 3100,
       "url": "http://localhost:3100"
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "site"],
+      "port": 4000,
+      "url": "http://localhost:4000"
     }
   ]
 }

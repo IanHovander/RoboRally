@@ -1,109 +1,105 @@
 # Game Night
 
-A small framework for party games where **the laptop is the game console and everyone's phone is a controller**.
+A small framework for party games where **one screen is the game console and everyone's phone is a controller**.
 The big screen shows what everyone shares (scores, the board, clues, a timer). Each phone shows what only
-that player should see or do (a secret word, their own buttons, a text box).
+that player should see or do (a secret word, their own buttons, a text box). Nobody installs an app.
 
-There's no central server and no app to install. The laptop runs the game, and phones just open a web page that the laptop serves.
+## Three ways to run it
+
+| | **Website** (WebRTC) | **Laptop + internet link** | **Laptop, Wi-Fi only** |
+|---|---|---|---|
+| Big screen | any computer's browser: open the site | this laptop: `npm run online` | this laptop: `npm start` |
+| Who runs the game | the big screen's browser tab | Node on this laptop | Node on this laptop |
+| Phones join over | Wi-Fi or mobile data | Wi-Fi or mobile data | the same Wi-Fi only |
+| Needs internet | yes | yes | no |
+| Outside services | PeerJS introductions, a relay for mobile data (Metered) | a Cloudflare tunnel | none |
+
+All three run the same games.
 
 ```
-          ┌──────────── laptop ────────────┐
-          │  server (node)                 │
-          │   • runs the game rules        │◄──── phone: Alice  (sees her own view)
-          │   • holds the real state       │◄──── phone: Bob    (sees his own view)
-          │   • serves the web pages       │◄──── phone: Cara   (sees her own view)
-          │                                │
-          │  browser at /host ─ big screen │
-          └────────────────────────────────┘
+ Website:      phones ──WebRTC (direct, or via the relay)──► big screen's browser (runs the game)
+                         PeerJS's server only does the introductions
+ Laptop+link:  phones ──https──► Cloudflare ──► cloudflared on the laptop ──► Node server (runs the game)
+ Wi-Fi only:   phones ──Wi-Fi──► Node server on the laptop (runs the game)
 ```
 
-## Quick start
+### Website
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+Open **https://ianhovander.github.io/game-night/host.html** on the computer connected to the TV, and press F11.
+Players scan the QR code (or open the site and type the 4-letter room code). Nothing to install, on any computer.
+
+- **Refreshing the big screen** keeps the same room code. Phones reconnect by themselves, back in the lobby.
+- **Keep the big-screen tab in front.** Browsers slow down hidden tabs, which makes the game lag.
+- Phones that can't connect directly (most on mobile data) go through the **relay server** set in
+  `public/js/config.js`. There are no working free public relays, so this needs a (free) Metered account.
+- **`check.html`** on the site tests a phone's network in 10 seconds: green means it can play from there.
+
+### Laptop + internet link
+
+You need [Node.js](https://nodejs.org) 20+ and, once, `winget install --id Cloudflare.cloudflared`.
 
 ```bash
 npm install
 ```
 
 ```bash
-npm start
-```
-
-The big screen opens in your browser. Put it on the TV (full screen with F11), and players scan the QR code
-with their phone camera. The first player to join is the **leader** (★): they can pick and start games from
-their phone, so nobody has to walk over to the laptop.
-
-**Testing on your own:** open `http://localhost:3000` in several browser tabs. Each tab is a separate player.
-
-## Connecting phones
-
-### Same Wi-Fi (the normal way)
-
-Phones talk straight to the laptop over your Wi-Fi. Nothing leaves your house, and it works even when the
-internet is down. The QR code on the big screen has the address in it (something like `http://192.168.1.23:3000`).
-
-The first time you run it, Windows may ask whether to let **Node.js** through the firewall. Click **Allow**.
-Your Wi-Fi network should be set to *Private* in Windows settings.
-
-### Over the internet
-
-```bash
 npm run online
 ```
 
-This gives the laptop a public `https://…trycloudflare.com` address that anyone can open from anywhere,
-using a free Cloudflare "quick tunnel" (no account needed). The laptop still runs the whole game; Cloudflare
-just passes the traffic along. A few seconds after starting, the server window prints the link and the QR code
-on the big screen switches to it. Players can open it in any phone browser.
+The big screen opens. A few seconds later (sometimes a minute) the server window prints a public
+`https://…trycloudflare.com` link and the QR code switches to it. The laptop still runs the game; Cloudflare
+just passes the traffic along.
 
-- **The address is different every time** you start. Just share the new QR code or link.
-- **People in the room can still use the Wi-Fi address** (shown under the QR code). It's faster than going
-  out to the internet and back, which matters for quick games like Tap Race.
-- **Only the laptop (or a device on your Wi-Fi) can be the big screen.** Someone opening `…/host` through the
-  internet link is told to join as a player instead, so nobody online can kick players or end games.
-- If the tunnel drops, the QR code switches back to the Wi-Fi address.
+- The address is different every time. The big screen itself only opens on the laptop or its Wi-Fi.
+- People on the same Wi-Fi can use the Wi-Fi address shown under the QR code, which is faster.
 
-`cloudflared` needs installing once: `winget install --id Cloudflare.cloudflared` (Mac: `brew install cloudflared`).
+### Laptop, Wi-Fi only
 
-**Want a permanent address** (like `games.yourname.com`)? That's a Cloudflare *named* tunnel: it needs a free
-Cloudflare account and a domain name. Once it's running, point the game at it with `npm start -- --url https://games.yourname.com`.
+`npm start`. Phones on the same Wi-Fi scan the QR code. Works with no internet at all. The first time, Windows
+may ask to let Node.js through the firewall: click **Allow** (and set the Wi-Fi to *Private*).
 
-**Other ways in**, if you'd rather nobody sat in the middle:
+The first player to join is the **leader** (★): they can pick and start games from their phone.
 
-| Option | How | Trade-off |
-|---|---|---|
-| **Port forwarding** | In your router settings, forward port 3000 to this laptop. Then run `npm start -- --url http://YOUR-PUBLIC-IP:3000` | Direct, with nobody in the middle, but you need router access, and some internet providers (CGNAT) make it impossible. |
-| **Tailscale** | Everyone installs Tailscale and joins your tailnet. Then run `npm start -- --url http://LAPTOP-TAILSCALE-IP:3000` | Encrypted and direct between devices, but every guest has to install an app. |
+## Saturday playbook
+
+**Before leaving:** laptop charged and plugged in, lid-close set to "do nothing", Windows Update paused,
+Chrome's Energy Saver off. The hotspot phone charged, with its charger.
+
+**Arrive 30–45 minutes early:**
+
+1. Connect the laptop to **your phone's hotspot** (players don't join the hotspot; they use their own data or the
+   school Wi-Fi). Open the main mode chosen at the rehearsal, full screen.
+2. One phone on school Wi-Fi and one on mobile data open **`check.html`**. If Wi-Fi shows red, tell everyone:
+   **"Turn Wi-Fi off and use your data."**
+3. If the main mode struggles, switch to the other (website ↔ `npm run online`). Same games either way.
+
+**Don't change or publish the code on the day:** phones and the big screen could load different versions.
 
 ## Making your own game
 
-Copy `games/_template` to `games/my-game` and restart the server. It appears in the lobby.
-While you're working on a game, `npm run dev` restarts the server automatically whenever a `server.js` changes.
-For changes to `host.js`, `player.js` and `style.css`, just reload the page.
+Copy `games/_template` to `games/my-game` (lowercase letters, numbers and dashes). It appears in the lobby after
+restarting the server (`npm run dev` restarts it automatically when `rules.js` changes) or rebuilding the site
+(`npm run build`). For `host.js`, `player.js` and `style.css` changes, just reload the page.
 
-A game is a folder with up to four files:
+| File | Job |
+|---|---|
+| `rules.js` | The rules and the real game state. Runs on the laptop server, or in the big screen's browser on the website. |
+| `host.js` | Draws the big screen. |
+| `player.js` | Draws one phone and sends its actions. |
+| `style.css` | Optional styles, loaded automatically. |
 
-| File | Runs on | Job |
-|---|---|---|
-| `server.js` | the laptop | The rules and the real game state. Browsers can never download it. |
-| `host.js` | the big screen | Draws the shared view. |
-| `player.js` | each phone | Draws that player's view and sends their actions. |
-| `style.css` | both | Optional styles, loaded automatically. |
-
-Any file ending in `.server.js` (like `words.server.js` in Odd One Out) is also kept secret.
+On the website every file is public, so a curious player could read a game's word list. What each phone
+*receives* is still private: a phone only ever gets its own `playerView`.
 
 ### How it fits together
 
 1. A phone does something: `api.send('vote', { playerId })`.
-2. The server runs your `actions.vote(ctx, player, payload)`, which changes `ctx.state`.
-3. The framework calls your `hostView(ctx)` and `playerView(ctx, player)` and sends each screen its view.
-   A screen only gets an update when its view actually changes.
+2. The game runs your `actions.vote(ctx, player, payload)`, which changes `ctx.state`.
+3. The framework calls your `hostView(ctx)` and `playerView(ctx, player)` and sends each screen its view,
+   only when it changed (phones at most ~15 times a second, the big screen ~30).
 4. Each screen's `update(view)` redraws.
 
-Because each phone only ever receives *its own* `playerView`, secrets stay secret. Nobody can peek at
-another player's cards, even with the browser's developer tools.
-
-### `server.js`
+### `rules.js`
 
 ```js
 export default {
@@ -126,31 +122,28 @@ export default {
 
   // optional
   onJoin(ctx, player) {},        // someone joined mid-game. Return false to make them wait for the next game.
-  onDisconnect(ctx, player) {},  // a phone dropped (locked screen, bad Wi-Fi...)
+  onDisconnect(ctx, player) {},  // a phone dropped (locked screen, bad signal...)
   onReconnect(ctx, player) {},   // ...and came back. They keep their seat automatically.
 };
 ```
 
-What `ctx` gives you:
-
-| | |
+| `ctx` | |
 |---|---|
 | `ctx.state` | Your game's data. Change it freely; the screens update by themselves. Plain data only. |
 | `ctx.players` | Everyone in this game: `{ id, name, color, connected, isVip }` |
 | `ctx.player(id)` | One player, or `null` |
 | `ctx.timer(name, ms, fn)` | Run `fn` later. Starting a timer with the same name replaces the old one. |
-| `ctx.cancelTimer(name)` | Cancel a named timer |
-| `ctx.after(ms, fn)` | Unnamed timer; returns a cancel function |
+| `ctx.cancelTimer(name)` / `ctx.after(ms, fn)` | Cancel a named timer / unnamed timer (returns a cancel function) |
 | `ctx.end(summary)` | Back to the lobby, showing `summary` there (e.g. `"Sam won!"`) |
 | `ctx.pick(list)`, `ctx.shuffle(list)` | Random helpers |
 
-For countdowns, put a deadline in the state (`Date.now() + 30000`) and show it with
-`<span class="timer" data-deadline="${view.deadline}"></span>`. It ticks by itself and agrees across devices.
+Keep views small (a few KB): the website can't send a message over 16 KB. For countdowns, put a deadline in
+the state (`Date.now() + 30000`) and show it with `<span class="timer" data-deadline="${view.deadline}"></span>`.
 
 ### `host.js` and `player.js`
 
 ```js
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root, api) {
   // runs once when the game starts: set things up here
@@ -168,37 +161,43 @@ export default function (root, api) {
 ```
 
 - **The `html` tag** escapes everything you put in `${}`, so a player named `<script>` can't break anything.
-  Arrays are joined and `false`/`null` print nothing, so `${list.map(...)}` and `${cond && html`...`}` both work.
-- **`data-action`** on a button sends that action when it's tapped (with `data-payload` as the payload).
-  On a `<form data-action="...">`, submitting sends the form's fields.
+- **`data-action`** on a button sends that action when tapped (`data-payload` is the payload). On a
+  `<form data-action="...">`, submitting sends the form's fields.
 - **`api.send(type, payload)`** sends an action from code and resolves with whatever the action returned.
-- `api.you` (this phone's player), `api.players`, `api.now()` (server time), `api.vibrate(ms)`.
-- On phones, the CSS variable `--me` is the player's color.
+- `api.you` (this phone's player), `api.players`, `api.now()` (game time), `api.vibrate(ms)`.
 - Ready-made classes: `btn btn-xl btn-sm secondary block me`, `card`, `stack`, `row`, `center`, `fill`, `grid`,
-  `muted`, `big`, `huge`, `timer`, `chip`, `pc` (player-colored text, `style="--c:${p.color}"`).
+  `muted`, `big`, `huge`, `timer`, `chip`, `pc` (player-colored text, `style="--c:${p.color}"`). On phones,
+  `var(--me)` is the player's color.
+- Always use relative imports (`../../js/ui.js`): the website lives in a subfolder.
 
-If a game crashes, the error shows up on the big screen and in the server window, and the server keeps running.
+If a game crashes, the error shows on the big screen and in the server window (or browser console).
 
-### The example games
+**Example games:** Tap Race (real-time, up to 32 players) and Odd One Out (secret words, phases, timers, voting; up to 24).
 
-- **Tap Race** (`games/tap-race`): the simplest real game. Real-time, with smooth animation on the big screen.
-- **Odd One Out** (`games/odd-one-out`): secret info per player, phases with timers, actions that reply
-  with errors, buttons on the big screen. A good model for turn-based or party games.
-
-## Options
+## Testing
 
 ```bash
-npm start -- --port 4000                   # a different port
-npm start -- --url https://example.com     # the address phones should use (shown in the QR code)
-npm run online                             # also open a Cloudflare tunnel for internet play
-npm run dev                                # restart automatically when server code changes
+npm test                 # end-to-end checks of the room on the laptop server (32 players, update rates, secrets)
+npm run site             # the website version on this computer: http://localhost:4000/game-night/host.html
+node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhost:3000 --bots 25 --seconds 300
 ```
+
+- **`tools/bots.html?room=ABCD&n=20`** (on the site) adds 20 fake phones that play by themselves, each a real WebRTC
+  connection. Add `&relay=1` to force them through the relay, like phones on mobile data.
+- **`?relay=1`** / **`?tls=1`** on any page force the relay / only the relay on port 443.
+- `test/load.mjs` does the same for the laptop server, measuring data use and tap delay through the tunnel.
+
+## Publishing the website
+
+Pushing to `main` on GitHub runs `.github/workflows/pages.yml`, which builds the site (`npm run build` → `dist/`)
+and publishes it to GitHub Pages. Phones may keep an old copy for ~10 minutes after a change.
 
 ## Troubleshooting
 
-- **Phones can't connect.** Check they're on the same Wi-Fi (not a guest network: those often block devices
-  from seeing each other). Allow Node.js in Windows Firewall, and set the Wi-Fi to *Private*. If the laptop has
-  several network adapters, the server window lists the other addresses to try.
-- **A phone shows "Reconnecting…"** Phones disconnect when the screen locks. They rejoin automatically, in the
-  same seat, when the page comes back.
-- **Someone's phone died.** They open the page again and join with the same name. They get their old seat back.
+- **A phone is stuck on "Looking for room…"** Check the code. If it's right, open `check.html` on that phone; if
+  anything is red, switch it to mobile data.
+- **A phone shows "Reconnecting…"** Phones disconnect when the screen locks. They rejoin by themselves, in the
+  same seat, when they wake up.
+- **Someone's phone died or they closed the tab.** They open the page again and join with the same name.
+- **Wi-Fi-only mode: phones can't connect.** Same Wi-Fi (not a guest network, which often isolates devices),
+  Node.js allowed in Windows Firewall, Wi-Fi set to *Private*.

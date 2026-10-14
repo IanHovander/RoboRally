@@ -1,5 +1,8 @@
 // Shared by the big screen (host.js) and the phones (play.js).
+import mode from './mode.js';
 import { html, loadCss, tickDeadlines, wireActions } from './ui.js';
+
+export { mode };
 
 /**
  * The server's clock, so countdowns agree on every device. Every couple of seconds we ask the
@@ -21,8 +24,37 @@ export const clock = {
 
 setInterval(() => tickDeadlines(document, clock.now()), 200);
 
-export function connect(auth) {
-  const socket = window.io({ auth, reconnectionDelay: 500, reconnectionDelayMax: 2000 });
+/**
+ * Connect this screen to the game. Returns a socket.io-style object (on / emit / timeout().emit).
+ * - mode 'server': the laptop's Node server, via socket.io.
+ * - mode 'browser' (the website): a phone connects to the big screen's browser over WebRTC;
+ *   `room` is the room code. (The big screen itself hosts instead: see host.js.)
+ */
+export async function connect(auth, { room } = {}) {
+  let socket;
+  if (mode === 'server') {
+    await loadScript('socket.io/socket.io.min.js');
+    socket = window.io({ auth, reconnectionDelay: 500, reconnectionDelayMax: 2000 });
+  } else {
+    const { PeerSocket } = await import('./net/peer-client.js');
+    socket = new PeerSocket(room, auth);
+  }
+  keepClockInSync(socket);
+  return socket;
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Couldn't load ${src}`));
+    document.head.append(script);
+  });
+}
+
+/** Ask the game for its time now and then (also tells the connection we're still here). */
+export function keepClockInSync(socket) {
   const ask = () => {
     if (!socket.connected) return;
     const sentAt = Date.now();
@@ -34,8 +66,8 @@ export function connect(auth) {
     clock.samples = []; // a new connection may take a different route
     for (const ms of [0, 300, 900]) setTimeout(ask, ms);
   });
+  if (socket.connected) ask();
   setInterval(ask, 2000);
-  return socket;
 }
 
 /**
@@ -117,7 +149,7 @@ export class GameStage {
       this.key = key;
       if (!game) return;
       try {
-        const base = `/games/${encodeURIComponent(game.id)}/`;
+        const base = new URL(`games/${encodeURIComponent(game.id)}/`, document.baseURI).href;
         const info = games?.find((g) => g.id === game.id);
         const [mod] = await Promise.all([import(`${base}${this.role}.js`), info?.hasStyle ? loadCss(`${base}style.css`) : null]);
         if (this.key !== key) return; // the game changed while we were loading

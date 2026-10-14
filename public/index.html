@@ -8,15 +8,28 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Game Night</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-  <link rel="stylesheet" href="/css/base.css">
-  <link rel="stylesheet" href="/css/phone.css">
-  <script src="/socket.io/socket.io.min.js"></script>
-  <script type="module" src="/js/play.js"></script>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/phone.css">
+  <script type="module" src="js/play.js"></script>
 </head>
 <body>
   <section id="connecting" class="screen center-screen">
     <div class="spinner"></div>
-    <p class="muted">Connecting…</p>
+    <p id="connecting-msg" class="muted">Connecting…</p>
+    <a id="change-room" class="host-link" href="./" hidden>Use a different room code</a>
+    <a id="check-link" class="host-link" href="check.html" hidden>Can't connect? Check this network</a>
+  </section>
+
+  <section id="code" class="screen center-screen" hidden>
+    <div class="logo">Game <span>Night</span></div>
+    <form id="code-form" class="join-form" autocomplete="off">
+      <label for="room-code">Room code</label>
+      <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input">
+      <button class="btn btn-xl block">Next</button>
+      <p class="muted small">It's on the big screen, under the QR code.</p>
+    </form>
+    <a class="host-link" href="host.html">Host a game on this device →</a>
+    <a class="host-link" href="check.html">Check this network</a>
   </section>
 
   <section id="join" class="screen center-screen" hidden>
@@ -27,7 +40,7 @@
       <button id="join-btn" class="btn btn-xl block">Join</button>
       <p id="join-error" class="form-error" hidden></p>
     </form>
-    <a id="host-link" class="host-link" href="/host" hidden>Open the big screen →</a>
+    <a id="host-link" class="host-link" href="host.html" hidden>Open the big screen →</a>
   </section>
 
   <section id="wait" class="screen" hidden>

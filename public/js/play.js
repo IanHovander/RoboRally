@@ -1,13 +1,22 @@
 // The phone: join with a name, wait in the lobby, then show the game's player view.
 import { html } from './ui.js';
-import { connect, createApi, GameStage, onState } from './client.js';
+import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
-const TOKEN = 'gamenight.token'; // per tab (sessionStorage), so several tabs on one laptop can be different players
-const LAST_TOKEN = 'gamenight.lastToken'; // per phone (localStorage): lets a new tab take back this phone's seat
-const NAME = 'gamenight.name';
-const SCREENS = ['connecting', 'join', 'wait', 'game', 'notice'];
+const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+// On the website, which room (big screen) to join: ?room=ABCD from the QR code, or typed in.
+const ROOM = mode === 'browser' ? roomCodeFrom(new URLSearchParams(location.search).get('room')) : null;
+if (mode === 'browser' && !ROOM) {
+  askForRoomCode(); // submitting it reloads this page with ?room=CODE
+  await new Promise(() => {}); // nothing else to do until then
+}
+
+const scope = ROOM ? `.${ROOM}` : '';
+const TOKEN = `gamenight.token${scope}`; // per tab (sessionStorage), so several tabs on one laptop can be different players
+const LAST_TOKEN = `gamenight.lastToken${scope}`; // per phone (localStorage): lets a new tab take back this phone's seat
+const NAME = 'gamenight.name';
 
 const store = {
   get: (area, key) => {
@@ -21,16 +30,23 @@ const store = {
 let state = null;
 let notice = null; // { title, message, button } shown instead of everything else
 
-// On every (re)connect, send our token so the server gives us our seat back.
-const socket = connect((cb) => {
-  const token = store.get('sessionStorage', TOKEN);
-  cb(token ? { role: 'player', token, name: store.get('localStorage', NAME) } : { role: 'player' });
-});
+// On every (re)connect, send our token so the game gives us our seat back.
+const socket = await connect(
+  (cb) => {
+    const token = store.get('sessionStorage', TOKEN);
+    cb(token ? { role: 'player', token, name: store.get('localStorage', NAME) } : { role: 'player' });
+  },
+  { room: ROOM },
+);
 const api = createApi(socket, 'player', () => state);
 const stage = new GameStage($('stage'), 'player', api);
 
 socket.on('connect', () => ($('offline').hidden = true));
 socket.on('disconnect', () => ($('offline').hidden = !!notice || !state));
+// Website: what the connection is up to ("Looking for room ABCD…") while we wait.
+socket.on('status', (text) => ($('connecting-msg').textContent = text ?? 'Connecting…'));
+$('change-room').hidden = !ROOM;
+$('check-link').hidden = !ROOM;
 socket.on('session', ({ token, name }) => {
   store.set('sessionStorage', TOKEN, token);
   store.set('localStorage', LAST_TOKEN, token);
@@ -89,6 +105,24 @@ $('menu').addEventListener('click', (e) => {
   $('menu').hidden = true;
   if (btn.dataset.lobby) socket.emit('lobby', { cmd: btn.dataset.lobby });
 });
+
+// ---------- room code (website only) ----------
+
+function roomCodeFrom(text) {
+  const code = String(text ?? '').toUpperCase().replace(/[^A-Z]/g, '');
+  return code.length === 4 ? code : null;
+}
+
+function askForRoomCode() {
+  show('code');
+  $('room-code').focus();
+  $('code-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = roomCodeFrom($('room-code').value);
+    if (!code) return $('room-code').select();
+    location.search = `?room=${code}`;
+  });
+}
 
 // ---------- notices (kicked / replaced) ----------
 

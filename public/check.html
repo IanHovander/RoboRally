@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" class="phone">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#120f26">
+  <title>Game Night · Network check</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/phone.css">
+  <style>
+    .checks { display: flex; flex-direction: column; gap: 0.6rem; }
+    .check { display: grid; grid-template-columns: 2rem 1fr; gap: 0.2rem 0.6rem; align-items: center; padding: 0.8rem 1rem; border-radius: 16px; background: var(--panel); border: 2px solid var(--line); }
+    .check .mark { grid-row: span 2; font-size: 1.5rem; text-align: center; }
+    .check b { font-size: 1.05rem; }
+    .check span.muted { font-size: 0.85rem; }
+    .check.ok { border-color: var(--good); }
+    .check.bad { border-color: var(--bad); }
+    .verdict { padding: 1rem 1.1rem; border-radius: 18px; font-weight: 800; font-size: 1.15rem; background: var(--panel-solid); }
+    .verdict.ok { background: color-mix(in srgb, var(--good) 22%, var(--bg)); }
+    .verdict.bad { background: color-mix(in srgb, var(--bad) 22%, var(--bg)); }
+  </style>
+</head>
+<body>
+  <section class="screen">
+    <div class="logo">Network <span>check</span></div>
+    <p class="muted">Tests whether this phone (on its current Wi-Fi or data) can play the website version of Game Night. Takes about 10 seconds.</p>
+    <div id="checks" class="checks"></div>
+    <div id="verdict" class="verdict">Checking…</div>
+    <button id="again" class="btn block secondary" hidden>Check again</button>
+    <a class="host-link" href="./">Back to the game</a>
+  </section>
+  <script type="module" src="js/tools/check.js"></script>
+</body>
+</html>

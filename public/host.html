@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Game Night · Big Screen</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-  <link rel="stylesheet" href="/css/base.css">
-  <link rel="stylesheet" href="/css/host.css">
-  <script src="/socket.io/socket.io.min.js"></script>
-  <script type="module" src="/js/host.js"></script>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/host.css">
+  <script type="module" src="js/host.js"></script>
 </head>
 <body>
   <section id="lobby" class="screen lobby">
@@ -23,6 +22,7 @@
         <img id="qr" class="qr" alt="QR code for joining">
         <div class="join-or">or go to</div>
         <div id="join-text" class="join-text"></div>
+        <div id="join-code" class="join-code" hidden></div>
         <div id="join-hint" class="join-hint"></div>
         <div id="join-local" class="join-local" hidden>On this Wi-Fi? <b id="join-local-text"></b> is faster</div>
       </aside>

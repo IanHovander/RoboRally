@@ -1,5 +1,5 @@
 // Small helpers for drawing screens. Games can import these:
-//   import { html } from '/js/ui.js';
+//   import { html } from '../../js/ui.js';   (from a game's host.js / player.js)
 
 class SafeHtml {
   constructor(text) { this.text = text; }

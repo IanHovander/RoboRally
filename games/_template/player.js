@@ -1,5 +1,5 @@
 // One phone. update(view) runs every time playerView() returns something new for this player.
-import { html } from '/js/ui.js';
+import { html } from '../../js/ui.js';
 
 export default function (root, api) {
   return {
