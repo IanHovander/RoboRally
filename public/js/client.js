@@ -1,11 +1,18 @@
 // Shared by the big screen (host.js) and the phones (play.js).
 import { html, loadCss, tickDeadlines, wireActions } from './ui.js';
 
-/** The server's clock, so countdowns agree on every device. */
+/**
+ * The server's clock, so countdowns agree on every device. Every couple of seconds we ask the
+ * server for its time; the answer that came back fastest is the most accurate, so we keep that one.
+ */
 export const clock = {
   offset: 0,
-  sync(serverNow) {
-    if (typeof serverNow === 'number') this.offset = serverNow - Date.now();
+  samples: [],
+  add(serverNow, sentAt, receivedAt) {
+    if (typeof serverNow !== 'number') return;
+    const rtt = receivedAt - sentAt;
+    this.samples = [...this.samples, { rtt, offset: serverNow + rtt / 2 - receivedAt }].slice(-15);
+    this.offset = this.samples.reduce((best, s) => (s.rtt < best.rtt ? s : best)).offset;
   },
   now() {
     return Date.now() + this.offset;
@@ -15,7 +22,43 @@ export const clock = {
 setInterval(() => tickDeadlines(document, clock.now()), 200);
 
 export function connect(auth) {
-  return window.io({ auth, reconnectionDelay: 500, reconnectionDelayMax: 2000 });
+  const socket = window.io({ auth, reconnectionDelay: 500, reconnectionDelayMax: 2000 });
+  const ask = () => {
+    if (!socket.connected) return;
+    const sentAt = Date.now();
+    socket.timeout(3000).emit('clock', (err, serverNow) => {
+      if (!err) clock.add(serverNow, sentAt, Date.now());
+    });
+  };
+  socket.on('connect', () => {
+    clock.samples = []; // a new connection may take a different route
+    for (const ms of [0, 300, 900]) setTimeout(ask, ms);
+  });
+  setInterval(ask, 2000);
+  return socket;
+}
+
+/**
+ * The server sends the shared room info ('room') and this screen's own part ('self') separately,
+ * each only when it changes. This puts them back together: onChange(state) gets
+ * { room, view, ... } once both have arrived, and again after every update.
+ */
+export function onState(socket, onChange) {
+  let room = null;
+  let self = null;
+  const changed = () => room && self && onChange({ room, ...self });
+  socket.on('room', (value) => {
+    room = value;
+    changed();
+  });
+  socket.on('self', (value) => {
+    self = value;
+    changed();
+  });
+  socket.on('disconnect', () => {
+    room = null; // a reconnect sends both again
+    self = null;
+  });
 }
 
 /** The `api` object every game screen receives. */

@@ -43,7 +43,13 @@ app.use('/games', express.static(path.join(ROOT, 'games'), { index: false, dotfi
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
 
 const httpServer = createServer(app);
-const io = new Server(httpServer, { pingInterval: 10_000, pingTimeout: 10_000 });
+const io = new Server(httpServer, {
+  // A phone that locks or loses signal is noticed within ~8 seconds (it rejoins in the same seat).
+  pingInterval: 3_000,
+  pingTimeout: 5_000,
+  // Game updates are repetitive JSON, so compressing them shrinks what a hotspot has to upload.
+  perMessageDeflate: { threshold: 512 },
+});
 const room = new Room(io, games);
 
 const localUrl = `http://localhost:${PORT}`;
@@ -96,7 +102,7 @@ function openBrowser(url) {
  * anyone can open. The game still runs here; Cloudflare just passes the traffic along.
  * The address is different every time.
  */
-function startTunnel() {
+function startTunnel(attempt = 1) {
   const exe = findCloudflared();
   if (!exe) {
     console.log('  cloudflared is not installed, so there is no internet link (Wi-Fi still works).');
@@ -104,12 +110,18 @@ function startTunnel() {
     console.log('  (Mac: brew install cloudflared). Then run  npm run online  again.\n');
     return;
   }
-  console.log('  Opening an internet link with cloudflared (takes a few seconds)...\n');
+  if (attempt === 1) {
+    console.log('  Opening an internet link with cloudflared (usually takes a few seconds, sometimes a minute)...\n');
+    process.on('SIGINT', () => process.exit(0));
+    process.on('SIGTERM', () => process.exit(0));
+  }
 
   const child = spawn(exe, ['tunnel', '--no-autoupdate', '--url', localUrl], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let url = null;
   let registered = false;
+  let started = false;
   let live = false;
+  let retired = false; // replaced by a fresh tunnel
   let recent = []; // cloudflared's last few lines, shown if something goes wrong
 
   const watch = (chunk) => {
@@ -117,15 +129,29 @@ function startTunnel() {
     recent = [...recent, ...text.split(/\r?\n/).filter(Boolean)].slice(-12);
     url ??= text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i)?.[0] ?? null;
     registered ||= /Registered tunnel connection/i.test(text);
-    if (url && registered && !live) {
-      live = true;
-      goLive(url);
-    }
+    if (!url || !registered || started) return;
+    started = true;
+    goLive(url).then((ok) => {
+      if (ok) {
+        live = true;
+        return;
+      }
+      retired = true;
+      child.kill();
+      if (attempt < 3) {
+        console.log('  Cloudflare never finished setting up that address. Trying a fresh one...\n');
+        startTunnel(attempt + 1);
+      } else {
+        console.log('  Gave up on the internet link after 3 tries. The Wi-Fi address still works.');
+        console.log('  Try  npm run online  again in a few minutes.\n');
+      }
+    });
   };
   child.stdout.on('data', watch);
   child.stderr.on('data', watch);
   child.on('error', (err) => console.error('  cloudflared failed to start:', err.message));
   child.on('exit', (code) => {
+    if (retired) return;
     if (live) {
       console.log('\n  The internet link closed. The QR code is back to the Wi-Fi address.\n');
       setJoinUrl(homeUrl);
@@ -136,37 +162,57 @@ function startTunnel() {
     }
   });
   process.on('exit', () => child.kill());
-  process.on('SIGINT', () => process.exit(0));
-  process.on('SIGTERM', () => process.exit(0));
 }
 
 /**
- * Point the QR code at the tunnel once its name exists. For a second or so after cloudflared prints
- * the address, DNS still says "no such name", and a phone that asks then can stay locked out for a
- * long time (the "no" gets remembered). So ask Cloudflare's own nameservers, which remember nothing,
- * until the name is there.
+ * Point the QR code at the tunnel once its name exists. After cloudflared prints the address,
+ * DNS can say "no such name" for a while (usually a second, sometimes over a minute), and a phone
+ * that asks then is locked out for a minute. So keep asking Cloudflare's own nameservers, which
+ * remember nothing, and only show the link once they know it.
+ * Resolves false if the name never appears (then the caller tries a fresh tunnel).
  */
 async function goLive(url) {
   const host = new URL(url).hostname;
-  let ready = false;
-  try {
-    const nameservers = await dns.resolveNs(host.split('.').slice(-2).join('.'));
-    const ips = (await Promise.all(nameservers.map((ns) => dns.resolve4(ns).catch(() => [])))).flat();
-    if (!ips.length) throw new Error('no nameserver addresses');
-    const authority = new dns.Resolver({ timeout: 1500, tries: 1 });
-    authority.setServers(ips);
-    for (let tries = 0; tries < 60 && !ready; tries++) {
-      ready = await authority.resolve4(host).then(() => true, () => false);
-      if (!ready) await sleep(500);
-    }
-  } catch {
-    // Can't ask the nameservers directly on this network: just give it plenty of time.
-  }
-  await sleep(ready ? 1500 : 10_000); // a little extra so every Cloudflare server has it
+  const found = await waitForName(host, 180_000);
+  if (found === 'no') return false;
+  // 'unknown': this network won't let us ask the nameservers directly, so just give it time.
+  await sleep(found === 'yes' ? 1500 : 20_000);
   await setJoinUrl(url);
   console.log(`  Internet link ready:  ${url}`);
   console.log('  The QR code on the big screen now points there, so phones can join from anywhere.');
   console.log('  This address changes each time you start. The big screen itself only works on this computer or your Wi-Fi.\n');
+  return true;
+}
+
+/** 'yes' once the name exists, 'no' if the nameservers kept saying it doesn't, 'unknown' if we couldn't ask them. */
+async function waitForName(host, timeoutMs) {
+  let authority;
+  try {
+    const nameservers = await dns.resolveNs(host.split('.').slice(-2).join('.'));
+    const ips = (await Promise.all(nameservers.map((ns) => dns.resolve4(ns).catch(() => [])))).flat();
+    if (!ips.length) return 'unknown';
+    authority = new dns.Resolver({ timeout: 1500, tries: 1 });
+    authority.setServers(ips);
+  } catch {
+    return 'unknown';
+  }
+  const start = Date.now();
+  let answered = false;
+  let nagged = false;
+  while (Date.now() - start < timeoutMs) {
+    try {
+      await authority.resolve4(host);
+      return 'yes';
+    } catch (err) {
+      if (err.code === 'ENOTFOUND' || err.code === 'ENODATA') answered = true;
+    }
+    if (!nagged && Date.now() - start > 15_000) {
+      nagged = true;
+      console.log('  Still waiting for Cloudflare to publish the address...');
+    }
+    await sleep(1000);
+  }
+  return answered ? 'no' : 'unknown';
 }
 
 function sleep(ms) {

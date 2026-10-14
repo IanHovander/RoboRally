@@ -14,6 +14,19 @@
   gap: 1rem;
   height: clamp(1.8rem, calc((100vh - 16rem) / var(--n) - 1rem), 4.2rem);
 }
+.tr-lanes.two-col {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--n), auto);
+  grid-template-columns: 1fr 1fr;
+  align-content: center;
+  column-gap: 2.5rem;
+  row-gap: clamp(0.2rem, 0.9vh, 0.6rem);
+}
+.tr-lanes.two-col .tr-lane { grid-template-columns: 7rem 1fr 2.6rem; gap: 0.7rem; height: clamp(1.4rem, calc((100vh - 15rem) / var(--n) - 0.6rem), 3.2rem); }
+.tr-lanes.two-col .tr-name { font-size: 1.05rem; }
+.tr-lanes.two-col .tr-taps { font-size: 1.1rem; }
+.tr-lanes.two-col .tr-runner { font-size: 0.85rem; }
 .tr-name { text-align: right; font-weight: 900; font-size: 1.3rem; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tr-taps { font-weight: 900; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 .tr-track { position: relative; height: 100%; border-radius: 999px; background: rgba(255, 255, 255, 0.06); }

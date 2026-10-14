@@ -10,7 +10,7 @@ export default function (root) {
       const fresh = shown !== `${v.round}:${v.phase}`;
       shown = `${v.round}:${v.phase}`;
       root.innerHTML = html`
-        <div class="ooo-host ${fresh && 'fresh'}">
+        <div class="ooo-host ${fresh && 'fresh'} ${v.players.length > 12 && 'many'}">
           <header class="ooo-head">
             <span class="ooo-round">Round ${v.round}</span>
             <span class="ooo-cat">Category: <b>${v.category}</b></span>
@@ -62,6 +62,8 @@ function body(v) {
   // result
   const { caught, word, spy } = v.result;
   const ranked = [...v.players].sort((a, b) => b.score - a.score);
+  const TOP = 10; // with a big group, show the leaders; everyone sees their own score on their phone
+  const more = ranked.length - TOP;
   return html`
     <div class="ooo-reveal">
       <div class="ooo-reveal-main">
@@ -82,7 +84,7 @@ function body(v) {
       </div>
       <aside class="ooo-scores">
         <h2>Scores</h2>
-        ${ranked.map(
+        ${ranked.slice(0, TOP).map(
           (p) => html`
             <div class="ooo-score" style="--c:${p.color}">
               <span class="pc">${p.name}</span>
@@ -90,6 +92,7 @@ function body(v) {
               <b>${p.score}</b>
             </div>`,
         )}
+        ${more > 0 && html`<div class="muted small">…and ${more} more</div>`}
         <button class="btn btn-xl block" data-action="next">Next round ▸</button>
       </aside>
     </div>`;

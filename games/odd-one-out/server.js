@@ -12,7 +12,7 @@ export default {
   name: 'Odd One Out',
   description: "Everyone gets the same secret word except the spy. Give a clue, then vote out the spy!",
   minPlayers: 3,
-  maxPlayers: 12,
+  maxPlayers: 24,
 
   setup(ctx) {
     ctx.state = { round: 0, scores: {}, usedWords: [], spyId: null };

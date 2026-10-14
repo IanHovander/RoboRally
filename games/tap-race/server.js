@@ -8,7 +8,7 @@ export default {
   name: 'Tap Race',
   description: 'Tap your phone as fast as you can. First to the finish line wins!',
   minPlayers: 1,
-  maxPlayers: 16,
+  maxPlayers: 32,
 
   // Runs when the game starts. Returns the starting state.
   setup(ctx) {

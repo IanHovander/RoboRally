@@ -45,6 +45,16 @@
 .ooo-badge { min-height: 1.2em; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .ooo-clue.spy { background: color-mix(in srgb, var(--c) 22%, transparent); outline: 3px solid var(--accent); }
 
+/* Big groups (13+): smaller cards so everyone fits on one screen */
+.many .ooo-body { gap: 1.4rem; }
+.many .ooo-title h1 { font-size: 2.6rem; }
+.many .ooo-status, .many .ooo-clues { grid-template-columns: repeat(auto-fit, minmax(10.5rem, 14rem)); gap: 0.7rem; }
+.many .ooo-player, .many .ooo-clue { padding: 0.7rem 0.9rem; }
+.many .ooo-player-name { font-size: 1.3rem; }
+.many .ooo-clue-name { font-size: 0.95rem; }
+.many .ooo-clue-text { font-size: 1.7rem; }
+.many .ooo-reveal { grid-template-columns: 1fr 16rem; }
+
 .ooo-reveal { display: grid; grid-template-columns: 1fr 20rem; gap: 2rem; align-items: start; }
 .ooo-reveal-main { display: flex; flex-direction: column; gap: 1.6rem; }
 .ooo-scores { display: flex; flex-direction: column; gap: 0.6rem; padding: 1.2rem; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); }

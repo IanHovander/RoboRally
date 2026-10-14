@@ -6,10 +6,14 @@ const COLORS = [
   '#22d3ee', '#f783ac', '#a9e34b', '#9775fa', '#20c997', '#ffa8a8',
   '#74c0fc', '#e599f7', '#fab005', '#94d82d', '#ff8787', '#63e6be',
   '#ffc078', '#b197fc', '#66d9e8', '#d8f5a2', '#faa2c1', '#91a7ff',
+  '#f06595', '#38d9a9', '#ffe066', '#748ffc', '#ff6b6b', '#8ce99a',
+  '#da77f2', '#ffa94d',
 ];
-const MAX_PLAYERS = 24;
+const MAX_PLAYERS = 32;
 const MAX_NAME = 16;
-const SYNC_EVERY_MS = 33; // at most ~30 screen updates per second
+const SYNC_EVERY_MS = 33; // the big screen gets up to ~30 updates a second...
+const PHONE_EVERY_MS = 66; // ...each phone up to ~15, which keeps a hotspot's upload small
+const BIG_MESSAGE = 15_000; // WebRTC can't carry messages over 16 KB, so warn well before that
 
 /**
  * The room is everything the server knows: who's connected, whether we're in the
@@ -17,11 +21,13 @@ const SYNC_EVERY_MS = 33; // at most ~30 screen updates per second
  * each screen should see and sends it.
  *
  * Messages from browsers:
- *   'join'   {name}                 a phone joins with a name
+ *   'join'   {name, token}          a phone joins with a name (token: from an earlier visit, if any)
  *   'action' {type, payload}        a phone (or the big screen) does something in the game
  *   'lobby'  {cmd, ...}             select / start / restart / end / kick
- * Messages to browsers:
- *   'state'  json, serverNow        everything that screen needs to draw itself
+ *   'clock'                         asks for the server's time (keeps countdowns in sync)
+ * Messages to browsers (each only when it changed):
+ *   'room'   {...}                  what everyone shares: players, games, which screen
+ *   'self'   {view, ...}            this screen's own game view (phones also get `you`, `inGame`)
  *   'session' {token, name}         a phone's key for getting its seat back after a reconnect
  *   'join-info' {url, text, qr}     (big screen only) where phones should go
  *   'kicked' / 'replaced'           this phone was removed / opened somewhere else
@@ -31,6 +37,7 @@ export class Room {
   constructor(io, games) {
     this.io = io;
     this.games = games;
+    this.conns = new Map(); // connection id -> connection (socket)
     this.players = new Map(); // id -> { id, token, name, color, connected, socketId }
     this.join = { url: '', text: '', qr: '' };
     this.screen = 'lobby';
@@ -38,16 +45,18 @@ export class Room {
     this.game = null;
     this.gameCount = 0;
     this.lastResult = null;
-    this.lastSent = new Map(); // socket.id -> the JSON we last sent it (so unchanged views aren't re-sent)
+    this.sent = new Map(); // connection id -> { room, self, at }: what it was last sent, so nothing is sent twice
     this.syncTimer = null;
     this.lastSyncAt = 0;
+    this.vip = undefined; // cached vipId(); undefined = work it out again
+    this.warnedBig = false;
     io.on('connection', (socket) => guard('connection', () => this.onConnection(socket)));
   }
 
   setJoin(join) {
     this.join = join;
-    for (const socket of this.io.sockets.sockets.values()) {
-      if (socket.data.role === 'host') socket.emit('join-info', join);
+    for (const conn of this.conns.values()) {
+      if (conn.data.role === 'host') conn.emit('join-info', join);
     }
     this.scheduleSync();
   }
@@ -55,6 +64,8 @@ export class Room {
   // ---------- connections ----------
 
   onConnection(socket) {
+    // How far behind its connection is; skipped phones get the latest view once it catches up.
+    socket.canSend ??= () => (socket.conn?.writeBuffer?.length ?? 0) < 32;
     const auth = socket.handshake.auth ?? {};
     if (auth.role === 'host') {
       // The big screen can kick players and end games, so it only works from this computer or
@@ -71,9 +82,14 @@ export class Room {
       // A phone that has played before sends its token so it gets its seat back.
       if (typeof auth.token === 'string') this.attach(socket, auth.token, auth.name);
     }
+    this.conns.set(socket.id, socket);
     socket.on('join', (msg, ack) => guard('join', () => reply(ack, this.onJoin(socket, msg))));
     socket.on('action', (msg, ack) => guard('action', () => reply(ack, this.onAction(socket, msg))));
     socket.on('lobby', (msg) => guard('lobby', () => this.onLobby(socket, msg)));
+    socket.on('clock', (...args) => {
+      const ack = args.at(-1);
+      if (typeof ack === 'function') ack(Date.now());
+    });
     socket.on('disconnect', () => guard('disconnect', () => this.onDisconnect(socket)));
     this.scheduleSync();
   }
@@ -81,16 +97,23 @@ export class Room {
   onJoin(socket, msg) {
     if (socket.data.role !== 'player') return { ok: false, error: 'Only phones can join' };
     if (this.players.has(socket.data.playerId)) return { ok: true };
-    return this.attach(socket, null, msg?.name);
+    return this.attach(socket, null, msg?.name, msg?.token);
   }
 
-  attach(socket, token, rawName) {
+  /**
+   * Seat a phone. `token` (from the connection) gets a returning phone its seat straight back.
+   * Otherwise it joins by name; `lastToken` is the token this phone had before (e.g. the QR code
+   * was scanned again and opened a new tab), which lets it take over its own seat even if the
+   * old tab still looks connected.
+   */
+  attach(socket, token, rawName, lastToken) {
     let player = token ? this.find((p) => p.token === token) : null;
     if (!player) {
       const name = cleanName(rawName);
       if (!name) return { ok: false, error: 'Type your name first' };
       const sameName = this.find((p) => p.name.toLowerCase() === name.toLowerCase());
-      if (sameName?.connected) return { ok: false, error: `Someone here is already called "${sameName.name}"` };
+      const isMine = sameName && typeof lastToken === 'string' && lastToken === sameName.token;
+      if (sameName?.connected && !isMine) return { ok: false, error: `Someone here is already called "${sameName.name}"` };
       if (sameName) {
         player = sameName; // came back from a new tab or device: give them their old seat
       } else {
@@ -102,7 +125,7 @@ export class Room {
 
     // Still attached to an older connection (e.g. a duplicated tab)? Retire that one.
     if (player.socketId && player.socketId !== socket.id) {
-      const old = this.io.sockets.sockets.get(player.socketId);
+      const old = this.conns.get(player.socketId);
       if (old) {
         old.data.playerId = null;
         old.emit('replaced');
@@ -112,6 +135,7 @@ export class Room {
     const wasConnected = player.connected;
     player.connected = true;
     player.socketId = socket.id;
+    this.vip = undefined;
     socket.data.playerId = player.id;
     socket.emit('session', { token: player.token, name: player.name });
 
@@ -128,11 +152,13 @@ export class Room {
   }
 
   onDisconnect(socket) {
-    this.lastSent.delete(socket.id);
+    this.conns.delete(socket.id);
+    this.sent.delete(socket.id);
     const player = this.players.get(socket.data.playerId);
     if (!player || player.socketId !== socket.id) return;
     player.connected = false;
     player.socketId = null;
+    this.vip = undefined;
     if (this.game?.participants.has(player.id)) this.game.call('onDisconnect', this.publicPlayer(player.id));
     this.scheduleSync();
   }
@@ -148,13 +174,14 @@ export class Room {
   kick(id) {
     const player = this.players.get(id);
     if (!player) return;
-    const socket = player.socketId && this.io.sockets.sockets.get(player.socketId);
+    const socket = player.socketId && this.conns.get(player.socketId);
     if (socket) {
       socket.data.playerId = null;
       socket.emit('kicked');
       socket.disconnect();
     }
     this.players.delete(id);
+    this.vip = undefined;
   }
 
   find(test) {
@@ -168,7 +195,8 @@ export class Room {
 
   /** The first connected player is the VIP: they can pick and start games from their phone. */
   vipId() {
-    return this.find((p) => p.connected)?.id ?? null;
+    this.vip ??= this.find((p) => p.connected)?.id ?? null;
+    return this.vip;
   }
 
   /** The player info that's safe to share with everyone. */
@@ -292,35 +320,68 @@ export class Room {
     };
   }
 
+  /**
+   * Send every screen what changed since it was last sent anything. The shared room info and each
+   * screen's own view travel separately, so a busy game only sends small per-player views.
+   * Phones are capped at ~15 updates a second; a phone that's due an update but capped (or whose
+   * connection is backed up) gets the latest one on a later pass.
+   */
   sync() {
+    const now = Date.now();
     const g = this.game;
     const room = this.meta();
-    const hostView = g ? g.view('hostView', () => (g.def.hostView ? g.def.hostView.call(g.def, g.ctx) : g.state)) : null;
+    const roomJson = this.encode(room, 'the room info');
+    const hostSelf = {
+      view: g ? g.view('hostView', () => (g.def.hostView ? g.def.hostView.call(g.def, g.ctx) : g.state)) : null,
+      error: g?.lastError ?? null,
+    };
+    const hostJson = this.encode(hostSelf, 'hostView');
+    let behind = false;
 
-    for (const socket of this.io.sockets.sockets.values()) {
-      if (socket.data.role === 'host') {
-        this.send(socket, { room, view: hostView, error: g?.lastError ?? null });
-      } else if (socket.data.role === 'player') {
-        const you = this.publicPlayer(socket.data.playerId);
+    for (const conn of this.conns.values()) {
+      const role = conn.data.role;
+      if (role !== 'host' && role !== 'player') continue;
+      let self = hostSelf;
+      let selfJson = hostJson;
+      if (role === 'player') {
+        const you = this.publicPlayer(conn.data.playerId);
         const inGame = !!(g && you && g.participants.has(you.id));
         const view = inGame
           ? g.view('playerView', () => (g.def.playerView ? g.def.playerView.call(g.def, g.ctx, you) : g.state))
           : null;
-        this.send(socket, { room, you, inGame, view });
+        self = { you, inGame, view };
+        selfJson = this.encode(self, 'playerView');
       }
+
+      const sent = this.sent.get(conn.id) ?? { room: null, self: null, at: 0 };
+      const roomChanged = roomJson !== null && roomJson !== sent.room;
+      const selfChanged = selfJson !== null && selfJson !== sent.self;
+      if (!roomChanged && !selfChanged) continue;
+      if ((role === 'player' && now - sent.at < PHONE_EVERY_MS) || conn.canSend?.() === false) {
+        behind = true;
+        continue;
+      }
+      if (roomChanged) conn.emit('room', room);
+      if (selfChanged) conn.emit('self', self);
+      this.sent.set(conn.id, { room: roomJson, self: selfJson, at: now });
     }
+    if (behind) this.scheduleSync();
   }
 
-  send(socket, payload) {
+  /** JSON for comparing with what was sent last time (null if it can't be sent at all). */
+  encode(value, label) {
     let json;
     try {
-      json = JSON.stringify(payload);
+      json = JSON.stringify(value);
     } catch (err) {
-      return this.game?.report('a view (views must be plain data)', err);
+      this.game?.report(`${label} (views must be plain data)`, err);
+      return null;
     }
-    if (this.lastSent.get(socket.id) === json) return;
-    this.lastSent.set(socket.id, json);
-    socket.emit('state', json, Date.now());
+    if (json.length > BIG_MESSAGE && !this.warnedBig) {
+      this.warnedBig = true;
+      console.warn(`[room] ${label} is ${Math.round(json.length / 1024)} KB. Keep views small: phones on WebRTC can't receive more than 16 KB at once.`);
+    }
+    return json;
   }
 }
 

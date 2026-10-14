@@ -33,7 +33,10 @@ export default function (root) {
             : '';
       }
 
-      lanesEl.style.setProperty('--n', view.lanes.length);
+      // More than 12 runners: two columns of lanes, so everyone still fits on one screen.
+      const twoColumns = view.lanes.length > 12;
+      lanesEl.classList.toggle('two-col', twoColumns);
+      lanesEl.style.setProperty('--n', twoColumns ? Math.ceil(view.lanes.length / 2) : view.lanes.length);
       const present = new Set();
       for (const lane of view.lanes) {
         present.add(lane.id);

@@ -1,9 +1,10 @@
 // The phone: join with a name, wait in the lobby, then show the game's player view.
 import { html } from './ui.js';
-import { clock, connect, createApi, GameStage } from './client.js';
+import { connect, createApi, GameStage, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
-const TOKEN = 'gamenight.token'; // per tab, so several tabs on one laptop can be different players
+const TOKEN = 'gamenight.token'; // per tab (sessionStorage), so several tabs on one laptop can be different players
+const LAST_TOKEN = 'gamenight.lastToken'; // per phone (localStorage): lets a new tab take back this phone's seat
 const NAME = 'gamenight.name';
 const SCREENS = ['connecting', 'join', 'wait', 'game', 'notice'];
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -32,17 +33,18 @@ socket.on('connect', () => ($('offline').hidden = true));
 socket.on('disconnect', () => ($('offline').hidden = !!notice || !state));
 socket.on('session', ({ token, name }) => {
   store.set('sessionStorage', TOKEN, token);
+  store.set('localStorage', LAST_TOKEN, token);
   store.set('localStorage', NAME, name);
 });
-socket.on('state', (json, serverNow) => {
-  clock.sync(serverNow);
+onState(socket, (next) => {
   const hadYou = !!state?.you;
-  state = JSON.parse(json);
+  state = next;
   if (!hadYou && state.you) keepAwake();
   render();
 });
 socket.on('kicked', () => {
   store.set('sessionStorage', TOKEN, null);
+  store.set('localStorage', LAST_TOKEN, null);
   showNotice('You were removed', 'The host took you out of the room.', 'Join again');
 });
 socket.on('replaced', () => {
@@ -59,9 +61,10 @@ $('join-form').addEventListener('submit', (e) => {
   if (!name) return $('name').focus();
   const button = $('join-btn');
   button.disabled = true;
-  socket.timeout(8000).emit('join', { name }, (err, res) => {
+  const token = store.get('localStorage', LAST_TOKEN);
+  socket.timeout(8000).emit('join', { name, token }, (err, res) => {
     button.disabled = false;
-    if (err) return joinError("Couldn't reach the game. Check you're on the same Wi-Fi and try again.");
+    if (err) return joinError("Couldn't reach the game. Check your connection and try again.");
     if (!res?.ok) return joinError(res?.error || "Couldn't join");
     $('join-error').hidden = true;
   });

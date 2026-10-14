@@ -1,6 +1,6 @@
 // The big screen (laptop / TV): lobby with QR code, then the game's host view.
 import { html } from './ui.js';
-import { clock, connect, createApi, GameStage } from './client.js';
+import { connect, createApi, GameStage, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
@@ -23,9 +23,8 @@ socket.on('host-denied', () => {
       <a class="btn btn-xl" href="/">Join as a player instead</a>
     </div>`;
 });
-socket.on('state', (json, serverNow) => {
-  clock.sync(serverNow);
-  state = JSON.parse(json);
+onState(socket, (next) => {
+  state = next;
   render();
 });
 
