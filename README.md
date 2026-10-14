@@ -39,6 +39,9 @@ relay server (Metered). Its login is **built into `public/js/config.js`, and it 
 read it, and the worst they can do is use up the free relay allowance (20 GB a month). If that happens, make a
 new login in the Metered dashboard (that turns the old one off) and put it in `config.js`.
 
+**Copies of this project are welcome to use it.** Leave `turnLogin` as it is: if it's ever replaced here, syncing a
+copy with this repo brings in the new one. (`docs/adding-a-game.md`, section 2.)
+
 To use a different login on one computer, click **Relay** at the bottom of the big screen's lobby. It's kept in
 that browser only, and "Forget it" goes back to the built-in one.
 

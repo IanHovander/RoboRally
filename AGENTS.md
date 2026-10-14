@@ -20,7 +20,7 @@ tunnel), and `npm start` (Node, same Wi-Fi only).
   - `npm run online`: laptop server plus internet link.
 - **Pushing to `main` publishes the website** (GitHub Actions → Pages). Test first (docs, section 6). Never push on
   the day of an event.
-- **`public/js/config.js` contains a relay (TURN) login that is public on purpose** (the owner's choice for this
-  site). Don't reuse it elsewhere; copies of this project use their own (docs, section 2).
+- **`public/js/config.js` contains a shared relay (TURN) login that is public on purpose.** Copies of this project
+  are welcome to use it. Leave it unchanged, so a replacement arrives by syncing (docs, section 2).
 - Ask the human before outward-facing steps (creating repos, pushing, account settings), and let them do
   their own logins.

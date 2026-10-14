@@ -110,21 +110,23 @@ Edit `public/js/config.js`:
 1. **`idPrefix`:** change it to something unique, such as `'gamenight-' + 6 random letters + '-'`.
    - **Why:** every copy of Game Night registers room codes on the same free PeerJS server (`0.peerjs.com`).
      With the same prefix, a phone from one site could end up in a big screen from the other, which may have different games.
-2. **`turnLogin`:** this is **the original owner's** Metered relay login, made public on purpose for *his* site.
-   **Don't use it for the owner's copy** unless the original owner agrees.
-   - **👤 Owner:** create a free account at https://www.metered.ca, open TURN Server → Credentials, and add a credential.
-   - **Agent:** put its username and password ("credential") in `turnLogin`. If the dashboard shows different relay addresses, copy them into `turnUrls` too.
-   - Whatever goes here is **public** (it ships in the website). The worst case is someone using up the free relay
-     allowance (20 GB a month); the fix is to make a new credential in Metered and update `config.js`.
-     Make sure the owner understands that before you commit it.
-   - With no relay login, the site still works, but phones on mobile data often can't connect, and the big screen shows a warning.
-     A big screen can also get a private login with its **Relay** button (kept in that browser only).
+2. **`turnLogin`: leave it as it is.** It's the original owner's Metered relay login, shared on purpose so every
+   copy works out of the box, including for phones on mobile data.
+   - **Don't change it.** If the original owner ever replaces the login, syncing your copy brings in the new one (section 9).
+     If the relay checks in `check.html` suddenly turn red, sync first.
+   - **It's a shared free allowance** of 20 GB a month across everyone using it. A busy game night uses at most a few
+     hundred MB, so it's plenty for normal use.
+   - **Optional: the owner's own relay**, for large or frequent events, or to be independent.
+     - **👤 Owner:** create a free account at https://www.metered.ca, open TURN Server → Credentials, and add a credential.
+     - **Agent:** put its username and password ("credential") in `turnLogin`, and the relay addresses from the dashboard in `turnUrls`.
+     - Whatever is in `config.js` is public (it ships in the website). The worst case is someone using up that
+       allowance; the fix is a new credential in Metered.
+     - A single big screen can also use a private login with its **Relay** button (kept in that browser only).
 
 Also replace `ianhovander.github.io` in `README.md` with the owner's address: `https://<owner>.github.io/game-night/`.
 If you renamed the repo, use that name; all paths are relative, so any repo name works.
 
-**Commit these on their own** ("Make this copy ours: room prefix and relay login"), separate from the game.
-Section 8 explains why.
+**Commit this on its own** ("Make this copy ours: room code prefix"), separate from the game. Section 8 explains why.
 
 ---
 
@@ -477,8 +479,9 @@ git pull
 
 Alternatively: `git fetch upstream && git merge upstream/main`.
 
-Then repeat the tests in section 6. Conflicts, if any, are usually only in `config.js` or the README: keep the
-owner's `idPrefix` and relay login.
+Then repeat the tests in section 6. Conflicts, if any, are usually only in `config.js` or the README:
+- **Keep** the owner's `idPrefix`.
+- **Take the original's `turnLogin`**, unless the owner set up their own relay. That's how a replaced shared relay login reaches every copy.
 
 ## 10. Troubleshooting
 
