@@ -1,0 +1,74 @@
+/* The lobby's rule film (big screen): a phone beside the glass board. Prefix lf-. */
+
+.lesson-stage { transition: opacity .7s ease; }
+
+.lf-phone {
+  --c: var(--light);
+  position: absolute;
+  left: 4.2vw;
+  top: 50%;
+  width: clamp(10.5rem, 14.5vw, 19rem);
+  aspect-ratio: 9 / 17;
+  transform: translateY(-50%);
+  padding: 2.2rem 1rem 1.2rem;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 1rem;
+  border-radius: 2.2rem;
+  border: 1px solid rgba(244, 239, 228, .28);
+  background: linear-gradient(170deg, rgba(26, 32, 41, .8), rgba(10, 13, 18, .85));
+  box-shadow: 0 2rem 4rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .03);
+  opacity: 0;
+  transition: opacity .8s ease, transform .8s cubic-bezier(.2, .8, .2, 1);
+}
+.lf-phone::before { /* the speaker slot */
+  content: ""; position: absolute; top: .9rem; left: 50%; width: 2.6rem; height: .28rem; margin-left: -1.3rem;
+  border-radius: 1rem; background: rgba(244, 239, 228, .14);
+}
+.lf-phone.show { opacity: 1; }
+.lf-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: .35rem; }
+.lf-slots i {
+  display: grid; place-items: center; aspect-ratio: 3 / 4; border-radius: .45rem;
+  border: 1px dashed rgba(244, 239, 228, .28);
+  transition: transform .45s cubic-bezier(.2, .8, .2, 1), box-shadow .45s, opacity .45s, border-color .3s;
+}
+.lf-slots i.full { border: 0; }
+.lf-slots .lm-card { width: 100%; height: 100%; border-radius: .45rem; box-shadow: 0 0 .8rem rgba(244, 239, 228, .3); }
+.lf-phone.locked .lf-slots i.full .lm-card { box-shadow: 0 0 1rem color-mix(in srgb, var(--c) 70%, transparent), 0 0 0 2px var(--c); }
+.lf-slots i.now { transform: translateY(-.35rem) scale(1.12); }
+.lf-slots i.now .lm-card { box-shadow: 0 0 1.6rem var(--c), 0 0 0 2px var(--c); }
+.lf-slots i.done { opacity: .3; }
+
+.lf-hand { display: grid; grid-template-columns: repeat(4, 1fr); align-content: end; gap: .4rem; padding-bottom: .2rem; }
+.lf-card {
+  position: relative; z-index: 1; aspect-ratio: 3 / 4;
+  opacity: 0; transform: translateY(1.5rem);
+  transition: transform .45s cubic-bezier(.3, .7, .2, 1), opacity .4s;
+}
+.lf-phone.show .lf-card { opacity: 1; transform: none; transition-delay: calc(var(--n) * 70ms); }
+.lf-phone.show .lf-card.flying { transition-delay: 0s; z-index: 3; }
+.lf-card.gone { opacity: 0 !important; transition: opacity .15s !important; }
+.lf-card .lm-card { width: 100%; height: 100%; border-radius: .45rem; }
+.lf-lock {
+  justify-self: center; display: grid; place-items: center; width: 70%; height: 2.4rem; border-radius: 2rem;
+  border: 1px solid rgba(244, 239, 228, .25); color: var(--faint);
+  transition: all .5s cubic-bezier(.2, .8, .2, 1);
+}
+.lf-lock .lm-g { width: 1.5rem; height: 1.5rem; }
+.lf-phone.locked .lf-lock { background: var(--c); border-color: var(--c); color: var(--ink); box-shadow: 0 0 1.6rem color-mix(in srgb, var(--c) 60%, transparent); }
+.lf-phone.run .lf-hand, .lf-phone.run .lf-lock { opacity: .25; transition: opacity .8s; }
+
+.lf-finger {
+  position: absolute; left: 0; top: 0; z-index: 5; width: 1.9rem; height: 1.9rem; margin: -.95rem 0 0 -.95rem;
+  border-radius: 50%; background: rgba(244, 239, 228, .28); border: 1.5px solid rgba(244, 239, 228, .85);
+  box-shadow: 0 0 1.2rem rgba(244, 239, 228, .45);
+  opacity: 0; transition: transform .42s cubic-bezier(.4, .1, .2, 1), opacity .3s, scale .15s;
+}
+.lf-finger.on { opacity: 1; }
+.lf-finger.press { scale: .72; background: rgba(244, 239, 228, .6); }
+
+.lf-dots { position: absolute; left: 50%; bottom: 2.4rem; display: flex; gap: .55rem; transform: translateX(calc(-50% - 13vw)); }
+.lf-dots i { width: .4rem; height: .4rem; border-radius: 50%; background: rgba(244, 239, 228, .2); transition: all .6s; }
+.lf-dots i.on { width: 1.6rem; border-radius: 1rem; background: rgba(244, 239, 228, .7); }
+
+@media (prefers-reduced-motion: reduce) { .lf-finger { display: none; } }

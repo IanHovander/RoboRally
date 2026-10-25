@@ -1,0 +1,137 @@
+/* Phones: big touch targets, no zooming or text selection getting in the way. */
+
+html.phone { font-size: 17px; }
+.phone body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+.phone input { -webkit-user-select: text; user-select: text; }
+
+.phone .screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: max(1.2rem, env(safe-area-inset-top)) 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+}
+.center-screen { align-items: center; justify-content: center; text-align: center; }
+.phone .logo { --icon: 4.6rem; }
+
+/* Connecting: the panther breathes */
+.spinner {
+  width: 3.4rem;
+  height: 4rem;
+  background: var(--white);
+  -webkit-mask: url("../img/panther.png") center / contain no-repeat;
+  mask: url("../img/panther.png") center / contain no-repeat;
+  animation: breathe 1.2s ease-in-out infinite;
+}
+@keyframes breathe { 50% { opacity: 0.35; transform: scale(0.94); } }
+
+/* ---------- Join ---------- */
+
+.bot-parade { display: flex; align-items: flex-end; gap: 0.3rem; max-width: 100%; margin-top: 0.6rem; }
+.bot-parade .bot { width: min(3.9rem, 16vw); height: auto; aspect-ratio: 1; }
+.bot-parade .bot:nth-child(3) { width: min(4.8rem, 20vw); }
+
+.join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.6rem; }
+.join-form label { font-family: var(--display); font-size: 2.1rem; line-height: 1; }
+.phone input[type], .phone input:not([type]) {
+  --cut: 0.7rem;
+  width: 100%;
+  padding: 0.5rem 1rem 0.3rem;
+  font-family: var(--display);
+  font-size: 2.2rem; /* 16px+ stops iPhones from zooming in */
+  font-weight: 400;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--field-ink);
+  background: var(--field);
+  border: 0;
+  border-bottom: 0.3rem solid var(--field-edge);
+  border-radius: 0;
+  outline: none;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.phone input:focus { border-bottom-color: var(--field-focus); }
+.phone .code-input { letter-spacing: 0.3em; text-transform: uppercase; }
+.form-error { padding: 0.4em 0.7em; background: var(--band); color: var(--white); font-weight: 700; }
+.host-link { color: var(--muted); font-size: 0.9rem; margin-top: 1.5rem; }
+
+/* ---------- Waiting room ---------- */
+
+.me-card {
+  --cut: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.8rem 1.1rem 0.7rem 0.8rem;
+  background: var(--panel-solid);
+  border-left: 0.4rem solid var(--me);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.me-card .bot { width: 5.4rem; height: 5.4rem; margin: -0.5rem 0; }
+.me-name { font-family: var(--display); font-size: 2.6rem; font-weight: 400; line-height: 1; padding-top: 0.12em; }
+#wait-title, #wait-msg { text-align: center; }
+#wait-title { font-size: 3.4rem; }
+#wait-title.bar-title::before { left: 50%; transform: translateX(-50%); }
+.vip { display: flex; flex-direction: column; gap: 0.8rem; }
+.vip h2 { margin: 0; }
+
+/* phone sections are centered: the label, the text under it, and what's in it */
+.phone .panel { text-align: center; }
+.phone .panel h2 { width: fit-content; margin-inline: auto; }
+.phone .panel h2::before { left: 50%; transform: translateX(-50%); }
+.phone .panel .player-chips { justify-content: center; }
+.vip-games { display: flex; flex-direction: column; gap: 0.5rem; }
+.vip-game {
+  --cut: 0.7rem;
+  padding: 0.75rem 1rem 0.5rem;
+  border: 0;
+  border-left: 0.3rem solid transparent;
+  background: var(--card);
+  font-family: var(--display);
+  font-size: 1.7rem;
+  line-height: 1;
+  text-align: center;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.vip-game.selected { background: var(--pick); border-left-color: var(--pick-edge); color: var(--pick-ink); }
+
+/* ---------- In a game ---------- */
+
+.phone .game-screen { padding: 0; gap: 0; height: 100vh; height: 100dvh; }
+.phone-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1rem 0.4rem;
+  padding-top: max(0.45rem, env(safe-area-inset-top));
+  background: var(--black);
+  border-bottom: 0.2rem solid var(--me);
+}
+.phone-bar .bot { width: 2.9rem; height: 2.9rem; margin: -0.3rem 0; }
+.bar-name { font-family: var(--display); font-size: 1.7rem; line-height: 1; padding-top: 0.12em; }
+.bar-btn { border: 0; background: var(--off-black); border-radius: var(--radius); padding: 0.3rem 0.7rem; font-weight: 700; letter-spacing: 0.1em; }
+.spacer { flex: 1; }
+.phone .stage { flex: 1; min-height: 0; overflow: auto; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.2rem 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+  background: var(--black);
+  border-top: 0.3rem solid var(--stripe);
+  box-shadow: 0 -1rem 3rem rgba(0, 0, 0, 0.6);
+}

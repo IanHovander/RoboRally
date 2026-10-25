@@ -1,0 +1,2 @@
+roboto-var.woff is a Latin subset of Roboto (Google), the variable release with weight 100-900 and width 75-100,
+converted to WOFF. Roboto is licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org

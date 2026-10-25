@@ -1,0 +1,126 @@
+/* Phones: big touch targets, nothing to read, no zooming or text selection getting in the way. */
+
+html.phone { font-size: 17px; }
+.phone body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+.phone input { -webkit-user-select: text; user-select: text; }
+
+.phone .screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: max(1.2rem, env(safe-area-inset-top)) 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+}
+.center-screen { align-items: center; justify-content: center; text-align: center; }
+.phone .wordmark { font-size: 3.2rem; }
+
+/* Connecting: a card flipping over and over */
+.paper-spin { width: 3.6rem; height: 5rem; perspective: 20rem; }
+.paper-spin i { display: block; width: 100%; height: 100%; border-radius: 0.6rem; background: var(--grain) 0 0 / 240px, var(--paper); box-shadow: var(--lift); animation: card-spin 1.4s cubic-bezier(0.5, 0, 0.3, 1) infinite; }
+@keyframes card-spin { 50% { transform: rotateY(180deg); background-color: var(--mustard); } 100% { transform: rotateY(360deg); } }
+.host-link { color: var(--muted); font-size: 0.9rem; }
+.foot-links { display: flex; gap: 1.4rem; margin-top: 1.5rem; }
+
+/* ---------- Join ---------- */
+
+.bot-parade { display: flex; align-items: flex-end; gap: 0.2rem; max-width: 100%; margin: 0.4rem 0 0.2rem; }
+.bot-parade .bot { width: min(3.9rem, 16vw); height: auto; aspect-ratio: 1; }
+.bot-parade .bot:nth-child(3) { width: min(4.8rem, 20vw); }
+
+.join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 1rem; margin-top: 1.2rem; }
+.phone input[type], .phone input:not([type]) {
+  width: 100%;
+  min-height: 64px;
+  padding: 0.5rem 1rem;
+  font-family: var(--display);
+  font-size: 1.9rem; /* 16px+ stops iPhones from zooming in */
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--ink);
+  background: var(--grain) 0 0 / 240px, var(--paper);
+  border: 0;
+  border-radius: var(--radius);
+  outline: none;
+  box-shadow: inset 0 0.18rem 0.4rem rgba(0, 0, 0, 0.18);
+}
+.phone input::placeholder { color: rgba(38, 37, 49, 0.3); font-weight: 700; }
+.phone input:focus { box-shadow: inset 0 0.18rem 0.4rem rgba(0, 0, 0, 0.18), 0 0 0 0.2rem var(--mustard); }
+.phone .code-input { letter-spacing: 0.4em; text-transform: uppercase; padding-left: 1.4em; font-size: 2.6rem; }
+.join-form .btn .g { width: 2rem; height: 2rem; }
+.form-error { padding: 0.5em 0.8em; border-radius: 10px; background: var(--tomato); color: var(--paper); font-weight: 700; }
+
+/* ---------- Waiting room: your robot, big; flip through robots; the start button at the bottom ---------- */
+
+.wait-screen { justify-content: center; align-items: center; text-align: center; }
+.wait-stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; }
+.wait-robot { flex: 0 1 15rem; aspect-ratio: 1; display: grid; place-items: center; }
+.wait-robot .bot { width: 100%; height: 100%; filter: drop-shadow(0 0.35rem 0 rgba(0, 0, 0, 0.25)); }
+.wait-robot.swap { animation: robot-swap 0.35s cubic-bezier(0.2, 1.5, 0.4, 1); }
+@keyframes robot-swap { from { transform: rotateY(90deg) scale(0.8); } }
+.robot-arrow {
+  flex: none;
+  width: 3.4rem;
+  height: 3.4rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(244, 236, 220, 0.1);
+}
+.robot-arrow .g { width: 1.6rem; height: 1.6rem; }
+.robot-arrow:active { background: rgba(244, 236, 220, 0.25); }
+.robot-arrow[hidden] { display: grid !important; visibility: hidden; }
+.wait-name { font-size: 2rem; font-weight: 850; letter-spacing: -0.01em; color: var(--me); text-shadow: 0 0.1rem 0 rgba(0, 0, 0, 0.25); }
+.wait-msg { color: var(--muted); }
+.wait-msg .g { width: 2.4rem; height: 2.4rem; }
+.wait-bottom { width: 100%; max-width: 24rem; min-height: 4.5rem; display: flex; align-items: flex-end; }
+#vip-start .g { width: 2.2rem; height: 2.2rem; }
+
+/* ---------- In a game ---------- */
+
+.phone .game-screen { padding: 0; gap: 0; height: 100vh; height: 100dvh; }
+.phone-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.5rem;
+  padding-top: max(0.25rem, env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--me) 22%, var(--night));
+  box-shadow: inset 0 -0.18rem 0 var(--me);
+}
+.phone-bar .bot { width: 2.6rem; height: 2.6rem; margin: -0.2rem 0; }
+.bar-name { font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-btn { width: 48px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; background: rgba(244, 236, 220, 0.08); color: var(--paper); }
+.bar-btn .g { width: 1.4rem; height: 1.4rem; }
+.spacer { flex: 1; }
+.phone .stage { flex: 1; min-height: 0; overflow: auto; }
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.2rem 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+  border-radius: 1.2rem 1.2rem 0 0;
+  background: var(--night-2);
+  box-shadow: 0 -1rem 3rem rgba(0, 0, 0, 0.6);
+}
+
+.menu-sheet { flex-direction: row; justify-content: center; gap: 1rem; }
+.menu-sheet .btn { flex: 1; max-width: 7rem; }
+.menu-sheet .btn .g { width: 2rem; height: 2rem; }

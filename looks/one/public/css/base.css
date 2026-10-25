@@ -1,0 +1,280 @@
+/* Shared look for the big screen and the phones, plus building blocks games can use.
+   Branding follows the Iron Panthers (FRC 5026) brand bible: Teko for headers, Roboto for body,
+   the five brand colors, the hexagon, and bars above headings. */
+
+@import url("arena.css");
+
+@font-face { font-family: "Teko"; src: url("../fonts/teko.woff2") format("woff2"); font-weight: 300 600; font-display: swap; }
+@font-face { font-family: "Roboto"; src: url("../fonts/roboto.woff2") format("woff2"); font-weight: 300 900; font-display: swap; }
+@font-face { font-family: "Roboto"; src: url("../fonts/roboto-italic.woff2") format("woff2"); font-weight: 300 400; font-style: italic; font-display: swap; }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+/* Red like the team's slide deck, broken up with black panels and white highlights.
+   The game-show look on top of this lives in arena.css (<html data-theme="arena">). */
+:root {
+  /* The brand colors (bible p.13). Use these; everything else is a tint of them. */
+  --red: #9a0000;          /* Primary Red */
+  --red-hi: #c80f14;       /* Highlight Red: accents the main red */
+  --grey: #cccccc;         /* Primary Light Grey */
+  --black: #1a1a1a;        /* Primary Black */
+  --off-black: #333333;    /* Off Black: accents the black */
+  --white: #ffffff;
+
+  --bg: var(--red);
+  --glow: var(--red-hi);       /* light behind the burst in the corner */
+  --panel: rgba(26, 26, 26, 0.96);    /* big boxes */
+  --panel-solid: var(--off-black);    /* chips and small plates */
+  --card: var(--off-black);           /* cards inside a panel */
+  --plate: rgba(26, 26, 26, 0.9);     /* cards straight on the background */
+  --plate-hi: var(--off-black);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: var(--white);
+  --muted: rgba(255, 255, 255, 0.75);
+  --accent: var(--white);      /* buttons */
+  --accent-edge: var(--grey);
+  --ink: var(--red);           /* text on buttons */
+  --good: var(--white);
+  --bad: var(--white);
+  --stripe: var(--red-hi);     /* bars over headings, small accents (mostly on black panels) */
+  --stripe-ink: var(--white);
+  --band: var(--black);        /* solid badges and banners */
+  --band-edge: #000;
+  --pick: var(--white);        /* a selected card */
+  --pick-edge: var(--red-hi);
+  --pick-ink: var(--black);
+  --pick-muted: rgba(26, 26, 26, 0.72);
+  --danger: var(--black);      /* the spy's card */
+  --hive: rgba(0, 0, 0, 0.13); /* the honeycomb, low contrast with the background */
+  --field: rgba(0, 0, 0, 0.28);  /* text boxes */
+  --field-ink: var(--white);
+  --field-edge: rgba(255, 255, 255, 0.4);
+  --field-focus: var(--white);
+  --me: var(--grey);           /* on phones: this player's color */
+  --radius: 6px;
+  --font: Roboto, "Myriad Pro", Arial, sans-serif;
+  --display: Teko, Roboto, Arial, sans-serif;
+  color-scheme: dark;
+}
+
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  color: var(--text);
+  line-height: 1.4;
+  background: radial-gradient(80rem 55rem at 0 0, var(--glow), transparent 70%) fixed, var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin triangles bursting from the upper left, and a faint honeycomb in the far corner. */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before { background: url("../img/shards.svg") no-repeat 0 0 / max(30rem, 62vw) auto; }
+body::after {
+  background: var(--hive);
+  -webkit-mask: url("../img/honeycomb.svg") 0 0 / 6rem auto, radial-gradient(circle at 100% 100%, #000, transparent 55%);
+  -webkit-mask-composite: source-in;
+  mask: url("../img/honeycomb.svg") 0 0 / 6rem auto, radial-gradient(circle at 100% 100%, #000, transparent 55%);
+  mask-composite: intersect;
+}
+
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 0.95; letter-spacing: 0.01em; }
+h1 { font-size: 3rem; padding-top: 0.08em; }
+button, input { font: inherit; color: inherit; }
+
+/* The logo lockup, like the bible's horizontal variation: GAME [panther] NIGHT.
+   Text is Teko Regular in caps, its height 30% of the icon's; the gap is 10% of the icon's width. */
+.logo {
+  --icon: 4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--icon) * 0.084);
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: calc(var(--icon) * 0.482);
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--white);
+  transform: translateY(0.07em); /* Teko's capitals sit high in the line */
+}
+.logo span { display: inline-flex; align-items: center; gap: inherit; color: inherit; }
+.logo span::before {
+  content: "";
+  flex: none;
+  width: calc(var(--icon) * 0.84);
+  height: var(--icon);
+  transform: translateY(-0.07em);
+  background: currentColor;
+  -webkit-mask: url("../img/panther.png") center / contain no-repeat;
+  mask: url("../img/panther.png") center / contain no-repeat;
+}
+
+/* A thick bar over a heading, like the brand bible's pages. */
+.bar-title { position: relative; padding-top: 0.6rem; }
+.bar-title::before { content: ""; position: absolute; top: 0; left: 0; width: 2.6rem; height: 0.32rem; background: var(--accent); }
+
+/* ---------- Building blocks for games ---------- */
+
+.stack  { display: flex; flex-direction: column; gap: 1rem; }
+.row    { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; }
+.fill   { flex: 1; min-height: 0; }
+.grid   { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem; }
+.card   { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.2rem; }
+.muted  { color: var(--muted); }
+.small  { font-size: 0.85em; }
+.big    { font-family: var(--display); font-size: 2em; font-weight: 400; line-height: 1; }
+.huge   { font-family: var(--display); font-size: 4em; font-weight: 400; line-height: 0.9; }
+.pc     { color: var(--c); font-weight: 700; }   /* player-colored text: style="--c:${p.color}" */
+
+/* Buttons and chips get two machined corners. */
+.btn, .chip {
+  --cut: 0.5em;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+
+.btn {
+  appearance: none;
+  white-space: nowrap;
+  border: 0;
+  border-bottom: 0.2em solid var(--accent-edge);
+  padding: 0.42em 1.4em 0.3em;
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.06s, border-bottom-width 0.06s, filter 0.15s;
+  touch-action: manipulation;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+.btn:active:not(:disabled) { transform: translateY(0.12em); border-bottom-width: 0.08em; }
+.btn:disabled { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
+.btn.btn-xl { font-size: 2.1rem; padding: 0.42em 1.5em 0.3em; }
+.btn.btn-sm { --cut: 0.4em; font-size: 1.2rem; padding: 0.38em 0.9em 0.24em; border-bottom-width: 0.16em; }
+.btn.block { display: block; width: 100%; }
+.btn.secondary { background: var(--off-black); border-bottom-color: #0d0d0d; color: var(--white); }
+.btn.ghost { background: transparent; border-bottom-color: transparent; color: var(--muted); clip-path: none; }
+.btn.me { background: var(--me); border-bottom-color: color-mix(in srgb, var(--me) 55%, #000); color: var(--black); }
+
+/* Countdown hexagon: <span class="timer" data-deadline="${view.deadline}"></span> */
+.timer {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5em;
+  height: 2.85em;
+  padding-top: 0.14em;
+  font-family: var(--display);
+  font-size: 1.15em;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+  background: var(--white);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.timer::before {
+  content: "";
+  position: absolute;
+  inset: 0.17em 0.15em;
+  z-index: -1;
+  background: var(--black);
+  clip-path: inherit;
+}
+.timer.deadline-low { background: var(--band); animation: throb 1s ease-in-out infinite; }
+.timer.deadline-low::before { background: var(--band-edge); }
+@keyframes throb { 50% { transform: scale(1.1); } }
+
+/* Player chips: a plate with the player's robot and a stripe in their color */
+.player-chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.chip {
+  --c: var(--grey);
+  --cut: 0.45em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.22em 0.85em 0.12em 0.35em;
+  background: var(--panel-solid);
+  border-bottom: 0.14em solid var(--c);
+  font-family: var(--display);
+  font-size: 1.35em;
+  font-weight: 400;
+  line-height: 1;
+}
+.chip .bot { width: 2.5em; height: 2.5em; margin: -0.45em -0.15em -0.35em -0.1em; }
+.chip-name { padding-top: 0.12em; }
+.me-dot { display: flex; flex: none; }   /* holds the player's robot (play.js) */
+.chip-vip { color: var(--stripe); font-family: var(--font); font-size: 0.75em; }
+.chip-away { font-family: var(--font); font-size: 0.6em; font-weight: 700; color: var(--muted); }
+.chip.away { opacity: 0.55; border-bottom-style: dashed; }
+.chip.pop { animation: pop-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pop-in { from { transform: scale(0.4); opacity: 0; } }
+
+/* The robots (see js/avatar.js). They bob gently; add .still to stop them. */
+.bot { display: block; flex: none; overflow: visible; }
+.bot-body { animation: bot-bob 2.4s ease-in-out var(--bob, 0s) infinite; transform-origin: 50% 100%; }
+.bot-light { animation: bot-blink 1.8s steps(1) var(--bob, 0s) infinite; }
+.still .bot-body, .still .bot-light { animation: none; }
+.bot-air .bot-body { animation-name: bot-float; animation-duration: 1.8s; }
+.bot-prop { animation: bot-prop 0.3s linear infinite; }
+.still .bot-prop { animation: none; }
+@keyframes bot-bob { 50% { transform: translateY(-1.6px) scaleY(1.015); } }
+@keyframes bot-float { 50% { transform: translateY(-4px); } }
+@keyframes bot-prop { 50% { transform: scaleX(0.25); } }
+@keyframes bot-blink { 60% { fill: #ffffff; } }
+
+/* Where the game draws. Games get a .game-root that fills it. */
+.stage { position: relative; display: flex; flex-direction: column; }
+.game-root { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+
+.stage-error {
+  margin: 2rem auto;
+  max-width: 40rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  border: 2px solid var(--stripe);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.stage-error pre { white-space: pre-wrap; margin: 0; font-size: 0.9em; }
+
+.offline {
+  --cut: 0.6em;
+  position: fixed;
+  left: 50%;
+  top: 1rem;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 0.6rem 1.3rem;
+  background: var(--band);
+  border-bottom: 3px solid var(--band-edge);
+  color: var(--white);
+  font-weight: 700;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.3rem; }
+.panel h2 {
+  position: relative;
+  margin-bottom: 0.9rem;
+  padding-top: 0.55rem;
+  font-size: 1.75rem;
+  color: var(--white);
+}
+.panel h2::before { content: ""; position: absolute; top: 0; left: 0; width: 2.4rem; height: 0.28rem; background: var(--stripe); }
+.empty { color: var(--muted); font-size: 1.25em; font-weight: 700; }

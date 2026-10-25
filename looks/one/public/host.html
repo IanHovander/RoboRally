@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" class="host" data-look="last-light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robo Rally · Last Light</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/film.css">
+  <link rel="stylesheet" href="games/robo-rally/lobby.css">
+  <script type="module" src="js/host.js"></script>
+</head>
+<body>
+  <section id="lobby" class="screen">
+    <div class="ll-bar top">
+      <div class="ll-mark" aria-label="Robo Rally"><b>Robo</b> Rally</div>
+      <span class="ll-spacer"></span>
+      <button id="relay-btn" class="ll-icon-btn" hidden aria-label="Connection" title="Connection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9a12 12 0 0 1 16 0M7 12.5a7.5 7.5 0 0 1 10 0M10 16a3 3 0 0 1 4 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+      </button>
+      <button class="ll-icon-btn" data-sound aria-label="Sound" title="Sound"></button>
+    </div>
+    <div class="ll-frame">
+      <div id="factory-scene" class="ll-3d" aria-hidden="true"></div>
+      <div class="ll-side">
+        <aside class="ll-ticket" aria-label="Join on your phone">
+          <img id="qr" class="ll-qr" alt="Scan this QR code to join on your phone">
+          <div id="join-code" class="ll-code" hidden></div>
+          <div id="join-text" class="ll-url"></div>
+          <div id="join-local" class="ll-local" hidden><b id="join-local-text"></b></div>
+        </aside>
+        <div id="lesson" class="lesson" aria-hidden="true"></div>
+      </div>
+      <div id="last-result" class="ll-result" hidden></div>
+    </div>
+    <div class="ll-bar bottom">
+      <div id="players" class="ll-cast"></div>
+      <button id="start" class="ll-go" aria-label="Start" title="Start">
+        <svg viewBox="0 0 24 24"><path d="M5 3l16 9-16 9z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <section id="game" class="screen" hidden>
+    <main id="stage" class="ll-stage"></main>
+    <div class="ll-hostmenu">
+      <button class="ll-icon-btn" data-sound aria-label="Sound" title="Sound"></button>
+      <button class="ll-icon-btn" data-lobby="restart" aria-label="Restart" title="Restart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg>
+      </button>
+      <button class="ll-icon-btn" data-lobby="end" aria-label="Back to the lobby" title="Back to the lobby">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <dialog id="relay-dialog" class="relay-dialog">
+    <form method="dialog">
+      <h2>Relay login</h2>
+      <p>
+        Phones on mobile data usually reach this big screen through a relay server (Metered). This site has a relay
+        login built in. To use a different one on this computer, enter it here (it's kept in this browser only).
+        "Forget it" goes back to the built-in login.
+      </p>
+      <label>Username <input id="relay-user" autocomplete="off" spellcheck="false"></label>
+      <label>Password <input id="relay-pass" type="password" autocomplete="off"></label>
+      <div class="row">
+        <button value="save">Save</button>
+        <button value="forget">Forget it</button>
+        <button value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="error" class="error-toast" hidden>
+    <span id="error-text"></span>
+    <button id="error-close" class="error-close" title="Dismiss">✕</button>
+  </div>
+  <div id="offline" class="offline" hidden>Lost connection to the game server. Reconnecting…</div>
+</body>
+</html>

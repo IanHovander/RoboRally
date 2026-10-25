@@ -1,0 +1,8 @@
+Teko (Indian Type Foundry) and Roboto (Google) are licensed under the SIL Open Font License, Version 1.1:
+https://openfontlicense.org
+
+These files are Latin subsets of the Google Fonts releases, converted to WOFF2.
+
+Inter (Copyright 2020 The Inter Project Authors, https://github.com/rsms/inter) is licensed under the SIL Open
+Font License, Version 1.1 (https://openfontlicense.org). inter.woff2 is the variable-weight release as bundled
+with Blender 4.5.

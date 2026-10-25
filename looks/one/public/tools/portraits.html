@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>portraits</title></head>
+<body style="margin:0;background:#333">
+<script type="module">
+  // Renders each robot model as a studio portrait (base + paint mask) for img/bot-N.webp.
+  import * as THREE from '../games/robo-rally/lib/three.module.min.js';
+  import { makeRobot } from '../games/robo-rally/bots3d.js';
+  const N = 320;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setSize(N, N);
+  renderer.setPixelRatio(1);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.25;
+  renderer.setClearColor(0x000000, 0);
+  document.body.append(renderer.domElement);
+  // a soft studio: a warm key from the upper left (like the hall's windows), a cool rim, a reflective room
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(20, 10, 20), new THREE.MeshBasicMaterial({ color: 0x2a2622, side: THREE.BackSide })));
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 4.4, 3) }));
+  strip.position.set(-9.9, 2, 0);
+  strip.rotation.y = Math.PI / 2;
+  env.add(strip);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(10, 3), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 1.5, 1.7) }));
+  top.position.y = 4.9;
+  top.rotation.x = Math.PI / 2;
+  env.add(top);
+  const pm = new THREE.PMREMGenerator(renderer);
+  const envTex = pm.fromScene(env, 0.04).texture;
+
+  function shoot(style, mask) {
+    const scene = new THREE.Scene();
+    scene.environment = mask ? null : envTex;
+    scene.environmentIntensity = 0.7;
+    const cam = new THREE.PerspectiveCamera(24, 1, 0.1, 50);
+    cam.position.set(1.45, 1.05, 2.45);
+    cam.lookAt(0, 0.34, 0);
+    const bot = makeRobot(style, 0xffffff);
+    bot.group.rotation.y = -0.35 + Math.PI; // three-quarter, facing the viewer
+    // drop the base ring and arrow: the portrait is the robot itself
+    if (mask) {
+      const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      bot.group.traverse((o) => {
+        if (o.isMesh) o.material = o.material === bot.paint || o.material === bot.glow ? white : black;
+      });
+    } else {
+      scene.add(new THREE.HemisphereLight(0xb8c6d8, 0x3a2e24, 0.5));
+      const key = new THREE.DirectionalLight(0xffe2bf, 3.2);
+      key.position.set(-3, 4, 2.5);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0x9fc0ff, 1.6);
+      rim.position.set(2.5, 2, -3);
+      scene.add(rim);
+      bot.paint.color.set(0xe9e6e1);
+      bot.glow.emissive.set(0xe9e6e1);
+      bot.glow.emissiveIntensity = 0.6;
+    }
+    scene.add(bot.group);
+    // frame the model: fit its bounding box
+    const box = new THREE.Box3().setFromObject(bot.group);
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
+    const dir = cam.position.clone().sub(new THREE.Vector3(0, 0.34, 0)).normalize();
+    cam.position.copy(c).addScaledVector(dir, size * 1.62);
+    cam.lookAt(c);
+    renderer.toneMapping = mask ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+    renderer.render(scene, cam);
+    if (!mask) return renderer.domElement.toDataURL('image/webp', 0.9);
+    // the mask: white where paint is, as alpha
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = N;
+    const g = cv.getContext('2d');
+    g.drawImage(renderer.domElement, 0, 0);
+    const img = g.getImageData(0, 0, N, N);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const a = img.data[i] * (img.data[i + 3] / 255);
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = a;
+    }
+    g.putImageData(img, 0, 0);
+    return cv.toDataURL('image/webp', 0.9);
+  }
+  window.shots = {};
+  for (let s = 0; s < 8; s++) {
+    window.shots[`bot-${s}`] = shoot(s, false);
+    window.shots[`bot-${s}-mask`] = shoot(s, true);
+  }
+  window.done = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+/* The lobby's trailer: a phone in the corner of the frame, dealing five cards into five frames.
+   It looks like the real phone, so when people pick theirs up, they already know it. */
+.lesson { position: relative; pointer-events: none; }
+.lp-phone {
+  --u: 1vh;
+  position: relative; width: calc(var(--u) * 24); padding: calc(var(--u) * 1.6) calc(var(--u) * 1.3) calc(var(--u) * 1.4);
+  border-radius: calc(var(--u) * 2.6); background: rgba(11, 10, 9, .86); border: 1px solid rgba(239, 232, 220, .16);
+  box-shadow: 0 2vh 5vh rgba(0, 0, 0, .5); display: flex; flex-direction: column; gap: calc(var(--u) * 1.2);
+  transition: opacity .6s, transform .6s var(--ease);
+}
+.lp-phone::before { content: ""; position: absolute; top: calc(var(--u) * .6); left: 50%; width: calc(var(--u) * 4); height: calc(var(--u) * .45); transform: translateX(-50%); border-radius: 9px; background: rgba(239, 232, 220, .12); }
+.lp-frames { display: grid; grid-template-columns: repeat(5, 1fr); gap: calc(var(--u) * .5); padding: calc(var(--u) * .7) calc(var(--u) * .4); background: #1c1a17; border-radius: calc(var(--u) * .6); position: relative; }
+/* sprocket holes: it's a strip of film */
+.lp-frames::before, .lp-frames::after { content: ""; position: absolute; left: calc(var(--u) * .4); right: calc(var(--u) * .4); height: calc(var(--u) * .35);
+  background: repeating-linear-gradient(90deg, rgba(239, 232, 220, .18) 0 calc(var(--u) * .5), transparent 0 calc(var(--u) * 1.1)); }
+.lp-frames::before { top: calc(var(--u) * .15); }
+.lp-frames::after { bottom: calc(var(--u) * .15); }
+.lp-f { aspect-ratio: 3 / 4; border-radius: calc(var(--u) * .35); border: 1px dashed rgba(239, 232, 220, .2); display: grid; place-items: center; transition: border-color .3s, background .3s, box-shadow .3s, opacity .3s; }
+.lp-f b { width: 78%; display: grid; place-items: center; }
+.lp-f.set { border: 1px solid transparent; background: #ece5d8; }
+.lp-f.set b { animation: lp-drop .35s var(--ease) both; color: #1a1815; }
+.lp-f b svg, .lp-c svg { width: 100%; height: auto; display: block; }
+.lp-hand { display: grid; grid-template-columns: repeat(5, 1fr); gap: calc(var(--u) * .5); padding: 0 calc(var(--u) * .4); }
+.lp-c { aspect-ratio: 3 / 4; border-radius: calc(var(--u) * .35); background: #ece5d8; color: #1a1815; display: grid; place-items: center; padding: 12%; transition: opacity .25s, transform .25s; }
+.lp-c.spam { background: #b8452f; color: #f6e7d8; }
+.lp-c.used { opacity: .08; transform: scale(.85); }
+.lp-lock { margin: 0 auto; width: calc(var(--u) * 4.6); height: calc(var(--u) * 4.6); border-radius: 50%; background: #2a2724; color: rgba(239, 232, 220, .4); display: grid; place-items: center; transition: background .3s, color .3s, transform .2s; }
+.lp-lock svg { width: 44%; height: 44%; }
+.lp-phone.deal .lp-lock { background: var(--amber); color: var(--ink); }
+.lp-lock.on { transform: scale(.88); }
+.lp-phone.locked .lp-f.set { box-shadow: 0 0 0 1px var(--amber); }
+.lp-phone.run .lp-hand, .lp-phone.run .lp-lock { opacity: .12; }
+.lp-phone.run { transform: translateY(0); }
+.lp-f.now { box-shadow: 0 0 0 2px var(--amber), 0 0 2.2vh rgba(240, 165, 74, .7) !important; transform: translateY(-.4vh); }
+.lp-f.past { opacity: .32; }
+.lp-tap { position: absolute; width: calc(var(--u) * 3.4); height: calc(var(--u) * 3.4); margin: calc(var(--u) * -1.7) 0 0 calc(var(--u) * -1.7); border-radius: 50%; background: rgba(255, 255, 255, .55); opacity: 0; pointer-events: none; }
+.lp-tap.go { animation: lp-tap .5s ease-out; }
+@keyframes lp-tap { 0% { opacity: 0; transform: scale(1.6); } 35% { opacity: .9; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.3); } }
+@keyframes lp-drop { from { opacity: 0; transform: translateY(-1.4vh) scale(1.1); } }

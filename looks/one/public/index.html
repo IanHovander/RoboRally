@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" class="phone" data-look="last-light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0a09">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>Robo Rally</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/film.css">
+  <script type="module" src="js/play.js"></script>
+</head>
+<body>
+  <section id="connecting" class="ph ph-center">
+    <div class="spinner"></div>
+    <p id="connecting-msg" class="ph-error" style="color:var(--muted)"></p>
+    <a id="change-room" class="ph-link" href="./" hidden>Different room code</a>
+    <a id="check-link" class="ph-link" href="check.html" hidden>Check this network</a>
+  </section>
+
+  <section id="code" class="ph ph-center" hidden>
+    <div class="ph-mark"><b>Robo</b> Rally</div>
+    <form id="code-form" class="ph ph-center" style="position:static;padding:0" autocomplete="off">
+      <input id="room-code" name="code" class="ph-field code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="Code" aria-label="Room code">
+      <button class="ph-round" aria-label="Join"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="ph-links">
+      <a class="ph-link" href="host.html">Big screen</a>
+      <a class="ph-link" href="check.html">Network check</a>
+    </div>
+  </section>
+
+  <section id="join" class="ph ph-center" hidden>
+    <div class="ph-mark"><b>Robo</b> Rally</div>
+    <form id="join-form" class="ph ph-center" style="position:static;padding:0" autocomplete="off">
+      <input id="name" name="name" class="ph-field" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Name" aria-label="Your name">
+      <button id="join-btn" class="ph-round" aria-label="Join"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <p id="join-error" class="ph-error" hidden></p>
+    </form>
+    <div class="ph-links"><a id="host-link" class="ph-link" href="host.html" hidden>Big screen</a></div>
+  </section>
+
+  <section id="wait" class="ph ph-wait" hidden>
+    <div class="ph-me">
+      <div class="ph-stage">
+        <button id="robot-prev" class="ph-swap" aria-label="Previous robot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div id="me-robot"></div>
+        <button id="robot-next" class="ph-swap" aria-label="Next robot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div id="me-dots" class="ph-dots"></div>
+      <div id="me-name" class="ph-name"></div>
+    </div>
+    <div class="ph-foot">
+      <button id="vip-start" class="ph-round ph-start" aria-label="Start" hidden><svg viewBox="0 0 24 24"><path d="M5 3l16 9-16 9z" fill="currentColor"/></svg></button>
+      <i id="wait-pulse" class="ph-pulse"></i>
+      <div id="look-up" class="ph-look-up" hidden>
+        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="14" width="52" height="30" rx="3"/><path d="M24 54h16M32 44v10"/><path d="M32 36V22M26 28l6-6 6 6"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="game" class="ph ph-game" hidden>
+    <main id="stage"></main>
+    <button id="menu-btn" class="ph-menu-btn" aria-label="Game menu" hidden>•••</button>
+    <div id="menu" class="ph-sheet" hidden>
+      <button data-lobby="restart" aria-label="Restart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></button>
+      <button data-lobby="end" aria-label="End the game"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/></svg></button>
+      <button aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+  </section>
+
+  <section id="notice" class="ph ph-center" hidden>
+    <h1 id="notice-title" style="font-weight:300;letter-spacing:.06em;margin:0"></h1>
+    <p id="notice-msg" style="color:var(--muted);max-width:28ch;margin:0"></p>
+    <button id="notice-btn" class="ph-round" style="width:auto;padding:0 28px;border-radius:36px;font-weight:600"></button>
+  </section>
+
+  <div id="offline" class="offline phone-off" hidden>Reconnecting…</div>
+</body>
+</html>

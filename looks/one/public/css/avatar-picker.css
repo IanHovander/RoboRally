@@ -1,0 +1,11 @@
+.avatar-picker { border: 0; margin: 0; padding: 0; min-width: 0; }
+.avatar-picker legend { font-weight: 700; padding: 0; margin-bottom: .6rem; }
+.avatar-picker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.avatar-picker-choice { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 78px; min-width: 48px; padding: .35rem .15rem; border: 2px solid var(--line, #777); border-radius: .7rem; color: var(--text, #fff); background: var(--panel, #222); font: inherit; font-size: .75rem; cursor: pointer; }
+.avatar-picker-choice[aria-pressed="true"] { border-color: var(--me, #c80f14); box-shadow: 0 0 0 2px var(--me, #c80f14); }
+.avatar-picker-choice[aria-pressed="true"] > span:last-child::after { content: ' ✓'; }
+.avatar-picker-choice:focus-visible { outline: 3px solid var(--text, #fff); outline-offset: 3px; }
+.avatar-picker-choice:disabled { cursor: default; opacity: .65; }
+.avatar-picker-picture .bot { display: block; width: 54px; height: 54px; }
+.avatar-picker-status { min-height: 1.4em; margin: .65rem 0 0; font-size: .85rem; }
+@media (prefers-reduced-motion: reduce) { .avatar-picker .bot * { animation: none !important; } }

@@ -1,0 +1,79 @@
+/* Loaded on every page (big screen and phones): the lobby's lesson, and the paper card that every
+   screen uses for programming cards. */
+
+/* ---------- a programming card: cream card stock, the picture printed in its kind's ink ---------- */
+.pcard {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 5 / 7;
+  border-radius: 14% / 10%;
+  color: var(--ink);
+  background: var(--grain) 0 0 / 240px, var(--paper);
+  box-shadow: inset 0 0 0 0.12em rgba(38, 37, 49, 0.08), 0 0.12em 0.3em rgba(0, 0, 0, 0.3);
+}
+.pcard::after { content: ""; position: absolute; inset: 6%; border-radius: 10% / 7%; border: 1px solid rgba(38, 37, 49, 0.14); pointer-events: none; }
+.pcard > svg, .pcard .rr-ic { width: 82%; height: auto; aspect-ratio: 1; }
+.pcard.t-m1, .pcard.t-m2, .pcard.t-m3, .pcard.t-bk { color: #2f5fa8; }
+.pcard.t-rr, .pcard.t-rl { color: #20806f; }
+.pcard.t-ut { color: #7a4590; }
+.pcard.t-pu { color: #b9800f; }
+.pcard.t-ag { color: #4b5563; }
+.pcard.spam { background-color: var(--tomato); color: var(--paper); }
+.pcard.spam::after { border-color: rgba(255, 255, 255, 0.35); }
+.pcard.haywire { background-color: var(--ink); color: var(--gold); }
+.pcard.haywire::after { border-color: rgba(240, 189, 69, 0.5); }
+.pcard.down { background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.06) 0 0.35em, transparent 0.35em 0.7em), var(--kraft); }
+.pcard.down::after { border-color: rgba(60, 40, 15, 0.25); }
+
+/* ---------- the lobby's lesson (big screen) ---------- */
+.lesson-ui { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.lesson-strip {
+  position: absolute;
+  top: 1.6rem;
+  left: calc((100vw - 19rem) / 2 + 1rem);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.lesson-phone {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 4.6rem;
+  border-radius: 0.6rem;
+  color: var(--paper);
+  background: var(--night-2);
+  box-shadow: inset 0 0 0 0.16rem var(--paper);
+}
+.lesson-phone .g { width: 2rem; height: 2rem; opacity: 0.5; }
+.lesson-slots { display: flex; gap: 0.5rem; }
+.lesson-slot {
+  position: relative;
+  width: 3.3rem;
+  aspect-ratio: 5 / 7;
+  border-radius: 14% / 10%;
+  border: 0.14rem dashed rgba(244, 236, 220, 0.35);
+}
+.lesson-slot > i { position: absolute; left: 50%; bottom: -1.35rem; transform: translateX(-50%); font-style: normal; font-weight: 800; font-size: 0.85rem; color: var(--muted); }
+.lesson-slot .lcard { position: absolute; inset: -0.14rem; font-size: 1.1rem; opacity: 0; transform: translate(calc(-4.2rem * (var(--i) + 1)), 0.6rem) scale(0.55) rotate(-10deg); transition: transform 0.45s cubic-bezier(0.2, 1.3, 0.4, 1), opacity 0.2s, box-shadow 0.3s; }
+.lesson-slot.in .lcard { opacity: 1; transform: none; }
+.lesson-slot.now .lcard { transform: translateY(-0.7rem) scale(1.12); box-shadow: 0 0 0 0.2rem var(--mustard), 0 0.6rem 1.2rem rgba(0, 0, 0, 0.45); }
+.lesson-slot.now > i { color: var(--mustard); }
+.lesson-slot.done .lcard { opacity: 0.35; }
+.lesson-dots { position: absolute; left: 2.2rem; top: 7.9rem; display: flex; gap: 0.4rem; pointer-events: auto; }
+.lesson-dot {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: rgba(21, 40, 46, 0.75);
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, transform 0.3s;
+}
+.lesson-dot .g { width: 1.2rem; height: 1.2rem; }
+.lesson-dot.on { color: var(--ink); background: var(--mustard); transform: scale(1.15); }

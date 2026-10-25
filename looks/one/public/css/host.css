@@ -1,0 +1,226 @@
+/* The big screen. Everything is sized in rem, and rem grows with the window, so it fills a TV. */
+
+html.host { font-size: clamp(13px, 0.95vw + 3px, 30px); }
+html.host body { overflow: hidden; }
+.host .screen { height: 100vh; display: flex; flex-direction: column; }
+
+/* ---------- Lobby ---------- */
+
+.lobby { padding: 2rem 2.8rem 2.2rem; gap: 1.6rem; }
+.lobby-head { display: flex; align-items: center; gap: 2rem; min-height: 5.6rem; }
+.lobby-head .logo { --icon: 5.6rem; }
+.team-tag {
+  margin-left: auto;
+  align-self: flex-start;   /* a corner label: its top lines up with the top of the logo's hexagon */
+  margin-top: 0.35rem;
+  font-family: var(--display);
+  font-size: 2.1rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--white);
+}
+.last-result {
+  --cut: 0.6rem;
+  margin-left: auto;
+  padding: 0.55rem 1.3rem 0.4rem;
+  background: var(--band-edge);
+  border-left: 0.4rem solid var(--band);
+  font-family: var(--display);
+  font-size: 1.6rem;
+  line-height: 1;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+/* with two auto margins, a result sits in the middle of the header and the team tag stays in the corner */
+
+.lobby-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 23rem) 1fr; gap: 2.2rem; }
+
+/* The join card is white so the QR code scans from across the room. */
+.join-card {
+  --cut: 1.6rem;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1.4rem 1.5rem;
+  text-align: center;
+  background: var(--white);
+  color: var(--black);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.join-title {
+  align-self: stretch;
+  margin: 0 -1.4rem 0.7rem;
+  padding: 0.75rem 1rem 0.45rem;
+  background: var(--band);
+  border-bottom: 0.35rem solid var(--band-edge);
+  color: var(--white);
+  font-family: var(--display);
+  font-size: 2.3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.qr { width: 100%; max-width: min(18rem, 34vh); aspect-ratio: 1; image-rendering: pixelated; }
+.join-or { color: #555; font-weight: 700; font-size: 1.05rem; }
+.join-text { font-family: var(--display); font-size: 2.5rem; font-weight: 400; line-height: 1; padding-top: 0.1em; word-break: break-all; color: var(--black); }
+.join-text.long { font-size: 1.5rem; word-break: normal; overflow-wrap: anywhere; }
+.join-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0.3rem 0 0.1rem;
+  padding: 0.45rem 1.1rem 0.2rem;
+  border-radius: 0.5rem;
+  background: var(--black);
+  color: var(--white);
+}
+.join-code span { font-size: 1rem; font-weight: 700; color: var(--grey); }
+.join-code b { font-family: var(--display); font-size: 3.6rem; font-weight: 400; line-height: 1; letter-spacing: 0.12em; padding-left: 0.12em; }
+.join-hint { color: #555; font-weight: 700; font-size: 1.05rem; line-height: 1.3; }
+.join-local { margin-top: 0.3rem; padding-top: 0.6rem; border-top: 1px solid #e3e3e3; color: #555; font-size: 1.05rem; font-weight: 700; }
+.join-local b { color: var(--black); }
+
+.relay-dialog {
+  width: min(30rem, 92vw);
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  color: var(--text);
+}
+.relay-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.relay-dialog label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 700; }
+.relay-dialog input { padding: 0.6rem 0.8rem; border-radius: var(--radius); border: 2px solid var(--line); background: rgba(0, 0, 0, 0.25); font-size: 1rem; }
+
+.denied { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.8rem; padding: 2rem; text-align: center; }
+.denied .logo { --icon: 6rem; }
+.denied p { max-width: 30rem; font-size: 1.3rem; color: var(--grey); }
+.denied .btn { text-decoration: none; }
+
+.lobby-main { display: flex; flex-direction: column; gap: 1.3rem; min-height: 0; }
+.lobby-main .panel.grow { flex: 1; min-height: 0; overflow: auto; }
+.lobby-main .chip { font-size: 1.7rem; position: relative; }
+.lobby-main .player-chips { gap: 0.7rem 0.8rem; }
+
+/* player count in a little hexagon */
+.count {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45em;
+  height: 1.65em;
+  margin-left: 0.3em;
+  padding-top: 0.12em;
+  vertical-align: 0.05em;
+  font-size: 0.85em;
+  font-weight: 400;
+  background: var(--stripe);
+  color: var(--stripe-ink);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.count:empty { display: none; }
+
+/* how a phone is connected (website version): "direct", or "relay" when it goes through the relay server */
+.chip-link { font-family: var(--font); font-size: 0.5em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15em 0.5em; border-radius: 4px; background: rgba(255, 255, 255, 0.12); color: var(--muted); }
+.chip-link.relay { background: var(--red-hi); color: var(--white); }
+.chip-kick {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.6em;
+  cursor: pointer;
+  padding: 0 0.1em;
+  margin-left: -0.1em;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.chip:hover .chip-kick, .chip.away .chip-kick { opacity: 1; }
+.chip-kick:hover { color: var(--stripe); }
+
+.game-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
+.game-card {
+  --cut: 1.1rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.15rem 1.4rem 1.1rem;
+  text-align: left;
+  border: 0;
+  border-top: 0.32rem solid var(--off-black);
+  background: var(--card);
+  color: var(--white);
+  cursor: pointer;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  transition: transform 0.12s, background 0.12s;
+}
+.game-card:hover { filter: brightness(1.2); }
+.game-card.selected { background: var(--pick); border-top-color: var(--pick-edge); color: var(--pick-ink); transform: translateY(-3px); }
+.game-name { font-family: var(--display); font-size: 2.4rem; font-weight: 400; line-height: 0.95; padding-top: 0.08em; }
+.game-desc { color: var(--grey); font-size: 1.1rem; }
+.game-card.selected .game-desc { color: var(--pick-muted); }
+.game-meta { margin-top: auto; padding-top: 0.5rem; font-family: var(--display); font-size: 1.35rem; line-height: 1; color: var(--stripe); }
+.game-card.selected .game-meta { color: var(--pick-edge); }
+
+.start-row { display: flex; align-items: center; gap: 1.5rem; }
+.start-row .btn-xl { font-size: 2.6rem; padding-inline: 1.8em; }
+.start-problem { color: var(--muted); font-size: 1.25rem; font-weight: 700; }
+
+/* ---------- In a game ---------- */
+
+.game-screen .stage { flex: 1; min-height: 0; overflow: hidden; }
+.game-bar {
+  --lockup: 2.8rem;
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 0.5rem 1.2rem;
+  background: var(--black);
+  border-top: 0.2rem solid var(--band-edge);
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+.game-bar::after { /* the deck's footer lockup; text is 30% of the icon's height */
+  content: "IRON PANTHERS";
+  order: 10;
+  margin-left: 0.6rem;
+  margin-right: calc(var(--lockup) * 0.084 - 1.4rem);
+  padding-top: 0.12em;
+  font-family: var(--display);
+  font-size: calc(var(--lockup) * 0.482);
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--white);
+}
+.game-bar::before {
+  content: "";
+  order: 11;
+  width: calc(var(--lockup) * 0.84);
+  height: var(--lockup);
+  background: var(--white);
+  -webkit-mask: url("../img/panther.png") center / contain no-repeat;
+  mask: url("../img/panther.png") center / contain no-repeat;
+}
+.game-bar-title { font-family: var(--display); font-size: 1.8rem; font-weight: 400; line-height: 1; padding-top: 0.12em; color: var(--white); }
+.game-bar b { color: var(--text); }
+.spacer { flex: 1; }
+
+.error-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.8rem;
+  z-index: 90;
+  max-width: 34rem;
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius);
+  background: #2a0b0c;
+  border: 2px solid var(--red-hi);
+  font-size: 0.85rem;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.error-close { border: 0; background: transparent; cursor: pointer; color: var(--muted); }

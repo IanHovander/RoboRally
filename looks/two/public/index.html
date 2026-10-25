@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" class="phone" data-theme="paper">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#15282e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Robo Rally</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/phone.css">
+  <link rel="stylesheet" href="games/robo-rally/lobby.css">
+  <script type="module" src="js/play.js"></script>
+</head>
+<body>
+  <section id="connecting" class="screen center-screen">
+    <div class="paper-spin" aria-hidden="true"><i></i></div>
+    <p id="connecting-msg" class="muted small"></p>
+    <a id="change-room" class="host-link" href="./" hidden>Use a different room code</a>
+    <a id="check-link" class="host-link" href="check.html" hidden>Can't connect? Check this network</a>
+  </section>
+
+  <section id="code" class="screen center-screen" hidden>
+    <div class="wordmark" aria-label="Robo Rally">Robo<span>Rally</span></div>
+    <form id="code-form" class="join-form" autocomplete="off">
+      <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input" aria-label="Room code" placeholder="ABCD">
+      <button class="btn btn-xl block" aria-label="Join"></button>
+    </form>
+    <div class="foot-links">
+      <a class="host-link" href="host.html">Big screen</a>
+      <a class="host-link" href="check.html">Check network</a>
+    </div>
+  </section>
+
+  <section id="join" class="screen center-screen" hidden>
+    <div class="wordmark" aria-label="Robo Rally">Robo<span>Rally</span></div>
+    <form id="join-form" class="join-form" autocomplete="off">
+      <input id="name" name="name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" aria-label="Your name" placeholder="Your name">
+      <button id="join-btn" class="btn btn-xl block" aria-label="Join"></button>
+      <p id="join-error" class="form-error" hidden></p>
+    </form>
+    <a id="host-link" class="host-link" href="host.html" hidden>Big screen</a>
+  </section>
+
+  <section id="wait" class="screen wait-screen" hidden>
+    <div class="wait-stage">
+      <button id="robot-prev" class="robot-arrow" aria-label="Previous robot"></button>
+      <div id="wait-robot" class="wait-robot"></div>
+      <button id="robot-next" class="robot-arrow" aria-label="Next robot"></button>
+    </div>
+    <div id="wait-name" class="wait-name"></div>
+    <div id="wait-msg" class="wait-msg" hidden></div>
+    <div class="wait-bottom">
+      <button id="vip-start" class="btn btn-xl block" aria-label="Start the race" hidden></button>
+    </div>
+  </section>
+
+  <section id="game" class="screen game-screen" hidden>
+    <header class="phone-bar">
+      <span class="me-dot"></span>
+      <span id="bar-name" class="bar-name"></span>
+      <span class="spacer"></span>
+      <button id="menu-btn" class="bar-btn" aria-label="Game menu" hidden></button>
+    </header>
+    <main id="stage" class="stage"></main>
+    <div id="menu" class="sheet menu-sheet" hidden>
+      <button class="btn btn-xl secondary" data-lobby="restart" aria-label="Start this race over"></button>
+      <button class="btn btn-xl secondary" data-lobby="end" aria-label="Back to the lobby"></button>
+      <button class="btn btn-xl ghost" aria-label="Close"></button>
+    </div>
+  </section>
+
+  <section id="notice" class="screen center-screen" hidden>
+    <h1 id="notice-title"></h1>
+    <p id="notice-msg" class="muted"></p>
+    <button id="notice-btn" class="btn btn-xl"></button>
+  </section>
+
+  <div id="offline" class="offline" hidden>Reconnecting…</div>
+</body>
+</html>

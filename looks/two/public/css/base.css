@@ -1,0 +1,228 @@
+/* Pop-up paper: cream card stock printed in ink, on deep teal paper. Shared by the big screen and
+   the phones, plus the building blocks game screens use (btn, chip, timer, ...). */
+
+@font-face { font-family: "Inter"; src: url("../fonts/inter.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+:root {
+  --night: #15282e;
+  --night-2: #1d353c;
+  --night-3: #27464d;
+  --night-4: #33585e;
+  --paper: #f4ecdc;
+  --paper-2: #ece2cd;
+  --paper-3: #e0d3b8;
+  --paper-edge: #cbbd9f;
+  --kraft: #cdb48a;
+  --ink: #262531;
+  --ink-2: #4a4858;
+  --ink-soft: rgba(38, 37, 49, 0.55);
+  --mustard: #e3a63a;
+  --mustard-dark: #b57f22;
+  --tomato: #e2553b;
+  --leaf: #3e9a64;
+  --sky: #3b77c8;
+  --gold: #f0bd45;
+  --plum: #7a4590;
+
+  --text: var(--paper);
+  --muted: rgba(244, 236, 220, 0.6);
+  --line: rgba(244, 236, 220, 0.12);
+  --panel: var(--night-2);
+  --accent: var(--mustard);
+  --me: var(--paper);
+  --radius: 14px;
+  --lift: 0 0.35rem 0.9rem rgba(0, 0, 0, 0.32), 0 0.08rem 0.18rem rgba(0, 0, 0, 0.28);
+  --grain: url("../img/grain.svg");
+  --font: Inter, "Segoe UI", system-ui, sans-serif;
+  --display: Inter, "Segoe UI", system-ui, sans-serif;
+  /* older names some tool pages still use (check.html, tools/bots.html) */
+  --black: var(--ink);
+  --white: var(--paper);
+  --grey: #b9b3a6;
+  --off-black: var(--night-3);
+  --red: var(--tomato);
+  --red-hi: var(--tomato);
+  color-scheme: dark;
+}
+.logo { font-weight: 900; font-size: 2rem; letter-spacing: -0.02em; }
+.logo span { color: var(--mustard); }
+
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  font-feature-settings: "ss01", "cv11";
+  color: var(--text);
+  line-height: 1.35;
+  background: var(--grain) 0 0 / 240px, radial-gradient(120% 90% at 50% 0%, var(--night-2), var(--night) 70%) fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; line-height: 1; letter-spacing: -0.01em; }
+button, input { font: inherit; color: inherit; }
+
+/* The wordmark: two words, the second set in mustard. */
+.wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  font-family: var(--display);
+  font-weight: 900;
+  font-variation-settings: "opsz" 32;
+  letter-spacing: -0.02em;
+  line-height: 0.86;
+  color: var(--paper);
+  text-transform: uppercase;
+}
+.wordmark span { color: var(--mustard); }
+
+/* ---------- Building blocks ---------- */
+
+.stack  { display: flex; flex-direction: column; gap: 1rem; }
+.row    { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; }
+.fill   { flex: 1; min-height: 0; }
+.grid   { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem; }
+.card   { background: var(--paper); color: var(--ink); border-radius: var(--radius); padding: 1rem 1.2rem; box-shadow: var(--lift); }
+.muted  { color: var(--muted); }
+.small  { font-size: 0.85em; }
+.big    { font-family: var(--display); font-size: 2em; font-weight: 800; line-height: 1; }
+.huge   { font-family: var(--display); font-size: 4em; font-weight: 900; line-height: 0.9; }
+.pc     { color: var(--c); font-weight: 700; }
+
+/* Buttons are thick paper: they sit up on an edge and press down. */
+.btn {
+  --face: var(--mustard);
+  --edge: var(--mustard-dark);
+  --ink-on: var(--ink);
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: 48px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0.55em 1.3em;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink-on);
+  background: var(--grain) 0 0 / 240px, var(--face);
+  box-shadow: 0 0.28em 0 var(--edge), 0 0.45em 0.9em rgba(0, 0, 0, 0.3);
+  transform: translateY(-0.14em);
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s, filter 0.2s, background-color 0.3s;
+  touch-action: manipulation;
+}
+.btn .g { width: 1.4em; height: 1.4em; }
+.btn:hover:not(:disabled) { filter: brightness(1.05); }
+.btn:active:not(:disabled) { transform: translateY(0.12em); box-shadow: 0 0.02em 0 var(--edge), 0 0.15em 0.3em rgba(0, 0, 0, 0.3); }
+.btn:disabled { --face: var(--night-3); --edge: #1a3036; --ink-on: rgba(244, 236, 220, 0.35); cursor: default; filter: none; }
+.btn.btn-xl { font-size: 1.6rem; min-height: 64px; padding: 0.5em 1.4em; }
+.btn.btn-sm { font-size: 1rem; min-height: 40px; padding: 0.4em 0.9em; }
+.btn.block { display: flex; width: 100%; }
+.btn.secondary { --face: var(--paper); --edge: var(--paper-edge); }
+.btn.ghost { --face: transparent; --edge: transparent; --ink-on: var(--muted); box-shadow: none; background: transparent; }
+.btn.me { --face: var(--me); --edge: color-mix(in srgb, var(--me) 60%, #000); }
+
+/* A countdown: <span class="timer" data-deadline="${ms}"></span> (the number updates by itself) */
+.timer {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.3em;
+  height: 2.3em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: inset 0 0 0 0.16em var(--ink);
+}
+.timer.deadline-low { background: var(--tomato); color: var(--paper); box-shadow: none; animation: throb 1s ease-in-out infinite; }
+@keyframes throb { 50% { transform: scale(1.12); } }
+
+/* Player chips (the framework's lobby lists) */
+.player-chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.chip {
+  --c: var(--paper-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25em 0.8em 0.25em 0.3em;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0.35em 0 0 var(--c), var(--lift);
+  font-weight: 750;
+  line-height: 1;
+}
+.chip .bot { width: 2.2em; height: 2.2em; margin: -0.4em 0; }
+.chip.away { opacity: 0.55; }
+.chip.pop { animation: pop-in 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pop-in { from { transform: scale(0.4) rotate(-8deg); opacity: 0; } }
+.me-dot { display: flex; flex: none; }
+
+/* The robots (js/avatar.js): printed cutouts that bob a little. Add .still to stop them. */
+.bot { display: block; flex: none; overflow: visible; }
+.bot-body { animation: bot-bob 2.4s ease-in-out var(--bob, 0s) infinite; transform-origin: 50% 100%; }
+.bot-light { animation: bot-blink 1.8s steps(1) var(--bob, 0s) infinite; }
+.still .bot-body, .still .bot-light { animation: none; }
+.bot-air .bot-body { animation-name: bot-float; animation-duration: 1.8s; }
+.bot-prop { animation: bot-prop 0.3s linear infinite; }
+.still .bot-prop { animation: none; }
+@keyframes bot-bob { 50% { transform: translateY(-1.6px) scaleY(1.015); } }
+@keyframes bot-float { 50% { transform: translateY(-4px); } }
+@keyframes bot-prop { 50% { transform: scaleX(0.25); } }
+@keyframes bot-blink { 60% { fill: #ffffff; } }
+
+/* Where the game draws. Games get a .game-root that fills it. */
+.stage { position: relative; display: flex; flex-direction: column; }
+.game-root { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+
+.stage-error {
+  margin: 2rem auto;
+  max-width: 40rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.stage-error pre { white-space: pre-wrap; margin: 0; font-size: 0.9em; }
+
+/* "Reconnecting": a paper tab at the top */
+.offline {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.2rem 0.6rem;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--tomato);
+  color: var(--paper);
+  font-weight: 750;
+  box-shadow: var(--lift);
+}
+.offline::before { content: ""; width: 0.9rem; height: 0.9rem; border-radius: 50%; border: 0.18rem solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.panel { background: var(--panel); border-radius: var(--radius); padding: 1.1rem 1.3rem; }
+.empty { color: var(--muted); }
+
+/* Glyphs (games/robo-rally/glyphs.js) */
+.g { display: inline-block; width: 1.2em; height: 1.2em; flex: none; vertical-align: -0.2em; }

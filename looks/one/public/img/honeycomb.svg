@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="103.9" height="180" viewBox="0 0 103.9 180">
+<defs><mask id="m" maskUnits="userSpaceOnUse" x="-80" y="-80" width="160" height="160"><rect x="-80" y="-80" width="160" height="160" fill="#fff"/><circle r="42.4" fill="#000"/></mask><g id="c"><path d="M0 -53L45.9 -26.5L45.9 26.5L0 53L-45.9 26.5L-45.9 -26.5Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round" mask="url(#m)"/></g></defs>
+<g fill-opacity="1"><use href="#c" x="52" y="60"/><use href="#c" x="0" y="150"/><use href="#c" x="103.9" y="150"/><use href="#c" x="0" y="-30"/><use href="#c" x="103.9" y="-30"/><use href="#c" x="52" y="240"/></g>
+</svg>
