@@ -6,7 +6,7 @@ export default {
   peerServer: { host: '0.peerjs.com', port: 443, path: '/', secure: true },
 
   // Room codes are registered on that shared server as idPrefix + code, so ours don't clash with other apps.
-  idPrefix: 'gamenight-q7v2-',
+  idPrefix: 'gamenight-rlsuhe-',
 
   // STUN: helps every device find a route. Metered's is on port 80, which strict networks usually allow.
   stunUrls: ['stun:stun.relay.metered.ca:80', 'stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'],

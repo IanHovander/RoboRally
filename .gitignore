@@ -3,3 +3,6 @@ dist/
 
 # Settings that stay on this computer
 *.local.json
+
+# The printed rulebook is Hasbro's; keep it on this computer, out of the public repo
+RoboRally_Rulebook_WEB.pdf
