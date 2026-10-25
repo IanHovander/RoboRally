@@ -62,7 +62,8 @@ try {
   const modeJs = await (await fetch(URL + '/js/mode.js')).text();
   check(modeJs.includes("'server'"), 'the laptop server tells pages they are in server mode');
   const list = await (await fetch(URL + '/games/index.json')).json();
-  check(list.map((g) => g.id).join() === 'odd-one-out,tap-race' && list.every((g) => g.hasStyle), 'games/index.json lists the games');
+  const ids = list.map((g) => g.id);
+  check(['odd-one-out', 'tap-race'].every((id) => ids.includes(id)) && list.every((g) => g.hasStyle), 'games/index.json lists the games');
 
   // --- joining ---
   const host = client({ role: 'host' });

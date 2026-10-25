@@ -4,6 +4,25 @@ A small framework for party games where **one screen is the game console and eve
 The big screen shows what everyone shares (scores, the board, clues, a timer). Each phone shows what only
 that player should see or do (a secret word, their own buttons, a text box). Nobody installs an app.
 
+## Robo Rally
+
+The headline game in this copy (`games/robo-rally/`): the robot-programming race, set in an abandoned big-box
+store after closing time. The big screen shows the race in 3D; each phone holds your programming cards.
+
+- **Rules** follow the 2023 rulebook: Upgrade, Programming and Activation phases, the Priority Token, conveyor
+  belts (blue carries 2, curves turn you), push panels, gears, board and robot lasers, batteries, pits, walls and
+  the board edge, SPAM and Haywire damage, rebooting, shutdown, and all 40 upgrades. The rulebook's variants are
+  options: no upgrades (the lighter game), safe edges, less SPAM, and a programming timer (Act Fast).
+- **Haywire cards:** the rulebook prints only a few (Move 1 / Rotate Right / Move 1, Move 2 sideways,
+  Move 3 / U-Turn, Move 5, install an upgrade). The other 12 are our own, in the same spirit. The damage deck is
+  23 SPAM and 17 Haywire.
+- **Boards and courses are original** (Loading Dock, Garden Center, Checkout Lanes, Stockroom, Electronics), not
+  copies of the boxed boards.
+- **Pictures, not paragraphs:** cards, upgrades and rules are shown as icons and short looping animations.
+- **Players:** 2–6 is the rulebook's range; up to 8 work (8 start spaces), and 1 player can practice.
+- **Tests:** `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, and
+  runs a full game through the server.
+
 ## Three ways to run it
 
 | | **Website** (WebRTC) | **Laptop + internet link** | **Laptop, Wi-Fi only** |
@@ -25,7 +44,7 @@ All three run the same games.
 
 ### Website
 
-Open **https://ianhovander.github.io/game-night/host.html** on the computer connected to the TV, and press F11.
+Open **https://ianhovander.github.io/RoboRally/host.html** on the computer connected to the TV, and press F11.
 Players scan the QR code (or open the site and type the 4-letter room code). Nothing to install, on any computer.
 
 - **Refreshing the big screen** keeps the same room code. Phones reconnect by themselves, back in the lobby.

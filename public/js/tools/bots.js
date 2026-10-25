@@ -53,7 +53,7 @@ function addBot(room) {
   });
 }
 
-/** Very simple players: tap during races, and get through Odd One Out's phases. */
+/** Very simple players: tap during races, get through Odd One Out's phases, and play Robo Rally. */
 function play(bot) {
   const v = bot.view;
   const racing = bot.game === 'tap-race' && v?.phase === 'go';
@@ -62,6 +62,7 @@ function play(bot) {
     clearInterval(bot.tapper);
     bot.tapper = null;
   }
+  if (bot.game === 'robo-rally' && v) return roboRally(bot, v);
   if (bot.game !== 'odd-one-out' || !v) return;
   const later = (type, payload) => {
     const key = `${type}:${v.round}:${v.phase}`;
@@ -72,6 +73,38 @@ function play(bot) {
   if (v.phase === 'reveal' && !v.ready) later('ready');
   if (v.phase === 'clue' && !v.myClue) later('clue', { clue: pick(CLUES) });
   if (v.phase === 'vote' && !v.myVote && v.choices?.length) later('vote', { playerId: pick(v.choices).id });
+}
+
+/** Robo Rally: pick a start space, shop a little, program random cards, answer questions at random. */
+function roboRally(bot, v) {
+  const act = (type, payload) => bot.socket.emit('action', { type, payload });
+  const once = (key, ms, fn) => {
+    if (bot.pending === key) return;
+    bot.pending = key;
+    setTimeout(fn, ms + Math.random() * 1500);
+  };
+  const me = v.me;
+  if (v.prompt) return once(`ask:${v.prompt.deadline}`, 500, () => act('answer', { v: pick(v.prompt.options).v }));
+  if (v.phase === 'start' && v.myPick == null) {
+    const free = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => !v.robots.some((r) => r.pick === n));
+    return once(`start:${free.join()}`, 400, () => act('pick', { n: pick(free) }));
+  }
+  if (!me) return;
+  if (v.phase === 'upgrade' && !me.done) {
+    return once(`shop:${v.round}`, 800, () => {
+      if (Math.random() < 0.5) act('buy');
+      if (me.up.hand.length && Math.random() < 0.7) act('install', { card: pick(me.up.hand) });
+      act('done');
+    });
+  }
+  if (v.phase === 'program' && !me.done) {
+    return once(`program:${v.round}:${me.mustReturn}`, 1200, () => {
+      if (me.mustReturn) return act('ret', { cards: me.hand.slice(0, me.mustReturn) });
+      const hand = [...me.hand];
+      const regs = me.regs.map((r) => (r.locked || !hand.length ? [] : hand.splice(Math.floor(Math.random() * hand.length), 1)));
+      act('lock', { regs, rebootDir: Math.floor(Math.random() * 4) });
+    });
+  }
 }
 
 function draw(bot) {
