@@ -2,6 +2,8 @@
 // on the laptop's Node server (server/index.js) and inside the big screen's browser tab when
 // the website hosts the game (js/net/peer-host.js). It doesn't care how screens are connected.
 
+import { design, isAvatar } from '../avatar.js';
+
 const COLORS = [
   '#ff4d6d', '#4dabf7', '#ffd43b', '#51cf66', '#cc5de8', '#ff922b',
   '#22d3ee', '#f783ac', '#a9e34b', '#9775fa', '#20c997', '#ffa8a8',
@@ -86,6 +88,7 @@ export class Room {
     socket.on('join', (msg, ack) => guard('join', () => reply(ack, this.onJoin(socket, msg))));
     socket.on('action', (msg, ack) => guard('action', () => reply(ack, this.onAction(socket, msg))));
     socket.on('lobby', (msg) => guard('lobby', () => this.onLobby(socket, msg)));
+    socket.on('avatar', (msg, ack) => guard('avatar', () => reply(ack, this.onAvatar(socket, msg))));
     socket.on('clock', (...args) => {
       const ack = args.at(-1);
       if (typeof ack === 'function') ack(Date.now());
@@ -163,10 +166,23 @@ export class Room {
     this.scheduleSync();
   }
 
+  onAvatar(socket, msg) {
+    const player = this.players.get(socket.data.playerId);
+    if (socket.data.role !== 'player' || !player?.connected || player.socketId !== socket.id) {
+      return { ok: false, error: 'Join the room to choose a robot' };
+    }
+    if (this.screen !== 'lobby') return { ok: false, error: 'Choose your robot in the lobby' };
+    if (!isAvatar(msg?.avatar)) return { ok: false, error: 'Choose one of the available robots' };
+    player.avatar = msg.avatar;
+    this.scheduleSync();
+    return { ok: true, avatar: player.avatar };
+  }
+
   addPlayer(name) {
     const used = new Set([...this.players.values()].map((p) => p.color));
     const color = COLORS.find((c) => !used.has(c)) ?? COLORS[this.players.size % COLORS.length];
     const player = { id: 'p' + randomHex(4), token: null, name, color, connected: false, socketId: null };
+    player.avatar = design(player);
     this.players.set(player.id, player);
     return player;
   }
@@ -203,7 +219,7 @@ export class Room {
   publicPlayer(id) {
     const p = this.players.get(id);
     if (!p) return null;
-    return { id: p.id, name: p.name, color: p.color, connected: p.connected, isVip: p.id === this.vipId() };
+    return { id: p.id, name: p.name, color: p.color, avatar: p.avatar, connected: p.connected, isVip: p.id === this.vipId() };
   }
 
   // ---------- lobby ----------

@@ -1,3 +1,4 @@
+import { robotStyle } from './avatar-map.js';
 // The big screen's 3D world: an abandoned big-box store after closing time, with the race course
 // on the floor and the robots on it. host.js tells it what to show; this file draws and animates.
 import * as THREE from './lib/three.module.min.js';
@@ -1092,6 +1093,11 @@ export class Arena {
       if (r.x == null) continue;
       seen.add(r.id);
       let b = this.bots.get(r.id);
+      if (b && b.style !== robotStyle(r)) {
+        this.scene.remove(b.group);
+        this.bots.delete(r.id);
+        b = null; // A lobby avatar change replaces the preview model immediately.
+      }
       if (!b) {
         b = this.addBot(r);
         b.x = r.x;
@@ -1127,14 +1133,14 @@ export class Arena {
   }
 
   addBot(r) {
-    const model = makeRobot(r.seat ?? 0, r.color);
+    const model = makeRobot(robotStyle(r), r.color);
     const g = model.group;
     g.scale.setScalar(BOT_SCALE);
     const tag = sprite(r.name, { color: r.color, font: 64, height: 0.34, stroke: '#000' });
     tag.position.y = 1.08;
     g.add(tag);
     this.scene.add(g);
-    const b = { id: r.id, model, group: g, tag, color: r.color, name: r.name, x: r.x, y: r.y, rot: 0, visible: true, busyUntil: 0, anims: [], pop: this.time, fallen: 0 };
+    const b = { id: r.id, style: robotStyle(r), model, group: g, tag, color: r.color, name: r.name, x: r.x, y: r.y, rot: 0, visible: true, busyUntil: 0, anims: [], pop: this.time, fallen: 0 };
     this.bots.set(r.id, b);
     return b;
   }

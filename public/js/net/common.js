@@ -9,7 +9,7 @@
 import config from '../config.js';
 
 /** Bump when the messages change, so an old cached page and a new one don't misunderstand each other. */
-export const PROTOCOL = 1;
+export const PROTOCOL = 2; // Robot selection is now part of room/self messages.
 
 export const roomPeerId = (code) => `${config.idPrefix}${code}`;
 

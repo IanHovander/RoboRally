@@ -31,7 +31,8 @@ process.on('uncaughtException', (err) => console.error('[server] Unexpected erro
 process.on('unhandledRejection', (err) => console.error('[server] Unexpected error (still running):', err));
 
 const GAMES_DIR = path.join(ROOT, 'games');
-const games = await loadGames(GAMES_DIR);
+const catalogOptions = { examples: process.env.GAME_NIGHT_TEST_EXAMPLES === '1' };
+const games = await loadGames(GAMES_DIR, catalogOptions);
 
 const app = express();
 app.disable('x-powered-by');
@@ -50,7 +51,7 @@ app.use((req, res, next) => {
 // The same pages also work as a website (GitHub Pages), where the big screen's browser runs the
 // game. Served from here they talk to this server instead.
 app.get('/js/mode.js', (req, res) => res.type('text/javascript').send("export default 'server';\n"));
-app.get('/games/index.json', (req, res) => res.json(findGames(GAMES_DIR).map(({ id, hasStyle }) => ({ id, hasStyle }))));
+app.get('/games/index.json', (req, res) => res.json(findGames(GAMES_DIR, catalogOptions).map(({ id, hasStyle }) => ({ id, hasStyle }))));
 app.use('/games', (req, res, next) => (isPublicGameFile(req.path) ? next() : res.status(404).end()));
 app.use('/games', express.static(path.join(ROOT, 'games'), { index: false, dotfiles: 'deny' }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));

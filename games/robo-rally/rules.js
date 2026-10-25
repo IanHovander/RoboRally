@@ -292,7 +292,7 @@ function publicRobot(ctx, id, seat, forHost) {
   const s = ctx.state;
   const p = ctx.player(id);
   const R = s.robots[id];
-  const base = { id, seat, name: p?.name ?? '?', color: p?.color ?? '#888888', away: !p?.connected };
+  const base = { id, seat, name: p?.name ?? '?', color: p?.color ?? '#888888', avatar: p?.avatar, avatar: p?.avatar, away: !p?.connected };
   if (!R) return { ...base, pick: s.picks[id] ?? null };
   const out = { ...base, x: R.x, y: R.y, d: R.d, on: R.on, rb: !!R.reboot, sd: R.shutdown, cp: R.cp, en: R.energy, ready: R.done };
   if (!forHost) return out;

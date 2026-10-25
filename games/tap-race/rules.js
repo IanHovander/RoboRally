@@ -49,7 +49,7 @@ export default {
       goAt: s.goAt,
       goal: GOAL,
       winner: ctx.player(s.winnerId),
-      lanes: ctx.players.map((p) => ({ id: p.id, name: p.name, color: p.color, taps: s.taps[p.id] ?? 0 })),
+      lanes: ctx.players.map((p) => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar, taps: s.taps[p.id] ?? 0 })),
     };
   },
 

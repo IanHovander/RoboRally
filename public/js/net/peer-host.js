@@ -16,7 +16,7 @@ const RECLAIM_MS = 90_000; // how long to wait for our old code after a refresh 
  */
 export async function hostInBrowser({ onStatus }) {
   if (!(await onlyTab())) {
-    onStatus('Game Night is already open in another tab. Use that one (or close it and reload this one).');
+    onStatus('Robo Rally is already open in another tab. Use that one (or close it and reload this one).');
     return new Promise(() => {});
   }
   onStatus('Setting up the room…');
@@ -209,7 +209,7 @@ function keepScreenOn() {
   };
   document.addEventListener('visibilitychange', () => {
     // A hidden tab runs slowly in most browsers, which makes the game lag for everyone.
-    document.title = document.visibilityState === 'visible' ? title : '⚠ Keep Game Night in front!';
+    document.title = document.visibilityState === 'visible' ? title : '⚠ Keep Robo Rally in front!';
     request();
   });
   request();

@@ -18,6 +18,8 @@ const STEP_MS = 650;
 //        ['shield', id]  ['fall', id]  ['tp', id, x, y]  ['swap', a, b]  ['off', id]  ['on', id]
 //        ['belts']  ['gears']  ['wait', ms]  [[step], [step]] runs steps together
 const D = {
+  'lobby-program': { size: [5, 4], bots: { a: [0, 3, 'N'] }, steps: [['card', 'a', '↑'], ['move', 'a', 'F', 1], ['card', 'a', '↻'], ['turn', 'a', 1], ['card', 'a', '↑↑'], ['move', 'a', 'F', 2], ['card', 'a', '↺'], ['turn', 'a', -1], ['card', 'a', '↑'], ['move', 'a', 'F', 1]] },
+  'lobby-flags': { size: [5, 3], flags: [[1, 2], [3, 2], [3, 0]], bots: { a: [0, 2, 'E'] }, steps: [['move', 'a', 'F', 1], ['pop', 'a', '⚑ 1 ✓'], ['move', 'a', 'F', 2], ['pop', 'a', '⚑ 2 ✓'], ['turn', 'a', -1], ['move', 'a', 'F', 2], ['pop', 'a', '⚑ 3 🏆']] },
   // ----- permanent upgrades -----
   'brakes': { bots: { a: [1, 1, 'E'] }, steps: [['card', 'a', '⬆'], ['pop', 'a', '🛑'], ['wait', 500]] },
   'chaos-theory': { bots: { a: [0, 1, 'E'] }, steps: [['card', 'a', '⚠️'], ['pop', 'a', '⚡+1'], ['card', 'a', '⬆⬆'], ['move', 'a', 'F', 2]] },
@@ -351,7 +353,7 @@ function tick(now) {
       live.delete(demo);
       continue;
     }
-    if (demo.canvas.offsetParent !== null) draw(demo, now);
+    if (demo.canvas.offsetParent !== null) draw(demo, matchMedia('(prefers-reduced-motion: reduce)').matches ? demo.t0 + 1000 : now);
   }
   if (live.size) raf = requestAnimationFrame(tick);
 }

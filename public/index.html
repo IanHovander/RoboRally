@@ -1,15 +1,16 @@
 <!doctype html>
-<html lang="en" class="phone" data-theme="arena">
+<html lang="en" class="phone" data-theme="factory">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#9a0000">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10181d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Game Night</title>
-  <link rel="icon" type="image/png" href="img/favicon.png">
+  <title>Robo Rally</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/phone.css">
+  <link rel="stylesheet" href="games/robo-rally/lobby.css">
   <script type="module" src="js/play.js"></script>
 </head>
 <body>
@@ -21,23 +22,25 @@
   </section>
 
   <section id="code" class="screen center-screen" hidden>
-    <div class="logo">Game <span>Night</span></div>
+    <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
+    <p class="factory-tagline">Factory closed. Race on.</p>
     <form id="code-form" class="join-form" autocomplete="off">
       <label for="room-code">Room Code</label>
       <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input">
-      <button class="btn btn-xl block">Next</button>
-      <p class="muted small">It's on the big screen, under the QR code.</p>
+      <button class="btn btn-xl block">Join the race →</button>
+      <p class="muted small">From the big screen.</p>
     </form>
-    <a class="host-link" href="host.html">Host a game on this device →</a>
+    <a class="host-link" href="host.html">Open the big screen →</a>
     <a class="host-link" href="check.html">Check this network</a>
   </section>
 
   <section id="join" class="screen center-screen" hidden>
-    <div class="logo">Game <span>Night</span></div>
+    <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
+    <p class="factory-tagline">Factory closed. Race on.</p>
     <form id="join-form" class="join-form" autocomplete="off">
-      <label for="name">What's Your Name?</label>
+      <label for="name">Your name</label>
       <input id="name" name="name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go">
-      <button id="join-btn" class="btn btn-xl block">Join</button>
+      <button id="join-btn" class="btn btn-xl block">Power up →</button>
       <p id="join-error" class="form-error" hidden></p>
     </form>
     <a id="host-link" class="host-link" href="host.html" hidden>Open the big screen →</a>
@@ -47,18 +50,18 @@
     <div class="me-card">
       <span class="me-dot"></span>
       <span id="wait-name" class="me-name"></span>
+      <button id="robot-change" class="robot-change" aria-label="Choose your robot" title="Choose your robot">⇄</button>
     </div>
     <h1 id="wait-title" class="bar-title"></h1>
     <p id="wait-msg" class="muted"></p>
     <div id="vip" class="panel vip" hidden>
-      <h2>You're the Leader</h2>
-      <p class="muted small">Pick a game and start when everyone's in.</p>
-      <div id="vip-games" class="vip-games"></div>
-      <button id="vip-start" class="btn btn-xl block">Start</button>
+
+      <button id="vip-start" class="btn btn-xl block">Let's race →</button>
       <p id="vip-problem" class="muted small"></p>
     </div>
+    <div class="factory-lessons" data-lessons></div>
     <div class="panel">
-      <h2>Players</h2>
+      <h2>Starting line</h2>
       <div id="wait-players" class="player-chips"></div>
     </div>
   </section>
@@ -84,6 +87,10 @@
     <button id="notice-btn" class="btn btn-xl"></button>
   </section>
 
+  <dialog id="avatar-dialog" class="avatar-dialog">
+    <button id="avatar-close" class="avatar-close" aria-label="Done choosing robot">✓</button>
+    <div id="avatar-picker"></div>
+  </dialog>
   <div id="offline" class="offline" hidden>Reconnecting…</div>
 </body>
 </html>

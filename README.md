@@ -1,12 +1,11 @@
-# Game Night
+# Robo Rally
 
-A small framework for party games where **one screen is the game console and everyone's phone is a controller**.
-The big screen shows what everyone shares (scores, the board, clues, a timer). Each phone shows what only
-that player should see or do (a secret word, their own buttons, a text box). Nobody installs an app.
+**One big screen, everyone's phone as a controller.** Scan in, choose your robot, and race through the factory.
+Built on Game Night; this edition offers only Robo Rally. Nobody installs an app.
 
 ## Robo Rally
 
-The headline game in this copy (`games/robo-rally/`): the robot-programming race, set in an abandoned big-box
+The game in this copy (`games/robo-rally/`): the robot-programming race, set in an abandoned big-box
 store after closing time. The big screen shows the race in 3D; each phone holds your programming cards.
 
 - **Rules** follow the 2023 rulebook: Upgrade, Programming and Activation phases, the Priority Token, conveyor
@@ -19,9 +18,13 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 - **Boards and courses are original** (Loading Dock, Garden Center, Checkout Lanes, Stockroom, Electronics), not
   copies of the boxed boards.
 - **Pictures, not paragraphs:** cards, upgrades and rules are shown as icons and short looping animations.
+- **Factory lobby:** the 3D course, phone joining, and three animated lessons. No game chooser or team branding.
+- **Your robot:** tap ⇄ beside your name in the waiting room to choose an avatar. Your selection survives reconnecting.
 - **Players:** 2–6 is the rulebook's range; up to 8 work (8 start spaces), and 1 player can practice.
 - **Tests:** `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, and
   runs a full game through the server.
+- `node test/avatar.mjs` checks robot selection and reconnects. `npm test` retains framework coverage using
+  example games in a test-only server; normal servers and the website build register only Robo Rally.
 
 ## Three ways to run it
 

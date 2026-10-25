@@ -11,9 +11,9 @@ import { describeGame } from '../public/js/core/games.js';
  *   player.js   what each phone shows
  *   style.css   optional styles, loaded automatically
  */
-export async function loadGames(gamesDir) {
+export async function loadGames(gamesDir, options) {
   const games = new Map();
-  for (const { id, dir, hasStyle } of findGames(gamesDir)) {
+  for (const { id, dir, hasStyle } of findGames(gamesDir, options)) {
     try {
       const def = (await import(pathToFileURL(path.join(dir, 'rules.js')).href)).default;
       for (const file of ['host.js', 'player.js']) {
@@ -28,12 +28,14 @@ export async function loadGames(gamesDir) {
 }
 
 /** The game folders, in order: [{ id, dir, hasStyle }]. Also what games/index.json lists. */
-export function findGames(gamesDir) {
+export function findGames(gamesDir, { examples = false } = {}) {
   const entries = fs.existsSync(gamesDir) ? fs.readdirSync(gamesDir, { withFileTypes: true }) : [];
   entries.sort((a, b) => a.name.localeCompare(b.name));
   const found = [];
   for (const entry of entries) {
     if (!entry.isDirectory() || /^[_.]/.test(entry.name)) continue;
+    // This edition has one game. Examples remain available to framework tests only.
+    if (!examples && entry.name !== 'robo-rally') continue;
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(entry.name)) {
       console.warn(`  Skipping games/${entry.name}: use only lowercase letters, numbers and dashes in game folder names.`);
       continue;

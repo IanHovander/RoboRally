@@ -227,8 +227,12 @@ function hash(text) {
   return h >>> 0;
 }
 
-/** Which of the 12 robots this player is. */
+export const ROBOTS = Object.freeze(['Wave', 'Flex', 'Jump', 'Sprint', 'Balance', 'Hover', 'Lift', 'Panther', 'Think', 'Dance', 'Wheelie', 'Flag'].map((name, id) => Object.freeze({ id, name })));
+export const isAvatar = (value) => Number.isInteger(value) && value >= 0 && value < ROBOTS.length;
+
+/** The chosen robot, with the original color-based default for older players. */
 export function design(player) {
+  if (isAvatar(player?.avatar)) return player.avatar;
   const slot = COLOR_ORDER.indexOf(String(player?.color).toLowerCase());
   return slot >= 0 ? slot : hash(player?.id ?? player?.name ?? '') % DESIGNS.length;
 }
@@ -236,7 +240,7 @@ export function design(player) {
 export function avatar(player, { mood, pose } = {}) {
   const h = hash(player?.id ?? player?.name ?? '');
   const color = /^#[0-9a-f]{3,8}$/i.test(player?.color ?? '') ? player.color : GREY;
-  const [body, air] = DESIGNS[pose ?? design(player)](mood ?? (player?.connected === false ? 'sleep' : undefined));
+  const [body, air] = DESIGNS[isAvatar(pose) ? pose : design(player)](mood ?? (player?.connected === false ? 'sleep' : undefined));
   return raw(
     `<svg class="bot${air ? ' bot-air' : ''}" viewBox="0 0 80 80" style="color:${color};--bob:${(h % 9) / 10}s" aria-hidden="true">` +
     `<ellipse cx="40" cy="76" rx="${air ? 13 : 22}" ry="2.8" fill="#000" fill-opacity="${air ? 0.2 : 0.35}"/>` +

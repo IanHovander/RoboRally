@@ -1,12 +1,15 @@
 // The big screen (laptop / TV): lobby with QR code, then the game's host view.
 import { html } from './ui.js';
 import { avatar } from './avatar.js';
+import { mountFactoryLobby, mountLessons } from '../games/robo-rally/lobby.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
 let dismissedError = null;
 const seenPlayers = new Set();
+const factory = mountFactoryLobby(document.getElementById('factory-scene'));
+mountLessons(document.querySelector('[data-lessons]'));
 
 /** The red bar at the top: a problem with the connection (null hides it). */
 function banner(text) {
@@ -38,7 +41,7 @@ async function setUpRelayButton() {
   const button = $('relay-btn');
   const dialog = $('relay-dialog');
   button.hidden = false;
-  button.textContent = relay ? (relay.builtIn ? 'Relay: built in ✓' : 'Relay: own login ✓') : 'Relay: not set up';
+  button.textContent = relay ? (relay.builtIn ? 'Connection ✓' : 'Connection ✓') : 'Connection setup';
   button.addEventListener('click', () => {
     $('relay-user').value = '';
     $('relay-pass').value = '';
@@ -58,7 +61,7 @@ socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {
   document.body.innerHTML = html`
     <div class="denied">
-      <div class="logo">Game <span>Night</span></div>
+      <div class="factory-wordmark">ROBO<span>RALLY</span></div>
       <p>The big screen only opens on the computer running the game (or on its Wi-Fi).</p>
       <a class="btn btn-xl" href="./">Join as a player instead</a>
     </div>`;
@@ -69,10 +72,6 @@ onState(socket, (next) => {
 });
 
 $('start').addEventListener('click', () => lobby('start'));
-$('games').addEventListener('click', (e) => {
-  const card = e.target.closest('[data-game]');
-  if (card) lobby('select', { gameId: card.dataset.game });
-});
 $('players').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-kick]');
   if (btn && confirm(`Remove ${btn.dataset.name} from the room?`)) lobby('kick', { playerId: btn.dataset.kick });
@@ -93,13 +92,14 @@ function render() {
   const inGame = room.screen === 'game' && !!room.game;
   $('lobby').hidden = inGame;
   $('game').hidden = !inGame;
+  factory.setActive(!inGame, room.players);
 
   $('join-text').textContent = room.join.text;
   $('join-text').classList.toggle('long', room.join.text.length > 24);
   $('join-mini').textContent = room.join.code ? `${room.join.text} · code ${room.join.code}` : room.join.text;
   $('join-hint').textContent = room.join.url.startsWith('https:')
-    ? 'Works from anywhere with internet'
-    : 'Phones need to be on the same Wi-Fi as this computer';
+    ? 'Your phone is your controller'
+    : 'Join this computer’s Wi-Fi';
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
   $('join-code').hidden = !room.join.code;
@@ -135,25 +135,11 @@ function renderLobby(room) {
             <button class="chip-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}">✕</button>
           </div>`;
       })}`
-    : html`<div class="empty">Waiting for players. Scan the code to join!</div>`;
+    : html`<div class="empty">Your robot belongs here.</div>`;
   $('players').classList.toggle('still', room.players.length > 16); // a crowd of bobbing robots is too busy
 
-  $('games').innerHTML = html`${room.games.map(
-    (g) => html`
-      <button class="game-card ${g.id === room.selectedGameId && 'selected'}" data-game="${g.id}">
-        <span class="game-name">${g.name}</span>
-        <span class="game-desc">${g.description}</span>
-        <span class="game-meta">${playerRange(g)}</span>
-      </button>`,
-  )}`;
-
   $('start').disabled = !!room.startProblem;
-  $('start-problem').textContent = room.startProblem ?? '';
+  $('start-problem').textContent = online === 0 ? 'Scan in to power up' : room.startProblem ?? '';
   $('last-result').hidden = !room.lastResult;
   $('last-result').textContent = room.lastResult ?? '';
-}
-
-function playerRange(g) {
-  if (g.minPlayers === g.maxPlayers) return `${g.minPlayers} players`;
-  return g.maxPlayers >= 32 ? `${g.minPlayers}+ players` : `${g.minPlayers}–${g.maxPlayers} players`;
 }

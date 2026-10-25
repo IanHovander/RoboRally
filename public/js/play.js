@@ -1,10 +1,13 @@
 // The phone: join with a name, wait in the lobby, then show the game's player view.
 import { html } from './ui.js';
 import { avatar } from './avatar.js';
+import { mountAvatarPicker } from './avatar-picker.js';
+import { mountLessons } from '../games/robo-rally/lobby.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
+mountLessons(document.querySelector('[data-lessons]'));
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
 // On the website, which room (big screen) to join: ?room=ABCD from the QR code, or typed in.
@@ -41,6 +44,9 @@ const socket = await connect(
 );
 const api = createApi(socket, 'player', () => state);
 const stage = new GameStage($('stage'), 'player', api);
+const avatarPicker = mountAvatarPicker($('avatar-picker'), socket, null);
+$('robot-change').addEventListener('click', () => $('avatar-dialog').showModal());
+$('avatar-close').addEventListener('click', () => $('avatar-dialog').close());
 
 socket.on('connect', () => ($('offline').hidden = true));
 socket.on('disconnect', () => ($('offline').hidden = !!notice || !state));
@@ -72,7 +78,7 @@ socket.on('replaced', () => {
 
 // a few robots say hello under the logo
 const PARADE = [['#4dabf7', 2], ['#ffd43b', 0], ['#cccccc', 6], ['#51cf66', 7], ['#cc5de8', 11]]; // [color, pose]
-for (const logo of document.querySelectorAll('.center-screen > .logo')) {
+for (const logo of document.querySelectorAll('.center-screen > .factory-tagline')) {
   const bots = PARADE.map(([color, pose], i) => avatar({ id: `hello${i}`, color }, { pose }));
   logo.insertAdjacentHTML('afterend', String(html`<div class="bot-parade">${bots}</div>`));
 }
@@ -101,10 +107,6 @@ function joinError(message) {
 
 // ---------- lobby controls for the VIP ----------
 
-$('vip-games').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-game]');
-  if (btn) socket.emit('lobby', { cmd: 'select', gameId: btn.dataset.game });
-});
 $('vip-start').addEventListener('click', () => socket.emit('lobby', { cmd: 'start' }));
 $('menu-btn').addEventListener('click', () => ($('menu').hidden = !$('menu').hidden));
 $('menu').addEventListener('click', (e) => {
@@ -164,6 +166,9 @@ function render() {
   if (!state) return show('connecting');
 
   const { room, you } = state;
+  avatarPicker.update(you);
+  $('robot-change').hidden = room.screen !== 'lobby';
+  if (room.screen !== 'lobby') $('avatar-dialog').close();
   if (!you) {
     stage.show(null);
     return show('join');
@@ -190,19 +195,16 @@ function render() {
 function renderWait(room, you) {
   const inLobby = room.screen === 'lobby';
   $('wait-name').textContent = you.name;
-  $('wait-title').textContent = inLobby ? "You're In!" : 'Game in Progress';
+  $('wait-title').textContent = inLobby ? 'Ready to roll' : 'Game in Progress';
   $('wait-msg').textContent = inLobby
     ? you.isVip
       ? ''
-      : 'Watch the big screen. The game will start soon.'
+      : 'Waiting for the starting signal…'
     : "You'll be in the next one. Watch the big screen!";
 
   const vip = inLobby && you.isVip;
   $('vip').hidden = !vip;
   if (vip) {
-    $('vip-games').innerHTML = html`${room.games.map(
-      (g) => html`<button class="vip-game ${g.id === room.selectedGameId && 'selected'}" data-game="${g.id}">${g.name}</button>`,
-    )}`;
     $('vip-start').disabled = !!room.startProblem;
     $('vip-problem').textContent = room.startProblem ?? '';
   }

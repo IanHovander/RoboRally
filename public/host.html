@@ -1,50 +1,43 @@
 <!doctype html>
-<html lang="en" class="host" data-theme="arena">
+<html lang="en" class="host" data-theme="factory">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Game Night · Big Screen</title>
-  <link rel="icon" type="image/png" href="img/favicon.png">
+  <title>Robo Rally · Factory</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/host.css">
+  <link rel="stylesheet" href="games/robo-rally/lobby.css">
   <script type="module" src="js/host.js"></script>
 </head>
 <body>
   <section id="lobby" class="screen lobby">
+    <div id="factory-scene" class="factory-scene" aria-hidden="true"></div>
     <header class="lobby-head">
-      <div class="logo">Game <span>Night</span></div>
+      <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
+      <p class="factory-tagline">Factory closed. Race on.</p>
       <div id="last-result" class="last-result" hidden></div>
-      <div class="team-tag">Iron Panthers · FRC 5026</div>
     </header>
-
-    <div class="lobby-body">
-      <aside class="join-card">
-        <div class="join-title">Join on Your Phone</div>
-        <img id="qr" class="qr" alt="QR code for joining">
-        <div class="join-or">or go to</div>
-        <div id="join-text" class="join-text"></div>
-        <div id="join-code" class="join-code" hidden></div>
-        <div id="join-hint" class="join-hint"></div>
-        <div id="join-local" class="join-local" hidden>On this Wi-Fi? <b id="join-local-text"></b> is faster</div>
-      </aside>
-
-      <div class="lobby-main">
-        <div class="panel">
-          <h2>Players <span id="player-count" class="count"></span></h2>
-          <div id="players" class="player-chips"></div>
-        </div>
-        <div class="panel grow">
-          <h2>Pick a Game</h2>
-          <div id="games" class="game-cards"></div>
-        </div>
-        <div class="start-row">
-          <button id="start" class="btn btn-xl">Start Game</button>
-          <div id="start-problem" class="start-problem"></div>
-          <span class="spacer"></span>
-          <button id="relay-btn" class="btn btn-sm secondary" hidden>Relay</button>
-        </div>
+    <aside class="join-card">
+      <div class="join-title">Scan to race</div>
+      <img id="qr" class="qr" alt="Scan this QR code to join on your phone">
+      <div id="join-code" class="join-code" hidden></div>
+      <div id="join-text" class="join-text"></div>
+      <div id="join-hint" class="join-hint"></div>
+      <div id="join-local" class="join-local" hidden>Same Wi-Fi? <b id="join-local-text"></b></div>
+    </aside>
+    <div class="factory-lessons" data-lessons></div>
+    <footer class="factory-dock">
+      <div class="factory-crew">
+        <h2>On the starting line <span id="player-count" class="count"></span></h2>
+        <div id="players" class="player-chips"></div>
       </div>
-    </div>
+      <div class="factory-launch">
+        <button id="start" class="btn btn-xl">Let's race <span aria-hidden="true">→</span></button>
+        <div id="start-problem" class="start-problem"></div>
+        <button id="relay-btn" class="btn btn-sm secondary" hidden>Connection</button>
+      </div>
+    </footer>
   </section>
 
   <section id="game" class="screen game-screen" hidden>

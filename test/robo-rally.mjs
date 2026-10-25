@@ -351,8 +351,13 @@ try {
   const host = client('host');
   const players = [client('player'), client('player'), client('player')];
   await wait(300);
+  const catalog = await (await fetch(URL + '/games/index.json')).json();
+  check(catalog.length === 1 && catalog[0].id === 'robo-rally', 'this edition serves only Robo Rally');
+  check(host.room.games.length === 1 && host.room.selectedGameId === 'robo-rally', 'Robo Rally is selected automatically');
   for (const [i, p] of players.entries()) await p.socket.timeout(3000).emitWithAck('join', { name: `P${i + 1}` });
-  host.socket.emit('lobby', { cmd: 'select', gameId: 'robo-rally' });
+  host.socket.emit('lobby', { cmd: 'select', gameId: 'tap-race' });
+  await wait(100);
+  check(host.room.selectedGameId === 'robo-rally', 'a client cannot select an unavailable game');
   host.socket.emit('lobby', { cmd: 'start' });
   check(await until(() => host.room?.screen === 'game' && host.self?.view?.phase === 'setup'), 'Robo Rally starts in the setup screen');
   await act(players[1], 'setOpt', { key: 'course', value: 'blue-light-special' });

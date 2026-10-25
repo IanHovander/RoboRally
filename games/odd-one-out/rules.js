@@ -79,7 +79,7 @@ export default {
       players: ctx.players.map((p) => ({
         id: p.id,
         name: p.name,
-        color: p.color,
+        color: p.color, avatar: p.avatar,
         connected: p.connected,
         score: s.scores[p.id] ?? 0,
         done: hasActed(s, p.id),
@@ -112,7 +112,7 @@ export default {
       view.myVote = s.votes[me.id] ?? null;
       view.choices = ctx.players
         .filter((p) => p.id !== me.id)
-        .map((p) => ({ id: p.id, name: p.name, color: p.color, clue: s.clues[p.id] ?? null }));
+        .map((p) => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar, clue: s.clues[p.id] ?? null }));
     }
     if (s.phase === 'result') {
       view.caught = s.result.caught;
