@@ -21,6 +21,18 @@ for (const game of games) {
   fs.cpSync(game.dir, path.join(OUT, 'games', game.id), { recursive: true, filter: (src) => !serverOnly(src) && !secret(src) });
 }
 fs.writeFileSync(path.join(OUT, 'games', 'index.json'), JSON.stringify(games.map(({ id, hasStyle }) => ({ id, hasStyle })), null, 2));
+
+// Alternative looks (looks/<name>/public + looks/<name>/games) publish beside the main site, at looks/<name>/.
+const LOOKS = path.join(ROOT, 'looks');
+const looks = fs.existsSync(LOOKS) ? fs.readdirSync(LOOKS, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(path.join(LOOKS, e.name, 'public'))) : [];
+for (const look of looks) {
+  const src = path.join(LOOKS, look.name);
+  const out = path.join(OUT, 'looks', look.name);
+  fs.cpSync(path.join(src, 'public'), out, { recursive: true, filter: (f) => !secret(f) });
+  const lookGames = findGames(path.join(src, 'games'));
+  for (const game of lookGames) fs.cpSync(game.dir, path.join(out, 'games', game.id), { recursive: true, filter: (f) => !serverOnly(f) && !secret(f) });
+  fs.writeFileSync(path.join(out, 'games', 'index.json'), JSON.stringify(lookGames.map(({ id, hasStyle }) => ({ id, hasStyle })), null, 2));
+}
 fs.writeFileSync(path.join(OUT, '.nojekyll'), ''); // tell GitHub Pages to serve the files exactly as they are
 
-console.log(`Built dist/ with ${games.length} game(s): ${games.map((g) => g.id).join(', ')}`);
+console.log(`Built dist/ with ${games.length} game(s): ${games.map((g) => g.id).join(', ')}${looks.length ? `, plus looks: ${looks.map((l) => l.name).join(', ')}` : ''}`);

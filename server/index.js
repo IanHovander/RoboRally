@@ -21,6 +21,7 @@ const { values: opts } = parseArgs({
     url: { type: 'string' }, // the address phones should use (e.g. a tunnel); shown as the QR code
     open: { type: 'boolean' }, // open the big screen in the browser
     online: { type: 'boolean' }, // start a free Cloudflare tunnel so phones can join over the internet
+    look: { type: 'string' }, // serve an alternative look from looks/<name>/ (its own public/ and games/)
   },
   strict: false,
 });
@@ -30,7 +31,10 @@ const PORT = Number(opts.port || process.env.PORT || 3000);
 process.on('uncaughtException', (err) => console.error('[server] Unexpected error (still running):', err));
 process.on('unhandledRejection', (err) => console.error('[server] Unexpected error (still running):', err));
 
-const GAMES_DIR = path.join(ROOT, 'games');
+// An alternative look (looks/<name>/) brings its own pages and game folder; the room logic is shared.
+const SITE = opts.look ? path.join(ROOT, 'looks', String(opts.look).replace(/[^a-z0-9-]/gi, '')) : ROOT;
+const PUBLIC_DIR = path.join(SITE, 'public');
+const GAMES_DIR = path.join(SITE, 'games');
 const catalogOptions = { examples: process.env.GAME_NIGHT_TEST_EXAMPLES === '1' };
 const games = await loadGames(GAMES_DIR, catalogOptions);
 
@@ -53,8 +57,8 @@ app.use((req, res, next) => {
 app.get('/js/mode.js', (req, res) => res.type('text/javascript').send("export default 'server';\n"));
 app.get('/games/index.json', (req, res) => res.json(findGames(GAMES_DIR, catalogOptions).map(({ id, hasStyle }) => ({ id, hasStyle }))));
 app.use('/games', (req, res, next) => (isPublicGameFile(req.path) ? next() : res.status(404).end()));
-app.use('/games', express.static(path.join(ROOT, 'games'), { index: false, dotfiles: 'deny' }));
-app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'] }));
+app.use('/games', express.static(GAMES_DIR, { index: false, dotfiles: 'deny' }));
+app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
