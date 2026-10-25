@@ -241,7 +241,7 @@ export default function (root, api) {
       case 'setup': {
         const o = v.opts;
         const tog = (key, icon, demoKey) => html`
-          <button class="rr-opt ${o[key] && 'on'}" data-host="${key}=${!o[key]}">
+          <button class="rr-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}">
             <canvas class="rr-demo small" data-demo="${demoKey}"></canvas><span class="rr-opt-ic">${icon}</span><i>${o[key] ? '✔' : '✖'}</i>
           </button>`;
         return html`

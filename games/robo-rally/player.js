@@ -409,7 +409,7 @@ export default function (root, api) {
     const courses = COURSES.filter((x) => x.id !== 'lab');
     if (!api.you?.isVip) return lookUp();
     const tog = (key, icon, demoKey) => html`
-      <button class="rr-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${!o[key]}">
+      <button class="rr-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}">
         ${demo(demoKey, 'small')}<span class="rr-opt-ic">${icon}</span><i>${o[key] ? '✔' : '✖'}</i>
       </button>`;
     return html`
