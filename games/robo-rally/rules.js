@@ -84,7 +84,7 @@ function pump(ctx) {
 function finish(ctx) {
   const s = ctx.state;
   const name = ctx.player(s.winner)?.name;
-  ctx.end(name ? `${name} won the race!` : 'Race over');
+  ctx.end(name ? `🏆 ${name}` : '🏁'); // the lobby shows the winner's robot with the trophy
 }
 
 const robotOf = (ctx, player) => ctx.state.robots[player.id] ?? null;

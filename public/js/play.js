@@ -45,7 +45,7 @@ const socket = await connect(
 const api = createApi(socket, 'player', () => state);
 const stage = new GameStage($('stage'), 'player', api);
 const avatarPicker = mountAvatarPicker($('avatar-picker'), socket, null);
-$('robot-change').addEventListener('click', () => $('avatar-dialog').showModal());
+for (const id of ['robot-change', 'robot-pick']) $(id).addEventListener('click', () => $('avatar-dialog').showModal());
 $('avatar-close').addEventListener('click', () => $('avatar-dialog').close());
 
 socket.on('connect', () => ($('offline').hidden = true));
@@ -78,7 +78,7 @@ socket.on('replaced', () => {
 
 // a few robots say hello under the logo
 const PARADE = [['#4dabf7', 2], ['#ffd43b', 0], ['#cccccc', 6], ['#51cf66', 7], ['#cc5de8', 11]]; // [color, pose]
-for (const logo of document.querySelectorAll('.center-screen > .factory-tagline')) {
+for (const logo of document.querySelectorAll('.center-screen > .factory-wordmark')) {
   const bots = PARADE.map(([color, pose], i) => avatar({ id: `hello${i}`, color }, { pose }));
   logo.insertAdjacentHTML('afterend', String(html`<div class="bot-parade">${bots}</div>`));
 }
@@ -168,6 +168,7 @@ function render() {
   const { room, you } = state;
   avatarPicker.update(you);
   $('robot-change').hidden = room.screen !== 'lobby';
+  $('robot-pick').disabled = room.screen !== 'lobby';
   if (room.screen !== 'lobby') $('avatar-dialog').close();
   if (!you) {
     stage.show(null);
@@ -192,30 +193,14 @@ function render() {
   }
 }
 
+/** The waiting room says nothing: the big screen shows who's in. The leader gets the start button,
+ *  greyed out until the race can start. During someone else's race, an arrow points at the big screen. */
 function renderWait(room, you) {
   const inLobby = room.screen === 'lobby';
   $('wait-name').textContent = you.name;
-  $('wait-title').textContent = inLobby ? 'Ready to roll' : 'Game in Progress';
-  $('wait-msg').textContent = inLobby
-    ? you.isVip
-      ? ''
-      : 'Waiting for the starting signal…'
-    : "You'll be in the next one. Watch the big screen!";
-
-  const vip = inLobby && you.isVip;
-  $('vip').hidden = !vip;
-  if (vip) {
-    $('vip-start').disabled = !!room.startProblem;
-    $('vip-problem').textContent = room.startProblem ?? '';
-  }
-
-  $('wait-players').innerHTML = html`${room.players.map(
-    (p) => html`
-      <div class="chip ${!p.connected && 'away'}" style="--c:${p.color}">
-        ${avatar(p)}<span class="chip-name">${p.name}</span>
-        ${p.isVip && html`<span class="chip-vip">★</span>`}
-      </div>`,
-  )}`;
+  $('wait-busy').hidden = inLobby;
+  $('vip-start').hidden = !(inLobby && you.isVip);
+  $('vip-start').disabled = !!room.startProblem;
 }
 
 // ---------- keep the screen on (only works over https or localhost) ----------

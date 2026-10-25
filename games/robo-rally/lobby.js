@@ -3,41 +3,24 @@ import { mountDemo } from './demo.js';
 import { getCourse } from './board.js';
 import { drawCourse } from './minimap.js';
 
+// The three lessons are animations only: a step number, a picture of what it's about, and a loop that
+// shows it. (The labels are for screen readers.)
 const LESSONS = [
-  { title: 'Pick five moves', demo: 'lobby-program', symbols: '↑  ↻  ↑↑  ↺  ↑', detail: 'Your robot follows your cards, from left to right.' },
-  { title: 'Expect a little chaos', demo: 'belts', symbols: '▶  ⚙  ⇢', detail: 'After each move, the factory moves too. Robots can push each other.' },
-  { title: 'Race to the flags', demo: 'lobby-flags', symbols: '⚑ 1 → ⚑ 2 → ⚑ 3', detail: 'Reach the numbered flags in order. First to the last flag wins.' },
+  { demo: 'lobby-program', icon: '<span class="lesson-card">↑</span>', label: 'Your robot follows your five cards, from left to right.' },
+  { demo: 'lobby-chaos', icon: '⚙️', label: 'After each move the factory moves too, and robots push each other.' },
+  { demo: 'lobby-flags', icon: '🏁', label: 'Reach the numbered flags in order. First to the last flag wins.' },
 ];
 
 export function mountLessons(root) {
   if (!root) return;
-  root.innerHTML = `<nav class="lesson-tabs" aria-label="How to race">${LESSONS.map((l, i) => `<button type="button" data-lesson="${i}" aria-label="${l.title}">${i + 1}<span>${['Program', 'Play', 'Win'][i]}</span></button>`).join('')}</nav>
-    <div class="lesson-body"><canvas role="img"></canvas><div class="lesson-copy"><div class="lesson-symbols" aria-hidden="true"></div><h2></h2><details><summary>A little more</summary><p></p></details></div></div>`;
-  let index = 0, stop;
-  const select = (n) => {
-    index = n;
-    const l = LESSONS[n];
-    root.querySelector('h2').textContent = l.title;
-    root.querySelector('p').textContent = l.detail;
-    root.querySelector('.lesson-symbols').textContent = l.symbols;
-    root.querySelector('canvas').setAttribute('aria-label', l.detail);
-    for (const b of root.querySelectorAll('[data-lesson]')) b.setAttribute('aria-pressed', String(Number(b.dataset.lesson) === n));
-    stop?.();
-    stop = mountDemo(root.querySelector('canvas'), l.demo, '#ffc15a');
-  };
-  root.addEventListener('click', (e) => {
-    const button = e.target.closest('[data-lesson]');
-    if (button) select(Number(button.dataset.lesson));
-  });
-  // Keep a chosen lesson in place while someone reads or interacts with it.
-  let touched = false;
-  root.addEventListener('pointerdown', () => { touched = true; });
-  root.addEventListener('focusin', () => { touched = true; });
-  const timer = setInterval(() => {
-    if (!root.isConnected) { clearInterval(timer); stop?.(); }
-    else if (!touched && root.offsetParent !== null && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) select((index + 1) % LESSONS.length);
-  }, 10500);
-  select(0);
+  root.setAttribute('role', 'list');
+  root.setAttribute('aria-label', 'How to race');
+  root.innerHTML = LESSONS.map((l, i) => `
+    <figure class="lesson" role="listitem">
+      <figcaption aria-hidden="true"><b>${i + 1}</b>${l.icon.startsWith('<') ? l.icon : `<i>${l.icon}</i>`}</figcaption>
+      <canvas role="img" aria-label="${l.label}"></canvas>
+    </figure>`).join('');
+  root.querySelectorAll('canvas').forEach((canvas, i) => mountDemo(canvas, LESSONS[i].demo, '#ffc15a'));
 }
 
 export function mountFactoryLobby(root) {

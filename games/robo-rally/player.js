@@ -1,6 +1,8 @@
 // A phone: setup (the leader), picking a start space, the upgrade shop, programming your registers
 // with a map that shows where your program would take you, and decisions during the race.
 // Pictures and little animations do the explaining; words only name things.
+// The phone holds only what is private: your hand, your program, your choices. Everything the room
+// shares (the race, who's ready, who won) is on the big screen, and the phone points up at it.
 import { html, raw } from '../../js/ui.js';
 import { avatar } from '../../js/avatar.js';
 import { COURSES, getCourse } from './board.js';
@@ -10,8 +12,8 @@ import { cardPicture, cardKind, upgradeIcon, ARROW } from './icons.js';
 import { mountDemo, hasDemo } from './demo.js';
 
 const LEVEL = { Starter: 1, Beginner: 2, Intermediate: 3, Advanced: 4 };
+const UP = '<svg viewBox="0 0 40 40" class="rr-up-arrow" aria-hidden="true"><path d="M8 21 L20 9 L32 21 M8 33 L20 21 L32 33" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const TIMERS = [0, 60, 120, 180];
-const PHASE_ICON = { setup: '⚙️', start: '📍', upgrade: '🛒', program: '🂠', activate: '▶', over: '🏆' };
 
 export default function (root, api) {
   root.innerHTML = `
@@ -112,11 +114,14 @@ export default function (root, api) {
     const c = course();
     const width = mapBox.clientWidth || 340;
     const fitTile = Math.floor(width / c.w);
-    mapMode ??= fitTile >= 24 ? 'all' : 'near';
-    mapBtn.hidden = fitTile >= 30;
+    // on a short phone the whole course would push the cards off the screen: start zoomed in on your robot
+    const maxH = Math.max(180, Math.round(window.innerHeight * 0.36));
+    const fits = fitTile * c.h <= maxH;
+    mapMode ??= fitTile >= 24 && fits ? 'all' : 'near';
+    mapBtn.hidden = fitTile >= 30 && fits;
     mapBtn.textContent = mapMode === 'all' ? '🔍＋' : '🔍－';
     const tile = mapMode === 'all' ? fitTile : 34;
-    const height = mapMode === 'all' ? tile * c.h : Math.min(tile * c.h, Math.round(width * 0.78));
+    const height = mapMode === 'all' ? tile * c.h : Math.min(tile * c.h, Math.round(width * 0.78), maxH);
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
@@ -243,6 +248,8 @@ export default function (root, api) {
   function changed() {
     saveDraft();
     render();
+    // the program is full: bring the lock button into view (on a short phone it can be below the hand)
+    if (programFull()) root.querySelector('.rr-lock:not(:disabled)')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   async function lockIn() {
@@ -372,23 +379,20 @@ export default function (root, api) {
     if (m && view.phase === 'program') syncProgram();
     root.firstElementChild.dataset.phase = view.phase;
 
-    // top bar: phase picture, then my numbers
-    const timed = ['start', 'upgrade', 'program'].includes(view.phase) && view.deadline;
-    set(top, html`
-      <span class="rr-phase-ic" title="${view.phase}">${PHASE_ICON[view.phase]}</span>
-      ${view.phase === 'activate' ? html`<span class="rr-pips">${[0, 1, 2, 3, 4].map((i) => html`<i class="${i === view.reg && 'now'} ${i < view.reg && 'done'}">${i + 1}</i>`)}</span>` : html`<span class="rr-spacer"></span>`}
-      ${m && view.opts.upgrades && html`<span class="rr-stat">⚡${m.en}</span>`}
-      ${m && html`<span class="rr-stat">🏁${m.cp}/${view.cps}</span>`}
-      ${m && m.spam > 0 && html`<span class="rr-stat spam">⚠️${m.spam}</span>`}
-      ${timed && html`<span class="timer" data-deadline="${view.deadline}"></span>`}`);
+    // the clock, in the header's corner, while it's running for you
+    const timed = ['start', 'upgrade', 'program'].includes(view.phase) && view.deadline && view.inRace && !m?.done;
+    set(top, timed ? html`<span class="timer" data-deadline="${view.deadline}"></span>` : '');
+    // the map is for planning: picking a start space and programming (and the leader choosing a course)
+    const planning = view.inRace && ((view.phase === 'program' && m && !m.done && !m.mustReturn) || view.phase === 'start');
+    root.firstElementChild.dataset.map = planning || (view.phase === 'setup' && api.you?.isVip) ? 'on' : 'off';
 
     set(panel, renderPanel(m));
     renderSheet();
-    drawMap();
+    if (root.firstElementChild.dataset.map === 'on') drawMap();
   }
 
   function renderPanel(m) {
-    if (!view.inRace && view.phase !== 'setup') return html`<div class="rr-watch"><span class="rr-big">👀</span></div>`;
+    if (!view.inRace && view.phase !== 'setup') return lookUp();
     switch (view.phase) {
       case 'setup': return renderSetup();
       case 'start': return renderStart();
@@ -403,7 +407,7 @@ export default function (root, api) {
   function renderSetup() {
     const o = view.opts;
     const courses = COURSES.filter((x) => x.id !== 'lab');
-    if (!api.you?.isVip) return html`<div class="rr-block center"><span class="rr-wait-dots">⚙️<i>.</i><i>.</i><i>.</i></span></div>`;
+    if (!api.you?.isVip) return lookUp();
     const tog = (key, icon, demoKey) => html`
       <button class="rr-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${!o[key]}">
         ${demo(demoKey, 'small')}<span class="rr-opt-ic">${icon}</span><i>${o[key] ? '✔' : '✖'}</i>
@@ -443,7 +447,7 @@ export default function (root, api) {
   }
 
   function renderUpgrade(m) {
-    if (m.done) return html`<div class="rr-block center rr-done"><span class="rr-big">✔</span>${readyRow()}</div>${renderInstalled(m, false)}`;
+    if (m.done) return html`<div class="rr-block center rr-done"><span class="rr-big">✔</span></div>${renderInstalled(m, false)}${lookUp()}`;
     const usable = m.up.temp.filter((k) => ['any', 'upgrade', 'program'].includes(UPGRADES[k].when));
     return html`
       <div class="rr-shop">
@@ -473,10 +477,8 @@ export default function (root, api) {
       </div>`;
   }
 
-  /** Who's ready: everyone's robot, dimmed until they are. */
-  function readyRow() {
-    return html`<div class="rr-ready">${view.robots.map((r) => html`<span class="${r.ready ? 'yes' : 'no'}" style="--c:${r.color}">${avatar(r, { mood: r.ready ? 'happy' : undefined })}${r.ready ? html`<i>✔</i>` : ''}</span>`)}</div>`;
-  }
+  /** An arrow bouncing up toward the big screen: nothing more to do here, the show is up there. */
+  const lookUp = () => html`<div class="rr-lookup" aria-label="Watch the big screen">${raw(UP)}<span aria-hidden="true">📺</span></div>`;
 
   function renderProgram(m) {
     if (m.done) {
@@ -484,9 +486,9 @@ export default function (root, api) {
         <div class="rr-block center rr-done">
           <span class="rr-big">${m.wantSd ? '⏻' : '🔒'}</span>
           ${!m.wantSd && html`<div class="rr-regs small">${prog.regs.map((l, i) => html`<div class="rr-reg"><i>${i + 1}</i>${(m.regs[i].locked ? m.regs[i].cards : l).map((id) => cardHtml(id))}</div>`)}</div>`}
-          ${readyRow()}
-          <button class="btn btn-sm secondary" data-action="unlock">✎</button>
-        </div>`;
+          <button class="btn secondary rr-unlock" data-action="unlock" aria-label="Change my program">✎</button>
+        </div>
+        ${lookUp()}`;
     }
     if (m.mustReturn) {
       return html`
@@ -548,52 +550,41 @@ export default function (root, api) {
         <button class="btn secondary" data-ui="shutdown" aria-label="shut down">⏻</button>
       </div>
       ${usable.length > 0 && html`<div class="rr-installed">${usable.map((k) => html`
-        <div class="rr-inst temp"><button class="rr-inst-ic" data-ui="info" data-arg="${k}">${upgradeIcon(k)}</button><small>${UPGRADES[k].name}</small><button class="btn btn-sm" data-ui="use" data-arg="${k}">▶</button></div>`)}</div>`}
-      ${readyRow()}`;
+        <div class="rr-inst temp"><button class="rr-inst-ic" data-ui="info" data-arg="${k}">${upgradeIcon(k)}</button><small>${UPGRADES[k].name}</small><button class="btn btn-sm" data-ui="use" data-arg="${k}">▶</button></div>`)}</div>`}`;
   }
 
+  /**
+   * The race is on the big screen. The phone shows only your card for this register (it bounces while
+   * your robot plays it), a switch if you have an upgrade to arm, and an arrow pointing up.
+   */
   function renderActivate(m) {
+    const reg = m.regs[Math.max(0, Math.min(view.reg, 4))]; // reg is -1 for a moment before register 1
     const what = view.beat.what;
-    const actor = what?.id ? robotById(what.id) : null;
+    const playing = what?.id === api.you?.id && ['card', 'upgrade'].includes(what.k);
+    const state = m.sd ? '⏻' : !m.on ? (m.rb ? '↻' : '🕳️') : '';
     const armable = m.canArm && m.on && m.up.temp.filter((k) => ['move', 'turn'].includes(UPGRADES[k].when));
     return html`
-      <div class="rr-now">${nowPicture(what, actor)}</div>
-      ${view.waiting && html`<div class="rr-wait">${bot(robotById(view.waiting.id))}<span class="rr-big">${view.waiting.icon ? upgradeIcon(view.waiting.icon) : '🤔'}</span><span class="rr-wait-dots"><i>.</i><i>.</i><i>.</i></span><span class="timer" data-deadline="${view.waiting.deadline}"></span></div>`}
-      ${!m.on && html`<div class="rr-note">${m.rb ? html`<span class="rr-big rr-spin">↻</span>` : html`<span class="rr-big">🕳️</span>`}</div>`}
-      ${m.sd && html`<div class="rr-note"><span class="rr-big">⏻</span></div>`}
-      <div class="rr-regs">
-        ${m.regs.map((r, i) => html`
-          <div class="rr-reg ${i === view.reg && 'now'} ${i < view.reg && 'past'}">
-            <i>${i + 1}</i>${r.cards.map((id) => cardHtml(id))}
-            ${r.next && html`<span class="rr-hw-next">⚡</span>`}
-          </div>`)}
-      </div>
-      ${armable?.length > 0 && html`
-        <button class="rr-arm ${m.armed && 'on'}" data-action="arm" data-payload="${JSON.stringify({ on: !m.armed })}">
-          ${armable.map((k) => html`<span>${upgradeIcon(k)}</span>`)}<i>${m.armed ? '✔' : '▶?'}</i>
-        </button>`}`;
+      <div class="rr-act">
+        <div class="rr-pips">${[0, 1, 2, 3, 4].map((i) => html`<i class="${i === view.reg && 'now'} ${i < view.reg && 'done'}">${i + 1}</i>`)}</div>
+        <div class="rr-act-card ${playing && 'playing'} ${state && 'off'}">
+          ${reg.cards.length ? reg.cards.map((id) => cardHtml(id)) : html`<span class="rr-card rr-card-empty"></span>`}
+          ${reg.next && html`<span class="rr-hw-next">⚡</span>`}
+          ${state && html`<span class="rr-act-state ${state === '↻' && 'rr-spin'}">${state}</span>`}
+        </div>
+        ${armable?.length > 0 && html`
+          <button class="rr-arm ${m.armed && 'on'}" data-action="arm" data-payload="${JSON.stringify({ on: !m.armed })}">
+            ${armable.map((k) => html`<span>${upgradeIcon(k)}</span>`)}<i>${m.armed ? '✔' : '▶?'}</i>
+          </button>`}
+        ${lookUp()}
+      </div>`;
   }
 
-  /** The step being played right now, as a picture. */
-  function nowPicture(what, actor) {
-    if (!what) return '';
-    if (what.k === 'card' && actor) return html`${bot(actor)}<span class="rr-now-cards">${what.cards.map((t, i) => html`${i > 0 && html`<span class="rr-arrow">→</span>`}${cardHtml(t)}`)}</span>`;
-    if (what.k === 'upgrade' && actor) return html`${bot(actor)}<span class="rr-big">${upgradeIcon(what.key)}</span>`;
-    if (what.k === 'reboot' && actor) return html`${bot(actor)}<span class="rr-big rr-spin">↻</span>`;
-    const icon = { reveal: '🂠🂠🂠', belt: what.fast ? '⏩' : '▶', push: '💥', gear: '⚙️', blaser: '🔴', rlaser: '🎯', battery: '⚡', cp: '🏁' }[what.k];
-    return icon ? html`<span class="rr-big">${icon}</span>` : '';
-  }
-
+  /** The winner gets a trophy and a happy robot; everyone else looks up at the results. */
   function renderOver(m) {
-    const w = robotById(view.winner);
     const won = view.winner === api.you?.id;
     return html`
-      <div class="rr-block center rr-over ${won && 'won'}">
-        <span class="rr-big">🏆</span>
-        ${w && html`<div class="rr-winner" style="--c:${w.color}">${avatar(w, { mood: 'happy' })}<b>${w.name}</b></div>`}
-        ${m && html`<div class="rr-mystats"><span>🏁${m.cp}/${view.cps}</span><span>💥${m.stats.pushes}</span><span>🎯${m.stats.hits}</span><span>🕳️${m.stats.falls}</span></div>`}
-        ${api.you?.isVip && html`<button class="btn btn-xl block" data-action="finish">🏠</button>`}
-      </div>`;
+      ${won ? html`<div class="rr-block center rr-over won"><span class="rr-big">🏆</span><div class="rr-winner" style="--c:${api.you.color}">${avatar(api.you, { mood: 'happy' })}</div></div>` : lookUp()}
+      ${api.you?.isVip && html`<button class="btn btn-xl block rr-home" data-action="finish" aria-label="Back to the lobby">🏠</button>`}`;
   }
 
   function renderSheet() {

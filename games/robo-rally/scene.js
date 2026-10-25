@@ -779,6 +779,18 @@ export class Arena {
     });
   }
 
+  /** Where a robot (or a square) is on screen, in CSS pixels from the canvas's top left, for HUD bubbles. */
+  toScreen(id, square, lift = 1.2) {
+    const b = id ? this.bots.get(id) : null;
+    const p = b ? b.group.position.clone() : square && this.course ? this.pos(square.x, square.y) : null;
+    if (!p) return null;
+    p.y += lift;
+    this.camera.updateMatrixWorld();
+    p.project(this.camera);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: ((p.x + 1) / 2) * r.width, y: ((1 - p.y) / 2) * r.height };
+  }
+
   // ----- the course -----
 
   pos(x, y) {
@@ -1221,7 +1233,7 @@ export class Arena {
         case 'cp':
           if (b) {
             this.confetti(b.group.position, [0xffd43b, 0xffffff, new THREE.Color(b.color).getHex()], 90);
-            this.float(b.group.position, `🏁${f.n}`, '#ffd43b', 0, 0.7);
+            this.ring(b.group.position, 0xffd43b, 1.4); // the big screen's HUD shows a bubble with the flag number
             const flag = this.flags.find((x) => x.n === f.n);
             if (flag) flag.flash = this.time;
           }

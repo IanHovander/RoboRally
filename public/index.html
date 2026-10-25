@@ -23,47 +23,37 @@
 
   <section id="code" class="screen center-screen" hidden>
     <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
-    <p class="factory-tagline">Factory closed. Race on.</p>
     <form id="code-form" class="join-form" autocomplete="off">
-      <label for="room-code">Room Code</label>
-      <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input">
-      <button class="btn btn-xl block">Join the race →</button>
-      <p class="muted small">From the big screen.</p>
+      <input id="room-code" name="code" maxlength="4" placeholder="····" aria-label="Room code from the big screen" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input">
+      <button class="btn btn-xl block join-go" aria-label="Join">▶</button>
     </form>
-    <a class="host-link" href="host.html">Open the big screen →</a>
-    <a class="host-link" href="check.html">Check this network</a>
+    <nav class="host-links">
+      <a class="host-link" href="host.html">📺 Big screen</a>
+      <a class="host-link" href="check.html">📶 Network check</a>
+    </nav>
   </section>
 
   <section id="join" class="screen center-screen" hidden>
     <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
-    <p class="factory-tagline">Factory closed. Race on.</p>
     <form id="join-form" class="join-form" autocomplete="off">
-      <label for="name">Your name</label>
-      <input id="name" name="name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go">
-      <button id="join-btn" class="btn btn-xl block">Power up →</button>
+      <input id="name" name="name" maxlength="16" placeholder="Your name" aria-label="Your name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go">
+      <button id="join-btn" class="btn btn-xl block join-go" aria-label="Join">▶</button>
       <p id="join-error" class="form-error" hidden></p>
     </form>
-    <a id="host-link" class="host-link" href="host.html" hidden>Open the big screen →</a>
+    <nav class="host-links"><a id="host-link" class="host-link" href="host.html" hidden>📺 Big screen</a></nav>
   </section>
 
+  <!-- The waiting room: your robot (tap it to choose another), the lessons, and for the leader the start
+       button at the very bottom, live as soon as the race can start. Who else is in shows on the big screen. -->
   <section id="wait" class="screen" hidden>
     <div class="me-card">
-      <span class="me-dot"></span>
+      <button id="robot-pick" class="me-dot" aria-label="Choose your robot"></button>
       <span id="wait-name" class="me-name"></span>
       <button id="robot-change" class="robot-change" aria-label="Choose your robot" title="Choose your robot">⇄</button>
     </div>
-    <h1 id="wait-title" class="bar-title"></h1>
-    <p id="wait-msg" class="muted"></p>
-    <div id="vip" class="panel vip" hidden>
-
-      <button id="vip-start" class="btn btn-xl block">Let's race →</button>
-      <p id="vip-problem" class="muted small"></p>
-    </div>
+    <div id="wait-busy" class="look-up" hidden aria-label="A race is on: watch the big screen"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 21 L20 9 L32 21 M8 33 L20 21 L32 33" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span aria-hidden="true">📺</span></div>
     <div class="factory-lessons" data-lessons></div>
-    <div class="panel">
-      <h2>Starting line</h2>
-      <div id="wait-players" class="player-chips"></div>
-    </div>
+    <button id="vip-start" class="btn btn-xl block wait-start" aria-label="Start the race" hidden>▶</button>
   </section>
 
   <section id="game" class="screen game-screen" hidden>
@@ -75,9 +65,9 @@
     </header>
     <main id="stage" class="stage"></main>
     <div id="menu" class="sheet" hidden>
-      <button class="btn block" data-lobby="restart">Restart Game</button>
-      <button class="btn block secondary" data-lobby="end">End Game</button>
-      <button class="btn block ghost">Cancel</button>
+      <button class="btn block" data-lobby="restart" aria-label="Restart the race">↺</button>
+      <button class="btn block secondary" data-lobby="end" aria-label="Back to the lobby">🏠</button>
+      <button class="btn block ghost" aria-label="Close">✖</button>
     </div>
   </section>
 
