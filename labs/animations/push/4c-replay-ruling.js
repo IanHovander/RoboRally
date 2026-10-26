@@ -19,15 +19,15 @@ export default async function play(lab) {
   const hdr = (c, k) => new THREE.Color(c).multiplyScalar(k);
 
   // ---- the rail (under the glass: drawn just on it, additive) and its end mark ----
-  const railMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const rail = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.035).rotateX(-Math.PI / 2).translate(0.5, 0, 0), railMat);
+  const railMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 1.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const rail = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.026).rotateX(-Math.PI / 2).translate(0.5, 0, 0), railMat);
   rail.renderOrder = 4;
   lab.add(rail);
-  const haloMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const haloMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 0.55), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.22).rotateX(-Math.PI / 2).translate(0.5, 0, 0), haloMat);
   lab.add(halo);
-  const capMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const cap = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.42).rotateX(-Math.PI / 2), capMat);
+  const capMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const cap = new THREE.Mesh(new THREE.PlaneGeometry(0.026, 0.42).rotateX(-Math.PI / 2), capMat);
   cap.position.copy(P(4, 2)).setY(0.012);
   cap.position.x += 0.5;
   lab.add(cap);
@@ -36,7 +36,7 @@ export default async function play(lab) {
   const S = { rail: 0, railA: 0, leash: 0, leashA: 0, punch: 0 };
   // ---- the leash: a thin line of light from the rail to Theo (a stretched box) ----
   const leashMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 2.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const leash = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6).translate(0, 0.5, 0), leashMat);
+  const leash = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 8).translate(0, 0.5, 0), leashMat);
   lab.add(leash);
   const anchor = P(3, 2).setY(0.012);
   const up = new THREE.Vector3(0, 1, 0);
@@ -96,7 +96,7 @@ export default async function play(lab) {
     const mats = [];
     body.traverse((o) => {
       if (o.isMesh) {
-        o.material = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 1.1), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+        o.material = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 1.3), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
         o.castShadow = false;
         mats.push(o.material);
       }
@@ -119,19 +119,24 @@ export default async function play(lab) {
     },
     ease.out,
   );
-  // ---- 3. FREEZE: the ruling is drawn ----
+  // ---- 3. FREEZE: the ruling is drawn (a shutter click, the room cools a little) ----
   lab.timeScale = 0.01;
+  lab.flash('rgba(255,255,255,1)', 0.07, 0.22);
+  const dim0 = arena.dimCur;
+  rt(0.12, (e) => (arena.dimCur = dim0 + 0.45 * e), ease.out);
+  lab.cleanup(() => (arena.dimCur = 0));
   rt(0.1, (e) => (S.punch = e), ease.out3);
   rt(0.08, (e) => (S.railA = e), ease.out);
   await rt(0.17, (e) => (S.rail = e), ease.inOut);
   await lab.waitReal(0.03);
   S.leashA = 1;
   await rt(0.08, (e) => (S.leash = e), ease.out);
-  await lab.waitReal(0.07);
+  await lab.waitReal(0.12);
 
   // ---- 4. SNAP: time back; yanked into the lane, a ghost left behind ----
   const ghost = makeGhost();
   lab.timeScale = 1;
+  rt(0.25, (e) => (arena.dimCur = (dim0 + 0.45) * (1 - e)), ease.inOut);
   // Maya's nose lands right on the beat of his landing
   const roll2 = lab.tween(0.14, (e) => maya.set({ x: 1.8 + 0.42 * e, pitch: 0.08 }), ease.linear);
   rt(0.3, (e) => (S.punch = 1 - e), ease.inOut);
@@ -139,7 +144,7 @@ export default async function play(lab) {
   const l0 = theo.pose.lift;
   const r0 = theo.pose.roll;
   const rot0 = theo.pose.rot;
-  rt(0.45, (e) => ghost.mats.forEach((m) => (m.opacity = 0.6 * (1 - e))), ease.out).then(() => lab.group.remove(ghost.g));
+  rt(0.6, (e) => ghost.mats.forEach((m) => (m.opacity = 0.9 * (1 - e))), ease.in).then(() => lab.group.remove(ghost.g));
   await lab.tween(
     0.1,
     (e) => {
@@ -155,7 +160,7 @@ export default async function play(lab) {
   await roll2;
 
   // ---- 5. the shove, along the rail; it fades as they settle ----
-  rt(0.6, (e) => (S.railA = 1 - e), ease.in);
+  const railOff = rt(0.55, (e) => (S.railA = 1 - e), ease.in);
   await lab.tween(
     0.32,
     (e, k) => {
@@ -165,8 +170,9 @@ export default async function play(lab) {
     ease.out,
   );
   theo.set({ sx: 1, sy: 1, roll: 0, rot: facing(2) });
-  await lab.waitReal(0.22);
+  await railOff;
   stopDraw();
+  for (const m of [rail, halo, cap, leash]) m.visible = false;
   releaseCam();
   maya.release({ x: 3, y: 2, d: 1 });
   theo.release({ x: 4, y: 2, d: 2 });

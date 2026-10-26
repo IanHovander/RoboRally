@@ -205,7 +205,7 @@ export default async function play(lab) {
   tri.closePath();
   const mGeo = new THREE.ExtrudeGeometry([peb, tri], { depth: 1, bevelEnabled: false, curveSegments: 24 });
   mGeo.rotateX(-Math.PI / 2);
-  const menisc = lab.add(new THREE.Mesh(mGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(RED).multiplyScalar(1.3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
+  const menisc = lab.add(new THREE.Mesh(mGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(RED).multiplyScalar(1.0), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
   menisc.position.set(C.x, 0.004, C.z);
   menisc.scale.y = 0.001;
   menisc.renderOrder = 2.5;
@@ -241,7 +241,7 @@ export default async function play(lab) {
     model.body.rotation.z = soft(-lx * 8) - S.roll;
     model.body.position.y = 0.3 * Math.sin(Math.hypot(model.body.rotation.x, model.body.rotation.z)) * 0.8;
     model.body.scale.set(S.sx, S.sy, S.sx);
-    model.paint.emissiveIntensity = emissive0 + 0.5 * S.glow;
+    model.paint.emissiveIntensity = emissive0 + 0.4 * S.glow;
     model.poolMat.opacity *= S.pool;
     flat.forEach((o, i) => (o.position.y = flatY[i] - S.lift / 1.3));
   };

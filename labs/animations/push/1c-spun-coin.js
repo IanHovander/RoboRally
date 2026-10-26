@@ -88,7 +88,7 @@ export default async function play(lab) {
   // ---- Theo's little life: he notices his ring is gone, looks back, then down ----
   const T = { look: 0, dip: 0, hop: 0 };
   theo.each = () => {
-    theo.set({ rot: facing(2) - 0.55 * T.look, pitch: 0.28 * T.dip, lift: T.hop });
+    theo.set({ rot: facing(2) - 0.45 * T.look, pitch: 0.28 * T.dip, lift: T.hop });
   };
   // Maya's shimmy
   const M = { roll: 0, wig: 0 };
@@ -100,26 +100,26 @@ export default async function play(lab) {
   // ---- 1. Maya rolls up to Theo (nose meets him at about x = 2.2) ----
   await lab.tween(0.28, (e) => maya.set({ x: 1 + 1.2 * e, pitch: 0.12 * e }), ease.in);
 
-  // ---- 2. contact: the shove. His ring doesn't go with him ----
-  lab.ring(P(2.6, 2), '#f4efe4', 0.35, 0.05, 0.3);
+  // ---- 2. contact: the shove. Theo is knocked ahead, but his ring doesn't go with him ----
   ringMesh.visible = false;
   hoop.visible = true;
   poseHoop();
   const camIn = lab.tween(0.55, (e) => (cam.k = e), ease.inOut);
-  await lab.tween(
-    0.26,
-    (e, k) => {
-      maya.set({ x: 2.2 + 0.8 * e, pitch: 0.12 * (1 - k) });
-      theo.set({ x: 3 + e, sx: 1 + 0.12 * Math.sin(k * Math.PI), sy: 1 - 0.1 * Math.sin(k * Math.PI) });
-    },
+  lab.tween(
+    0.2,
+    (e, k) => theo.set({ x: 3 + e, sx: 1 + 0.12 * Math.sin(k * Math.PI), sy: 1 - 0.1 * Math.sin(k * Math.PI) }),
     ease.out,
-  );
-  theo.set({ sx: 1, sy: 1 });
-
-  // ---- 3. the ring, alone, blinks twice: "...wait." Then it rides up Maya to her waist ----
-  lab.tween(0.5, (e, k) => (T.look = Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5)), ease.out);
-  await lab.tween(0.1, (e, k) => (H.glow = 1 + 1.3 * Math.max(0, Math.sin(k * Math.PI * 2)) ** 2) && poseHoop(), ease.linear);
+  ).then(() => {
+    theo.set({ sx: 1, sy: 1 });
+    // a double take: he glances back at where he was
+    lab.tween(0.34, (e, k) => (T.look = Math.sin(k * Math.PI)), ease.inOut);
+  });
+  // the ring, alone on space 3, blinks twice: "...wait."
+  lab.wait(0.12).then(() => lab.tween(0.16, (e, k) => ((H.glow = 1 + 1.5 * Math.max(0, Math.sin(k * Math.PI * 2)) ** 2), poseHoop()), ease.linear));
+  await lab.tween(0.34, (e, k) => maya.set({ x: 2.2 + 0.8 * e, pitch: 0.12 * (1 - k) }), ease.inOut);
   H.glow = 1;
+
+  // ---- 3. Maya drives into it, and it rides up her to her waist ----
   await lab.tween(
     0.14,
     (e) => {
@@ -179,7 +179,7 @@ export default async function play(lab) {
   // ---- 5. it rolls east after Theo (the bead shows the roll; the shutter leaves ghosts) ----
   let gi = 0;
   await lab.tween(
-    0.22,
+    0.2,
     (e) => {
       const x = 3.3 + 0.7 * e;
       H.c = P(x, 2).setY(R);
@@ -193,7 +193,7 @@ export default async function play(lab) {
   cam.tx = 4;
 
   // ---- 6. the spun coin: it leans and precesses faster and faster until it lies flat ----
-  const D = 0.5;
+  const D = 0.48;
   const A0 = (84 * Math.PI) / 180;
   const KREV = Math.PI * 2 * 3.2;
   const centre = P(4, 2);
@@ -230,11 +230,14 @@ export default async function play(lab) {
   H.c = centre.clone().setY(0.006);
   theo.set({ roll: 0 });
   poseHoop();
-  lab.ring(centre, theo.bot.color, 0.9, 0.02, 0.45);
+  lab.ring(centre, theo.bot.color, 0.45, 0.02, 0.35);
+  const hop = lab.tween(0.2, (e, k) => (T.hop = 0.07 * Math.sin(k * Math.PI)), ease.out);
   await lab.tween(0.12, (e) => ((H.glow = 1 + 2.4 * (1 - e)), poseHoop()), ease.out);
   hoop.visible = false;
   ringMesh.visible = true;
   await camOut;
+  await hop;
+  T.hop = 0;
   releaseCam();
   stopGhosts();
   for (const g of ghosts) lab.group.remove(g.m);

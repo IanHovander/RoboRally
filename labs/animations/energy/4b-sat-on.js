@@ -89,7 +89,7 @@ export default async function play(lab) {
   const boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(3), transparent: true, opacity: 1 });
   const bolt = new THREE.Mesh(geo, boltMat);
   const BOLT = 0.42;
-  const LEAN = 0.5; // it stands leaning back, face to the camera, looking up at her
+  const LEAN = -0.62; // it stands tilted back toward her, so its face is square to the camera
   const boltRig = new THREE.Group(); // at the bolt's point, on the glass
   boltRig.add(bolt);
   boltRig.visible = false;
@@ -282,7 +282,7 @@ export default async function play(lab) {
       boltRig.rotation.set(b.tilt, b.spin ?? 0, b.roll ?? 0, 'YXZ');
       bolt.scale.set(BOLT * b.sx, BOLT * b.sy, BOLT * Math.min(b.sx, 1.2));
       spot.position.set(p.x, 0.007, p.z);
-      spotMat.opacity = Math.max(0, 0.45 - b.lift * 1.2);
+      spotMat.opacity = Math.max(0, 0.28 - b.lift * 0.8);
     } else spotMat.opacity = 0;
     // the fresh bolt: fades in at the edge of her ring, then slips under her into the glass
     const fk = (t - FRESH) / 0.2;

@@ -83,7 +83,14 @@ export default async function play(lab) {
   // ---- the camera: home <-> low beside Theo, plus the shove ----
   const off0 = { sx: arena.camCur?.sx ?? 0, sy: arena.camCur?.sy ?? 0 };
   const C = { low: 0, shove: 0, roll: 0, bump: 0 };
-  const lowCam = { target: P(1.05, 1.85).setY(0.2), az: 1.3, el: 0.06, dist: 2.9, fov: 38 };
+  // a camera strapped to Theo's south side, low on the glass, looking back west along the row at Maya
+  const lowCam = (() => {
+    const eye = P(3.62, 2.72).setY(0.3);
+    const look = P(1.3, 2.0).setY(0.2);
+    const d = eye.clone().sub(look);
+    const dist = d.length();
+    return { target: look, az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist), dist, fov: 40 };
+  })();
   const lerp = (a, b, k) => a + (b - a) * k;
   const releaseCam = lab.camera((home) => {
     const kk = Math.min(0.99, Math.min(arena.dt, 0.1) * 4);
@@ -139,7 +146,11 @@ export default async function play(lab) {
   });
   // Theo's nerves (in the corner of the frame) and Maya's revving eye
   const T = { tremble: 0, brace: 0 };
-  theo.each = () => theo.set({ roll: Math.sin(lab.t * 61) * 0.035 * T.tremble, sy: 1 - 0.08 * T.brace, sx: 1 + 0.05 * T.brace });
+  theo.each = (m) => {
+    theo.set({ roll: Math.sin(lab.t * 61) * 0.035 * T.tremble, sy: 1 - 0.08 * T.brace, sx: 1 + 0.05 * T.brace });
+    const k = 1 - 0.7 * Math.min(1, C.low * 1.4); // his ridge light is right by the lens: keep it from blowing out
+    m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
+  };
   maya.each = (m) => {
     const k = 1 + 1.2 * L.on;
     m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
@@ -157,7 +168,7 @@ export default async function play(lab) {
   await lab.tween(0.36, (e, k) => maya.set({ x: 0.92 + (2.22 - 0.92) * e, pitch: -0.18 + 0.32 * k }), ease.in3);
 
   // ---- 3. contact: the lens blows out, the camera is shoved east with Theo ----
-  lab.flash('rgba(255,246,228,1)', 0.16, 0.55);
+  lab.flash('rgba(255,246,228,1)', 0.14, 0.4);
   T.tremble = 0;
   T.brace = 0;
   lab.tween(0.4, (e, k) => {
@@ -174,7 +185,7 @@ export default async function play(lab) {
     },
     ease.out,
   );
-  theo.each = null;
+  T.tremble = 0;
   theo.set({ sx: 1, sy: 1, roll: 0 });
   C.roll = 0;
 
@@ -182,6 +193,7 @@ export default async function play(lab) {
   await lab.tween(1.0, (e) => ((C.low = 1 - e), (L.on = 0.2 * (1 - e))), ease.inOut);
   stopLights();
   stopTags();
+  theo.each = null;
   for (const t of tags) t.material.opacity = 1;
   releaseCam();
   maya.each = null;

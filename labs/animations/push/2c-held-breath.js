@@ -22,7 +22,7 @@ export default async function play(lab) {
   const pitNear = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].some(([dx, dy]) => grid[ty + dy]?.[tx + dx] === 'XX');
   const drama = Math.min(3, pushed + (pitNear ? 1.5 : 0)); // 1: a single shove .. 3: the full arena
   const reach = 3.2 + drama * 2.4; // how far from the shove the crowd really reacts
-  const jump = 0.16 + 0.07 * drama;
+  const jump = 0.2 + 0.08 * drama;
 
   // ---- the crowd: tiers of phones in a rounded bowl around and below the slab ----
   const W = 3.5;
@@ -36,7 +36,8 @@ export default async function play(lab) {
     const per = 2 * (2 * (W + Hh)) + 2 * Math.PI * o;
     const n = Math.floor(per / (0.36 + r * 0.03));
     for (let i = 0; i < n; i++) {
-      const s = ((i + lab.rand() * 0.6) / n) * per;
+      if (lab.rand() < 0.18) continue; // empty seats: loose tiers, not a grid
+      const s = ((i + lab.rand() * 0.8) / n) * per;
       // walk the rounded rectangle
       const segs = [2 * W, Math.PI * o * 0.5, 2 * Hh, Math.PI * o * 0.5, 2 * W, Math.PI * o * 0.5, 2 * Hh, Math.PI * o * 0.5];
       let d = s;
@@ -52,10 +53,10 @@ export default async function play(lab) {
       else if (k === 5) p = arc(-W, Hh, Math.PI / 2);
       else if (k === 6) p = [-a, Hh - d];
       else p = arc(-W, -Hh, Math.PI);
-      const jitter = lab.range(-0.12, 0.12);
+      const jitter = lab.range(-0.22, 0.22);
       const len = Math.hypot(p[0], p[1]) || 1;
       phones.push({
-        base: new THREE.Vector3(p[0] + (p[0] / len) * jitter, y + lab.range(-0.07, 0.07), p[1] + (p[1] / len) * jitter),
+        base: new THREE.Vector3(p[0] + (p[0] / len) * jitter, y + lab.range(-0.12, 0.12) + 0.1 * Math.sin(s * 1.7 + r), p[1] + (p[1] / len) * jitter),
         row: r,
         amp: lab.range(0.7, 1.25),
         lag: lab.range(0, 0.06),
@@ -73,9 +74,12 @@ export default async function play(lab) {
     const dist = Math.hypot(p.base.x - impact.x, p.base.z - impact.z);
     p.str = Math.max(0.12, Math.min(1, (reach - dist) / 2.5));
   }
-  // the early one: someone had their phone up already (far stand, a little left of the shove)
+  // the early one: someone had their phone up already (in the far stand, up and to the left of the shove)
+  const vw = lab.overlay.clientWidth || 960;
+  const vh = lab.overlay.clientHeight || 540;
   const early = phones.reduce((best, p) => {
-    const score = Math.abs(p.base.x - (impact.x - 0.8)) + Math.abs(p.base.z + 4.6) * 1.5;
+    const sp = lab.toScreen(p.base);
+    const score = Math.hypot(sp.x / vw - 0.3, sp.y / vh - 0.17);
     return !best || score < best.score ? { p, score } : best;
   }, null).p;
 
@@ -115,8 +119,8 @@ export default async function play(lab) {
     lab.add(m);
     return m;
   };
-  const dots = mk(new THREE.PlaneGeometry(0.07, 0.105), phoneTex);
-  const streaks = mk(new THREE.PlaneGeometry(0.03, 1).translate(0, -0.5, 0), streakTex);
+  const dots = mk(new THREE.PlaneGeometry(0.095, 0.14), phoneTex);
+  const streaks = mk(new THREE.PlaneGeometry(0.04, 1).translate(0, -0.5, 0), streakTex);
 
   // the crowd runs on REAL time, so it keeps moving while the board is frozen
   const C = { on: -1, earlyOn: -1, down: -1, gone: false };

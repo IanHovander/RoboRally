@@ -114,6 +114,26 @@ function koiTexture(THREE, blur, alpha) {
   t.flipY = false;
   return t;
 }
+/** The glow the koi throws through the smoked glass: one soft, gap-free shape, brightest at the shoulders. */
+function koiGlow(THREE) {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 512;
+  const g = c.getContext('2d');
+  g.filter = 'blur(16px)';
+  g.fillStyle = 'rgba(255,255,255,0.75)';
+  g.beginPath();
+  g.ellipse(64, 190, 40, 170, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.beginPath();
+  g.ellipse(64, 420, 34, 70, 0, 0, Math.PI * 2);
+  g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.flipY = false;
+  return t;
+}
 
 export default async function play(lab) {
   const { ease, facing, arena, THREE, PALETTE } = lab;
@@ -210,7 +230,7 @@ export default async function play(lab) {
     return 0.4 * head * Math.max(body, fan) * (v > 0.995 ? 0 : 1);
   };
   const koiCore = koiTexture(THREE, 3, 0.85);
-  const koiHalo = koiTexture(THREE, 14, 0.7);
+  const koiHalo = koiGlow(THREE);
   disposables.push(koiCore, koiHalo);
   const KW = 0.78; // the ribbon's width across (the texture draws the fish inside it)
   const ribbon = (scale, map, color, order) => {
@@ -342,7 +362,7 @@ export default async function play(lab) {
     K.dip = e;
   }, ease.out);
   await lab.tween(0.14, (e, k) => {
-    S.lift = 0.02 + 0.09 * e;
+    S.lift = 0.02 + 0.13 * e;
     S.sy = 1 - 0.08 * Math.sin(k * Math.PI);
     S.sx = 1 + 0.04 * Math.sin(k * Math.PI);
     K.dip = 1 - e;
@@ -351,8 +371,8 @@ export default async function play(lab) {
   const t0 = lab.t;
   const bob = lab.every((dt, t) => {
     const u = t - t0;
-    S.lift = 0.11 + 0.025 * Math.sin(u * 9) * K.on;
-    S.roll = 0.05 * Math.sin(u * 9 + 1.2) * K.on;
+    S.lift = 0.15 + 0.03 * Math.sin(u * 9) * K.on;
+    S.roll = 0.08 * Math.sin(u * 9 + 1.2) * K.on;
   });
 
   // ---- 3. two strokes of its tail: one space each ----

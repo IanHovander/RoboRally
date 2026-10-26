@@ -16,8 +16,8 @@ export default async function play(lab) {
   const CORAL = '#ff7a6b';
 
   // ----- the slide: a coral card with a thin ⚠, drawn on a canvas -----
-  const CW = 0.46;
-  const CH = 0.62;
+  const CW = 0.58;
+  const CH = 0.78;
   const cardTex = (() => {
     const c = document.createElement('canvas');
     c.width = 256;
@@ -57,7 +57,7 @@ export default async function play(lab) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   })();
-  const faceMat = new THREE.MeshBasicMaterial({ map: cardTex, color: new THREE.Color(1.5, 1.5, 1.5), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const faceMat = new THREE.MeshBasicMaterial({ map: cardTex, color: new THREE.Color(1.15, 1.15, 1.15), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const card = new THREE.Group(); // local x: along the beam; local y: across the card; local z: its face normal
   const face = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), faceMat);
   card.add(face);
@@ -132,7 +132,7 @@ export default async function play(lab) {
   const placeHook = lab.every(place);
   await lab.tween(0.13, (e) => (S.x1 = muzzle.x + (XF - muzzle.x) * e), ease.in);
   lab.ring(lab.pos(1, 1).add(new THREE.Vector3(0.42, 0.15, 0)), '#cfe6ff', 0.2, 0.15, 0.25);
-  await lab.wait(0.12);
+  await lab.wait(0.1);
 
   // ----- 2. it reels itself in to card size, rising to her side -----
   const x0a = S.x0;
@@ -143,18 +143,18 @@ export default async function play(lab) {
   }, ease.inOut3);
 
   // ----- 3. lights down, slow motion, and it turns to face us -----
-  lab.slowmo(0.45, 0.06);
+  lab.slowmo(0.5, 0.05);
   lab.tween(0.25, (e) => (house = e), ease.out);
-  await lab.tween(0.24, (e) => {
+  await lab.tween(0.2, (e) => {
     S.turn = e;
     S.edge = 1 - Math.min(1, e * 1.5);
   }, ease.inOut);
   lab.slowmo(1, 0.12);
   // it hangs for a breath, breathing light
-  const hang = lab.every((dt, t) => (faceMat.color.setScalar(1.5 + 0.25 * Math.sin(t * 14))));
-  await lab.wait(0.26);
+  const hang = lab.every((dt, t) => (faceMat.color.setScalar(1.15 + 0.2 * Math.sin(t * 14))));
+  await lab.wait(0.22);
   hang();
-  faceMat.color.setScalar(1.6);
+  faceMat.color.setScalar(1.2);
 
   // ----- 4. into her side, through a slot of light -----
   const slot = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(0.022, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.4, 2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
@@ -198,13 +198,16 @@ export default async function play(lab) {
     c.width = 256;
     c.height = 330;
     const g = c.getContext('2d');
-    const grd = g.createRadialGradient(128, 165, 20, 128, 165, 200);
-    grd.addColorStop(0, CORAL);
-    grd.addColorStop(1, '#7a2c24');
+    const grd = g.createRadialGradient(128, 165, 20, 128, 165, 210);
+    grd.addColorStop(0, '#ff8a7c');
+    grd.addColorStop(1, '#5a1c16');
     g.fillStyle = grd;
     g.beginPath();
     g.roundRect(8, 8, 240, 314, 30);
     g.fill();
+    g.strokeStyle = '#ffd2c8';
+    g.lineWidth = 4;
+    g.stroke();
     const s = 150 / 40;
     g.save();
     g.translate(128 - 20 * s, 165 - 21 * s);
@@ -243,7 +246,7 @@ export default async function play(lab) {
     const a = corners[i];
     const b = corners[(i + 1) % 4];
     pos.push(eye.x, eye.y, eye.z, a.x, a.y, a.z, b.x, b.y, b.z);
-    col.push(1, 0.62, 0.55, 0.16, 0.08, 0.07, 0.16, 0.08, 0.07);
+    col.push(1.2, 0.75, 0.66, 0.1, 0.05, 0.045, 0.1, 0.05, 0.045);
   }
   const coneGeo = new THREE.BufferGeometry();
   coneGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -251,22 +254,25 @@ export default async function play(lab) {
   const coneMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const cone = lab.add(new THREE.Mesh(coneGeo, coneMat));
   await lab.wait(0.06);
-  await lab.tween(0.12, (e) => {
-    glow.lens = e;
-    coneMat.opacity = 0.55 * e;
-    img.material.opacity = e;
-    img.scale.setScalar(0.85 + 0.15 * e);
+  // the lamp catches with a flicker, like a projector warming up
+  await lab.tween(0.16, (e, k) => {
+    const flick = k < 0.25 ? 1 : k < 0.4 ? 0.15 : k < 0.55 ? 0.9 : k < 0.65 ? 0.3 : 1;
+    glow.lens = e * flick;
+    coneMat.opacity = 0.7 * e * flick;
+    img.material.opacity = 0.8 * e * flick;
+    img.scale.setScalar(0.9 + 0.1 * e);
   }, ease.out);
-  await lab.wait(0.28);
+  await lab.wait(0.2);
   // the lights come back up and the projection washes out
   lab.tween(0.4, (e) => (house = 1 - e), ease.inOut);
-  await lab.tween(0.36, (e) => {
+  lab.tween(0.42, (e) => (cam.k = 1 - e), ease.inOut);
+  await lab.tween(0.3, (e) => {
     glow.lens = 1 - e;
-    coneMat.opacity = 0.55 * (1 - e);
-    img.material.opacity = 1 - e;
+    coneMat.opacity = 0.7 * (1 - e);
+    img.material.opacity = 0.8 * (1 - e);
   }, ease.inOut);
   cone.visible = img.visible = false;
-  await lab.tween(0.3, (e) => (cam.k = 1 - e), ease.inOut);
+  await lab.wait(0.13);
   houseHook();
   restore();
   releaseCam();

@@ -87,7 +87,12 @@ export default async function play(lab) {
   order.forEach((idx, j) => (eyes[idx].open = 0.04 + (j / eyes.length) * 0.85 + lab.range(-0.02, 0.02)));
   for (const e of eyes) e.close = lab.range(0, 0.38);
   // the latecomer: a front-left eye that wasn't paying attention
-  const late = eyes.reduce((best, e) => (!best || Math.hypot(e.x + 2.2, e.z + 4.3) < Math.hypot(best.x + 2.2, best.z + 4.3) ? e : best), null);
+  const late = eyes.reduce((best, e) => (!best || Math.hypot(e.x + 0.5, e.z + 4.5) < Math.hypot(best.x + 0.5, best.z + 4.5) ? e : best), null);
+  late.x = -0.5;
+  late.z = -4.5;
+  late.w *= 1.25;
+  late.sp.position.set(late.x, late.sp.position.y, late.z);
+  late.ring.position.set(late.x, late.ring.position.y, late.z);
 
   // ---------- one function draws every eye from the clock ----------
   let T0 = Infinity; // eyes start opening
@@ -131,18 +136,18 @@ export default async function play(lab) {
         let dx = 0;
         if (ul > 0) {
           o = Math.min(1, ease.outBack(Math.min(1, ul / 0.12)));
-          dx = ul > 0.15 && ul < 0.55 ? Math.sin(((ul - 0.15) / 0.4) * TAU) * 0.05 : 0;
+          dx = ul > 0.15 && ul < 0.55 ? Math.sin(((ul - 0.15) / 0.4) * TAU) * 0.12 : 0;
           o *= blink(t, TL + 0.6) * (ul > 1.18 ? Math.max(0, 1 - (ul - 1.18) / 0.06) : 1);
           const uh = ul - 0.68;
-          const fl = (2 * 1.5) / G;
+          const fl = (2 * 1.9) / G;
           if (uh > 0 && uh < fl) {
-            y = 1.5 * uh - 0.5 * G * uh * uh;
+            y = 1.9 * uh - 0.5 * G * uh * uh;
             stretch = 0.3 * Math.max(0, 1 - uh / (fl * 0.4));
           } else if (uh >= fl && uh < fl + 0.3) landPulse = (1 - (uh - fl) / 0.3) ** 2;
         }
         e.sp.position.x = e.x + dx;
       }
-      const glow = 1 + (0.5 + e.swell * 1.0) * (u > -0.1 && u < e.flight + 0.15 && !isLate ? Math.sin(Math.PI * Math.max(0, Math.min(1, (u + 0.1) / (e.flight + 0.25)))) : 0);
+      const glow = isLate ? 1.6 : 1 + (0.5 + e.swell * 1.0) * (u > -0.1 && u < e.flight + 0.15 && !isLate ? Math.sin(Math.PI * Math.max(0, Math.min(1, (u + 0.1) / (e.flight + 0.25)))) : 0);
       e.sp.position.y = FLOOR + e.h + y;
       e.sp.scale.set(e.w * (1 - stretch * 0.25), Math.max(0.0001, e.w * 0.42 * Math.max(0, o) * (1 + stretch)), 1);
       e.sp.material.opacity = Math.min(1, Math.max(0, o) * 1.2);

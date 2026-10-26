@@ -152,10 +152,10 @@ export default async function play(lab) {
   const setThumb = (phi, fade) => {
     // the thumb's tip rides the arc a little beyond the smear; its body points back to the pivot
     const tip = at(phi, R + TL * 0.22);
-    thumb.style.transform = `translate(${tip.x - TW / 2}px, ${tip.y}px) rotate(${phi + 90 + 180}deg)`;
+    thumb.style.transform = `translate(${tip.x - TW / 2}px, ${tip.y}px) rotate(${phi + 90}deg)`;
     thumb.style.opacity = String(fade);
     const b = at(phi - 2.5, R);
-    bead.style.transform = `translate(${b.x - h * 0.025}px, ${b.y - S * 0.75}px) rotate(${phi}deg)`;
+    bead.style.transform = `translate(${b.x - h * 0.025}px, ${b.y - S * 0.75}px) rotate(${phi - 90}deg)`;
   };
   setMask(A0 + 6);
   await lab.tween(0.42, (e, k) => {

@@ -134,13 +134,13 @@ export default async function play(lab) {
       void main() {
         vec2 p = vXZ;
         float I = 0.0;
-        if (uHeadI > 0.0) I += uHeadI * vis(p, uHead) * fall(length(p - uHead), 0.85);
+        if (uHeadI > 0.0) I += uHeadI * vis(p, uHead) * fall(length(p - uHead), 0.55);
         if (uLineI > 0.0) {
           float s = 0.0;
           for (int k = 0; k < 14; k++) {
             float f = (float(k) + 0.5) / 14.0;
             vec2 L = vec2(mix(uX1, uX0, f), uZ);
-            s += vis(p, L) * fall(length(p - L), 1.25);
+            s += vis(p, L) * fall(length(p - L), 0.6);
           }
           I += uLineI * s / 14.0;
         }
@@ -162,7 +162,7 @@ export default async function play(lab) {
 
   // a real light at the head, so the robots catch the beam on their faces
   const rim = new THREE.PointLight(0xd8ecff, 0, 0, 2);
-  rim.position.set(X0, 0.24, Z);
+  rim.position.set(X0, 0.42, Z);
   lab.add(rim);
 
   // ----- the beam itself -----
@@ -212,16 +212,19 @@ export default async function play(lab) {
   }, ease.inOut);
   lab.tween(0.15, (e) => (theoEye.k = 1 - e), ease.out);
   const V = 6.6;
+  const HEAD_I = 0.55;
+  const LINE_I = 0.38;
+  const RIM_I = 0.35;
   let hx = X0;
   const race = lab.tween((X0 - XF) / V, (e) => {
     hx = X0 - (X0 - XF) * e;
     setBeam(hx, 1);
     uni.uHead.value.set(hx, Z);
     uni.uX1.value = hx;
-    uni.uHeadI.value = 2.3 * Math.min(1, e * 6);
-    uni.uLineI.value = 0.9 * Math.min(1, e * 4);
+    uni.uHeadI.value = HEAD_I * Math.min(1, e * 6);
+    uni.uLineI.value = LINE_I * Math.min(1, e * 4);
     rim.position.x = hx;
-    rim.intensity = 2.2 * Math.min(1, e * 5);
+    rim.intensity = RIM_I * Math.min(1, e * 5);
   }, ease.linear);
   // the beam flickers a little, so the shadows tremble
   const flicker = lab.every((dt, t) => {
@@ -246,10 +249,10 @@ export default async function play(lab) {
   // ----- the beam lets go; the lights rise like a sunrise and the shadows shrink back under their robots -----
   const fade = lab.tween(0.42, (e) => {
     setBeam(XF, 1 - e);
-    uni.uHeadI.value = 2.3 * (1 - e) * (1 - e);
-    uni.uLineI.value = 0.9 * (1 - e);
+    uni.uHeadI.value = HEAD_I * (1 - e) * (1 - e);
+    uni.uLineI.value = LINE_I * (1 - e);
     uni.uLightH.value = YB + 4 * ease.in(e);
-    rim.intensity = 2.2 * (1 - e);
+    rim.intensity = RIM_I * (1 - e);
   }, ease.out);
   await lab.tween(0.5, (e) => {
     dark = 1 - e;

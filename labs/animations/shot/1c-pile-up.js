@@ -28,8 +28,8 @@ export default async function play(lab) {
     return t;
   })();
   const add = (o) => lab.add(o);
-  const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const glowMat = new THREE.MeshBasicMaterial({ color: BLUE.clone().multiplyScalar(1.7), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
+  const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.3, 2.4, 2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const glowMat = new THREE.MeshBasicMaterial({ color: BLUE.clone().multiplyScalar(1.7), transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false });
   const core = add(new THREE.Mesh(new THREE.BufferGeometry(), coreMat));
   const glow = add(new THREE.Mesh(new THREE.BufferGeometry(), glowMat));
   const setLine = (pts, rCore = 0.013, rGlow = 0.034) => {
@@ -72,14 +72,14 @@ export default async function play(lab) {
   const folds = [];
   let acc = 0;
   for (let k = 0; acc < LB + 2; k++) {
-    const h = Math.min(0.62, 0.3 + 0.07 * k) * lab.range(0.86, 1.06);
-    const loop = k % 3 === 2;
+    const h = Math.min(0.74, 0.36 + 0.08 * k) * lab.range(0.86, 1.06);
+    const loop = k % 3 === 1;
     const z = lab.range(-0.06, 0.06);
     const f = loop ? Math.PI * h * 0.95 : 2.05 * h;
     folds.push({ h, loop, z, u0: acc, f, lean: lab.range(0.03, 0.08) });
     acc += f;
   }
-  let W = 0.12; // spacing between folds (squeezed when the tail arrives)
+  let W = 0.16; // spacing between folds (squeezed when the tail arrives)
   let lift = 1; // fold heights (pushed up when the heap is squeezed)
   let wobble = 0;
   // a point of fold k at phase ph (0..1), with buckle height scale s

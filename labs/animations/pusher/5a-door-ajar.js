@@ -115,7 +115,7 @@ export default async function play(lab) {
   lab.add(spot.target);
 
   // ---------- motes ----------
-  const NM = 90;
+  const NM = 120;
   const motes = [];
   const mPos = new Float32Array(NM * 3);
   const mCol = new Float32Array(NM * 3);
@@ -138,7 +138,7 @@ export default async function play(lab) {
   }
   const dotTex = new THREE.CanvasTexture(dot);
   dotTex.colorSpace = THREE.SRGBColorSpace;
-  const moteMesh = lab.add(new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: 0.075, map: dotTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })));
+  const moteMesh = lab.add(new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: 0.09, map: dotTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })));
   moteMesh.frustumCulled = false;
   moteMesh.renderOrder = 4;
 
@@ -177,10 +177,10 @@ export default async function play(lab) {
     const dz = mz - SRC_Z;
     const dHer = Math.hypot(mx, dz);
     const th = Math.atan2(mx, dz);
-    const beta = Math.asin(Math.min(0.99, 0.33 / dHer));
+    const beta = Math.asin(Math.min(0.99, 0.24 / dHer)); // the low light slips past her rounded edges
     const d = Math.hypot(x, z - SRC_Z);
     const a = Math.abs(Math.atan2(x, z - SRC_Z) - th);
-    return smooth(beta * 1.25, beta * 0.6, a) * smooth(dHer - 0.05, dHer + 0.3, d);
+    return smooth(beta * 1.3, beta * 0.5, a) * smooth(dHer - 0.1, dHer + 0.35, d);
   }
 
   // ---------- her ----------
@@ -227,7 +227,7 @@ export default async function play(lab) {
     // the light: its width follows the crack; it runs out across the glass like spilled water and drains back
     const openK = ang / 0.42;
     halfGap = freeX;
-    tanA = 0.04 + 0.55 * clamp01(openK);
+    tanA = 0.05 + 0.62 * clamp01(openK);
     power = 1.25 * clamp01(openK * 3) * (t < T.close0 ? 1 : 1 - 0.4 * seg(t, T.close0, T.close1));
     const runOut = ease.out(seg(t, T.latch, T.latch + 0.42));
     const drain = ease.in(seg(t, T.close0 + 0.05, T.close1 - 0.02));

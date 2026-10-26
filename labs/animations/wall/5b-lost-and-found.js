@@ -7,7 +7,7 @@ export const meta = {
   idea:
     'As Maya rolls, the Move 3 card above her lights one chevron per space. At the wall the third lights anyway (she tried), then wobbles like a loose tooth while she looks up at it, pops off, darts down and bonks the fin (tink), and sails away in a lazy arc over the edge of the slab, turning her colour as it goes. Maya follows it with her whole body: up on tiptoe to see over the fin, leaning out to watch it fall. It lands softly on the dark floor far below in a small glowing pile of other lost steps from tonight, green, blue, gold and red. Maya sags. Across the board Ava, two of whose steps are down there, gives a slow, knowing nod.',
   notes:
-    'Sound: chevrons light with three rising glass ticks (the third a little sour), a tiny tink off the fin, a soft descending whistle as it sails, and a muffled glass "pat" when it lands. The pile is persistent: in the game it would live under the board for the whole night (one chevron per lost step, in the player\'s colour, a small random offset so it heaps up), and it never touches the board, so the rules are untouched. The lit chevrons on the card go back to normal as the card settles.',
+    'Sound: chevrons light with three rising glass ticks (the third a little sour), a tiny tink off the fin, a soft descending whistle as it sails, and a muffled glass "pat" when it lands. The pile is persistent: in the game it would live under the board for the whole night (one chevron per lost step, in the player\'s colour, a small random offset so it heaps up), and it never touches the board, so the rules are untouched. (The lab can only draw the pile once the moment starts, so here it fades in during the first beat.) The lit chevrons on the card go back to normal as the card settles.',
 };
 
 const TAU = Math.PI * 2;
@@ -133,6 +133,9 @@ export default async function play(lab) {
     m.scale.setScalar(PILE);
     pile.add(m);
   }
+  // in the game the pile is simply always there; the lab can only draw it once the moment starts, so it fades in
+  const pileMats = pile.children.map((o) => [o.material, o.material.opacity]);
+  span(0, 0.35, (e) => pileMats.forEach(([m, o]) => (m.opacity = o * e)), ease.out);
 
   // ----- the card's chevrons, lit one per space -----
   // card canvas: 180 x 210 px, glyph 93.6px for a 40-unit box (2.34 px per unit), centred. m3's chevrons sit at

@@ -79,7 +79,7 @@ export default async function play(lab) {
   // a soft halo on her eye, so its mood reads from across the room
   const glow = glowTexture(THREE);
   lab.cleanup(() => glow.dispose());
-  const halo = lab.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
+  const halo = lab.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false })));
   halo.renderOrder = 5;
   const WARM = new THREE.Color(1.0, 0.62, 0.32);
   const WHITE = new THREE.Color(1, 0.98, 0.94);
@@ -188,8 +188,8 @@ export default async function play(lab) {
     S.open = 0.8 - 0.5 * e;
     S.glow = 1 - 0.62 * e;
     S.warm = 0.4 + 0.6 * e;
-    S.haloS = 0.36 + 0.2 * e;
-    S.haloK = 0.45 + 0.35 * e;
+    S.haloS = 0.36 + 0.26 * e;
+    S.haloK = 0.45 + 0.4 * e;
     S.pool = 1 + 0.45 * e;
   }, ease.out);
   await lab.wait(0.36); // mid-sigh...
