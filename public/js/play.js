@@ -1,13 +1,10 @@
-// The phone: join with a name, wait in the lobby, then show the game's player view.
-import { html } from './ui.js';
-import { avatar } from './avatar.js';
-import { mountAvatarPicker } from './avatar-picker.js';
-import { mountLessons } from '../games/robo-rally/lobby.js';
+// The phone: join with a name, wait in the lobby (tap your robot to change its form), then the game.
+import { html, raw } from './ui.js';
+import { robotSvg, formOf, FORMS, svgGlyph } from '../games/robo-rally/glyphs.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
-mountLessons(document.querySelector('[data-lessons]'));
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
 // On the website, which room (big screen) to join: ?room=ABCD from the QR code, or typed in.
@@ -44,14 +41,11 @@ const socket = await connect(
 );
 const api = createApi(socket, 'player', () => state);
 const stage = new GameStage($('stage'), 'player', api);
-const avatarPicker = mountAvatarPicker($('avatar-picker'), socket, null);
-for (const id of ['robot-change', 'robot-pick']) $(id).addEventListener('click', () => $('avatar-dialog').showModal());
-$('avatar-close').addEventListener('click', () => $('avatar-dialog').close());
 
 socket.on('connect', () => ($('offline').hidden = true));
 socket.on('disconnect', () => ($('offline').hidden = !!notice || !state));
 // Website: what the connection is up to ("Looking for room ABCD…") while we wait.
-socket.on('status', (text) => ($('connecting-msg').textContent = text ?? 'Connecting…'));
+socket.on('status', (text) => ($('connecting-msg').textContent = text ?? ''));
 $('change-room').hidden = !ROOM;
 $('check-link').hidden = !ROOM;
 socket.on('session', ({ token, name }) => {
@@ -68,20 +62,13 @@ onState(socket, (next) => {
 socket.on('kicked', () => {
   store.set('sessionStorage', TOKEN, null);
   store.set('localStorage', LAST_TOKEN, null);
-  showNotice('You were removed', 'The host took you out of the room.', 'Join again');
+  showNotice('Removed', 'The big screen took you out of the room.', 'Join again');
 });
 socket.on('replaced', () => {
-  showNotice('Playing somewhere else', 'You opened the game in another tab or on another device, so this one stepped aside.', 'Play here instead');
+  showNotice('Playing elsewhere', 'You opened the game in another tab or on another device.', 'Play here');
 });
 
 // ---------- join ----------
-
-// a few robots say hello under the logo
-const PARADE = [['#4dabf7', 2], ['#ffd43b', 0], ['#cccccc', 6], ['#51cf66', 7], ['#cc5de8', 11]]; // [color, pose]
-for (const logo of document.querySelectorAll('.center-screen > .factory-wordmark')) {
-  const bots = PARADE.map(([color, pose], i) => avatar({ id: `hello${i}`, color }, { pose }));
-  logo.insertAdjacentHTML('afterend', String(html`<div class="bot-parade">${bots}</div>`));
-}
 
 $('name').value = store.get('localStorage', NAME) ?? '';
 $('host-link').hidden = !isLocal;
@@ -105,7 +92,20 @@ function joinError(message) {
   $('join-error').hidden = false;
 }
 
-// ---------- lobby controls for the VIP ----------
+// ---------- the lobby: your robot ----------
+
+let pendingForm = null;
+$('me-robot').addEventListener('click', () => {
+  const you = state?.you;
+  if (!you || state.room.screen !== 'lobby') return;
+  const next = ((pendingForm ?? formOf(you)) + 1) % FORMS.length;
+  pendingForm = next;
+  renderWait(state.room, { ...you, avatar: next });
+  try { navigator.vibrate?.(8); } catch {}
+  socket.timeout(8000).emit('avatar', { avatar: next }, () => {
+    if (pendingForm === next) pendingForm = null;
+  });
+});
 
 $('vip-start').addEventListener('click', () => socket.emit('lobby', { cmd: 'start' }));
 $('menu-btn').addEventListener('click', () => ($('menu').hidden = !$('menu').hidden));
@@ -166,40 +166,44 @@ function render() {
   if (!state) return show('connecting');
 
   const { room, you } = state;
-  avatarPicker.update(you);
-  $('robot-change').hidden = room.screen !== 'lobby';
-  $('robot-pick').disabled = room.screen !== 'lobby';
-  if (room.screen !== 'lobby') $('avatar-dialog').close();
   if (!you) {
     stage.show(null);
     return show('join');
   }
-
   document.documentElement.style.setProperty('--me', you.color);
-  const robot = String(avatar(you));
-  for (const dot of document.querySelectorAll('.me-dot')) {
-    if (dot.dataset.robot !== robot) dot.innerHTML = dot.dataset.robot = robot; // only when it changes, so it keeps bobbing
-  }
   if (room.screen === 'game' && room.game && state.inGame) {
     show('game');
-    $('bar-name').textContent = you.name;
     $('menu-btn').hidden = !you.isVip;
     if (!you.isVip) $('menu').hidden = true;
     stage.show(room.game, state.view, room.games);
   } else {
     stage.show(null);
     show('wait');
-    renderWait(room, you);
+    if (pendingForm != null && formOf(you) === pendingForm) pendingForm = null;
+    renderWait(room, pendingForm != null ? { ...you, avatar: pendingForm } : you);
   }
 }
 
-/** The waiting room says nothing: the big screen shows who's in. The leader gets the start button,
- *  greyed out until the race can start. During someone else's race, an arrow points at the big screen. */
+let shownRobot = '';
 function renderWait(room, you) {
   const inLobby = room.screen === 'lobby';
+  const robot = robotSvg(you, { cls: 'big' });
+  if (robot !== shownRobot) {
+    shownRobot = robot;
+    $('me-robot').innerHTML = robot;
+    $('me-robot').classList.remove('swap');
+    void $('me-robot').offsetWidth; // restart the little turn animation
+    $('me-robot').classList.add('swap');
+  }
+  $('me-robot').disabled = !inLobby;
+  $('me-forms').hidden = !inLobby;
+  $('me-forms').innerHTML = FORMS.map((_, i) => `<i class="${i === formOf(you) ? 'on' : ''}"></i>`).join('');
   $('wait-name').textContent = you.name;
-  $('wait-busy').hidden = inLobby;
-  $('vip-start').hidden = !(inLobby && you.isVip);
+  // a game is running without you: watch the big screen
+  $('wait-watch').hidden = inLobby;
+  $('wait-watch').innerHTML = inLobby ? '' : String(html`${raw(svgGlyph('eye'))}`);
+  const vip = inLobby && you.isVip;
+  $('vip-start').hidden = !vip;
   $('vip-start').disabled = !!room.startProblem;
 }
 

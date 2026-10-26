@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" class="phone">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lumen phone dev</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/phone.css">
+<link rel="stylesheet" href="games/robo-rally/style.css">
+</head>
+<body>
+<section class="screen game-screen" id="game"><main id="stage" class="stage"></main></section>
+<script type="module">
+// A phone without a server: the real rules run right here, so every screen can be looked at.
+//   dev-phone.html?to=program&course=closing-time&prompt=weapon
+import rules from './games/robo-rally/rules.js';
+import * as E from './games/robo-rally/engine.js';
+import mountPlayer from './games/robo-rally/player.js';
+import { wireActions } from './js/ui.js';
+import { UPGRADES } from './games/robo-rally/cards.js';
+const q = new URLSearchParams(location.search);
+const colors = ['#51cf66', '#ff4d6d', '#4dabf7', '#ffd43b', '#cc5de8', '#ff922b', '#22d3ee', '#f783ac'];
+const n = Number(q.get('n') ?? 4);
+const players = Array.from({ length: n }, (_, i) => ({ id: 'p' + i, name: ['Ivy', 'Ada', 'Bolt', 'Cog', 'Dex', 'Echo', 'Fuse', 'Gizmo'][i], color: colors[i], avatar: i, connected: true, isVip: i === 0 }));
+const timers = new Map();
+const ctx = {
+  state: null, players,
+  player: (id) => players.find((p) => p.id === id) ?? null,
+  timer: (name, ms, fn) => timers.set(name, fn),
+  cancelTimer: (name) => timers.delete(name),
+  after: () => () => {},
+  end: () => {},
+};
+rules.setup(ctx);
+const s = () => ctx.state;
+const act = (who, type, payload) => rules.actions[type](ctx, players[who], payload);
+const me = players[0];
+const api = {
+  role: 'player', you: me, players,
+  send: async (type, payload) => { const r = rules.actions[type]?.(ctx, me, payload); setTimeout(redraw, 0); return r; },
+  now: () => Date.now(), secondsLeft: (d) => Math.max(0, Math.ceil((d - Date.now()) / 1000)), vibrate() {},
+};
+const root = document.createElement('div');
+root.className = 'game-root';
+document.getElementById('stage').append(root);
+wireActions(document.getElementById('stage'), (t, p) => api.send(t, p));
+document.documentElement.style.setProperty('--me', me.color);
+const screen = mountPlayer(root, api);
+function redraw() { screen.update(JSON.parse(JSON.stringify(rules.playerView(ctx, me)))); }
+window.dev = { ctx, act, E, redraw, rules };
+
+const to = q.get('to') ?? 'setup';
+const course = q.get('course') ?? 'closing-time';
+rules.actions.setOpt(ctx, me, { key: 'course', value: course });
+if (q.get('upgrades') === '0') rules.actions.setOpt(ctx, me, { key: 'upgrades', value: false });
+rules.actions.setOpt(ctx, me, { key: 'timer', value: 120 });
+if (to !== 'setup') {
+  act(0, 'begin');
+  if (to !== 'start') {
+    players.forEach((p, i) => act(i, 'pick', { n: i + 1 }));
+    if (q.get('upgrades') !== '0') {
+      // everyone has energy to spend; I get a few upgrades to look at
+      for (const id of s().order) s().robots[id].energy = 6;
+      const R = s().robots[me.id];
+      if (q.get('installed')) for (const k of q.get('installed').split(',')) R.up[UPGRADES[k].kind].push(k);
+    }
+    if (to !== 'upgrade') {
+      players.forEach((p, i) => i > 0 && s().phase === 'upgrade' && act(i, 'done'));
+      if (s().phase === 'upgrade') act(0, 'done');
+      if (q.get('rb')) { const R = s().robots[me.id]; R.on = false; R.reboot = { b: 0, round: 0 }; }
+      if (to === 'activate' || to === 'over' || q.get('prompt')) {
+        for (let i = 1; i < n; i++) { const R = s().robots[players[i].id]; act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) }); }
+        const R = s().robots[me.id];
+        act(0, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) });
+        // run a few beats
+        const env = { course: (await import('./games/robo-rally/board.js')).getCourse(s().opts.course), connected: () => true, now: () => Date.now(), name: (id) => ctx.player(id)?.name };
+        for (let k = 0; k < Number(q.get('beats') ?? 6) && s().phase === 'activate'; k++) E.step(s(), env);
+        if (to === 'over') { s().phase = 'over'; s().winner = me.id; s().robots[me.id].cp = 2; }
+      }
+    }
+  }
+}
+const prompt = q.get('prompt');
+if (prompt) {
+  const v = rules.playerView(ctx, me);
+  const kinds = {
+    weapon: { kind: 'weapon', target: 'p1', title: 'Robot weapons', options: [{ v: 'main', label: 'Main laser' }, { v: 'pressor-beam', label: 'Pressor Beam' }, { v: 'scrambler', label: 'Scrambler' }] },
+    window: { kind: 'window', card: ['m2'], title: 'Your turn', options: [{ v: 'go', label: 'Run my card' }, { v: 'overclocked', label: 'Overclocked' }, { v: 'boink:1', label: 'Boink' }, { v: 'zoop:3', label: 'Zoop' }, { v: 'after', label: 'After my card…' }, { v: 'skip', label: 'No more this round' }] },
+    brakes: { kind: 'brakes', icon: 'brakes', title: 'Brakes', options: [{ v: 'go', label: 'Move 1' }, { v: 'brake', label: 'Brake' }] },
+    slide: { kind: 'slide', icon: 'power-slide', title: 'Power Slide', options: [{ v: 'yes', label: 'Slide forward' }, { v: 'no', label: 'Stay' }] },
+  };
+  const p = { ...kinds[prompt], deadline: Date.now() + 12000 };
+  rules.playerView = ((orig) => (c, pl) => ({ ...orig(c, pl), prompt: p }))(rules.playerView);
+}
+redraw();
+setInterval(() => { for (const el of document.querySelectorAll('[data-deadline]')) el.textContent = Math.max(0, Math.ceil((el.dataset.deadline - Date.now()) / 1000)); }, 250);
+window.ready = true;
+</script>
+</body>
+</html>

@@ -1,65 +1,58 @@
 <!doctype html>
-<html lang="en" class="host" data-theme="factory">
+<html lang="en" class="host">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Robo Rally · Factory</title>
+  <title>Robo Rally</title>
   <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="preload" href="fonts/roboto-var.woff" as="font" type="font/woff" crossorigin>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/host.css">
   <link rel="stylesheet" href="games/robo-rally/lobby.css">
   <script type="module" src="js/host.js"></script>
 </head>
 <body>
-  <!-- The lobby, readable from across the room: the QR code and address (and the room code on the website),
-       three looping lessons, everyone who has joined, and the start button. No sentences. -->
   <section id="lobby" class="screen lobby">
-    <div id="factory-scene" class="factory-scene" aria-hidden="true"></div>
-    <header class="lobby-head">
-      <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
-      <div id="last-result" class="last-result" hidden></div>
-    </header>
-    <aside class="join-card">
-      <img id="qr" class="qr" alt="Scan this QR code to join on your phone">
-      <div id="join-text" class="join-text"></div>
+    <div id="lesson-stage" class="lesson-stage" aria-hidden="true"></div>
+    <div id="lesson-ui" class="lesson-ui" aria-hidden="true"></div>
+    <aside class="join">
+      <div class="wordmark" aria-label="Robo Rally">Robo<b> </b>Rally</div>
+      <div class="join-qr"><img id="qr" alt="Scan to join on your phone"></div>
       <div id="join-code" class="join-code" hidden></div>
-      <div id="join-local" class="join-local" hidden></div>
-      <button id="relay-btn" class="btn btn-sm secondary" title="Connection setup" aria-label="Connection setup" hidden>📡</button>
+      <div id="join-text" class="join-text"></div>
+      <div id="join-local" class="join-local" hidden><b id="join-local-text"></b></div>
+      <div id="players" class="lobby-players"></div>
+      <div id="last-result" class="last-result" hidden></div>
+      <button id="start" class="go" title="Start"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 11 L29 20 L15 29 Z" fill="currentColor"/></svg></button>
     </aside>
-    <div class="factory-lessons" data-lessons></div>
-    <footer class="factory-dock">
-      <div id="players" class="factory-crew"></div>
-      <div class="factory-launch">
-        <span id="player-count" class="crowd-count" hidden></span>
-        <button id="start" class="btn btn-xl" aria-label="Start the race" title="Start the race">▶</button>
-      </div>
-    </footer>
+    <div class="lobby-corner">
+      <button id="sound-btn" class="corner-btn" title="Sound"></button>
+      <button id="relay-btn" class="corner-btn" title="Connection" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 27 a8 8 0 0 1 0 -14 M27 13 a8 8 0 0 1 0 14 M17 20 H23" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+    </div>
   </section>
 
   <section id="game" class="screen game-screen" hidden>
     <main id="stage" class="stage"></main>
-    <!-- host controls: tucked away until the mouse moves (or the screen is tapped) -->
-    <footer class="game-bar">
-      <span class="game-bar-join">📱 <b id="join-mini"></b></span>
-      <span class="spacer"></span>
-      <button class="btn btn-sm secondary" data-lobby="restart" title="Restart" aria-label="Restart">↺</button>
-      <button class="btn btn-sm secondary" data-lobby="end" title="Back to the lobby" aria-label="Back to the lobby">🏠</button>
-    </footer>
+    <div class="game-menu">
+      <span id="join-mini" class="join-mini"></span>
+      <button class="menu-btn" data-lobby="restart" title="Start over"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M29 20 A9 9 0 1 1 26 13.3" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M27.5 8 L26.5 13.8 L32 15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="menu-btn" data-lobby="end" title="Back to the lobby"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 20 L20 11 L30 20 M14 18 V30 H26 V18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
   </section>
 
   <dialog id="relay-dialog" class="relay-dialog">
     <form method="dialog" class="stack">
       <h2>Relay login</h2>
-      <p class="muted">
-        Phones on mobile data usually reach this big screen through a relay server (Metered). This site has a relay
-        login built in. To use a different one on this computer, enter it here (it's kept in this browser only).
-        "Forget it" goes back to the built-in login.
+      <p class="muted small">
+        Phones on mobile data usually reach this big screen through a relay server (Metered). A login is built in.
+        To use a different one on this computer, enter it here (kept in this browser only). "Forget it" goes back
+        to the built-in login.
       </p>
       <label>Username <input id="relay-user" autocomplete="off" spellcheck="false"></label>
       <label>Password <input id="relay-pass" type="password" autocomplete="off"></label>
       <div class="row">
-        <button class="btn" value="save">Save</button>
-        <button class="btn secondary" value="forget">Forget it</button>
+        <button class="btn primary" value="save">Save</button>
+        <button class="btn" value="forget">Forget it</button>
         <button class="btn ghost" value="cancel">Cancel</button>
       </div>
     </form>

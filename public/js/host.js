@@ -1,19 +1,39 @@
-// The big screen (laptop / TV): lobby with QR code, then the game's host view.
+// The big screen (laptop / TV): the lobby (the rule film, the QR code, who's here), then the game.
 import { html, raw } from './ui.js';
-import { avatar } from './avatar.js';
-import { mountFactoryLobby, mountLessons } from '../games/robo-rally/lobby.js';
+import { mountLumenLobby } from '../games/robo-rally/lobby.js';
+import { robotSvg, svgGlyph } from '../games/robo-rally/glyphs.js';
+import { sfx, unlock, onState as onSound, setMuted, state as soundState } from '../games/robo-rally/sound.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
 
 const $ = (id) => document.getElementById(id);
-// the Wi-Fi sign next to an address that only works on this computer's Wi-Fi
-const WIFI = '<svg class="wifi" viewBox="0 0 24 24" aria-label="Wi-Fi" role="img"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="19.5" r="1.8" fill="currentColor"/></svg>';
 let state = null;
 let dismissedError = null;
 const seenPlayers = new Set();
-const factory = mountFactoryLobby(document.getElementById('factory-scene'));
-mountLessons(document.querySelector('[data-lessons]'));
+const film = mountLumenLobby($('lesson-stage'), $('lesson-ui'));
 
-/** The red bar at the top: a problem with the connection (null hides it). */
+// Sound needs one click or key press on this page (browsers' rule).
+for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => unlock());
+// The lobby's sound button: amber and breathing until sound is on (one click turns it on).
+onSound((st) => {
+  $('sound-btn').innerHTML = String(raw(svgGlyph(st === 'on' ? 'sound' : 'mute')));
+  $('sound-btn').classList.toggle('warn', st !== 'on');
+});
+$('sound-btn').addEventListener('pointerdown', (e) => e.stopPropagation()); // this button decides for itself
+$('sound-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const st = soundState();
+  if (st === 'locked') unlock();
+  else setMuted(st === 'on');
+});
+// The game's small menu shows while the mouse moves.
+let pointerTimer = 0;
+window.addEventListener('pointermove', () => {
+  document.body.classList.add('pointer');
+  clearTimeout(pointerTimer);
+  pointerTimer = setTimeout(() => document.body.classList.remove('pointer'), 2500);
+});
+
+/** The band at the top: a problem with the connection (null hides it). */
 function banner(text) {
   $('offline').textContent = text ?? '';
   $('offline').hidden = !text;
@@ -43,7 +63,7 @@ async function setUpRelayButton() {
   const button = $('relay-btn');
   const dialog = $('relay-dialog');
   button.hidden = false;
-  button.title = relay ? 'Connection ✓' : 'Connection setup';
+  button.classList.toggle('warn', !relay);
   button.addEventListener('click', () => {
     $('relay-user').value = '';
     $('relay-pass').value = '';
@@ -63,9 +83,9 @@ socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {
   document.body.innerHTML = html`
     <div class="denied">
-      <div class="factory-wordmark">ROBO<span>RALLY</span></div>
+      <div class="wordmark">Robo Rally</div>
       <p>The big screen only opens on the computer running the game (or on its Wi-Fi).</p>
-      <a class="btn btn-xl" href="./">Join as a player instead</a>
+      <a class="btn primary" href="./">Join as a player</a>
     </div>`;
 });
 onState(socket, (next) => {
@@ -74,26 +94,13 @@ onState(socket, (next) => {
 });
 
 $('start').addEventListener('click', () => lobby('start'));
-// The game bar (restart, back to the lobby) is for whoever sits at the computer: it hides until the
-// mouse moves or someone taps the screen, so the race has the whole screen.
-let barTimer = 0;
-const wakeBar = () => {
-  document.body.classList.add('show-bar');
-  clearTimeout(barTimer);
-  barTimer = setTimeout(() => {
-    if (!document.querySelector('.game-bar:hover, .game-bar :focus')) document.body.classList.remove('show-bar');
-    else wakeBar();
-  }, 3500);
-};
-for (const type of ['pointermove', 'pointerdown', 'keydown']) addEventListener(type, wakeBar, { passive: true });
-
 $('players').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-kick]');
   if (btn && confirm(`Remove ${btn.dataset.name} from the room?`)) lobby('kick', { playerId: btn.dataset.kick });
 });
 for (const btn of document.querySelectorAll('[data-lobby]')) {
   btn.addEventListener('click', () => {
-    const question = btn.dataset.lobby === 'end' ? 'End this game and go back to the lobby?' : 'Start this game over?';
+    const question = btn.dataset.lobby === 'end' ? 'End this race and go back to the lobby?' : 'Start this race over?';
     if (confirm(question)) lobby(btn.dataset.lobby);
   });
 }
@@ -107,59 +114,53 @@ function render() {
   const inGame = room.screen === 'game' && !!room.game;
   $('lobby').hidden = inGame;
   $('game').hidden = !inGame;
-  factory.setActive(!inGame, room.players);
+  film.setActive(!inGame, room.players);
 
-  // A plain http address only works on this computer's Wi-Fi: a Wi-Fi sign says so.
-  const wifiOnly = !room.join.url.startsWith('https:');
-  $('join-text').innerHTML = html`${wifiOnly && raw(WIFI)}<span>${room.join.text}</span>`;
-  $('join-text').classList.toggle('long', room.join.text.length > 18);
-  $('join-mini').textContent = room.join.code ? `${room.join.text} · ${room.join.code}` : room.join.text;
+  $('join-text').textContent = room.join.code ? room.join.text : room.join.text;
+  $('join-mini').textContent = room.join.code ?? room.join.text;
   $('join-local').hidden = !room.join.local;
-  $('join-local').innerHTML = room.join.local ? html`${raw(WIFI)}<span>${room.join.local}</span>` : '';
+  $('join-local-text').textContent = room.join.local ?? '';
   $('join-code').hidden = !room.join.code;
-  $('join-code').innerHTML = room.join.code ? html`<b>${room.join.code}</b>` : '';
+  $('join-code').textContent = room.join.code ?? '';
 
   const error = state.error;
   $('error-text').textContent = error ?? '';
   $('error').hidden = !error || error === dismissedError;
 
-  if (inGame) {
-    stage.show(room.game, state.view, room.games);
-  } else {
+  if (inGame) stage.show(room.game, state.view, room.games);
+  else {
     stage.show(null);
     renderLobby(room);
   }
 }
 
-
-/** Everyone who has joined stands in a row (with empty places to fill), next to the start button. */
 function renderLobby(room) {
-  const online = room.players.filter((p) => p.connected).length;
-  const max = room.games.find((g) => g.id === room.selectedGameId)?.maxPlayers ?? 8;
-  const empty = Math.min(Math.max(1, 4 - room.players.length), max - room.players.length);
-  $('players').innerHTML = html`${room.players.map((p) => {
-    const isNew = !seenPlayers.has(p.id);
+  const list = $('players');
+  const fresh = room.players.filter((p) => !seenPlayers.has(p.id));
+  list.classList.toggle('two', room.players.length > 4);
+  list.innerHTML = room.players.length
+    ? String(html`${room.players.map((p) => html`
+        <div class="lp ${!p.connected && 'away'}" style="--c:${p.color}">
+          ${raw(robotSvg(p, { dim: !p.connected }))}
+          <span class="lp-name">${p.name}</span>
+          ${p.connected && p.link === 'relay' && html`<span class="lp-link" title="Connected through a relay server">relay</span>`}
+          <button class="lp-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}">✕</button>
+        </div>`)}`)
+    : '<div class="lobby-empty"><i></i><i></i><i></i></div>';
+  // only new arrivals slide in
+  for (const el of list.querySelectorAll('.lp')) {
+    const id = el.querySelector('[data-kick]')?.dataset.kick;
+    if (seenPlayers.has(id)) el.style.animation = 'none';
+  }
+  for (const p of fresh) {
     seenPlayers.add(p.id);
-    return html`
-      <div class="crew-bot ${isNew && 'pop'} ${!p.connected && 'away'}" style="--c:${p.color}">
-        ${avatar(p)}
-        <b class="crew-name">${p.name}</b>
-        ${p.isVip && html`<i class="crew-vip" title="Can start from their phone">★</i>`}
-        <button class="chip-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}" aria-label="Remove ${p.name}">✕</button>
-      </div>`;
-  })}${Array.from({ length: Math.max(0, empty) }, (_, i) => html`<div class="crew-bot empty" aria-hidden="true">${i === 0 && html`<span class="crew-phone">📱</span>`}</div>`)}`;
-  const slots = room.players.length + Math.max(0, empty);
-  $('players').style.setProperty('--cols', String(Math.max(8, slots)));
-  $('players').classList.toggle('crowd', slots > 12); // past 12, smaller robots in several rows
-  $('players').classList.toggle('still', room.players.length > 16); // a crowd of bobbing robots is too busy
-
+    sfx.join(room.players.indexOf(p));
+  }
   $('start').disabled = !!room.startProblem;
-  // too many for one race: show the count against the limit, in red
-  $('player-count').hidden = !(room.startProblem && online > max);
-  $('player-count').textContent = `${online}/${max}`;
-  // the last race's winner: a trophy and their robot
-  const result = room.lastResult?.replace(/^[^:]+: /, '') ?? '';
-  const winner = result.startsWith('🏆') ? room.players.find((p) => p.name === result.slice(2).trim()) : null;
-  $('last-result').hidden = !result;
-  $('last-result').innerHTML = winner ? html`🏆 ${avatar(winner, { mood: 'happy' })}<span>${winner.name}</span>` : html`${result}`;
+  $('start').title = room.startProblem ?? 'Start';
+  // the last race's winner, if any ("Robo Rally: Sam won the race!")
+  const name = /: (.+) won the race!$/.exec(room.lastResult ?? '')?.[1];
+  const winner = name && room.players.find((p) => p.name === name);
+  $('last-result').hidden = !winner;
+  $('last-result').innerHTML = winner ? String(html`${raw(svgGlyph('flag'))}${raw(robotSvg(winner))}<span>${winner.name}</span>`) : '';
 }

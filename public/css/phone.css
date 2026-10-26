@@ -1,135 +1,159 @@
-/* Phones: big touch targets, no zooming or text selection getting in the way. */
+/* Phones: portrait, 360-430 px wide, thumbs. Big targets, very few words. */
 
-html.phone { font-size: 17px; }
-.phone body {
-  overscroll-behavior: none;
-  touch-action: manipulation;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-.phone input { -webkit-user-select: text; user-select: text; }
-
+html.phone { font-size: 16px; }
+html.phone body { overflow: hidden; overscroll-behavior: none; }
 .phone .screen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: max(1.2rem, env(safe-area-inset-top)) 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+  position: fixed;
+  inset: 0;
+  padding: max(1rem, env(safe-area-inset-top)) 1.1rem max(1rem, env(safe-area-inset-bottom));
 }
-.center-screen { align-items: center; justify-content: center; text-align: center; }
-.phone .logo { --icon: 4.6rem; }
+.center-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2rem; text-align: center; }
+.center-screen .wordmark { font-size: 1rem; margin-bottom: 1rem; }
+.quiet { color: var(--faint); font-size: 0.9rem; letter-spacing: 0.04em; }
+.quiet-link { color: var(--faint); font-size: 0.85rem; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; }
+.form-error { color: var(--coral); font-size: 0.95rem; max-width: 18rem; }
 
-/* Connecting: the panther breathes */
-.spinner {
-  width: 3.4rem;
-  height: 4rem;
-  background: var(--white);
-  -webkit-mask: url("../img/panther.png") center / contain no-repeat;
-  mask: url("../img/panther.png") center / contain no-repeat;
-  animation: breathe 1.2s ease-in-out infinite;
-}
-@keyframes breathe { 50% { opacity: 0.35; transform: scale(0.94); } }
-
-/* ---------- Join ---------- */
-
-.bot-parade { display: flex; align-items: flex-end; gap: 0.3rem; max-width: 100%; margin-top: 0.6rem; }
-.bot-parade .bot { width: min(3.9rem, 16vw); height: auto; aspect-ratio: 1; }
-.bot-parade .bot:nth-child(3) { width: min(4.8rem, 20vw); }
-
-.join-form { width: 100%; max-width: 22rem; display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.6rem; }
-.join-form label { font-family: var(--display); font-size: 2.1rem; line-height: 1; }
-.phone input[type], .phone input:not([type]) {
-  --cut: 0.7rem;
-  width: 100%;
-  padding: 0.5rem 1rem 0.3rem;
-  font-family: var(--display);
-  font-size: 2.2rem; /* 16px+ stops iPhones from zooming in */
-  font-weight: 400;
-  line-height: 1.1;
-  text-align: center;
-  color: var(--field-ink);
-  background: var(--field);
-  border: 0;
-  border-bottom: 0.3rem solid var(--field-edge);
-  border-radius: 0;
-  outline: none;
-  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
-}
-.phone input:focus { border-bottom-color: var(--field-focus); }
-.phone .code-input { letter-spacing: 0.3em; text-transform: uppercase; }
-.form-error { padding: 0.4em 0.7em; background: var(--band); color: var(--white); font-weight: 700; }
-.host-link { color: var(--muted); font-size: 0.9rem; margin-top: 1.5rem; }
-
-/* ---------- Waiting room ---------- */
-
-.me-card {
-  --cut: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.8rem 1.1rem 0.7rem 0.8rem;
-  background: var(--panel-solid);
-  border-left: 0.4rem solid var(--me);
-  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
-}
-.me-card .bot { width: 5.4rem; height: 5.4rem; margin: -0.5rem 0; }
-.me-name { font-family: var(--display); font-size: 2.6rem; font-weight: 400; line-height: 1; padding-top: 0.12em; }
-.vip { display: flex; flex-direction: column; gap: 0.8rem; }
-.vip h2 { margin: 0; }
-
-/* phone sections are centered: the label, the text under it, and what's in it */
-.phone .panel { text-align: center; }
-.phone .panel h2 { width: fit-content; margin-inline: auto; }
-.phone .panel h2::before { left: 50%; transform: translateX(-50%); }
-.phone .panel .player-chips { justify-content: center; }
-.vip-games { display: flex; flex-direction: column; gap: 0.5rem; }
-.vip-game {
-  --cut: 0.7rem;
-  padding: 0.75rem 1rem 0.5rem;
-  border: 0;
-  border-left: 0.3rem solid transparent;
-  background: var(--card);
-  font-family: var(--display);
-  font-size: 1.7rem;
-  line-height: 1;
-  text-align: center;
-  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
-}
-.vip-game.selected { background: var(--pick); border-left-color: var(--pick-edge); color: var(--pick-ink); }
-
-/* ---------- In a game ---------- */
-
-.phone .game-screen { padding: 0; gap: 0; height: 100vh; height: 100dvh; }
-.phone-bar {
+/* name / code entry: a pill of glass with a round arrow at its end */
+.entry {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.45rem 1rem 0.4rem;
-  padding-top: max(0.45rem, env(safe-area-inset-top));
-  background: var(--black);
-  border-bottom: 0.2rem solid var(--me);
+  width: min(100%, 22rem);
+  padding: 0.4rem 0.4rem 0.4rem 1.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--hair2);
+  background: rgba(16, 20, 27, 0.8);
+  box-shadow: 0 0 2.4rem rgba(244, 239, 228, 0.05);
 }
-.phone-bar .bot { width: 2.9rem; height: 2.9rem; margin: -0.3rem 0; }
-.bar-name { font-family: var(--display); font-size: 1.7rem; line-height: 1; padding-top: 0.12em; }
-.bar-btn { min-width: 48px; min-height: 48px; border: 0; background: var(--off-black); border-radius: var(--radius); padding: 0.3rem 0.7rem; font-weight: 700; letter-spacing: 0.1em; }
-.spacer { flex: 1; }
-.phone .stage { flex: 1; min-height: 0; overflow: auto; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.entry:focus-within { border-color: rgba(244, 239, 228, 0.5); }
+.entry input {
+  flex: 1;
+  min-width: 0;
+  height: 3.2rem;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: 1.3rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+}
+.entry input::placeholder { color: var(--faint); }
+.code-input { text-transform: uppercase; letter-spacing: 0.5em !important; font-size: 1.7rem !important; text-align: center; }
+.round-go {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  border: 0;
+  background: var(--light);
+  color: var(--ink);
+  cursor: pointer;
+}
+.round-go svg { width: 55%; height: 55%; }
+.round-go:disabled { opacity: 0.4; }
 
-.sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 50;
+/* ---------- waiting in the lobby: your robot, and (for the first player) the start ---------- */
+.wait-screen { display: grid; grid-template-rows: 1fr auto auto auto 1fr auto; justify-items: center; align-items: center; }
+.me-robot {
+  grid-row: 2;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  width: min(56vw, 15rem);
+  aspect-ratio: 1;
+  cursor: pointer;
+  position: relative;
+}
+.me-robot::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--me) 32%, transparent), transparent);
+  animation: me-breathe 4s ease-in-out infinite;
+}
+@keyframes me-breathe { 50% { opacity: 0.55; transform: scale(0.94); } }
+.me-robot .lm-bot { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 0 1.4rem color-mix(in srgb, var(--me) 70%, transparent)); }
+/* now and then it turns a little, as if to say "tap me" */
+.me-robot:not(:disabled) .lm-bot { animation: me-nudge 7s ease-in-out 3s infinite; }
+@keyframes me-nudge { 0%, 88%, 100% { transform: rotate(0); } 91% { transform: rotate(-9deg) scale(1.03); } 94% { transform: rotate(7deg) scale(1.03); } 97% { transform: rotate(-3deg); } }
+.me-robot.swap:not(:disabled) .lm-bot { animation: me-swap 0.55s cubic-bezier(0.2, 1.3, 0.3, 1), me-nudge 7s ease-in-out 3s infinite; }
+.me-robot.swap .lm-bot { animation: me-swap 0.55s cubic-bezier(0.2, 1.3, 0.3, 1); }
+@keyframes me-swap { from { transform: scale(0.6) rotate(-40deg); opacity: 0.2; } }
+.me-robot:disabled { cursor: default; opacity: 0.5; }
+.me-forms { grid-row: 3; display: flex; gap: 0.5rem; margin-top: 1.6rem; }
+.me-forms i { width: 0.36rem; height: 0.36rem; border-radius: 50%; background: rgba(244, 239, 228, 0.22); transition: all 0.4s; }
+.me-forms i.on { background: var(--me); box-shadow: 0 0 0.6rem var(--me); transform: scale(1.4); }
+.me-name {
+  grid-row: 4;
+  margin-top: 1.3rem;
+  font-weight: 400;
+  font-size: 1.15rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+}
+.wait-watch { grid-row: 5; align-self: start; margin-top: 2rem; color: var(--faint); }
+.wait-watch .lm-g { width: 2.2rem; height: 2.2rem; animation: me-breathe 3s ease-in-out infinite; }
+.wait-bottom { grid-row: 6; width: 100%; display: grid; min-height: 4.2rem; }
+
+/* the start: a pill of light, greyed until the race can start */
+.start-pill {
+  appearance: none;
+  width: 100%;
+  height: 4.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 2.1rem;
+  border: 1px solid var(--light);
+  background: var(--light);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 0 2.4rem rgba(244, 239, 228, 0.28);
+  transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.start-pill svg { width: 1.8rem; height: 1.8rem; margin-left: 0.2rem; }
+.start-pill:disabled { background: transparent; color: var(--faint); border-color: var(--hair2); box-shadow: none; }
+.start-pill:active:not(:disabled) { transform: scale(0.98); }
+
+/* ---------- in a game ---------- */
+.game-screen { padding: 0 !important; }
+.game-screen .stage { position: absolute; inset: 0; }
+.game-screen .game-root { position: absolute; inset: 0; }
+.menu-dot {
+  position: absolute;
+  top: max(0.5rem, env(safe-area-inset-top));
+  right: 0.4rem;
+  z-index: 20;
+  appearance: none;
   display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 1.2rem 1.2rem max(1.2rem, env(safe-area-inset-bottom));
-  background: var(--black);
-  border-top: 0.3rem solid var(--stripe);
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.menu-dot i { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
+.sheet-menu {
+  position: absolute;
+  left: 0.8rem;
+  right: 0.8rem;
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  z-index: 30;
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  border-radius: 1.4rem;
+  background: rgba(14, 18, 24, 0.97);
+  border: 1px solid var(--hair2);
   box-shadow: 0 -1rem 3rem rgba(0, 0, 0, 0.6);
 }
-.sheet .btn { min-height: 3.4rem; font-family: "Segoe UI Emoji", "Segoe UI Symbol", var(--display); font-size: 2rem; }
+.sheet-menu .btn { min-height: 3.4rem; }
+#notice h1 { font-size: 2rem; letter-spacing: 0.1em; }

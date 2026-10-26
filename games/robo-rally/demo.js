@@ -3,11 +3,12 @@
 //   mountDemo(canvas, 'crab-legs', '#ff4d6d')
 import { DX, DY, turn } from './board.js';
 import { drawCourse } from './minimap.js';
+import { drawCard, drawGlyph, drawRobot } from './glyphs.js';
 import { HAYWIRE } from './cards.js';
 
 const LETTER = { N: 0, E: 1, S: 2, W: 3 };
 const ARROW = { '^': 0, '>': 1, v: 2, '<': 3 };
-const OTHER = ['#4dabf7', '#ffd43b', '#51cf66'];
+const OTHER = ['#7aa8ff', '#ffd43b', '#5fe3b8'];
 const STEP_MS = 650;
 
 // ---------- the demos ----------
@@ -19,8 +20,6 @@ const STEP_MS = 650;
 //        ['belts']  ['gears']  ['wait', ms]  [[step], [step]] runs steps together
 const D = {
   'lobby-program': { size: [5, 4], bots: { a: [0, 3, 'N'] }, steps: [['card', 'a', '↑'], ['move', 'a', 'F', 1], ['card', 'a', '↻'], ['turn', 'a', 1], ['card', 'a', '↑↑'], ['move', 'a', 'F', 2], ['card', 'a', '↺'], ['turn', 'a', -1], ['card', 'a', '↑'], ['move', 'a', 'F', 1]] },
-  // you push a robot onto a conveyor belt, and the belt carries it into a pit
-  'lobby-chaos': { grid: ['.. .. .. .. ..', '.. .. b> b> XX', '.. .. .. .. ..'], bots: { a: [0, 1, 'E'], b: [1, 1, 'S'] }, steps: [['card', 'a', '↑'], ['move', 'a', 'F', 1], ['belts'], ['belts'], ['fall', 'b'], ['wait', 300]] },
   'lobby-flags': { size: [5, 3], flags: [[1, 2], [3, 2], [3, 0]], bots: { a: [0, 2, 'E'] }, steps: [['move', 'a', 'F', 1], ['pop', 'a', '⚑ 1 ✓'], ['move', 'a', 'F', 2], ['pop', 'a', '⚑ 2 ✓'], ['turn', 'a', -1], ['move', 'a', 'F', 2], ['pop', 'a', '⚑ 3 🏆']] },
   // ----- permanent upgrades -----
   'brakes': { bots: { a: [1, 1, 'E'] }, steps: [['card', 'a', '⬆'], ['pop', 'a', '🛑'], ['wait', 500]] },
@@ -342,7 +341,7 @@ let raf = 0;
 export function mountDemo(canvas, key, color = '#ff4d6d', opts = {}) {
   const def = D[key];
   if (!def) return () => {};
-  const demo = { canvas, color, comp: compile(def, key === 'safe-edges' || opts.safeEdges), t0: performance.now(), board: null };
+  const demo = { canvas, color, form: opts.form ?? 0, comp: compile(def, key === 'safe-edges' || opts.safeEdges), t0: performance.now(), board: null };
   live.add(demo);
   if (!raf) raf = requestAnimationFrame(tick);
   return () => live.delete(demo);
@@ -360,13 +359,52 @@ function tick(now) {
   if (live.size) raf = requestAnimationFrame(tick);
 }
 
+// card text used by the demo steps -> card types
+const CARD_OF = { '⬆': 'm1', '↑': 'm1', '⬆⬆': 'm2', '↑↑': 'm2', '⬆⬆⬆': 'm3', '↑↑↑': 'm3', '⬇': 'bk', '↻': 'rr', '↺': 'rl', '⟲': 'ut', '⚠️': 'sp', '⚡': 'pu' };
+const CORAL = '#ff7a6b';
+
+/** Pop-up text as Lumen marks: a bolt, a SPAM card, a flag; numbers stay; other emoji are left out. */
+function drawPop(g, text, x, y, size) {
+  const tokens = [];
+  const re = /(⚡|⚠️|⚠|🏁|⚑|🂠|✓|✔|✖|🗑️|→|⇄|[+\-×]?\d+|[A-Za-z]+)/gu;
+  let m;
+  while ((m = re.exec(text))) tokens.push(m[0]);
+  if (!tokens.length) return false;
+  const w = size * 0.95;
+  const isNum = (t) => /^[+\-×]?\d+$/.test(t);
+  const total = tokens.reduce((s, t) => s + (isNum(t) ? w * 0.55 * t.length : w), 0);
+  let cx = x - total / 2;
+  g.save();
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  for (const t of tokens) {
+    const tw = isNum(t) ? w * 0.55 * t.length : w;
+    const mx = cx + tw / 2;
+    if (t === '⚡') drawGlyph(g, 'bolt', mx, y, size, '#ffc56e');
+    else if (t === '⚠️' || t === '⚠') drawCard(g, 'sp', mx - size * 0.32, y - size * 0.42, size * 0.64, size * 0.84);
+    else if (t === '🏁' || t === '⚑') drawGlyph(g, 'flag', mx, y, size, '#f4efe4');
+    else if (t === '🂠') drawCard(g, 'back', mx - size * 0.32, y - size * 0.42, size * 0.64, size * 0.84);
+    else if (t === '✓' || t === '✔') drawGlyph(g, 'check', mx, y, size, '#5fe3b8');
+    else if (t === '✖' || t === '🗑️') drawGlyph(g, 'cross', mx, y, size * 0.8, CORAL);
+    else if (t === '→' || t === '⇄') drawGlyph(g, t === '→' ? 'play' : 'swap', mx, y, size * 0.6, 'rgba(244,239,228,.7)');
+    else {
+      g.font = `500 ${Math.round(size * 0.72)}px Lumen, Roboto, sans-serif`;
+      g.fillStyle = '#f4efe4';
+      g.fillText(t, mx, y + size * 0.04);
+    }
+    cx += tw;
+  }
+  g.restore();
+  return true;
+}
+
 function draw(demo, now) {
   const { canvas, comp } = demo;
   const { c } = comp;
   const cssW = canvas.clientWidth || 120;
   const cssH = canvas.clientHeight || 72;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  if (canvas.width !== Math.round(cssW * dpr)) {
+  if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
     demo.board = null;
@@ -375,7 +413,6 @@ function draw(demo, now) {
   const ox = (cssW - T * c.w) / 2;
   const oy = (cssH - T * c.h) / 2;
   const g = canvas.getContext('2d');
-  // the board doesn't move: draw it once
   if (!demo.board) {
     demo.board = document.createElement('canvas');
     demo.board.width = canvas.width;
@@ -389,7 +426,6 @@ function draw(demo, now) {
   g.drawImage(demo.board, 0, 0);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // where are we in the loop?
   let t = (now - demo.t0) % comp.total;
   let i = 0;
   while (i < comp.frames.length - 1 && t >= comp.frames[i].ms) {
@@ -414,7 +450,10 @@ function draw(demo, now) {
     let vis = a.vis;
     const falling = to.fx.some((f) => f.k === 'fall' && f.id === id);
     const appearing = to.fx.some((f) => f.k === 'appear' && f.id === id);
-    if (falling) scale = 1 - ease * 0.85;
+    if (falling) {
+      scale = 1 - ease * 0.85;
+      alpha *= 1 - ease * 0.7;
+    }
     if (appearing) {
       vis = true;
       x = b.x;
@@ -425,92 +464,87 @@ function draw(demo, now) {
     const bump = to.fx.some((f) => f.k === 'bump' && f.id === id) ? Math.sin(k * Math.PI) * 0.12 : 0;
     const ang = ((a.a + (b.a - a.a) * ease) * Math.PI) / 180;
     pos[id] = { x: px(x), y: py(y) };
-    bot(g, px(x) + Math.sin(ang) * bump * T, py(y) - Math.cos(ang) * bump * T, ang, n === 0 ? demo.color : OTHER[(n - 1) % OTHER.length], T * 0.36 * scale, alpha);
+    const color = n === 0 ? demo.color : OTHER[(n - 1) % OTHER.length];
+    // a short trail of light behind a moving robot
+    if ((a.x !== b.x || a.y !== b.y) && !falling && !appearing) {
+      g.save();
+      g.strokeStyle = color;
+      g.globalAlpha = 0.5;
+      g.lineWidth = Math.max(2, T * 0.12);
+      g.lineCap = 'round';
+      g.shadowColor = color;
+      g.shadowBlur = T * 0.3;
+      g.beginPath();
+      g.moveTo(px(a.x), py(a.y));
+      g.lineTo(px(x), py(y));
+      g.stroke();
+      g.restore();
+    }
+    drawRobot(g, n === 0 ? demo.form : (n + 1) % 6, px(x) + Math.sin(ang) * bump * T, py(y) - Math.cos(ang) * bump * T, T * 0.36 * scale, ang, color, { alpha });
   });
 
-  // effects of the step being played
   for (const f of to.fx) {
     const p = pos[f.id];
     if (f.k === 'beam') {
+      g.save();
       g.globalAlpha = 1 - k * 0.8;
-      g.strokeStyle = f.color;
-      g.lineWidth = T * 0.07 * f.thick;
-      g.shadowColor = f.color;
-      g.shadowBlur = 8;
+      g.strokeStyle = f.color === '#ff3b30' ? '#ff4a3a' : f.color;
+      g.lineWidth = Math.max(1.5, T * 0.05 * f.thick);
+      g.shadowColor = g.strokeStyle;
+      g.shadowBlur = T * 0.3;
       g.beginPath();
       g.moveTo(px(f.x0), py(f.y0));
       g.lineTo(px(f.x1), py(f.y1));
       g.stroke();
-      g.shadowBlur = 0;
-      g.globalAlpha = 1;
+      g.restore();
     } else if (f.k === 'burst' && p) {
-      g.strokeStyle = '#ffb347';
-      g.lineWidth = 2;
+      g.save();
+      g.strokeStyle = CORAL;
+      g.lineWidth = Math.max(1.5, T * 0.04);
+      g.globalAlpha = 1 - k;
       for (let r = 0; r < 8; r++) {
         const an = (r / 8) * Math.PI * 2;
-        const r0 = T * (0.2 + k * 0.3);
-        g.globalAlpha = 1 - k;
+        const r0 = T * (0.25 + k * 0.3);
         g.beginPath();
         g.moveTo(p.x + Math.cos(an) * r0, p.y + Math.sin(an) * r0);
-        g.lineTo(p.x + Math.cos(an) * (r0 + T * 0.18), p.y + Math.sin(an) * (r0 + T * 0.18));
+        g.lineTo(p.x + Math.cos(an) * (r0 + T * 0.12), p.y + Math.sin(an) * (r0 + T * 0.12));
         g.stroke();
       }
-      g.globalAlpha = 1;
+      g.restore();
     } else if (f.k === 'shield' && p) {
-      g.strokeStyle = '#7cc7ff';
-      g.lineWidth = 3;
+      g.save();
+      g.strokeStyle = '#9cc8ff';
+      g.lineWidth = Math.max(1.5, T * 0.05);
+      g.shadowColor = '#9cc8ff';
+      g.shadowBlur = T * 0.3;
       g.globalAlpha = 1 - k * 0.5;
       g.beginPath();
-      g.arc(p.x, p.y, T * 0.5, 0, Math.PI * 2);
+      g.arc(p.x, p.y, T * 0.52, 0, Math.PI * 2);
       g.stroke();
-      g.globalAlpha = 1;
+      g.restore();
     } else if ((f.k === 'pop' || f.k === 'card') && p) {
-      const rise = f.k === 'pop' ? k * T * 0.35 : 0;
-      const sz = Math.max(11, T * 0.42);
+      const rise = f.k === 'pop' ? k * T * 0.3 : 0;
+      const sz = Math.max(12, T * 0.42);
+      g.save();
       g.globalAlpha = k < 0.8 ? 1 : 1 - (k - 0.8) / 0.2;
-      g.font = `bold ${sz}px system-ui, "Segoe UI Emoji", sans-serif`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      const yy = p.y - T * 0.62 - rise;
-      if (f.k === 'card') {
-        const w = Math.max(sz * 1.3, g.measureText(f.text).width + sz * 0.6);
-        g.fillStyle = '#1d4f91';
-        g.strokeStyle = '#fff';
-        g.lineWidth = 2;
+      const yy = p.y - T * 0.7 - rise;
+      const type = CARD_OF[f.text];
+      if (f.k === 'card' && type) drawCard(g, type, p.x - sz * 0.42, yy - sz * 0.55, sz * 0.84, sz * 1.1);
+      else if (f.k === 'card') {
+        // a stacked or Haywire card: its moves as small marks on a light slide
+        const text = f.text.replace(/⬆/g, '↑').replace(/️/g, '');
+        const w = Math.max(sz * 1.2, sz * 0.62 * [...text].length);
+        g.fillStyle = '#f4efe4';
         g.beginPath();
-        g.roundRect(p.x - w / 2, yy - sz * 0.75, w, sz * 1.5, 4);
+        g.roundRect(p.x - w / 2, yy - sz * 0.55, w, sz * 1.1, sz * 0.15);
         g.fill();
-        g.stroke();
-      } else {
-        g.lineWidth = 3;
-        g.strokeStyle = 'rgba(0,0,0,.75)';
-        g.strokeText(f.text, p.x, yy);
-      }
-      g.fillStyle = '#fff';
-      g.fillText(f.text, p.x, yy);
-      g.globalAlpha = 1;
+        g.fillStyle = '#15181d';
+        g.font = `600 ${Math.round(sz * 0.62)}px Lumen, Roboto, sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(text, p.x, yy + sz * 0.03);
+      } else drawPop(g, f.text, p.x, yy, sz);
+      g.restore();
     }
   }
-}
-
-function bot(g, x, y, ang, color, R, alpha) {
-  if (R <= 0.5) return;
-  g.save();
-  g.globalAlpha = alpha;
-  g.translate(x, y);
-  g.rotate(ang);
-  g.fillStyle = color;
-  g.strokeStyle = '#111';
-  g.lineWidth = Math.max(1.5, R * 0.18);
-  g.beginPath();
-  g.moveTo(0, -R * 1.15);
-  g.arc(0, 0, R * 0.85, -Math.PI / 2 + 2.2, -Math.PI / 2 - 2.2 + Math.PI * 2, false);
-  g.closePath();
-  g.fill();
-  g.stroke();
-  g.fillStyle = '#111';
-  g.beginPath();
-  g.arc(0, -R * 0.3, R * 0.22, 0, Math.PI * 2);
-  g.fill();
-  g.restore();
 }

@@ -1,247 +1,216 @@
-// The robots, built from simple shapes so nothing has to be downloaded. Eight different models;
-// each player's robot is painted in their color and stands on a base with an arrow showing which
-// way it faces (like the figures in the box). Models face north (-z) before turning.
+// Lumen's robots: six polished forms in the player's color, each with a light (its eye) at the front,
+// a thin ring of light on the glass and a pointer showing which way it faces. Built from simple
+// shapes, nothing to download. Models face north (-z) before turning.
 import * as THREE from './lib/three.module.min.js';
 import { RoundedBoxGeometry } from './lib/rounded-box-geometry.js';
 
-const metal = (color, rough = 0.5, metalness = 0.6) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness });
-const DARK = metal(0x2a2c31, 0.55, 0.7);
-const STEEL = metal(0x8a9099, 0.35, 0.85);
-const RUBBER = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.95, metalness: 0.05 });
+const TAU = Math.PI * 2;
 
-function box(w, h, d, mat, r = 0.03) {
-  const g = r > 0 ? new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2)) : new THREE.BoxGeometry(w, h, d);
-  const m = new THREE.Mesh(g, mat);
-  m.castShadow = true;
-  m.receiveShadow = true;
+/** A soft round glow (white in the middle, clear at the edge), shared by every robot. */
+let poolTex = null;
+export function glowTexture() {
+  if (poolTex) return poolTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,.55)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,.12)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  poolTex = new THREE.CanvasTexture(c);
+  poolTex.colorSpace = THREE.SRGBColorSpace;
+  poolTex.userData.shared = true;
+  return poolTex;
+}
+
+function mesh(geo, mat, cast = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = cast;
   return m;
 }
-function cyl(rt, rb, h, mat, seg = 20) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
-  m.castShadow = true;
-  return m;
-}
-function at(obj, x, y, z) {
-  obj.position.set(x, y, z);
-  return obj;
-}
 
-/** Tank treads on both sides: [left, right] groups, with wheels. */
-function treads(width, length, height, y = height / 2) {
-  const out = [];
-  for (const side of [-1, 1]) {
-    const g = new THREE.Group();
-    const belt = box(height * 0.8, height, length, RUBBER, height * 0.45);
-    g.add(belt);
-    for (let i = 0; i < 4; i++) {
-      const w = cyl(height * 0.32, height * 0.32, height * 0.82, STEEL, 12);
-      w.rotation.z = Math.PI / 2;
-      w.position.z = -length / 2 + height * 0.5 + (i * (length - height)) / 3;
-      g.add(w);
-    }
-    g.position.set((side * width) / 2, y, 0);
-    out.push(g);
-  }
-  return out;
-}
-
-function eyeMat(color = 0x9ff7ff) {
-  return new THREE.MeshStandardMaterial({ color: 0x111111, emissive: color, emissiveIntensity: 2.6, roughness: 0.3 });
-}
-
-function barrel(len, r, mat = DARK) {
-  const b = cyl(r, r * 1.1, len, mat, 12);
-  b.rotation.x = Math.PI / 2;
-  return b;
+/** The outline of a pebble seen from above, front at +y (it becomes -z). */
+function pebbleShape(s = 1) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0.29 * s);
+  sh.bezierCurveTo(0.11 * s, 0.29 * s, 0.31 * s, -0.12 * s, 0.29 * s, -0.22 * s);
+  sh.bezierCurveTo(0.27 * s, -0.31 * s, 0.13 * s, -0.33 * s, 0, -0.29 * s);
+  sh.bezierCurveTo(-0.13 * s, -0.33 * s, -0.27 * s, -0.31 * s, -0.29 * s, -0.22 * s);
+  sh.bezierCurveTo(-0.31 * s, -0.12 * s, -0.11 * s, 0.29 * s, 0, 0.29 * s);
+  return sh;
 }
 
 /**
- * A robot: returns { group, body, eye, muzzle (Object3D at the gun's tip), spin (parts that spin) }.
- * style 0-7, color is the player's color.
+ * A robot: { group, body, paint, eyeMat, ringMat, pool, muzzle, setColor(c), hover }.
+ * form 0-5 (Pebble, Orb, Prism, Capsule, Cube, Spire); color is the player's color.
  */
-export function makeRobot(style, color) {
-  const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.35 });
-  const trim = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.45), roughness: 0.5, metalness: 0.5 });
-  const glow = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: new THREE.Color(color), emissiveIntensity: 2.2 });
+export function makeRobot(form, color) {
   const group = new THREE.Group();
   const body = new THREE.Group();
   group.add(body);
+  const paint = new THREE.MeshPhysicalMaterial({
+    color, roughness: 0.24, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.06, emissive: color, emissiveIntensity: 0.16,
+  });
+  const dark = new THREE.MeshPhysicalMaterial({ color: 0x14171c, roughness: 0.3, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.1 });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 3.1, 2.9) });
   const muzzle = new THREE.Object3D();
-  const spin = [];
-  let eye;
+  let hover = false;
 
-  // the base with the facing arrow
-  const base = new THREE.Group();
-  const disc = cyl(0.36, 0.38, 0.05, DARK, 32);
-  disc.position.y = 0.025;
-  base.add(disc);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.025, 8, 40), glow);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.05;
-  base.add(ring);
-  const arrowShape = new THREE.Shape();
-  arrowShape.moveTo(0, 0.42);
-  arrowShape.lineTo(0.13, 0.26);
-  arrowShape.lineTo(-0.13, 0.26);
-  arrowShape.closePath();
-  const arrow = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), glow);
-  arrow.rotation.x = -Math.PI / 2; // flat on the base, its tip toward north (-z)
-  arrow.position.y = 0.056;
-  base.add(arrow);
-  group.add(base);
-
-  switch (style % 8) {
-    case 0: {
-      // Tank: treads, hull, turret with a long barrel
-      for (const t of treads(0.5, 0.66, 0.2, 0.15)) body.add(t);
-      body.add(at(box(0.44, 0.16, 0.58, paint, 0.05), 0, 0.3, 0));
-      body.add(at(box(0.46, 0.04, 0.6, trim, 0.02), 0, 0.22, 0));
-      const turret = at(box(0.3, 0.16, 0.32, paint, 0.07), 0, 0.46, 0.03);
-      body.add(turret);
-      eye = at(box(0.2, 0.04, 0.02, eyeMat()), 0, 0.48, -0.14);
-      body.add(eye);
-      body.add(at(barrel(0.38, 0.035), 0, 0.46, -0.3));
-      muzzle.position.set(0, 0.46, -0.5);
-      body.add(at(cyl(0.012, 0.012, 0.22, STEEL, 6), 0.1, 0.62, 0.1));
-      body.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), glow), 0.1, 0.74, 0.1));
-      break;
-    }
+  switch (form) {
     case 1: {
-      // Hulk: a big mech torso on treads, cannons on both arms
-      for (const t of treads(0.46, 0.5, 0.18, 0.13)) body.add(t);
-      body.add(at(box(0.3, 0.12, 0.3, DARK, 0.03), 0, 0.27, 0));
-      body.add(at(box(0.46, 0.3, 0.3, paint, 0.07), 0, 0.47, 0));
-      body.add(at(box(0.3, 0.1, 0.06, trim, 0.02), 0, 0.42, -0.16));
-      const head = at(box(0.2, 0.13, 0.18, paint, 0.05), 0, 0.68, -0.02);
-      body.add(head);
-      eye = at(box(0.15, 0.035, 0.02, eyeMat(0xffe27a)), 0, 0.69, -0.115);
-      body.add(eye);
-      for (const s of [-1, 1]) {
-        body.add(at(box(0.12, 0.12, 0.14, trim, 0.04), s * 0.3, 0.55, 0));
-        body.add(at(barrel(0.3, 0.04), s * 0.3, 0.46, -0.16));
-      }
-      muzzle.position.set(0.3, 0.46, -0.32);
+      // Orb: a sphere floating over a ring
+      const orb = mesh(new THREE.SphereGeometry(0.2, 40, 28), paint);
+      orb.position.y = 0.36;
+      body.add(orb);
+      const band = mesh(new THREE.TorusGeometry(0.201, 0.017, 8, 32, 1.3), eyeMat, false);
+      band.rotation.x = Math.PI / 2;
+      band.rotation.z = -Math.PI / 2 - 0.65;
+      band.position.y = 0.38;
+      body.add(band);
+      const ring = mesh(new THREE.TorusGeometry(0.25, 0.024, 10, 48), dark);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.07;
+      group.add(ring);
+      muzzle.position.set(0, 0.36, -0.22);
+      hover = true;
       break;
     }
     case 2: {
-      // Dome: a round body on a wheeled skirt, one big eye, antenna
-      body.add(at(cyl(0.3, 0.34, 0.14, DARK, 24), 0, 0.12, 0));
-      for (const s of [-1, 1]) {
-        const w = cyl(0.11, 0.11, 0.08, RUBBER, 16);
-        w.rotation.z = Math.PI / 2;
-        body.add(at(w, s * 0.32, 0.11, 0));
-      }
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.29, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.55), paint);
-      dome.castShadow = true;
-      body.add(at(dome, 0, 0.2, 0));
-      body.add(at(cyl(0.3, 0.3, 0.05, trim, 28), 0, 0.21, 0));
-      eye = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), eyeMat(0xff6060));
-      body.add(at(eye, 0, 0.37, -0.22));
-      body.add(at(cyl(0.012, 0.012, 0.3, STEEL, 6), 0.08, 0.55, 0.06));
-      body.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), glow), 0.08, 0.71, 0.06));
-      body.add(at(barrel(0.18, 0.03), 0, 0.27, -0.3));
-      muzzle.position.set(0, 0.27, -0.4);
-      break;
+      // Prism: a faceted wedge, its ridge lit
+      const tip = [0, 0.04, -0.33];
+      const bl = [-0.27, 0.04, 0.22];
+      const br = [0.27, 0.04, 0.22];
+      const apex = [0, 0.4, 0.08];
+      const v = new Float32Array([...tip, ...br, ...apex, ...br, ...bl, ...apex, ...bl, ...tip, ...apex, ...tip, ...bl, ...br]);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
+      geo.computeVertexNormals();
+      const prism = mesh(geo, new THREE.MeshPhysicalMaterial({ color, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, emissive: color, emissiveIntensity: 0.16, flatShading: true }));
+      body.add(prism);
+      paint.dispose();
+      const ridgeLen = Math.hypot(0, apex[1] - tip[1], apex[2] - tip[2]);
+      const ridge = mesh(new THREE.CylinderGeometry(0.012, 0.012, ridgeLen * 0.62, 8), eyeMat, false);
+      ridge.position.set(0, tip[1] + (apex[1] - tip[1]) * 0.42, tip[2] + (apex[2] - tip[2]) * 0.42);
+      ridge.rotation.x = -Math.atan2(apex[2] - tip[2], apex[1] - tip[1]);
+      body.add(ridge);
+      muzzle.position.set(0, 0.1, -0.33);
+      return finish(form, group, body, prism.material, eyeMat, muzzle, color, hover);
     }
     case 3: {
-      // Hammer: a boxy hauler with a front ram and a smokestack
-      for (const t of treads(0.52, 0.6, 0.18, 0.12)) body.add(t);
-      body.add(at(box(0.46, 0.26, 0.48, paint, 0.05), 0, 0.33, 0.04));
-      body.add(at(box(0.5, 0.22, 0.08, STEEL, 0.03), 0, 0.22, -0.3));
-      for (let i = -2; i <= 2; i++) body.add(at(box(0.05, 0.2, 0.03, DARK, 0.01), i * 0.09, 0.22, -0.34));
-      body.add(at(box(0.3, 0.12, 0.2, trim, 0.04), 0, 0.52, 0.08));
-      eye = at(box(0.26, 0.05, 0.02, eyeMat(0x7dff9b)), 0, 0.4, -0.2);
-      body.add(eye);
-      body.add(at(cyl(0.05, 0.06, 0.24, DARK, 12), -0.14, 0.6, 0.18));
-      body.add(at(barrel(0.2, 0.03), 0.16, 0.5, -0.12));
-      muzzle.position.set(0.16, 0.5, -0.24);
+      // Capsule: a pill lying along its heading, with a lit collar at the front
+      const cap = mesh(new THREE.CapsuleGeometry(0.15, 0.3, 10, 28), paint);
+      cap.rotation.x = Math.PI / 2;
+      cap.position.y = 0.17;
+      body.add(cap);
+      const collar = mesh(new THREE.TorusGeometry(0.152, 0.016, 8, 36), eyeMat, false);
+      collar.position.set(0, 0.17, -0.17);
+      body.add(collar);
+      muzzle.position.set(0, 0.17, -0.31);
       break;
     }
     case 4: {
-      // Spider: a low pod on four legs with a turret
-      body.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.22, 22, 14), paint), 0, 0.32, 0));
-      body.children.at(-1).scale.y = 0.65;
-      body.children.at(-1).castShadow = true;
-      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        const leg = new THREE.Group();
-        const upper = box(0.05, 0.05, 0.26, DARK, 0.02);
-        upper.rotation.x = 0.0;
-        upper.position.set(0, 0.06, 0.12);
-        leg.add(upper);
-        const lower = box(0.05, 0.26, 0.05, STEEL, 0.02);
-        lower.position.set(0, -0.06, 0.24);
-        leg.add(lower);
-        leg.position.set(sx * 0.16, 0.26, sz * 0.12);
-        leg.rotation.y = Math.atan2(sx, sz);
-        body.add(leg);
-      }
-      body.add(at(cyl(0.12, 0.14, 0.1, trim, 16), 0, 0.46, 0));
-      eye = at(box(0.14, 0.04, 0.02, eyeMat(0xff9bf5)), 0, 0.47, -0.12);
-      body.add(eye);
-      body.add(at(barrel(0.26, 0.028), 0, 0.47, -0.2));
-      muzzle.position.set(0, 0.47, -0.34);
+      // Cube: a soft block with a visor
+      const cube = mesh(new RoundedBoxGeometry(0.42, 0.34, 0.42, 4, 0.08), paint);
+      cube.position.y = 0.19;
+      body.add(cube);
+      const visor = mesh(new RoundedBoxGeometry(0.28, 0.045, 0.02, 2, 0.01), eyeMat, false);
+      visor.position.set(0, 0.25, -0.212);
+      body.add(visor);
+      muzzle.position.set(0, 0.22, -0.22);
       break;
     }
     case 5: {
-      // Hover: a saucer that floats, with spinning fans
-      const saucer = cyl(0.34, 0.24, 0.12, paint, 32);
-      body.add(at(saucer, 0, 0.32, 0));
-      body.add(at(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.03, 8, 32), glow), 0, 0.32, 0));
-      body.children.at(-1).rotation.x = Math.PI / 2;
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x9fd8ff, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.75 }));
-      body.add(at(cap, 0, 0.38, 0.02));
-      eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), eyeMat());
-      body.add(at(eye, 0, 0.42, -0.06));
-      for (const s of [-1, 1]) {
-        const fan = new THREE.Group();
-        fan.add(cyl(0.09, 0.09, 0.03, DARK, 16));
-        const blade = box(0.16, 0.01, 0.03, STEEL, 0);
-        blade.position.y = 0.02;
-        fan.add(blade);
-        fan.position.set(s * 0.22, 0.24, 0.14);
-        spin.push(blade);
-        body.add(fan);
-      }
-      body.add(at(barrel(0.22, 0.03), 0, 0.3, -0.34));
-      muzzle.position.set(0, 0.3, -0.46);
-      body.userData.hover = true;
-      break;
-    }
-    case 6: {
-      // Classic: a TV-headed robot on treads
-      for (const t of treads(0.42, 0.46, 0.18, 0.12)) body.add(t);
-      body.add(at(box(0.3, 0.24, 0.24, paint, 0.04), 0, 0.33, 0));
-      for (const s of [-1, 1]) {
-        const arm = box(0.06, 0.24, 0.06, STEEL, 0.03);
-        arm.rotation.x = -0.6;
-        body.add(at(arm, s * 0.2, 0.32, -0.06));
-      }
-      const head = at(box(0.3, 0.2, 0.22, DARK, 0.05), 0, 0.57, 0);
-      body.add(head);
-      eye = at(box(0.22, 0.12, 0.02, eyeMat(0x9ff7ff)), 0, 0.57, -0.11);
-      body.add(eye);
-      for (const s of [-1, 1]) body.add(at(cyl(0.01, 0.01, 0.14, STEEL, 6), s * 0.08, 0.73, 0));
-      body.add(at(barrel(0.2, 0.03), 0.2, 0.24, -0.2));
-      muzzle.position.set(0.2, 0.24, -0.32);
-      break;
+      // Spire: an obelisk leaning into its heading, a light at its tip
+      const disc = mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.04, 40), dark);
+      disc.position.y = 0.02;
+      body.add(disc);
+      const spire = mesh(new THREE.ConeGeometry(0.23, 0.66, 4, 1), new THREE.MeshPhysicalMaterial({ color, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.05, emissive: color, emissiveIntensity: 0.16, flatShading: true }));
+      paint.dispose();
+      spire.rotation.y = Math.PI / 4;
+      const lean = new THREE.Group();
+      lean.add(spire);
+      spire.position.y = 0.33;
+      lean.rotation.x = -0.3;
+      lean.position.z = 0.04;
+      body.add(lean);
+      const beacon = mesh(new THREE.SphereGeometry(0.035, 14, 10), eyeMat, false);
+      beacon.position.set(0, 0.67, 0);
+      lean.add(beacon);
+      muzzle.position.set(0, 0.42, -0.2);
+      return finish(form, group, body, spire.material, eyeMat, muzzle, color, hover);
     }
     default: {
-      // Crusher: wide wedge with twin guns
-      for (const t of treads(0.56, 0.62, 0.17, 0.11)) body.add(t);
-      const wedge = box(0.48, 0.18, 0.56, paint, 0.04);
-      wedge.rotation.x = 0.12;
-      body.add(at(wedge, 0, 0.27, 0.02));
-      body.add(at(box(0.26, 0.14, 0.24, trim, 0.05), 0, 0.42, 0.08));
-      eye = at(box(0.2, 0.035, 0.02, eyeMat(0xffb35c)), 0, 0.43, -0.04);
+      // Pebble: a smooth rounded arrowhead
+      const geo = new THREE.ExtrudeGeometry(pebbleShape(), { depth: 0.1, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.06, bevelSegments: 6, curveSegments: 28 });
+      geo.rotateX(-Math.PI / 2);
+      geo.translate(0, 0.08, 0);
+      const peb = mesh(geo, paint);
+      body.add(peb);
+      const eye = mesh(new THREE.CapsuleGeometry(0.016, 0.12, 4, 10), eyeMat, false);
+      eye.rotation.z = Math.PI / 2;
+      eye.position.set(0, 0.252, -0.13);
       body.add(eye);
-      for (const s of [-1, 1]) body.add(at(barrel(0.34, 0.03), s * 0.12, 0.33, -0.28));
-      muzzle.position.set(0.12, 0.33, -0.46);
-      break;
+      muzzle.position.set(0, 0.16, -0.32);
     }
   }
-  body.add(muzzle);
-  group.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  return { group, body, eye, muzzle, spin, paint, glow };
+  return finish(form, group, body, paint, eyeMat, muzzle, color, hover);
 }
+
+function finish(form, group, body, paint, eyeMat, muzzle, color, hover) {
+  body.add(muzzle);
+  // the ring of light on the glass, and a pointer in front
+  const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(1.6), transparent: true, opacity: 0.9, depthWrite: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.385, 0.41, 64), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.006;
+  group.add(ring);
+  const tri = new THREE.Shape();
+  tri.moveTo(0, 0.085);
+  tri.lineTo(0.075, -0.02);
+  tri.lineTo(-0.075, -0.02);
+  tri.closePath();
+  const tick = new THREE.Mesh(new THREE.ShapeGeometry(tri), ringMat);
+  tick.rotation.x = -Math.PI / 2;
+  tick.position.set(0, 0.006, -0.47);
+  group.add(tick);
+  // the pool of colored light it throws on the glass
+  const poolMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: new THREE.Color(color).multiplyScalar(0.9), transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.25), poolMat);
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.y = 0.004;
+  pool.renderOrder = 2;
+  group.add(pool);
+  group.traverse((o) => {
+    if (o.isMesh && o !== pool && o !== ring && o !== tick) o.castShadow = true;
+  });
+  return {
+    form,
+    group,
+    body,
+    paint,
+    eyeMat,
+    ringMat,
+    poolMat,
+    muzzle,
+    hover,
+    setColor(c) {
+      paint.color.set(c);
+      paint.emissive.set(c);
+      ringMat.color.set(c).multiplyScalar(1.6);
+      poolMat.color.set(c).multiplyScalar(0.9);
+    },
+    dispose() {
+      group.traverse((o) => {
+        if (o.isMesh) {
+          o.geometry.dispose();
+          o.material.dispose?.();
+        }
+      });
+    },
+  };
+}
+
+export { TAU };

@@ -1,86 +1,71 @@
 <!doctype html>
-<html lang="en" class="phone" data-theme="factory">
+<html lang="en" class="phone">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#10181d">
+  <meta name="theme-color" content="#06080b">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Robo Rally</title>
   <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="preload" href="fonts/roboto-var.woff" as="font" type="font/woff" crossorigin>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/phone.css">
-  <link rel="stylesheet" href="games/robo-rally/lobby.css">
   <script type="module" src="js/play.js"></script>
 </head>
 <body>
   <section id="connecting" class="screen center-screen">
     <div class="spinner"></div>
-    <p id="connecting-msg" class="muted">Connecting…</p>
-    <a id="change-room" class="host-link" href="./" hidden>Use a different room code</a>
-    <a id="check-link" class="host-link" href="check.html" hidden>Can't connect? Check this network</a>
+    <p id="connecting-msg" class="quiet"></p>
+    <a id="change-room" class="quiet-link" href="./" hidden>Different room</a>
+    <a id="check-link" class="quiet-link" href="check.html" hidden>Check this network</a>
   </section>
 
   <section id="code" class="screen center-screen" hidden>
-    <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
-    <form id="code-form" class="join-form" autocomplete="off">
-      <input id="room-code" name="code" maxlength="4" placeholder="····" aria-label="Room code from the big screen" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input">
-      <button class="btn btn-xl block join-go" aria-label="Join">▶</button>
+    <div class="wordmark">Robo Rally</div>
+    <form id="code-form" class="entry" autocomplete="off">
+      <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input" placeholder="CODE" aria-label="Room code">
+      <button class="round-go" aria-label="Join"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 20 H28 M21 13 L28 20 L21 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
-    <nav class="host-links">
-      <a class="host-link" href="host.html">📺 Big screen</a>
-      <a class="host-link" href="check.html">📶 Network check</a>
-    </nav>
+    <a class="quiet-link" href="host.html">Big screen</a>
   </section>
 
   <section id="join" class="screen center-screen" hidden>
-    <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
-    <form id="join-form" class="join-form" autocomplete="off">
-      <input id="name" name="name" maxlength="16" placeholder="Your name" aria-label="Your name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go">
-      <button id="join-btn" class="btn btn-xl block join-go" aria-label="Join">▶</button>
-      <p id="join-error" class="form-error" hidden></p>
+    <div class="wordmark">Robo Rally</div>
+    <form id="join-form" class="entry" autocomplete="off">
+      <input id="name" name="name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Your name" aria-label="Your name">
+      <button id="join-btn" class="round-go" aria-label="Join"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 20 H28 M21 13 L28 20 L21 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
-    <nav class="host-links"><a id="host-link" class="host-link" href="host.html" hidden>📺 Big screen</a></nav>
+    <p id="join-error" class="form-error" hidden></p>
+    <a id="host-link" class="quiet-link" href="host.html" hidden>Big screen</a>
   </section>
 
-  <!-- The waiting room: your robot (tap it to choose another), the lessons, and for the leader the start
-       button at the very bottom, live as soon as the race can start. Who else is in shows on the big screen. -->
-  <section id="wait" class="screen" hidden>
-    <div class="me-card">
-      <button id="robot-pick" class="me-dot" aria-label="Choose your robot"></button>
-      <span id="wait-name" class="me-name"></span>
-      <button id="robot-change" class="robot-change" aria-label="Choose your robot" title="Choose your robot">⇄</button>
+  <section id="wait" class="screen wait-screen" hidden>
+    <button id="me-robot" class="me-robot" aria-label="Change your robot"></button>
+    <div id="me-forms" class="me-forms"></div>
+    <div id="wait-name" class="me-name"></div>
+    <div id="wait-watch" class="wait-watch" hidden></div>
+    <div class="wait-bottom">
+      <button id="vip-start" class="start-pill" hidden aria-label="Start the race"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 11 L29 20 L15 29 Z" fill="currentColor"/></svg></button>
     </div>
-    <div id="wait-busy" class="look-up" hidden aria-label="A race is on: watch the big screen"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 21 L20 9 L32 21 M8 33 L20 21 L32 33" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span aria-hidden="true">📺</span></div>
-    <div class="factory-lessons" data-lessons></div>
-    <button id="vip-start" class="btn btn-xl block wait-start" aria-label="Start the race" hidden>▶</button>
   </section>
 
   <section id="game" class="screen game-screen" hidden>
-    <header class="phone-bar">
-      <span class="me-dot"></span>
-      <span id="bar-name" class="bar-name"></span>
-      <span class="spacer"></span>
-      <button id="menu-btn" class="bar-btn" aria-label="Game menu" hidden>•••</button>
-    </header>
     <main id="stage" class="stage"></main>
-    <div id="menu" class="sheet" hidden>
-      <button class="btn block" data-lobby="restart" aria-label="Restart the race">↺</button>
-      <button class="btn block secondary" data-lobby="end" aria-label="Back to the lobby">🏠</button>
-      <button class="btn block ghost" aria-label="Close">✖</button>
+    <button id="menu-btn" class="menu-dot" aria-label="Game menu" hidden><i></i><i></i><i></i></button>
+    <div id="menu" class="sheet-menu" hidden>
+      <button class="btn block" data-lobby="restart">Start over</button>
+      <button class="btn block" data-lobby="end">Back to lobby</button>
+      <button class="btn block ghost">Cancel</button>
     </div>
   </section>
 
   <section id="notice" class="screen center-screen" hidden>
     <h1 id="notice-title"></h1>
-    <p id="notice-msg" class="muted"></p>
-    <button id="notice-btn" class="btn btn-xl"></button>
+    <p id="notice-msg" class="quiet"></p>
+    <button id="notice-btn" class="btn primary"></button>
   </section>
 
-  <dialog id="avatar-dialog" class="avatar-dialog">
-    <button id="avatar-close" class="avatar-close" aria-label="Done choosing robot">✓</button>
-    <div id="avatar-picker"></div>
-  </dialog>
   <div id="offline" class="offline" hidden>Reconnecting…</div>
 </body>
 </html>

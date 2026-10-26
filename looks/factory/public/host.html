@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" class="host" data-theme="factory">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robo Rally · Factory</title>
+  <link rel="icon" type="image/svg+xml" href="img/robo-rally.svg">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/host.css">
+  <link rel="stylesheet" href="games/robo-rally/lobby.css">
+  <script type="module" src="js/host.js"></script>
+</head>
+<body>
+  <!-- The lobby, readable from across the room: the QR code and address (and the room code on the website),
+       three looping lessons, everyone who has joined, and the start button. No sentences. -->
+  <section id="lobby" class="screen lobby">
+    <div id="factory-scene" class="factory-scene" aria-hidden="true"></div>
+    <header class="lobby-head">
+      <div class="factory-wordmark" aria-label="Robo Rally">ROBO<span>RALLY</span></div>
+      <div id="last-result" class="last-result" hidden></div>
+    </header>
+    <aside class="join-card">
+      <img id="qr" class="qr" alt="Scan this QR code to join on your phone">
+      <div id="join-text" class="join-text"></div>
+      <div id="join-code" class="join-code" hidden></div>
+      <div id="join-local" class="join-local" hidden></div>
+      <button id="relay-btn" class="btn btn-sm secondary" title="Connection setup" aria-label="Connection setup" hidden>📡</button>
+    </aside>
+    <div class="factory-lessons" data-lessons></div>
+    <footer class="factory-dock">
+      <div id="players" class="factory-crew"></div>
+      <div class="factory-launch">
+        <span id="player-count" class="crowd-count" hidden></span>
+        <button id="start" class="btn btn-xl" aria-label="Start the race" title="Start the race">▶</button>
+      </div>
+    </footer>
+  </section>
+
+  <section id="game" class="screen game-screen" hidden>
+    <main id="stage" class="stage"></main>
+    <!-- host controls: tucked away until the mouse moves (or the screen is tapped) -->
+    <footer class="game-bar">
+      <span class="game-bar-join">📱 <b id="join-mini"></b></span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm secondary" data-lobby="restart" title="Restart" aria-label="Restart">↺</button>
+      <button class="btn btn-sm secondary" data-lobby="end" title="Back to the lobby" aria-label="Back to the lobby">🏠</button>
+    </footer>
+  </section>
+
+  <dialog id="relay-dialog" class="relay-dialog">
+    <form method="dialog" class="stack">
+      <h2>Relay login</h2>
+      <p class="muted">
+        Phones on mobile data usually reach this big screen through a relay server (Metered). This site has a relay
+        login built in. To use a different one on this computer, enter it here (it's kept in this browser only).
+        "Forget it" goes back to the built-in login.
+      </p>
+      <label>Username <input id="relay-user" autocomplete="off" spellcheck="false"></label>
+      <label>Password <input id="relay-pass" type="password" autocomplete="off"></label>
+      <div class="row">
+        <button class="btn" value="save">Save</button>
+        <button class="btn secondary" value="forget">Forget it</button>
+        <button class="btn ghost" value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="error" class="error-toast" hidden>
+    <span id="error-text"></span>
+    <button id="error-close" class="error-close" title="Dismiss">✕</button>
+  </div>
+  <div id="offline" class="offline" hidden>Lost connection to the game server. Reconnecting…</div>
+</body>
+</html>
