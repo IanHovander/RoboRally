@@ -31,17 +31,28 @@ html.host body { overflow: hidden; }
   box-shadow: 0 0 3rem rgba(244, 239, 228, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 .join-qr img { display: block; width: min(15rem, 22vw); aspect-ratio: 1; image-rendering: pixelated; border-radius: 0.4rem; }
-.join-code {
-  margin-top: 0.4rem;
-  font-weight: 200;
-  font-size: 3.8rem;
-  line-height: 1;
-  letter-spacing: 0.32em;
-  text-indent: 0.32em;
-  color: var(--light);
+/* QR — or — the address (which, on the website, already has the room code in it) */
+.join-or {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 72%;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
-.join-text { font-size: 1rem; font-weight: 300; letter-spacing: 0.08em; color: var(--dim); text-align: center; word-break: break-all; }
-.join-local { font-size: 0.9rem; color: var(--faint); letter-spacing: 0.06em; }
+.join-or::before,
+.join-or::after { content: ""; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--hair2)); }
+.join-or::after { background: linear-gradient(to left, transparent, var(--hair2)); }
+/* sized by host.js to fit the column (this is the largest it gets) */
+.join-link { width: 100%; font-size: 2.7rem; font-weight: 300; line-height: 1.15; letter-spacing: 0.01em; color: var(--light); }
+.join-link span { display: block; width: max-content; margin: 0 auto; white-space: nowrap; }
+.join-link b { font-weight: 500; letter-spacing: 0.05em; text-shadow: 0 0 1.4rem rgba(244, 239, 228, 0.45); }
+.join-local { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: var(--dim); letter-spacing: 0.04em; }
+.join-local svg { width: 1.6rem; height: 1.6rem; color: var(--faint); }
 .join-local b { font-weight: 400; }
 
 .lobby-players {
@@ -77,7 +88,8 @@ html.host body { overflow: hidden; }
   text-transform: uppercase;
 }
 .lp.away { opacity: 0.35; }
-.lp-link { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.lp-link { display: grid; color: var(--faint); }
+.lp-link svg { width: 1.3rem; height: 1.3rem; }
 .lp-kick {
   margin-left: auto;
   appearance: none;
@@ -164,7 +176,7 @@ html.host body { overflow: hidden; }
   z-index: 5;
 }
 body.pointer .game-menu { opacity: 1; }
-.join-mini { font-size: 0.95rem; letter-spacing: 0.2em; color: var(--faint); margin-right: 0.4rem; }
+.join-mini { font-size: 0.95rem; letter-spacing: 0.04em; color: var(--dim); margin-right: 0.4rem; }
 .menu-btn {
   appearance: none;
   width: 2.6rem;

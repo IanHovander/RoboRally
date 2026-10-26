@@ -4,6 +4,8 @@
 //   2. After each card the board acts: belts carry, gears turn, lasers hit, pits swallow (and you come back).
 //   3. Robots push each other. Flags in order. First to the last flag wins.
 // Players who have joined star in it: their colors, their robots, their names.
+// The dots under the board are the scenes: the lit one fills as its scene plays. Clicking a dot (or ← →)
+// jumps to that scene; the film carries on from there by itself.
 import { LESSONS, lessonCourse, runLesson } from './lessons.js';
 import { cardSvgHtml, svgGlyph } from './glyphs.js';
 import { sceneSound, setLevel } from './sound.js';
@@ -15,6 +17,9 @@ const DEMO = [
 ];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DECOYS = ['bk', 'ut', 'm1', 'rl', 'rr', 'm2'];
+const STOP = Symbol('another scene took over');
+const FADE_MS = 700; // the board fades out, then in, between scenes (.lesson-stage's opacity transition)
+const SETTLE_MS = 1600; // a beat can still fire delayed effects (a fall's ring, its sound) this long after it starts
 
 export function mountLumenLobby(stage, ui) {
   let arena = null;
@@ -23,22 +28,34 @@ export function mountLumenLobby(stage, ui) {
   let gen = 0;
   let players = [];
   let index = 0;
+  let hush = false; // between scenes: sounds the old scene still has scheduled stay silent
+  let lastBeatAt = 0;
   const runs = LESSONS.map((l, i) => runLesson(l, 11 + i));
 
   ui.innerHTML = `
-    <div class="lf-phone">
+    <div class="lf-phone" aria-hidden="true">
       <div class="lf-slots">${'<i></i>'.repeat(5)}</div>
       <div class="lf-hand"></div>
       <div class="lf-lock">${svgGlyph('check')}</div>
       <div class="lf-finger"></div>
     </div>
-    <div class="lf-dots">${LESSONS.map(() => '<i></i>').join('')}</div>`;
+    <div class="lf-dots">${LESSONS.map((_, i) => `<button class="lf-dot" data-i="${i}" aria-label="Scene ${i + 1}"><i><b></b></i></button>`).join('')}</div>`;
   const phone = ui.querySelector('.lf-phone');
   const slotsEl = ui.querySelector('.lf-slots');
   const hand = ui.querySelector('.lf-hand');
   const lock = ui.querySelector('.lf-lock');
   const finger = ui.querySelector('.lf-finger');
-  const dots = [...ui.querySelectorAll('.lf-dots i')];
+  const dots = [...ui.querySelectorAll('.lf-dot')];
+
+  ui.querySelector('.lf-dots').addEventListener('click', (e) => {
+    const dot = e.target.closest('.lf-dot');
+    if (dot) jumpTo(Number(dot.dataset.i));
+  });
+  addEventListener('keydown', (e) => {
+    if (!active || e.altKey || e.ctrlKey || e.metaKey || e.target.closest?.('input, textarea, select, dialog')) return;
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (step) jumpTo((index + step + LESSONS.length) % LESSONS.length);
+  });
 
   /** Lesson robot i wears joined player i's colors (or a demo robot's). */
   const cast = (i) => {
@@ -57,7 +74,7 @@ export function mountLumenLobby(stage, ui) {
       if (!active || version !== gen) return;
       stage.replaceChildren();
       arena = new Arena(stage);
-      arena.on((kind, d) => sceneSound(kind, d, (id) => Number(String(id).slice(1)) || 0));
+      arena.on((kind, d) => hush || sceneSound(kind, d, (id) => Number(String(id).slice(1)) || 0));
       arena.camMode = 'lesson';
       arena.calmWin = true; // a flag reached in a lesson: rings of light, no camera move
       layout();
@@ -77,37 +94,89 @@ export function mountLumenLobby(stage, ui) {
   }
   addEventListener('resize', layout);
 
+  /** Go to scene i now: the scene playing stops where it is and fades out, and scene i starts clean. */
+  function jumpTo(i) {
+    if (!(i >= 0 && i < LESSONS.length)) return;
+    index = i;
+    showDot(i, 0);
+    if (!arena) return; // still loading: the film will start with this scene
+    hush = true;
+    play(++gen);
+  }
+
+  /** Light dot i; its bar fills to p (0..1) over `ms`. */
+  function showDot(i, p, ms = 0) {
+    dots.forEach((d, k) => {
+      d.classList.toggle('on', k === i);
+      if (k === i) d.setAttribute('aria-current', 'step');
+      else d.removeAttribute('aria-current');
+      const bar = d.querySelector('b');
+      bar.style.transition = k === i && ms > 0 ? `transform ${ms}ms linear` : 'none';
+      bar.style.transform = `scaleX(${k === i ? p : 0})`;
+    });
+  }
+
   async function play(version) {
     const alive = () => active && version === gen && arena;
-    while (alive()) {
-      const lesson = LESSONS[index];
-      const run = runs[index];
-      dots.forEach((d, i) => d.classList.toggle('on', i === index));
-      await playLesson(lesson, run, alive);
-      if (!alive()) return;
-      index = (index + 1) % LESSONS.length;
+    let planned = 0;
+    let total = 1;
+    // Every wait in a scene goes through here: it moves the dot's bar along, and it ends the scene
+    // (throws STOP) if another scene has taken over or the film has stopped.
+    const pause = async (ms) => {
+      planned += ms;
+      showDot(index, Math.min(1, planned / total), ms);
+      await sleep(ms);
+      if (!alive()) throw STOP;
+    };
+    try {
+      for (;;) {
+        planned = 0;
+        total = lessonLength(LESSONS[index], runs[index]);
+        await playLesson(LESSONS[index], runs[index], pause);
+        index = (index + 1) % LESSONS.length;
+      }
+    } catch (err) {
+      if (err !== STOP) console.warn('Rule film stopped:', err);
     }
   }
 
-  async function playLesson(lesson, run, alive) {
+  /** How long a scene plays: playLesson's pauses, added up. */
+  function lessonLength(lesson, run) {
+    let ms = FADE_MS + 1400;
+    for (const st of run.steps) {
+      if (st.kind === 'program') {
+        const n = st.cards[0].length;
+        ms += (lesson.phone && st === run.steps[0] ? 1300 + n * 1480 + 960 + 700 : 700 + n * 170 + 300) + 500;
+      } else ms += st.beat.dur * 1.12 + (st.beat.what?.k === 'reveal' ? 150 : 60);
+    }
+    return ms + (run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
+  }
+
+  async function playLesson(lesson, run, pause) {
+    // out: the board and the phone fade together (the scene may still be moving: it fades as it is)
     stage.style.opacity = '0';
-    await sleep(700);
-    if (!alive()) return;
+    phone.classList.remove('show');
+    finger.className = 'lf-finger';
+    await pause(Math.max(FADE_MS, SETTLE_MS - (performance.now() - lastBeatAt)));
+    // a clean start: robots at their start spaces, nothing left glowing from the last scene
+    resetPhone();
+    arena.clearCards(); // (first: a robot's card isn't removed with the robot)
+    arena.syncRobots([]); // the robots leave, with their light trails
     arena.focusOn = null;
     arena.setDim(0);
-    arena.clearCards();
-    arena.setCourse(lessonCourse(lesson));
+    const course = lessonCourse(lesson);
+    if (arena.course === course) arena.course = null; // the same scene again: its board is built afresh too
+    arena.setCourse(course); // a new board clears the old one's effects and cards
     arena.syncRobots(robotsAt(run.start));
+    hush = false;
     stage.style.opacity = '1';
-    resetPhone();
-    await sleep(1400);
+    await pause(1400);
     let program = null;
     for (const st of run.steps) {
-      if (!alive()) return;
       if (st.kind === 'program') {
         program = st.cards;
-        await programPhone(st.cards[0], lesson.phone && program === run.steps[0].cards, alive);
-        await sleep(500);
+        await programPhone(st.cards[0], lesson.phone && program === run.steps[0].cards, pause);
+        await pause(500);
         continue;
       }
       const robots = robotsAt(st.robots);
@@ -116,13 +185,14 @@ export function mountLumenLobby(stage, ui) {
         arena.showCards(robots.map((r, i) => ({ id: r.id, types: r.on ? [program[i][st.reg]] : [] })));
         litSlot(st.reg);
       }
+      lastBeatAt = performance.now();
       arena.playBeat(b, robots);
       arena.syncRobots(robots);
-      await sleep(b.dur * 1.12 + (b.what?.k === 'reveal' ? 150 : 60));
+      await pause(b.dur * 1.12 + (b.what?.k === 'reveal' ? 150 : 60));
       arena.syncRobots(robots);
     }
     litSlot(-1);
-    await sleep(run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
+    await pause(run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
   }
 
   // ----- the phone beside the board -----
@@ -138,7 +208,7 @@ export function mountLumenLobby(stage, ui) {
   }
 
   /** Deal the hand, then (slowly, with a fingertip) or (quickly) put the five cards in the slots. */
-  async function programPhone(types, slow, alive) {
+  async function programPhone(types, slow, pause) {
     const color = cast(0).color;
     phone.style.setProperty('--c', color);
     phone.classList.remove('locked', 'run');
@@ -153,41 +223,32 @@ export function mountLumenLobby(stage, ui) {
     const all = [...handTypes, ...decoys];
     hand.innerHTML = order.map((i, n) => `<span class="lf-card" data-i="${i}" style="--n:${n}">${cardSvgHtml(all[i])}</span>`).join('');
     phone.classList.add('show');
-    await sleep(slow ? 1300 : 700);
+    await pause(slow ? 1300 : 700);
     for (let k = 0; k < types.length; k++) {
-      if (!alive()) return;
       const card = hand.querySelector(`[data-i="${k}"]`);
       const slot = slotsEl.children[k];
       if (!card) continue;
-      if (slow) {
-        await moveFinger(card);
-        await sleep(380);
-        finger.classList.add('press');
-        await sleep(160);
-        finger.classList.remove('press');
-      }
+      if (slow) await tap(card, pause);
       flyInto(card, slot, all[k]);
-      await sleep(slow ? 520 : 170);
+      await pause(slow ? 520 : 170);
     }
-    if (slow) {
-      await moveFinger(lock);
-      await sleep(380);
-      finger.classList.add('press');
-      await sleep(160);
-      finger.classList.remove('press');
-    }
+    if (slow) await tap(lock, pause);
     phone.classList.add('locked');
     finger.className = 'lf-finger';
-    await sleep(slow ? 700 : 300);
+    await pause(slow ? 700 : 300);
     phone.classList.add('run');
   }
 
-  function moveFinger(el) {
+  /** The fingertip glides to el and presses it. */
+  async function tap(el, pause) {
     const p = phone.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     finger.style.transform = `translate(${r.left - p.left + r.width / 2}px, ${r.top - p.top + r.height * 0.6}px)`;
     finger.classList.add('on');
-    return sleep(420);
+    await pause(420 + 380);
+    finger.classList.add('press');
+    await pause(160);
+    finger.classList.remove('press');
   }
 
   function flyInto(card, slot, type) {
@@ -195,7 +256,9 @@ export function mountLumenLobby(stage, ui) {
     const b = slot.getBoundingClientRect();
     card.style.transform = `translate(${b.left - a.left + (b.width - a.width) / 2}px, ${b.top - a.top + (b.height - a.height) / 2}px) scale(${b.width / a.width})`;
     card.classList.add('flying');
+    const version = gen;
     setTimeout(() => {
+      if (version !== gen) return; // another scene took over meanwhile
       slot.innerHTML = cardSvgHtml(type);
       slot.className = 'full';
       card.classList.add('gone');
@@ -211,6 +274,7 @@ export function mountLumenLobby(stage, ui) {
 
   function release() {
     ++gen;
+    hush = false;
     if (arena) {
       arena.destroy();
       arena = null;
@@ -231,4 +295,3 @@ export function mountLumenLobby(stage, ui) {
     },
   };
 }
-

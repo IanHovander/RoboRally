@@ -23,21 +23,27 @@
 
   <section id="code" class="screen center-screen" hidden>
     <div class="wordmark">Robo Rally</div>
-    <form id="code-form" class="entry" autocomplete="off">
-      <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input" placeholder="CODE" aria-label="Room code">
-      <button class="round-go" aria-label="Join"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 20 H28 M21 13 L28 20 L21 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <!-- the big screen's address, with the room code's four letters left open: they're the end of the address there -->
+    <form id="code-form" class="code-entry" autocomplete="off">
+      <div id="code-site" class="code-site"></div>
+      <div class="entry">
+        <span id="code-path" class="code-path"></span>
+        <input id="room-code" name="code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" class="code-input" placeholder="····" aria-label="Room code">
+        <button class="round-go" aria-label="Join"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 20 H28 M21 13 L28 20 L21 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
     </form>
-    <a class="quiet-link" href="host.html">Big screen</a>
+    <a class="quiet-link not-phone" href="host.html">Big screen</a>
   </section>
 
   <section id="join" class="screen center-screen" hidden>
     <div class="wordmark">Robo Rally</div>
+    <div id="join-robot" class="join-robot"></div>
     <form id="join-form" class="entry" autocomplete="off">
       <input id="name" name="name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Your name" aria-label="Your name">
       <button id="join-btn" class="round-go" aria-label="Join"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 20 H28 M21 13 L28 20 L21 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
     <p id="join-error" class="form-error" hidden></p>
-    <a id="host-link" class="quiet-link" href="host.html" hidden>Big screen</a>
+    <a id="host-link" class="quiet-link not-phone" href="host.html" hidden>Big screen</a>
   </section>
 
   <section id="wait" class="screen wait-screen" hidden>
@@ -47,6 +53,8 @@
     <div id="wait-watch" class="wait-watch" hidden></div>
     <div class="wait-bottom">
       <button id="vip-start" class="start-pill" hidden aria-label="Start the race"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 11 L29 20 L15 29 Z" fill="currentColor"/></svg></button>
+      <!-- everyone else: whose robot starts the race (that player's phone has the start) -->
+      <div id="vip-wait" class="vip-wait" hidden></div>
     </div>
   </section>
 

@@ -9,6 +9,8 @@ const $ = (id) => document.getElementById(id);
 let state = null;
 let dismissedError = null;
 const seenPlayers = new Set();
+// the relay button's picture, also beside each player whose phone comes through the relay
+const RELAY_ICON = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 27 a8 8 0 0 1 0 -14 M27 13 a8 8 0 0 1 0 14 M17 20 H23" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 const film = mountLumenLobby($('lesson-stage'), $('lesson-ui'));
 
 // Sound needs one click or key press on this page (browsers' rule).
@@ -116,12 +118,9 @@ function render() {
   $('game').hidden = !inGame;
   film.setActive(!inGame, room.players);
 
-  $('join-text').textContent = room.join.code ? room.join.text : room.join.text;
-  $('join-mini').textContent = room.join.code ?? room.join.text;
+  $('join-mini').textContent = joinAddress(room.join);
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
-  $('join-code').hidden = !room.join.code;
-  $('join-code').textContent = room.join.code ?? '';
 
   const error = state.error;
   $('error-text').textContent = error ?? '';
@@ -134,7 +133,50 @@ function render() {
   }
 }
 
+/**
+ * The address to type, for anyone who doesn't scan. On the website it has the room code in it
+ * (ianhovander.github.io/RoboRally/?ABCD opens the room, like the QR code), so there's no separate code to enter.
+ * On the laptop server there's no code: it's just the address.
+ */
+const joinAddress = (join) => (join.text ? (join.code ? `${join.text}/?${join.code}` : join.text) : '');
+
+/** The address, big: broken before its first "/" (and a long site name before its first "."), sized to fit the column. */
+let shownAddress = null;
+function renderJoinLink(join) {
+  const text = joinAddress(join);
+  const el = $('join-link');
+  if (text !== shownAddress) {
+    shownAddress = text;
+    const cut = text.indexOf('/');
+    let lines = cut > 0 ? [text.slice(0, cut), text.slice(cut)] : [text];
+    if (lines[0].length > 24 && lines[0].indexOf('.') > 0) {
+      const dot = lines[0].indexOf('.');
+      lines = [lines[0].slice(0, dot), lines[0].slice(dot), ...lines.slice(1)];
+    }
+    const tail = join.code ? `?${join.code}` : null;
+    el.innerHTML = text
+      ? String(html`${lines.map((line, i) =>
+          i === lines.length - 1 && tail && line.endsWith(tail)
+            ? html`<span>${line.slice(0, -join.code.length)}<b>${join.code}</b></span>`
+            : html`<span>${line}</span>`)}`)
+      : '';
+  }
+  fitJoinLink();
+}
+
+function fitJoinLink() {
+  const el = $('join-link');
+  const lines = [...el.children];
+  if (!lines.length || !el.clientWidth) return;
+  el.style.fontSize = '';
+  const widest = Math.max(...lines.map((line) => line.offsetWidth));
+  if (widest > el.clientWidth) el.style.fontSize = `${(parseFloat(getComputedStyle(el).fontSize) * el.clientWidth * 0.98) / widest}px`;
+}
+addEventListener('resize', fitJoinLink);
+document.fonts?.ready.then(fitJoinLink);
+
 function renderLobby(room) {
+  renderJoinLink(room.join);
   const list = $('players');
   const fresh = room.players.filter((p) => !seenPlayers.has(p.id));
   list.classList.toggle('two', room.players.length > 4);
@@ -143,7 +185,7 @@ function renderLobby(room) {
         <div class="lp ${!p.connected && 'away'}" style="--c:${p.color}">
           ${raw(robotSvg(p, { dim: !p.connected }))}
           <span class="lp-name">${p.name}</span>
-          ${p.connected && p.link === 'relay' && html`<span class="lp-link" title="Connected through a relay server">relay</span>`}
+          ${p.connected && p.link === 'relay' && html`<span class="lp-link" title="Connected through a relay server">${raw(RELAY_ICON)}</span>`}
           <button class="lp-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}">✕</button>
         </div>`)}`)
     : '<div class="lobby-empty"><i></i><i></i><i></i></div>';

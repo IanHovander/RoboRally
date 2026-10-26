@@ -38,7 +38,21 @@ html.phone body { overflow: hidden; overscroll-behavior: none; }
   letter-spacing: 0.06em;
 }
 .entry input::placeholder { color: var(--faint); }
-.code-input { text-transform: uppercase; letter-spacing: 0.5em !important; font-size: 1.7rem !important; text-align: center; }
+/* the room code: typed at the end of the big screen's address, drawn the way the big screen draws it */
+.code-entry { display: flex; flex-direction: column; gap: 0.5rem; width: min(100%, 22rem); text-align: left; }
+.code-entry .entry { width: 100%; padding-left: 1.2rem; gap: 0.1rem; }
+.code-site, .code-path { font-size: 1.15rem; font-weight: 300; letter-spacing: 0.01em; color: var(--dim); white-space: nowrap; }
+.code-site { padding-left: calc(1.2rem + 1px); } /* lines up with the rest of the address, inside the pill */
+.code-path { flex: none; }
+.code-entry input { width: 0; }
+.code-input { text-transform: uppercase; letter-spacing: 0.22em !important; font-size: 1.5rem !important; font-weight: 500 !important; }
+.code-input::placeholder { letter-spacing: 0.3em; }
+/* "Big screen" (open the host page) is for a laptop; a phone that taps it would start its own room */
+@media (pointer: coarse) and (max-width: 760px) { .not-phone { display: none !important; } }
+
+/* the name screen: a robot of light waiting for a name */
+.join-robot { width: 6.5rem; height: 6.5rem; margin: -1rem 0 -0.6rem; animation: me-breathe 4s ease-in-out infinite; }
+.join-robot .lm-bot { width: 100%; height: 100%; filter: drop-shadow(0 0 1.2rem rgba(244, 239, 228, 0.25)); }
 .round-go {
   appearance: none;
   flex: none;
@@ -119,6 +133,11 @@ html.phone body { overflow: hidden; overscroll-behavior: none; }
 .start-pill svg { width: 1.8rem; height: 1.8rem; margin-left: 0.2rem; }
 .start-pill:disabled { background: transparent; color: var(--faint); border-color: var(--hair2); box-shadow: none; }
 .start-pill:active:not(:disabled) { transform: scale(0.98); }
+/* everyone else sees who starts: the leader's robot, then ▶ */
+.vip-wait { display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 4.2rem; color: var(--faint); }
+.vip-wait .lm-bot { width: 2.8rem; height: 2.8rem; }
+.vip-wait .lm-g { width: 1.6rem; height: 1.6rem; animation: lm-breathe 2.4s ease-in-out infinite; }
+@keyframes lm-breathe { 50% { opacity: 0.35; } }
 
 /* ---------- in a game ---------- */
 .game-screen { padding: 0 !important; }

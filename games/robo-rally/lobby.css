@@ -67,8 +67,27 @@
 .lf-finger.on { opacity: 1; }
 .lf-finger.press { scale: .72; background: rgba(244, 239, 228, .6); }
 
-.lf-dots { position: absolute; left: 50%; bottom: 2.4rem; display: flex; gap: .55rem; transform: translateX(calc(-50% - 13vw)); }
-.lf-dots i { width: .4rem; height: .4rem; border-radius: 50%; background: rgba(244, 239, 228, .2); transition: all .6s; }
-.lf-dots i.on { width: 1.6rem; border-radius: 1rem; background: rgba(244, 239, 228, .7); }
+/* The scenes: one dot each, under the board. The lit one is a bar that fills as its scene plays.
+   They're buttons (mouse, touch, keys): hovering one lifts it, clicking jumps to that scene. */
+.lf-dots {
+  position: absolute; left: 50%; bottom: 1.5rem; display: flex; align-items: center;
+  transform: translateX(calc(-50% - 13vw)); pointer-events: auto;
+}
+.lf-dot {
+  appearance: none; display: grid; place-items: center; height: 2.6rem; min-width: 2.2rem; padding: 0 .35rem;
+  border: 0; border-radius: 2rem; background: none; cursor: pointer; touch-action: manipulation; outline: none;
+}
+.lf-dot i {
+  position: relative; display: block; overflow: hidden; width: .55rem; height: .55rem; border-radius: 1rem;
+  background: rgba(244, 239, 228, .24);
+  transition: width .6s cubic-bezier(.2, .8, .2, 1), background .3s, box-shadow .3s, scale .25s;
+}
+.lf-dot b { position: absolute; inset: 0; border-radius: inherit; background: var(--light); transform: scaleX(0); transform-origin: left; }
+.lf-dot.on i { width: 2.4rem; background: rgba(244, 239, 228, .26); }
+.pointer .lf-dot:not(.on) i { background: rgba(244, 239, 228, .42); } /* the mouse moved: they brighten, inviting a click */
+.lf-dots .lf-dot:hover i, .lf-dots .lf-dot:focus-visible i { background: rgba(244, 239, 228, .62); box-shadow: 0 0 .9rem rgba(244, 239, 228, .45); scale: 1.35; }
+.lf-dot.on:hover i, .lf-dot.on:focus-visible i { scale: 1 1.35; }
+.lf-dot:focus-visible { box-shadow: inset 0 0 0 1px var(--hair2); }
+.lf-dot:active i { scale: .9; }
 
 @media (prefers-reduced-motion: reduce) { .lf-finger { display: none; } }

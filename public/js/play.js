@@ -7,10 +7,11 @@ const $ = (id) => document.getElementById(id);
 const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
-// On the website, which room (big screen) to join: ?room=ABCD from the QR code, or typed in.
-const ROOM = mode === 'browser' ? roomCodeFrom(new URLSearchParams(location.search).get('room')) : null;
+// On the website, which room (big screen) to join: from the address (?room=ABCD from the QR code, or the
+// short ?ABCD the big screen shows under it), or typed in.
+const ROOM = mode === 'browser' ? roomFromAddress() : null;
 if (mode === 'browser' && !ROOM) {
-  askForRoomCode(); // submitting it reloads this page with ?room=CODE
+  askForRoomCode(); // submitting it reloads this page with ?CODE
   await new Promise(() => {}); // nothing else to do until then
 }
 
@@ -72,6 +73,8 @@ socket.on('replaced', () => {
 
 $('name').value = store.get('localStorage', NAME) ?? '';
 $('host-link').hidden = !isLocal;
+// a robot of light waiting for a name: it takes your color once you're in
+$('join-robot').innerHTML = robotSvg({ color: '#f4efe4', avatar: 0 }, { dim: true });
 $('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const name = $('name').value.trim();
@@ -123,14 +126,29 @@ function roomCodeFrom(text) {
   return code.length === 4 ? code : null;
 }
 
+/** ?room=ABCD, or just ?ABCD (any case; a stray "/" or space is fine). */
+function roomFromAddress() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('room')) return roomCodeFrom(params.get('room'));
+  for (const [key, value] of params) if (!value && roomCodeFrom(key)) return roomCodeFrom(key);
+  return null;
+}
+
 function askForRoomCode() {
   show('code');
+  // The big screen shows this site's address with the code at its end; so does this screen, with the
+  // code's place left open for typing.
+  const site = new URL('./', location.href);
+  const address = (site.host + site.pathname).replace(/\/$/, '');
+  const cut = address.indexOf('/');
+  $('code-site').textContent = cut > 0 ? address.slice(0, cut) : address;
+  $('code-path').textContent = `${cut > 0 ? address.slice(cut) : ''}/?`;
   $('room-code').focus();
   $('code-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const code = roomCodeFrom($('room-code').value);
     if (!code) return $('room-code').select();
-    location.search = `?room=${code}`;
+    location.search = `?${code}`;
   });
 }
 
@@ -185,6 +203,7 @@ function render() {
 }
 
 let shownRobot = '';
+let shownLeader = '';
 function renderWait(room, you) {
   const inLobby = room.screen === 'lobby';
   const robot = robotSvg(you, { cls: 'big' });
@@ -205,6 +224,11 @@ function renderWait(room, you) {
   const vip = inLobby && you.isVip;
   $('vip-start').hidden = !vip;
   $('vip-start').disabled = !!room.startProblem;
+  // not the leader: show whose phone starts the race (their robot, then ▶)
+  const leader = inLobby && !vip ? room.players.find((p) => p.isVip) : null;
+  $('vip-wait').hidden = !leader;
+  const leaderHtml = leader ? `${robotSvg(leader)}${svgGlyph('play')}` : '';
+  if (leaderHtml !== shownLeader) $('vip-wait').innerHTML = shownLeader = leaderHtml;
 }
 
 // ---------- keep the screen on (only works over https or localhost) ----------
