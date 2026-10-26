@@ -106,3 +106,7 @@ no more **a** or **b** work beyond what is already finished. All 13 c animators 
   lot (hundreds of thousands of tokens), so pace the runs.
 - **Bug found in the store look:** the original look (`games/robo-rally/scene.js`) draws the floor in the transparent
   pass, so lasers and sparks on the far half of the board get painted over. Lumen's own floor is already opaque.
+- **Porting note from the gear animator:** a robot leaning back while turning can catch a near-perfect clearcoat
+  glint (clearcoat roughness 0.06) that the bloom blows up into a one-frame white flash over the whole picture.
+  Clamp the bloom's input or roughen the clearcoat slightly when porting puppet poses with pitch.
+- A `--preview` render overwrites a final render's sheet and json, so make the final render the last one.
