@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" class="host">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen big screen dev</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/host.css">
+<link rel="stylesheet" href="games/robo-rally/style.css">
+</head>
+<body>
+<section class="screen game-screen" id="game"><main id="stage" class="stage"></main></section>
+<script type="module">
+// The big screen without a server or phones: the real rules run right here, so every phase can be looked at
+// (at any window size: a TV, or a phone held either way).
+//   dev-host.html?to=setup | start | brief | program | race | over      &n=4  &course=closing-time
+import rules from './games/robo-rally/rules.js';
+import mountHost from './games/robo-rally/host.js';
+import { wireActions } from './js/ui.js';
+const q = new URLSearchParams(location.search);
+const colors = ['#51cf66', '#ff4d6d', '#4dabf7', '#ffd43b', '#cc5de8', '#ff922b', '#22d3ee', '#f783ac'];
+const n = Number(q.get('n') ?? 4);
+const players = Array.from({ length: n }, (_, i) => ({ id: 'p' + i, name: ['Ivy', 'Ada', 'Bolt', 'Cog', 'Dex', 'Echo', 'Fuse', 'Gizmo'][i], color: colors[i], avatar: i, connected: true, isVip: i === 0 }));
+const timers = new Map();
+const ctx = {
+  state: null, players,
+  player: (id) => players.find((p) => p.id === id) ?? null,
+  timer: (name, ms, fn) => timers.set(name, fn),
+  cancelTimer: (name) => timers.delete(name),
+  after: () => () => {},
+  end: () => {},
+};
+rules.setup(ctx);
+const s = () => ctx.state;
+const act = (who, type, payload) => rules.actions[type](ctx, players[who], payload);
+const api = {
+  role: 'host', players,
+  send: async (type, payload) => { const r = rules.hostActions?.[type]?.(ctx, payload) ?? rules.actions[type]?.(ctx, players[0], payload); setTimeout(redraw, 0); return r; },
+  now: () => Date.now(), secondsLeft: (d) => Math.max(0, Math.ceil((d - Date.now()) / 1000)), vibrate() {},
+};
+const root = document.createElement('div');
+root.className = 'game-root';
+document.getElementById('stage').append(root);
+wireActions(document.getElementById('stage'), (t, p) => api.send(t, p));
+const screen = mountHost(root, api);
+function redraw() { screen.update(JSON.parse(JSON.stringify(rules.hostView(ctx)))); }
+window.dev = { ctx, act, redraw, rules };
+
+const to = q.get('to') ?? 'setup';
+rules.actions.setOpt(ctx, players[0], { key: 'course', value: q.get('course') ?? 'closing-time' });
+rules.actions.setOpt(ctx, players[0], { key: 'timer', value: 120 });
+const beat = () => { const fn = timers.get('beat'); timers.delete('beat'); fn?.(ctx); return !!fn; };
+if (to !== 'brief') players.forEach((p, i) => act(i, 'hello', { raced: true }));
+if (to !== 'setup') {
+  act(0, 'begin');
+  if (to !== 'start') {
+    players.forEach((p, i) => act(i, 'pick', { n: i + 1 }));
+    if (['race', 'over'].includes(to)) {
+      for (let i = 0; i < n; i++) { const R = s().robots[players[i].id]; act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) }); }
+      for (let k = 0; k < Number(q.get('beats') ?? 6) && s().phase === 'activate' && beat(); k++);
+    }
+    if (to === 'over') { s().phase = 'over'; s().winner = players[0].id; }
+  }
+}
+redraw();
+window.ready = true;
+</script>
+</body>
+</html>

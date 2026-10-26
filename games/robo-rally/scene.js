@@ -1047,21 +1047,26 @@ export class Arena {
     const c = this.course;
     const cam = this.camera;
     const f = this.frame;
-    const elev = THREE.MathUtils.degToRad(c.w > c.h * 1.7 ? 50 : 54);
+    // on a tall screen (a phone held upright) a wide board turns a quarter: its long side runs up the screen,
+    // seen from a little higher so the far end still reads
+    this.turned = this.size.w / this.size.h < 0.8 && c.w > c.h * 1.1;
+    const az = this.turned ? -Math.PI / 2 : 0;
+    const elev = THREE.MathUtils.degToRad(this.turned ? 70 : c.w > c.h * 1.7 ? 50 : 54);
     const target = new THREE.Vector3(0, 0, 0);
     const fw = 2 - f.left - f.right; // the frame's size in NDC (the whole view is 2 x 2)
     const fh = 2 - f.top - f.bottom;
     const corners = [];
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       // the far edge has robots with cards floating over them; the near edge, the slab's thickness
-      corners.push(new THREE.Vector3((x * c.w) / 2, z < 0 ? f.headroom ?? 2.3 : 0.3, (z * c.h) / 2), new THREE.Vector3((x * c.w) / 2, -0.36, (z * c.h) / 2));
+      const far = this.turned ? x > 0 : z < 0;
+      corners.push(new THREE.Vector3((x * c.w) / 2, far ? f.headroom ?? 2.3 : 0.3, (z * c.h) / 2), new THREE.Vector3((x * c.w) / 2, -0.36, (z * c.h) / 2));
     }
     if (cam.view?.enabled) cam.clearViewOffset();
     let lo = 3;
     let hi = 200;
     for (let i = 0; i < 36; i++) {
       const dist = (lo + hi) / 2;
-      cam.position.set(0, Math.sin(elev) * dist, Math.cos(elev) * dist);
+      cam.position.set(Math.sin(az) * Math.cos(elev) * dist, Math.sin(elev) * dist, Math.cos(az) * Math.cos(elev) * dist);
       cam.lookAt(target);
       cam.updateMatrixWorld();
       let x0 = 9;
@@ -1078,7 +1083,7 @@ export class Arena {
       if (x1 - x0 <= fw && y1 - y0 <= fh) hi = dist;
       else lo = dist;
     }
-    this.camHome = { dist: hi, elev, target };
+    this.camHome = { dist: hi, elev, az, target };
     this.camCur = null;
     // faces and stars grow with the board, so they read the same from across the room on any course
     this.faceScale = Math.max(1, Math.min(1.7, hi / 13));
@@ -1087,21 +1092,21 @@ export class Arena {
   /** The camera's wish for this moment: { az, el, d, tgt } */
   camWish(t) {
     const home = this.camHome;
-    let az = Math.sin(t * 0.07) * 0.03;
+    let az = home.az + Math.sin(t * 0.07) * 0.03;
     let d = home.dist;
     let el = home.elev;
     const tgt = home.target.clone();
     if (this.camMode === 'orbit') {
-      az = Math.sin(t * 0.05) * 0.32;
+      az = home.az + Math.sin(t * 0.05) * 0.32;
       el = home.elev - 0.12;
       d = home.dist * 1.02;
     } else if (this.camMode === 'drift') {
       // while people program: the room breathes, the camera drifts slowly
-      az = Math.sin(t * 0.045) * 0.11;
+      az = home.az + Math.sin(t * 0.045) * 0.11;
       el = home.elev - 0.03 + Math.sin(t * 0.03) * 0.02;
       d = home.dist * 1.03;
     } else if (this.camMode === 'lesson') {
-      az = Math.sin(t * 0.06) * 0.18;
+      az = home.az + Math.sin(t * 0.06) * 0.18;
       el = home.elev - 0.08;
     } else if (this.camMode === 'start') {
       const dock = this.course.boards.find((b) => b.dock);
@@ -1182,7 +1187,8 @@ export class Arena {
       // the cards floating over its far edge), so the cards stay inside the frame too
       const room = f.headroom != null;
       for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        for (const h of room ? [z < 0 ? f.headroom : 0.3, -0.36] : [0]) {
+        const far = this.turned ? x > 0 : z < 0;
+        for (const h of room ? [far ? f.headroom : 0.3, -0.36] : [0]) {
           const v = new THREE.Vector3((x * c.w) / 2, h, (z * c.h) / 2).project(cam);
           x0 = Math.min(x0, v.x);
           x1 = Math.max(x1, v.x);

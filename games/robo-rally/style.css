@@ -121,7 +121,7 @@
 .lm-ok, .lm-shop, .lm-state, .lm-zz { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; margin-bottom: .2rem; }
 .lm-ok { color: var(--c); animation: lm-pop .5s cubic-bezier(.2, 1.4, .3, 1); }
 .lm-shop, .lm-state, .lm-zz { color: var(--faint); }
-.lm-ok .lm-g, .lm-shop .lm-g, .lm-state .lm-g, .lm-zz .lm-g { width: 100%; height: 100%; }
+.lm-ok .lm-g, .lm-shop .lm-g, .lm-state .lm-g, .lm-zz .lm-g { width: 2.4rem; height: 2.4rem; }
 .lm-shop { animation: lm-breathe 2.4s ease-in-out infinite; }
 @keyframes lm-breathe { 50% { opacity: .35; } }
 @keyframes lm-pop { from { transform: scale(.3); opacity: 0; } }
@@ -159,7 +159,7 @@
   border: 1px solid var(--hair2); background: rgba(12, 15, 20, .55); transition: all .3s;
 }
 .lm-opt { width: 3rem; height: 3rem; border-radius: 50%; }
-.lm-opt .lm-g { width: 62%; height: 62%; }
+.lm-opt .lm-g { width: 1.85rem; height: 1.85rem; }
 .lm-opt.on { color: var(--light); border-color: rgba(244, 239, 228, .6); box-shadow: 0 0 1rem rgba(244, 239, 228, .15); }
 .lm-opt:not(.on) { opacity: .5; }
 .lm-seg { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .3rem 0 .7rem; height: 3rem; border-radius: 1.5rem; border: 1px solid var(--hair); color: var(--dim); }
@@ -168,7 +168,7 @@
 .lm-seg button .lm-g { width: 1.4rem; height: 1.4rem; }
 .lm-seg button.on { color: var(--ink); background: var(--light); }
 .lm-go { width: 4.2rem; height: 4.2rem; margin-left: 1rem; border-radius: 50%; color: var(--ink); background: var(--light); border-color: var(--light); box-shadow: 0 0 2rem rgba(244, 239, 228, .35); }
-.lm-go .lm-g { width: 48%; height: 48%; margin-left: 8%; }
+.lm-go .lm-g { width: 2rem; height: 2rem; margin-left: .3rem; }
 .lm-go:hover { transform: scale(1.06); }
 
 /* ----- program, round one: cards drop into five slots ----- */
@@ -193,7 +193,7 @@
 .lm-over-flags { display: flex; gap: .4rem; animation: lm-win-in 2s both 1.4s; }
 .lm-over-flags i { width: 2rem; height: 3px; border-radius: 2px; background: var(--c); box-shadow: 0 0 10px var(--c); }
 .lm-home { position: fixed; right: 2rem; bottom: 2rem; width: 3.6rem; height: 3.6rem; border-radius: 50%; pointer-events: auto; animation: lm-win-in 1s both 3s; }
-.lm-home .lm-g { width: 50%; height: 50%; }
+.lm-home .lm-g { width: 1.8rem; height: 1.8rem; }
 .lm-home:hover, .lm-icon-btn:hover { color: var(--light); border-color: rgba(244, 239, 228, .5); }
 [data-phase="over"] .lm-roster .lm-tok:not(.winner) { opacity: .55; }
 [data-phase="setup"] .lm-roster { opacity: 0; transform: translate(-50%, 2rem); }
@@ -201,12 +201,12 @@
 
 /* small controls in the corner, out of the way */
 .lm-corner { position: absolute; top: 1.2rem; right: 1.2rem; display: flex; gap: .5rem; }
-.lm-icon-btn { width: 2.6rem; height: 2.6rem; border-radius: 50%; opacity: .35; }
+.lm-icon-btn { width: 3.2rem; height: 3.2rem; border-radius: 50%; opacity: .75; }
 .lm-icon-btn:hover { opacity: 1; }
-.lm-icon-btn .lm-g { width: 55%; height: 55%; }
+.lm-icon-btn .lm-g { width: 1.8rem; height: 1.8rem; }
 .lm-icon-btn.off { opacity: .7; color: var(--energy); border-color: rgba(255, 197, 110, .4); animation: lm-breathe 2.4s infinite; }
 .lm-hurry { grid-auto-flow: column; gap: 0; }
-.lm-hurry .lm-g { width: 36%; height: 36%; margin: 0 -.1rem; }
+.lm-hurry .lm-g { width: 1.15rem; height: 1.15rem; margin: 0 -.1rem; }
 
 @media (max-height: 800px) {
   .lm-course img { width: 8rem; height: 4.6rem; }
@@ -580,4 +580,22 @@
   .pl-actions { grid-template-columns: 3.2rem 1fr 3.2rem; }
   .pl-small { height: 3.2rem; }
   .pl-lock { height: 3.3rem; }
+}
+
+/* ----- a phone held upright as the big screen: the board turns to run up the screen (scene.js); the rest stacks ----- */
+@media (orientation: portrait) {
+  .lm-setup { bottom: 2vh; gap: 1rem; padding: 0 1rem; }
+  .lm-course-name { font-size: 2.2rem; letter-spacing: .3em; text-indent: .3em; text-align: center; }
+  .lm-courses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; width: 100%; }
+  .lm-course { padding: .4rem .3rem .35rem; font-size: .75rem; letter-spacing: .1em; }
+  .lm-course img { width: 100%; height: auto; aspect-ratio: 9.5 / 5.6; }
+  .lm-course span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lm-opts { flex-wrap: wrap; justify-content: center; gap: .6rem; }
+  .lm-go { margin-left: 0; }
+  .lm-regs { top: 5rem; gap: .7rem; } /* below the corner buttons */
+  .lm-title h1 { font-size: 2.4rem; letter-spacing: .3em; text-indent: .3em; }
+  .lm-over-name { font-size: 3.4rem; letter-spacing: .2em; text-indent: .2em; }
+  .lm-home { position: relative; right: auto; bottom: auto; margin-top: 1rem; } /* under the name, clear of the robots along the bottom */
+  .lm-roster { flex-wrap: wrap; row-gap: .6rem; bottom: 1rem; }
+  .lm-tok { flex: 0 0 calc(25% - 1rem); }
 }

@@ -1,6 +1,8 @@
 /* The big screen. rem follows the window's height, so the same layout fills a laptop or a TV. */
 
-html.host { font-size: clamp(12px, 1.55vh, 28px); }
+html.host { font-size: clamp(9px, 1.55vh, 28px); }
+/* a phone held upright: the layout follows the width instead, and stacks */
+@media (orientation: portrait) { html.host { font-size: clamp(9px, 3.2vw, 28px); } }
 html.host body { overflow: hidden; }
 .host .screen { position: fixed; inset: 0; }
 
@@ -24,6 +26,17 @@ html.host body { overflow: hidden; }
   background: linear-gradient(to left, rgba(6, 8, 11, 0.86) 55%, rgba(6, 8, 11, 0));
 }
 .join .wordmark { font-size: 1.35rem; margin-bottom: 1.4rem; }
+/* a phone held upright: joining is a band across the top, the rule film plays below it */
+@media (orientation: portrait) {
+  .lesson-stage, .lesson-ui { top: 44vh; }
+  .lesson-stage { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 6rem); mask-image: linear-gradient(to bottom, transparent, #000 6rem); }
+  .join { z-index: 1; left: 0; width: auto; bottom: auto; max-height: 62vh; padding: 2.4rem 1.6rem 2rem; background: linear-gradient(to bottom, rgba(6, 8, 11, 0.9) 75%, rgba(6, 8, 11, 0)); }
+  .join .wordmark { margin-bottom: 0.4rem; }
+  .join-qr img { width: min(15rem, 42vw); }
+  .lobby-players { flex: 0 1 auto; overflow: hidden; margin-top: 0.4rem; grid-template-columns: 1fr 1fr; }
+  .go { position: fixed; right: 1.6rem; bottom: 1.6rem; }
+  .join-mini { display: none; } /* no room beside the buttons */
+}
 .join-qr {
   padding: 0.8rem;
   border-radius: 1.2rem;
@@ -162,25 +175,25 @@ html.host body { overflow: hidden; }
   box-shadow: 0 0 2.6rem rgba(244, 239, 228, 0.35);
   transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.go svg { width: 48%; height: 48%; margin-left: 8%; }
+.go svg { width: 2.2rem; height: 2.2rem; margin-left: .35rem; }
 .go:hover:not(:disabled) { transform: scale(1.06); }
 .go:disabled { background: transparent; color: var(--faint); border-color: var(--hair2); box-shadow: none; cursor: default; }
 
 .lobby-corner { position: absolute; left: 1.2rem; bottom: 1.2rem; display: flex; gap: 0.5rem; }
 .corner-btn {
   appearance: none;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 3.2rem;
+  height: 3.2rem;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid var(--hair);
-  background: none;
-  color: var(--faint);
+  border: 1px solid var(--hair2);
+  background: rgba(12, 15, 20, 0.6);
+  color: var(--dim);
   cursor: pointer;
 }
-.corner-btn svg { width: 60%; height: 60%; }
-.corner-btn:hover { color: var(--light); border-color: var(--hair2); }
+.corner-btn svg { width: 1.9rem; height: 1.9rem; }
+.corner-btn:hover { color: var(--light); border-color: rgba(244, 239, 228, 0.5); }
 .corner-btn.warn { color: var(--energy); border-color: rgba(255, 197, 110, 0.4); animation: lm-breathe-slow 2.4s ease-in-out infinite; }
 
 /* ---------- In a game ---------- */
@@ -199,20 +212,21 @@ html.host body { overflow: hidden; }
   z-index: 5;
 }
 body.pointer .game-menu { opacity: 1; }
+@media (hover: none) { .game-menu { opacity: 0.85; } } /* a touch screen has no mouse to wake it */
 .join-mini { font-size: 0.95rem; letter-spacing: 0.04em; color: var(--dim); margin-right: 0.4rem; }
 .menu-btn {
   appearance: none;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 3.2rem;
+  height: 3.2rem;
   display: grid;
   place-items: center;
   border-radius: 50%;
   border: 1px solid var(--hair2);
   background: rgba(12, 15, 20, 0.6);
-  color: var(--dim);
+  color: var(--light);
   cursor: pointer;
 }
-.menu-btn svg { width: 55%; height: 55%; }
+.menu-btn svg { width: 1.8rem; height: 1.8rem; }
 .menu-btn:hover { color: var(--light); border-color: rgba(244, 239, 228, 0.5); }
 
 .denied { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 1.6rem; text-align: center; padding: 2rem; }

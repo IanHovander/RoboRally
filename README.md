@@ -250,6 +250,8 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
 
 - **`tools/bots.html?room=ABCD&n=20`** (on the site) adds 20 fake phones that play by themselves, each a real WebRTC
   connection.
+- **`dev-host.html?to=race`** (on `npm run dev`) is the big screen the same way, no phones needed: `to=` setup, start,
+  brief, program, race or over; `&n=8`, `&course=…`. Resize the window (or a phone held either way) to check the layout.
 - **`dev-phone.html?to=program`** (on `npm run dev`) is one Robo Rally phone running the real rules, no server
   needed. `to=` setup, start, brief, upgrade, program, race or over; `&n=8` players, `&course=…`, `&prompt=weapon`.
   `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier), and
