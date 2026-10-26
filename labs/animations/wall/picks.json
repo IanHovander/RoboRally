@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 28,
+    "title": "Revolving door",
+    "description": "Maya glides two spaces and presses her nose to the fin. The fin gives: it pivots on its middle like a secret bookcase door and carries her with it in one smooth full turn (about 0.8 s). For an instant she is on the far side, on the space she wanted. Then the door keeps turning and sets her back on (3,1), nose to the fin and facing east, and locks with a soft click. Her trail draws one neat circle of light round the fin, which fades as the game carries on. She goes round once per lost step, so a Move 3 stopped after one space goes round twice.",
+    "twist": "The wall does let her through, all the way round. A full turn adds up to no move at all, so geometry keeps the rule, and the banned spin-out becomes a door joke.",
+    "why": "Most likely of the fifty to get a 'wait, what? again!'. The bright fin and the robot make one big motion that reads at any size, Lumen's glass behaves like furniture, and counting turns by lost steps makes it vary and quietly teach the rule."
+  },
+  {
+    "n": 2,
+    "idea": 10,
+    "title": "To camera",
+    "description": "She stops nose to the fin. A beat. Then she slowly swivels to face straight out of the TV, her eye light square on the room and a touch brighter. She holds a deadpan stare for about 0.6 s at whoever programmed her, then turns back to the wall, facing east, and the game carries on. Nothing else moves: no effect, and no sound but one soft tick as she turns back.",
+    "twist": "The robot looks at the human who programmed it. The camera is the room, so the stare lands on the sofa and everyone turns to look at the person who miscounted.",
+    "why": "The likeliest real laugh, because the joke is on a person in the room, not on a robot. It is pure motion plus one bright eye, so it reads from across the room, and a deadpan look gets funnier as a running bit, like a sitcom glance."
+  },
+  {
+    "n": 3,
+    "idea": 3,
+    "title": "Rear-ended by her own trail",
+    "description": "She stops dead against the fin with the smallest tink. The bright trail behind her doesn't get the news: a heartbeat later it keeps flowing, its tail racing up the line like a whip, and slaps into her back, nudging her into the fin a second time (tink... tink). Then the spent trail crumples onto the space behind her and fades. She stays on (3,1), facing east.",
+    "twist": "Lumen's signature trail has momentum of its own, so she gets rear-ended by her own path. The second bump is the punchline.",
+    "why": "Classic second-hit slapstick, made from the most visible thing on the board: the trail is a long bright line even when the robot is tiny. It's short enough to play every time, and what hits her is her own past move."
+  },
+  {
+    "n": 4,
+    "idea": 18,
+    "title": "Prism",
+    "description": "At contact the warm white light of her eye pours into the fin and the fin flares. On the far side the light comes out split: a soft, wide fan of spectrum spreads across the glass over the spaces she didn't reach, like sunlight through a prism onto a table. It's a wash of colour, not a beam. It holds for a beat, then folds shut like a hand fan into one white line and goes out. Maya never moves from (3,1), facing east.",
+    "twist": "Lumen's one-light rule breaks for one beat. It's the only rainbow in the whole game, and a mistake is what makes it.",
+    "why": "The gasp of the five: beauty rather than a gag, so it holds up to repetition the way a sunset does. A fan of colour on dark glass reads from across any room, and it is made of refraction, Lumen's own material."
+  },
+  {
+    "n": 5,
+    "idea": 47,
+    "title": "Lost and found",
+    "description": "As she rolls, the Move 3 card above her lights one chevron per space. At the wall the third chevron, still lit, comes loose, bonks the fin with a tiny tink and ricochets off in a lazy arc over the edge of the slab, taking on her colour as it goes. It falls through the dark and lands softly on the floor far below, in the board's spill of light, where it keeps glowing faintly. Every lost step of the night lands there too, in its player's colour, so a small glowing pile builds up under the board. The board itself is unchanged.",
+    "twist": "The board stays exactly as the rules say, but the dark room keeps a record nobody planned. By the end of the night everyone can see how many steps the walls ate, and whose they were.",
+    "why": "The only pick whose delight grows with repetition: the most common blunder becomes the night's collection, and someone will point at it and laugh in round 6. The card's chevron makes the lost step itself readable, so the room watches the exact step that never happened."
+  }
+]
