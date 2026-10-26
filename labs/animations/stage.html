@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation Lab Stage</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080b; color: #e9edf3; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+  #wrap { position: absolute; inset: 0; display: grid; place-items: center; }
+  #frame { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; overflow: hidden; }
+  #view, #overlay { position: absolute; inset: 0; }
+  #overlay { pointer-events: none; overflow: hidden; }
+  #hud { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 8px; align-items: center; z-index: 5; }
+  #hud button { background: #1b1f27cc; color: inherit; border: 1px solid #ffffff33; border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  #hud .t { opacity: 0.75; text-shadow: 0 1px 2px #000; }
+  #warn { position: absolute; right: 12px; top: 10px; max-width: 45%; color: #ffd43b; text-shadow: 0 1px 2px #000; font-size: 12px; z-index: 5; }
+  body.capture #hud, body.capture #warn { display: none; }
+  body.capture #frame { width: 100vw; height: 100vh; aspect-ratio: auto; }
+</style>
+<script>
+  // Captures must be repeatable: seed Math.random before anything else loads.
+  if (new URLSearchParams(location.search).has('capture')) {
+    let s = 987654321;
+    Math.random = () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+</script>
+</head>
+<body>
+<div id="wrap"><div id="frame"><div id="view"></div><div id="overlay"></div></div></div>
+<div id="hud"><button id="again">↻ Replay</button><button id="slow">½× speed</button><span class="t" id="title"></span></div>
+<div id="warn"></div>
+<script type="module">
+  import { createLab, LEAD, TAIL } from './lab.js';
+
+  const q = new URLSearchParams(location.search);
+  const capture = q.has('capture');
+  if (capture) document.body.classList.add('capture');
+  const animPath = q.get('anim') ?? '';
+  const scenario = q.get('scenario') ?? animPath.split('/').filter(Boolean).slice(-2, -1)[0];
+  const state = { ready: false, done: false, frames: 0, warnings: [], meta: null, play: 0, error: null };
+  window.__lab = state;
+
+  const mod = animPath === 'baseline' || !animPath ? { default: (lab) => lab.baseline(), meta: { title: 'Today in the game' } } : await import(animPath.startsWith('/') ? animPath : `./${animPath}`);
+  const play = mod.default;
+  state.meta = mod.meta ?? {};
+  document.getElementById('title').textContent = `${scenario} · ${state.meta.title ?? animPath}`;
+  document.title = state.meta.title ?? 'Animation Lab Stage';
+
+  const lab = await createLab({ container: document.getElementById('view'), overlay: document.getElementById('overlay'), scenario, capture });
+  window.__labRef = lab;
+  const MAX = 15; // real seconds: anything longer is a runaway
+
+  async function once() {
+    lab.reset();
+    lab.warnings = [];
+    await lab.waitReal(LEAD);
+    const t0 = lab.real;
+    const guard = new Promise((ok) => lab._realTimers.push({ t: t0 + MAX, fn: () => ok('timeout') }));
+    try {
+      const r = await Promise.race([Promise.resolve(play(lab)), guard]);
+      if (r === 'timeout') lab.warnings.push(`still running after ${MAX}s: stopped`);
+    } catch (e) {
+      state.error = String(e?.stack ?? e);
+      lab.warnings.push(`error: ${e?.message ?? e}`);
+      console.error(e);
+    }
+    state.play = lab.real - t0;
+    const budget = lab.scenario.budget;
+    if (state.play > budget + 0.05) lab.warnings.push(`the moment took ${state.play.toFixed(2)}s; this scenario's budget is ${budget}s`);
+    lab.finish();
+    state.warnings = [...lab.warnings];
+    document.getElementById('warn').textContent = lab.warnings.join(' · ');
+    await lab.waitReal(TAIL);
+  }
+
+  if (capture) {
+    // render.mjs calls step() once per video frame
+    let running = once().then(() => (state.done = true));
+    state.step = (draw = true) => {
+      lab.frame(1 / 30, draw);
+      state.frames++;
+      return state.done;
+    };
+    state.ready = true;
+  } else {
+    let speed = 1;
+    let last = performance.now();
+    const loop = (now) => {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.1, (now - last) / 1000) * speed;
+      last = now;
+      lab.frame(dt);
+    };
+    requestAnimationFrame(loop);
+    (async () => {
+      for (;;) await once();
+    })();
+    document.getElementById('again').onclick = () => location.reload();
+    document.getElementById('slow').onclick = (e) => {
+      speed = speed === 1 ? 0.5 : speed === 0.5 ? 0.25 : 1;
+      e.target.textContent = speed === 1 ? '½× speed' : speed === 0.5 ? '¼× speed' : '1× speed';
+    };
+    state.ready = true;
+  }
+</script>
+</body>
+</html>

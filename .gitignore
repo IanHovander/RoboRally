@@ -6,3 +6,6 @@ dist/
 
 # The printed rulebook is Hasbro's; keep it on this computer, out of the public repo
 RoboRally_Rulebook_WEB.pdf
+
+# Animation lab renders (videos, contact sheets): rebuilt by labs/animations/render.mjs
+labs/animations/out/
