@@ -11,11 +11,17 @@ import { OutputPass } from './lib/output-pass.js';
 import { DX, DY, turn, getCourse, beltInputs, beamPath, wallEdges } from './board.js';
 import { makeRobot, glowTexture } from './bots3d.js';
 import { drawCard, drawGlyph, formOf } from './glyphs.js';
+import { readBeat, clockU, clockTime, clockTotal, pathAt, lastTick } from './chaos.js';
 
 const TAU = Math.PI * 2;
 const FONT = 'Lumen';
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
+const easeBack = (t) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2; // overshoots a little, then settles
+const smooth = (a, b, x) => {
+  const k = Math.max(0, Math.min(1, (x - a) / (b - a || 1)));
+  return k * k * (3 - 2 * k);
+};
 const rand = (a, b) => a + Math.random() * (b - a);
 const wrapAngle = (a) => ((((a + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
@@ -113,6 +119,87 @@ function glyphSprite(name, color, { text = '', height = 0.4 } = {}) {
   s.scale.set((height * c.width) / c.height, height, 1);
   s.renderOrder = 31;
   return s;
+}
+
+// ---------- the comic moments' textures (made once, shared) ----------
+
+const shared = new Map();
+function sharedTex(key, paint) {
+  if (!shared.has(key)) {
+    const t = tex(paint());
+    t.userData.shared = true;
+    shared.set(key, t);
+  }
+  return shared.get(key);
+}
+
+/** A robot's face: eyes of light on a small disc of dark glass, so it reads over anything. */
+function faceTexture(kind) {
+  return sharedTex(`face-${kind}`, () => {
+    const c = canvas(192, 192);
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(96, 96, 30, 96, 96, 94);
+    grad.addColorStop(0, 'rgba(6,8,11,.86)');
+    grad.addColorStop(0.72, 'rgba(6,8,11,.72)');
+    grad.addColorStop(1, 'rgba(6,8,11,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 192, 192);
+    g.strokeStyle = 'rgba(244,239,228,.35)';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.arc(96, 96, 70, 0, TAU);
+    g.stroke();
+    g.shadowColor = PALETTE.light;
+    g.shadowBlur = 16;
+    drawGlyph(g, `face-${kind}`, 96, 98, 128, '#fffaf0', 3.2);
+    g.shadowBlur = 4;
+    drawGlyph(g, `face-${kind}`, 96, 98, 128, '#ffffff', 1.9);
+    return c;
+  });
+}
+
+/** A four-point sparkle (dizzy stars, sparkles). */
+function starTexture() {
+  return sharedTex('star', () => {
+    const c = canvas(96, 96);
+    const g = c.getContext('2d');
+    g.shadowColor = '#ffffff';
+    g.shadowBlur = 14;
+    drawGlyph(g, 'star', 48, 48, 66, '#ffffff');
+    return c;
+  });
+}
+
+/** An impact: a starburst of light spikes around a bright core. */
+function burstTexture() {
+  return sharedTex('burst', () => {
+    const c = canvas(256, 256);
+    const g = c.getContext('2d');
+    g.translate(128, 128);
+    const core = g.createRadialGradient(0, 0, 0, 0, 0, 60);
+    core.addColorStop(0, 'rgba(255,255,255,1)');
+    core.addColorStop(0.35, 'rgba(255,255,255,.45)');
+    core.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = core;
+    g.fillRect(-128, -128, 256, 256);
+    g.shadowColor = '#ffffff';
+    g.shadowBlur = 10;
+    g.fillStyle = '#ffffff';
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + (i % 2) * 0.18;
+      const r0 = 26 + (i % 3) * 6;
+      const r1 = i % 2 ? 86 : 118;
+      const w = i % 2 ? 0.07 : 0.09;
+      g.beginPath();
+      g.moveTo(Math.cos(a - w) * r0, Math.sin(a - w) * r0);
+      g.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+      g.lineTo(Math.cos(a + w) * r0, Math.sin(a + w) * r0);
+      g.closePath();
+      g.fill();
+    }
+    return c;
+  });
 }
 
 // ---------- the board's textures ----------
@@ -544,6 +631,12 @@ export class Arena {
     this.dimCur = 0;
     this.showNames = true;
     this.listeners = new Set();
+    // the comic moments: real time (the camera's), slow motion, a shake, a punch-in; mishaps per register
+    this.realTime = 0;
+    this.slow = null;
+    this.quake = null;
+    this.punchIn = null;
+    this.mishaps = new Map();
 
     this.buildRoom();
     this.resize();
@@ -657,25 +750,40 @@ export class Arena {
     return new THREE.Vector3(x + 0.5 - this.course.w / 2, 0, y + 0.5 - this.course.h / 2);
   }
 
-  /** Build the board for a course (an id from board.js, or a course object the lessons make). */
-  setCourse(idOrCourse) {
+  /**
+   * Start over on a board: built afresh (even if it's the same one), no robots, nothing still glowing,
+   * no cards. The next syncRobots() puts the robots back.
+   */
+  reset(idOrCourse = this.course) {
+    if (idOrCourse) this.setCourse(idOrCourse, { fresh: true });
+    this.focusOn = null;
+    this.setDim(0);
+  }
+
+  /** Build the board for a course (an id from board.js, or a course object the lessons make). Same course: nothing to do, unless fresh. */
+  setCourse(idOrCourse, { fresh = false } = {}) {
     const c = typeof idOrCourse === 'string' ? getCourse(idOrCourse) : idOrCourse;
-    if (this.course === c) return;
+    if (this.course === c && !fresh) return;
     this.course = c;
     // a new board: whatever was still glowing on the old one goes out
     this.epoch = (this.epoch ?? 0) + 1;
     for (const e of this.effects) e.end?.();
     this.effects = [];
-    this.clearCards();
+    // the robots leave too (models, cards, faces and light trails), and come back with the next view
+    for (const b of [...this.bots.values()]) this.removeBot(b);
+    this.slow = this.quake = this.punchIn = null;
+    this.mishaps.clear();
     for (const obj of [...this.board.children]) {
       this.board.remove(obj);
       obj.traverse((o) => {
         o.geometry?.dispose();
-        if (o.material && !o.material.userData?.shared) o.material.dispose?.();
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (!m || m.userData?.shared) continue;
+          for (const v of Object.values(m)) if (v?.isTexture && !v.userData?.shared) v.dispose();
+          m.dispose?.();
+        }
       });
     }
-    for (const b of this.bots.values()) this.scene.remove(b.group);
-    this.bots.clear();
     this.belts = [];
     this.gears.clear();
     this.pushers.clear();
@@ -945,6 +1053,8 @@ export class Arena {
     }
     this.camHome = { dist: hi, elev, target };
     this.camCur = null;
+    // faces and stars grow with the board, so they read the same from across the room on any course
+    this.faceScale = Math.max(1, Math.min(1.7, hi / 13));
   }
 
   /** The camera's wish for this moment: { az, el, d, tgt } */
@@ -998,8 +1108,35 @@ export class Arena {
     cc.el += (w.el - cc.el) * k;
     cc.tgt.lerp(w.tgt, k);
     const cam = this.camera;
-    cam.position.set(cc.tgt.x + Math.sin(cc.az) * Math.cos(cc.el) * cc.d, cc.tgt.y + Math.sin(cc.el) * cc.d, cc.tgt.z + Math.cos(cc.az) * Math.cos(cc.el) * cc.d);
-    cam.lookAt(cc.tgt);
+    // a punch-in on a big moment: quick in, a held beat, ease back out (in real time, even in slow motion)
+    let punch = 0;
+    const tgt = cc.tgt.clone();
+    let dist = cc.d;
+    if (this.punchIn) {
+      const P = this.punchIn;
+      const s = this.realTime - P.t0;
+      punch = s < 0.22 ? easeOut(s / 0.22) : s < 0.22 + P.hold ? 1 : 1 - ease(Math.min(1, (s - 0.22 - P.hold) / 0.8));
+      if (s > 1.02 + P.hold) this.punchIn = null;
+      tgt.lerp(P.at, 0.7 * punch);
+      dist *= 1 - P.k * punch;
+    }
+    cam.position.set(tgt.x + Math.sin(cc.az) * Math.cos(cc.el) * dist, tgt.y + Math.sin(cc.el) * dist, tgt.z + Math.cos(cc.az) * Math.cos(cc.el) * dist);
+    cam.lookAt(tgt);
+    // a shake: the camera jolts and settles
+    if (this.quake) {
+      const Q = this.quake;
+      const s = (this.realTime - Q.t0) / Q.dur;
+      if (s >= 1) this.quake = null;
+      else {
+        const a = Q.amp * (1 - s) ** 2 * dist * 0.006;
+        const r = this.realTime * 70;
+        cam.position.x += Math.sin(r * 1.13) * a;
+        cam.position.y += Math.sin(r * 0.91 + 1.7) * a * 0.6;
+        cam.position.z += Math.sin(r * 1.37 + 0.4) * a * 0.5;
+        cam.lookAt(tgt);
+        cam.rotateZ(Math.sin(r * 0.77) * Q.amp * (1 - s) ** 2 * 0.004);
+      }
+    }
     // slide the picture so the board sits in the middle of its frame
     const f = this.frame;
     const cx = (f.left - f.right) / 2; // where the frame's center is, in NDC
@@ -1029,8 +1166,11 @@ export class Arena {
     }
     cc.sx += (sx - cc.sx) * Math.min(1, k * 2);
     cc.sy += (sy - cc.sy) * Math.min(1, k * 2);
+    // while punched in, the moment (not the whole board) is what sits in the middle of the frame
+    const fx = cc.sx + (cx - cc.sx) * punch;
+    const fy = cc.sy + (cy - cc.sy) * punch;
     const { w: W, h: H } = this.size;
-    cam.setViewOffset(W, H, (-cc.sx * W) / 2, (cc.sy * H) / 2, W, H);
+    cam.setViewOffset(W, H, (-fx * W) / 2, (fy * H) / 2, W, H);
   }
 
   // ----- robots -----
@@ -1111,10 +1251,22 @@ export class Arena {
   }
 
   removeBot(b) {
+    this.clearChaos(b);
     this.scene.remove(b.group);
-    if (b.trailMesh) this.fxGroup.remove(b.trailMesh);
+    if (b.card) {
+      this.fxGroup.remove(b.card);
+      b.card.material.map.dispose();
+      b.card.material.dispose();
+      b.card = null;
+    }
+    if (b.trailMesh) {
+      this.fxGroup.remove(b.trailMesh);
+      b.trailMesh.geometry.dispose();
+      b.trailMesh.material.dispose();
+    }
     b.model.dispose();
     b.tag?.material.map.dispose();
+    b.tag?.material.dispose();
     this.bots.delete(b.id);
   }
 
@@ -1236,6 +1388,8 @@ export class Arena {
   /** Register revealed: each robot's card floats over it. list: [{ id, types }] */
   showCards(list) {
     this.clearCards();
+    // one robot alone: its card shows as it's played; turning it over first would only say it twice
+    if (this.bots.size < 2) return;
     let k = 0;
     for (const { id, types } of list) {
       const b = this.bots.get(id);
@@ -1279,51 +1433,86 @@ export class Arena {
 
   // ----- a beat of the Activation Phase -----
 
+  /**
+   * Play one beat. Every path in it runs on one clock of steps (chaos.js): each robot crosses a space
+   * per step at full speed, and a pushed robot only starts to move at the step its pusher reaches it.
+   * The beat's comic moments (a shove, a wall, a fall, a laser) are read first, so the biggest one gets
+   * the camera and the rest stay small.
+   */
   playBeat(beat, robots) {
     const byId = new Map(robots.map((r) => [r.id, r]));
-    const moveEnd = new Map();
     const what = beat.what;
+    const read = readBeat(beat, { course: this.course, robots });
+    const N = read.steps;
+    const t0 = this.time;
+    const when = (u) => clockTime(N, u); // seconds into the beat at which the clock reaches u steps
+    const paths = new Map(beat.fx.filter((f) => f.k === 'move').map((f) => [f.id, f.path]));
+    const ctx = { N, t0, when, paths, read, faces: new Set(), counted: new Set(), byId };
+    // faces for the few robots in the biggest moments, not for everyone at once
+    for (const e of read.events) {
+      if (ctx.faces.size < 3 || e.kind === 'fall') ctx.faces.add(e.id);
+      if (e.kind === 'contact' && e.stuck && e.i === 0 && ctx.faces.size < 3) ctx.faces.add(e.by);
+    }
+    if (beat.fx.some((f) => f.k === 'reveal')) this.mishaps.clear();
+
+    // pushed robots and the robots pushing them press together while they move
+    const squeeze = new Map();
+    const press = (id, s) => (squeeze.get(id) ?? squeeze.set(id, []).get(id)).push(s);
+    for (const e of read.events) {
+      if (e.kind !== 'contact' || e.stuck) continue;
+      const u1 = Math.min(lastTick(paths.get(e.id)), lastTick(paths.get(e.by)));
+      if (u1 <= e.at - 1) continue;
+      press(e.id, { u0: e.at - 1, u1, dx: -DX[e.d], dz: -DY[e.d], amt: 0.09 });
+      press(e.by, { u0: e.at - 1, u1, dx: DX[e.d], dz: DY[e.d], amt: 0.09 });
+    }
+
     if (what?.k === 'belt') {
       for (const belt of this.belts) if (belt.fast === !!what.fast) belt.pulse = this.time;
       this.emit('belt', { fast: !!what.fast });
     }
     if (what?.k === 'gear') this.emit('gear');
+    const handled = new Set(read.events.filter((e) => e.kind === 'bonk' || (e.kind === 'contact' && e.stuck)).flatMap((e) => [e.id, e.by]));
     for (const f of beat.fx) {
       const b = this.bots.get(f.id ?? f.src);
       switch (f.k) {
         case 'move': {
           if (!b) break;
           if (f.path.length < 2) {
+            if (handled.has(b.id)) break; // a wall or a stuck push: its own moment below
             b.anims.push({ kind: 'bump', t0: this.time, dur: 0.3 });
             this.emit('bump', { id: b.id });
             break;
           }
-          const dur = Math.max(0.2, (f.path.length - 1) * 0.3);
           b.visible = true;
           b.x = f.path[0][0];
           b.y = f.path[0][1];
-          this.tween(b, f.path, dur);
-          moveEnd.set(b.id, dur);
-          this.emit('move', { id: b.id, n: f.path.length - 1, dur, belt: what?.k === 'belt' });
+          const dur = clockTotal(N);
+          b.busyUntil = Math.max(b.busyUntil, t0 + dur);
+          b.anims.push({ kind: 'path', t0, dur, N, path: f.path, squeeze: squeeze.get(b.id) });
+          const first = f.path[1][2] ?? 1;
+          const n = lastTick(f.path) - first + 1;
+          // a pushed robot's whoosh starts when it is hit, not before
+          if (first <= 1) this.emit('move', { id: b.id, n, dur: n * 0.3, belt: what?.k === 'belt' });
           break;
         }
         case 'turn':
           if (b) {
-            this.turnTo(b, b.rot - f.by * (Math.PI / 2), 0.45, 0);
+            this.turnTo(b, b.rot - f.by * (Math.PI / 2), 0.45, f.at ? when(f.at - 1) : 0);
             this.emit('turn', { id: b.id, by: f.by });
           }
           break;
         case 'fall':
-          if (b) this.fall(b, f, moveEnd.get(b.id) ?? 0);
+          if (b) this.fall(b, f, read.events.find((e) => e.kind === 'fall' && e.id === f.id), ctx);
           break;
         case 'reboot':
           if (b) this.reboot(b, f, byId.get(b.id));
           break;
         case 'beam':
-          this.beam(f, b);
+          if (f.at) this.later(when(f.at), () => this.beam(f, this.bots.get(f.src)));
+          else this.beam(f, b);
           break;
         case 'dmg':
-          if (b) this.damage(b, f);
+          if (b) this.damage(b, f, ctx);
           break;
         case 'en':
           if (b) {
@@ -1378,6 +1567,14 @@ export class Arena {
           const p = this.pushers.get(`${f.x},${f.y}`);
           if (p) p.kick = this.time;
           this.emit('push');
+          // the robot it shoves gets a jolt and a flash where the plate hits it
+          const d = turn(f.side, 2);
+          for (const [id, path] of paths) {
+            const R = this.bots.get(id);
+            if (!R || path.length < 2 || path[0][0] !== f.x || path[0][1] !== f.y) continue;
+            this.burst(this.at3(f.x - DX[d] * 0.4, f.y - DY[d] * 0.4, 0.2), PALETTE.light, 0.6);
+            this.jolt(R, { dx: -DX[d], dz: -DY[d], lean: 0.45, squash: 0.2, dur: 0.6 });
+          }
           break;
         }
         case 'win':
@@ -1385,6 +1582,248 @@ export class Arena {
           break;
       }
     }
+
+    // the comic moments
+    for (const e of read.events) {
+      const b = this.bots.get(e.id);
+      if (!b) continue;
+      if (e.kind === 'contact') this.contact(b, e, ctx);
+      else if (e.kind === 'bonk') this.bonk(b, e, ctx);
+      else if (e.kind === 'helped') this.helped(b, e, ctx);
+      else if (e.kind === 'shot') this.shot(b, e, ctx);
+    }
+    // the biggest moment gets the camera: a punch-in, and slow motion when someone was pushed to their doom
+    const top = read.top;
+    if (top && top.score >= 6.5) {
+      const tb = this.bots.get(top.id);
+      const at = top.kind === 'fall' ? this.pos(top.x, top.y) : tb?.group.position.clone();
+      const t = top.kind === 'fall' ? when(top.at) : top.kind === 'contact' ? when(top.at - 1) : 0.1;
+      const hold = top.kind !== 'fall' ? 0.55 : top.edge ? 1.5 : 1.0; // off the edge: stay close until it lands far below
+      if (at) this.later(Math.max(0, t - 0.15), () => this.punch(at, { hold, k: top.score >= 8 ? 0.36 : 0.26 }));
+      if (top.kind === 'fall' && top.cause === 'push') this.later(Math.max(0, t - 0.1), () => this.slowmo(0.85, 0.3));
+    }
+  }
+
+  // ----- the comic moments -----
+
+  /** Run fn after `delay` seconds of the scene's time (which slows down in slow motion). */
+  later(delay, fn) {
+    if (delay <= 0) return fn();
+    this.effects.push({ t0: this.time + delay, dur: 0, update: () => fn() }); // dur 0: runs exactly once
+  }
+
+  shake(amp, dur = 0.45) {
+    if (this.calmWin) amp *= 0.5;
+    if (this.quake && this.quake.amp * (1 - (this.realTime - this.quake.t0) / this.quake.dur) > amp) return;
+    this.quake = { t0: this.realTime, dur, amp };
+  }
+
+  punch(at, { hold = 0.6, k = 0.28 } = {}) {
+    if (this.calmWin || this.focusOn) return;
+    this.punchIn = { t0: this.realTime, hold, k, at: at.clone().setY(0) };
+  }
+
+  slowmo(dur = 0.8, k = 0.3) {
+    this.slow = { t0: this.realTime, dur, k };
+    this.emit('slowmo');
+  }
+
+  /** How fast the scene's time runs right now (1, or less in slow motion). */
+  timeScale() {
+    const S = this.slow;
+    if (!S) return 1;
+    const s = this.realTime - S.t0;
+    if (s >= S.dur) {
+      this.slow = null;
+      return 1;
+    }
+    const e = Math.min(smooth(0, 0.1, s), 1 - smooth(S.dur - 0.3, S.dur, s));
+    return 1 - (1 - S.k) * e;
+  }
+
+  /** A body blow: the body leans (top toward world dx, dz), squashes and springs back. */
+  jolt(b, { dx = 0, dz = 0, lean = 0.3, squash = 0.2, shake = 0, dur = 0.6, delay = 0 } = {}) {
+    b.anims.push({ kind: 'jolt', t0: this.time + delay, dur, dx, dz, lean, squash, shake });
+  }
+
+  /** The robot's face pops up over it for a moment (shock, uhoh, dizzy, dead, happy, smug, ouch, grr). */
+  face(b, kind, { delay = 0, dur = 1.3, ctx = null } = {}) {
+    if (ctx && !ctx.faces.has(b.id)) return;
+    this.later(delay, () => {
+      if (!this.bots.has(b.id)) return;
+      this.dropFace(b);
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: faceTexture(kind), transparent: true, depthWrite: false, depthTest: false }));
+      s.renderOrder = 33;
+      s.scale.setScalar(0.001);
+      this.fxGroup.add(s);
+      b.face = { s, t0: this.time, dur, kind };
+    });
+  }
+
+  dropFace(b) {
+    if (!b.face) return;
+    this.fxGroup.remove(b.face.s);
+    b.face.s.material.dispose();
+    b.face = null;
+  }
+
+  /** Dizzy stars circling its head: one for each mishap this register. */
+  dizzy(b, n, dur = 2.4) {
+    b.stars = { n: Math.min(5, n), until: this.time + dur, t0: this.time };
+  }
+
+  clearChaos(b) {
+    this.dropFace(b);
+    for (const s of b.starSprites ?? []) {
+      this.fxGroup.remove(s);
+      s.material.dispose();
+    }
+    b.starSprites = [];
+    b.stars = null;
+  }
+
+  /** One more thing went wrong for this robot in this register: two or more and its head spins. */
+  mishap(b, delay, ctx) {
+    if (ctx?.counted) {
+      // one robot's whole story in a beat (shoved, then into the pit) is one mishap
+      if (ctx.counted.has(b.id)) return this.mishaps.get(b.id) ?? 1;
+      ctx.counted.add(b.id);
+    }
+    const n = (this.mishaps.get(b.id) ?? 0) + 1;
+    this.mishaps.set(b.id, n);
+    this.later(delay, () => this.emit('mishap', { id: b.id, n }));
+    if (n < 2) return n;
+    this.later(delay + 0.15, () => {
+      this.dizzy(b, n);
+      this.emit('combo', { id: b.id, n });
+    });
+    return n;
+  }
+
+  /** A flash of light where something hit something. */
+  burst(at, color = PALETTE.light, size = 0.9, dur = 0.38) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: burstTexture(), color: hdr(color, 2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    s.position.copy(at);
+    s.renderOrder = 32;
+    s.material.rotation = rand(0, TAU);
+    this.fxGroup.add(s);
+    const spin = rand(-1, 1) * 0.8;
+    this.effects.push({
+      t0: this.time,
+      dur,
+      update: (k) => {
+        const sc = size * (0.35 + 0.65 * easeOut(Math.min(1, k * 3.5))) * (1 + k * 0.15);
+        s.scale.set(sc, sc, 1);
+        s.material.rotation += spin * 0.016;
+        s.material.opacity = (1 - k) ** 1.4;
+      },
+      end: () => {
+        this.fxGroup.remove(s);
+        s.material.dispose();
+      },
+    });
+  }
+
+  /** Where a robot's body is, in the world, at a point of its path (grid x, y). */
+  at3(x, y, h = 0.25) {
+    return this.pos(x, y).setY(h);
+  }
+
+  /** Bumped by another robot. Small for one, bigger down a chain; a push into a wall strains. */
+  contact(b, e, ctx) {
+    const H = this.bots.get(e.by);
+    const dx = DX[e.d];
+    const dz = DY[e.d];
+    const tc = ctx.when(e.at - 1);
+    const path = ctx.paths.get(b.id);
+    const [vx, vy] = path?.[0] ?? [b.x, b.y];
+    const where = this.at3(vx - dx * 0.5, vy - dz * 0.5, 0.28);
+    const big = 1 + e.i * 0.35;
+    this.later(tc, () => {
+      this.burst(where, PALETTE.light, 0.75 * big);
+      this.emit('shove', { id: b.id, i: e.i, stuck: e.stuck });
+      this.shake((e.stuck ? 0.35 : 0.25) + 0.15 * e.i, 0.4);
+    });
+    if (e.stuck) {
+      // everyone presses, nobody moves: they squash together and strain
+      this.jolt(b, { dx: -dx, dz: -dz, lean: 0.25, squash: 0.32, shake: 0.9, dur: 0.7, delay: tc });
+      if (H && e.i === 0) this.jolt(H, { dx, dz, lean: 0.3, squash: 0.3, shake: 0.9, dur: 0.7, delay: tc });
+      if (e.i === 0 && H) this.face(H, 'grr', { delay: tc, dur: 1.1, ctx });
+      this.face(b, 'ouch', { delay: tc + 0.05, dur: 1.0, ctx });
+      this.later(tc + 0.05, () => this.emit('strain', { id: b.id }));
+    } else {
+      // hit from behind: the body whips back, then it's carried along
+      this.jolt(b, { dx: -dx, dz: -dz, lean: 0.5, squash: 0.18, dur: 0.7, delay: tc });
+      if (H) this.jolt(H, { dx, dz, lean: 0.18, squash: 0.24, dur: 0.45, delay: tc });
+      const n = this.mishap(b, tc, ctx);
+      this.face(b, n >= 2 ? 'dizzy' : 'shock', { delay: tc, dur: Math.max(0.9, ctx.when(lastTick(path)) - tc + 0.45), ctx });
+      return;
+    }
+    this.mishap(b, tc, ctx);
+  }
+
+  /** Drove into a wall (or a robot it couldn't push): the faster it was going, the funnier. */
+  bonk(b, e, ctx) {
+    const dx = DX[e.d];
+    const dz = DY[e.d];
+    let tc = ctx.when(Math.max(0, e.at - 1));
+    const path = ctx.paths.get(b.id);
+    const [x, y] = path?.at(-1) ?? [b.x, b.y];
+    if (!e.moved) {
+      // it hadn't moved yet: a little lunge forward, and the wall is still there
+      b.anims.push({ kind: 'lunge', t0: this.time + tc, dur: 0.32, dx, dz });
+      b.busyUntil = Math.max(b.busyUntil, this.time + tc + 0.32);
+      tc += 0.13;
+    }
+    const hard = Math.min(2, e.moved);
+    this.later(tc, () => {
+      this.burst(this.at3(x + dx * 0.47, y + dz * 0.47, 0.22), PALETTE.light, 0.55 + hard * 0.18);
+      this.emit('bonk', { id: b.id, n: hard, robot: e.why === 'robot' });
+      this.shake(0.12 + hard * 0.1, 0.35);
+    });
+    this.jolt(b, { dx, dz, lean: 0.28 + hard * 0.1, squash: 0.28 + hard * 0.08, dur: 0.6, delay: tc });
+    const n = this.mishap(b, tc, ctx);
+    if (hard >= 2 && n < 2) {
+      this.later(tc + 0.1, () => {
+        this.dizzy(b, 2, 1.6);
+        this.emit('combo', { id: b.id, n: 2 });
+      });
+    }
+    this.face(b, hard >= 2 || n >= 2 ? 'dizzy' : 'ouch', { delay: tc, dur: 1.2, ctx });
+  }
+
+  /** A shove that did the shoved robot a favor: it lands nearer its next flag, and it's delighted. */
+  helped(b, e, ctx) {
+    const t = ctx.when(lastTick(ctx.paths.get(b.id))) + 0.08;
+    this.face(b, 'happy', { delay: t, dur: 1.4 });
+    this.later(t, () => {
+      this.popGlyph(b, 'heart', PALETTE.left, '', { y: 1.6, height: 0.5 });
+      if (e.jackpot) this.motes3(b.group.position, b.color, 30, 2);
+      this.emit('yay', { id: b.id, big: e.jackpot });
+    });
+  }
+
+  /** Hit by a laser: knocked back a little, sparks, and its light fizzles for a moment. */
+  shot(b, e, ctx) {
+    const th = 0.13 + (e.at ? ctx.when(e.at) : 0);
+    const dx = DX[e.d];
+    const dz = DY[e.d];
+    const many = e.beams > 1;
+    this.later(th, () => {
+      const p = b.group.position.clone().setY(0.32);
+      this.burst(p, e.board ? PALETTE.laser : this.bots.get(e.by)?.color ?? PALETTE.laser, 0.7 + 0.12 * e.n);
+      b.soot = this.time;
+      this.smoke(p, 6 + 3 * e.n);
+      this.shake(many ? 0.45 : 0.18 + 0.06 * e.n, 0.35);
+    });
+    this.jolt(b, { dx, dz, lean: 0.32 + 0.06 * e.n, squash: 0.12, shake: 0.7, dur: 0.65, delay: th });
+    if (many) {
+      // crossfire: it spins right round
+      b.anims.push({ kind: 'spin', t0: this.time + th, dur: 0.7, turns: 1 });
+      b.busyUntil = Math.max(b.busyUntil, this.time + th + 0.7);
+    }
+    const n = this.mishap(b, th, ctx);
+    this.face(b, many || n >= 2 ? 'dizzy' : 'ouch', { delay: th, dur: 1.15, ctx });
   }
 
   say(b, f) {
@@ -1400,10 +1839,10 @@ export class Arena {
     this.ring(b.group.position, b.color, 0.7, 0.2);
   }
 
-  popGlyph(b, name, color, text = '') {
-    const s = glyphSprite(name, color, { text, height: 0.38 });
+  popGlyph(b, name, color, text = '', { y = 1.25, height = 0.38 } = {}) {
+    const s = glyphSprite(name, color, { text, height });
     const base = b.group.position.clone();
-    base.y = 1.25;
+    base.y = y;
     s.position.copy(base);
     this.fxGroup.add(s);
     this.effects.push({
@@ -1421,38 +1860,177 @@ export class Arena {
     });
   }
 
-  fall(b, f, delay) {
-    b.busyUntil = this.time + delay + 1.3;
-    b.anims.push({ kind: 'fall', t0: this.time + delay, dur: 1.2, edge: f.edge });
-    b.trailCut = this.time + delay + 1.2;
-    setTimeout(() => this.emit('fall', { id: b.id, edge: f.edge }), delay * 1000);
-    if (!f.edge) {
-      const at = this.pos(f.x, f.y);
-      setTimeout(() => this.ring(at, b.color, 0.5, 0.05, 1.2), delay * 1000 + 300);
+  /**
+   * Falling. Off the edge: it sails past the edge, hangs in the air for a beat (scrambling back),
+   * then drops to the floor far below. Into a pit: a wobble on the rim, then it's sucked down, spinning,
+   * and the pit puffs out a little ghost. Whoever pushed it looks pleased with itself.
+   */
+  fall(b, f, e, ctx) {
+    const cause = e?.cause ?? 'self';
+    const big = cause === 'push' || cause === 'belt';
+    const path = ctx.paths.get(b.id);
+    const ta = path ? ctx.when(e?.at ?? lastTick(path)) : 0; // when it reaches the edge or the pit
+    let dx = 0;
+    let dz = 0;
+    if (path?.length > 1) {
+      const [x0, y0] = path.at(-2);
+      const [x1, y1] = path.at(-1);
+      dx = Math.sign(x1 - x0);
+      dz = Math.sign(y1 - y0);
+    } else {
+      dx = -Math.sin(b.rot);
+      dz = -Math.cos(b.rot);
     }
+    const at = this.pos(f.x, f.y);
+    b.trailCut = this.time + ta;
+    this.later(ta, () => this.emit('fall', { id: b.id, edge: !!f.edge, cause }));
+    if (f.edge) {
+      const hang = big ? 0.36 : 0.3;
+      const drop = 0.62;
+      b.anims.push({ kind: 'plunge', t0: this.time + ta, dur: hang + drop + 0.3, hang, drop, dx, dz });
+      b.busyUntil = Math.max(b.busyUntil, this.time + ta + hang + drop + 0.32);
+      this.face(b, 'shock', { delay: ta, dur: hang + drop + 0.25 });
+      this.later(ta, () => this.emit('teeter', { id: b.id, big }));
+      this.later(ta + hang, () => {
+        this.emit('plunge', { id: b.id });
+        this.streak(b, b.color);
+      });
+      this.later(ta + hang + drop, () => {
+        const floor = b.group.position.clone().setY(-1.57);
+        this.ring(floor, b.color, 1.1, -1.57, 0.9);
+        this.burst(floor.clone().setY(-1.45), b.color, 0.8, 0.4);
+        this.emit('thud', { id: b.id });
+        this.shake(0.3, 0.35);
+      });
+    } else {
+      const teeter = big ? 0.3 : 0.24;
+      const sink = 0.55;
+      b.anims.push({ kind: 'gulp', t0: this.time + ta, dur: teeter + sink, teeter, sink });
+      b.busyUntil = Math.max(b.busyUntil, this.time + ta + teeter + sink + 0.05);
+      this.face(b, cause === 'self' ? 'uhoh' : 'shock', { delay: ta, dur: teeter + 0.35 });
+      this.later(ta, () => this.emit('teeter', { id: b.id, big }));
+      this.later(ta + teeter, () => this.emit('gulp', { id: b.id }));
+      this.later(ta + teeter + sink * 0.8, () => {
+        this.ring(at, b.color, 0.55, 0.05, 1.1);
+        this.pillar(at, b.color, 1.3, 1.0);
+        this.motes3(at, b.color, 18, 1.4);
+        this.ghost(at, b.color);
+        this.emit('poof', { id: b.id });
+        this.shake(0.3, 0.35);
+      });
+    }
+    // the culprit
+    if (e?.by && e.by !== b.id) {
+      const P = this.bots.get(e.by);
+      if (P) this.face(P, 'smug', { delay: ta + (f.edge ? 0.5 : 0.35), dur: 1.4 });
+    }
+    this.mishap(b, ta, ctx);
   }
 
+  /** A long-exposure streak of light behind a robot dropping off the edge. */
+  streak(b, color) {
+    const top = b.group.position.clone().setY(0.25);
+    const geo = new THREE.CylinderGeometry(0.12, 0.05, 1, 12, 1, true).translate(0, -0.5, 0);
+    const mat = new THREE.MeshBasicMaterial({ color: hdr(color, 2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(top);
+    m.renderOrder = 4;
+    this.fxGroup.add(m);
+    let low = top.y;
+    this.effects.push({
+      t0: this.time,
+      dur: 1.3,
+      update: (k) => {
+        if (b.group.visible) {
+          low = Math.min(low, b.group.position.y + 0.25);
+          m.position.x = b.group.position.x;
+          m.position.z = b.group.position.z;
+        }
+        m.scale.set(1 - k * 0.6, Math.max(0.01, top.y - low), 1 - k * 0.6);
+        mat.opacity = (1 - k) ** 1.3;
+      },
+      end: () => {
+        this.fxGroup.remove(m);
+        geo.dispose();
+        mat.dispose();
+      },
+    });
+  }
+
+  /** The robot's little ghost floats up out of the pit (X X) and fades. */
+  ghost(at, color) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: faceTexture('dead'), transparent: true, depthWrite: false, depthTest: false }));
+    s.renderOrder = 33;
+    this.fxGroup.add(s);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: hdr(color, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.renderOrder = 32;
+    this.fxGroup.add(glow);
+    this.effects.push({
+      t0: this.time,
+      dur: 1.6,
+      update: (k) => {
+        const y = 0.2 + easeOut(k) * 1.5;
+        const sway = Math.sin(k * 9) * 0.08;
+        s.position.set(at.x + sway, y, at.z);
+        glow.position.set(at.x + sway, y, at.z);
+        const sc = 0.8 * (this.faceScale ?? 1) * easeBack(Math.min(1, k * 4));
+        s.scale.set(sc, sc, 1);
+        glow.scale.set(sc * 1.8, sc * 1.8, 1);
+        const o = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+        s.material.opacity = o * 0.9;
+        glow.material.opacity = o * 0.7;
+      },
+      end: () => {
+        this.fxGroup.remove(s, glow);
+        s.material.dispose();
+        glow.material.dispose();
+      },
+    });
+  }
+
+  /** A little smoke of dim light after a laser hit. */
+  smoke(at, n) {
+    this.particles(at, ['#8f99aa', '#5d6676', '#ff9a7a'], n, { speed: 0.25, up: 0.9, gravity: -0.4, size: 0.07, dur: 1.2 });
+  }
+
+  /** Back in: it drops out of the air onto the reboot space, squashes, shakes itself off, and its light flickers on. */
   reboot(b, f, r) {
     b.visible = true;
     b.x = f.x;
     b.y = f.y;
     b.rot = -(r?.d ?? 0) * (Math.PI / 2);
-    b.pop = this.time + 0.35;
-    b.busyUntil = this.time + 0.8;
+    b.pop = -10;
     b.trail = [];
+    this.clearChaos(b);
+    const fallT = 0.42;
+    b.busyUntil = this.time + fallT + 0.8;
+    b.anims.push({ kind: 'drop', t0: this.time, dur: fallT, h: 2.8 });
     const at = this.pos(f.x, f.y);
     this.pillar(at, PALETTE.reboot, 1.1);
-    this.ring(at, PALETTE.reboot, 0.9, 0.05);
     this.emit('reboot', { id: b.id });
+    this.later(fallT, () => {
+      this.ring(at, PALETTE.reboot, 0.9, 0.05);
+      this.burst(at.clone().setY(0.1), PALETTE.reboot, 0.7, 0.3);
+      this.emit('land', { id: b.id });
+      this.shake(0.15, 0.3);
+      b.boot = this.time;
+    });
+    this.jolt(b, { squash: 0.5, lean: 0, dur: 0.55, delay: fallT });
+    b.anims.push({ kind: 'wiggle', t0: this.time + fallT + 0.32, dur: 0.45 });
   }
 
-  damage(b, f) {
-    const color = f.hw && !f.sp ? '#b99bff' : '#ff7a6b';
-    this.glitch(b, color);
-    const p = b.group.position.clone();
-    p.y = 0.35;
-    this.shards(p, color, 10 + 6 * (f.sp + f.hw));
-    this.emit('damage', { id: b.id, n: (f.sp ?? 0) + (f.hw ?? 0), hw: f.hw });
+  damage(b, f, ctx) {
+    if (f.src === 'reboot') return; // the fall itself is the show
+    const laser = f.src === 'laser' || f.src === 'weapon';
+    const delay = laser ? 0.13 : f.at ? ctx.when(Math.max(0, f.at - 0.5)) : 0;
+    this.later(delay, () => {
+      const color = f.hw && !f.sp ? '#b99bff' : '#ff7a6b';
+      this.glitch(b, color);
+      const p = b.group.position.clone();
+      p.y = 0.35;
+      this.shards(p, color, 10 + 6 * (f.sp + f.hw));
+      this.emit(laser ? 'fizzle' : 'damage', { id: b.id, n: (f.sp ?? 0) + (f.hw ?? 0), hw: f.hw });
+    });
   }
 
   glitch(b, color) {
@@ -1545,7 +2123,7 @@ export class Arena {
         core.material.dispose();
       },
     });
-    if (hit) setTimeout(() => this.shards(end, color, 14), 120);
+    if (hit) this.later(0.12, () => this.shards(end, color, 14));
     this.emit('laser', { board: !!f.board, hit: !!hit, src: f.src });
   }
 
@@ -1678,10 +2256,12 @@ export class Arena {
   // ----- every frame -----
 
   frameLoop() {
-    const dt = Math.min(this.clock.getDelta(), 0.1);
+    const real = Math.min(this.clock.getDelta(), 0.1);
+    this.realTime += real;
+    const dt = real * this.timeScale(); // the scene's time: slower in slow motion
     this.time += dt;
     const t = this.time;
-    this.adapt(dt);
+    this.adapt(real);
     this.dimCur += (this.dim - this.dimCur) * Math.min(1, dt * 1.5);
     const lit = 1 - this.dimCur;
 
@@ -1720,18 +2300,25 @@ export class Arena {
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
 
     for (const b of this.bots.values()) this.animateBot(b, t, dt);
-    this.effects = this.effects.filter((e) => {
-      if (t < e.t0) return true;
-      const k = Math.min(1, (t - e.t0) / e.dur);
-      e.update(k);
-      if (k >= 1) {
-        e.end?.();
-        return false;
+    // (an effect may start others: those land in the fresh list and join the ones still running)
+    const kept = [];
+    for (let pass = 0; pass < 4 && this.effects.length; pass++) {
+      const running = this.effects;
+      this.effects = [];
+      for (const e of running) {
+        if (t < e.t0) {
+          kept.push(e);
+          continue;
+        }
+        const k = e.dur > 0 ? Math.min(1, (t - e.t0) / e.dur) : 1;
+        e.update(k);
+        if (k >= 1) e.end?.();
+        else kept.push(e);
       }
-      return true;
-    });
+    }
+    this.effects = kept.concat(this.effects);
 
-    this.placeCamera(t, dt);
+    this.placeCamera(t, real);
     if (this.useBloom) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
   }
@@ -1746,46 +2333,178 @@ export class Arena {
     let visible = b.visible;
     let fade = 1;
     let moving = false;
+    let ox = 0; // extra offset in the world, on top of the space it's on
+    let oz = 0;
+    let leanX = 0; // the body's top leans toward this world direction (radians per axis)
+    let leanZ = 0;
+    let squash = 0; // + squashed flat, - stretched tall
+    let jitter = 0;
+    let wide = 0; // its light, wide-eyed
+    let falling = false;
     b.anims = b.anims.filter((an) => {
       if (t < an.t0) return true;
-      const k = Math.min(1, (t - an.t0) / an.dur);
-      if (an.kind === 'move') {
-        moving = true;
-        const segs = an.path.length - 1;
-        const pos = ease(k) * segs;
-        const i = Math.min(segs - 1, Math.floor(pos));
-        const f = pos - i;
-        const [x0, y0] = an.path[i];
-        const [x1, y1] = an.path[i + 1];
-        px = x0 + (x1 - x0) * f;
-        py = y0 + (y1 - y0) * f;
-        if (k >= 1) {
-          b.x = an.path[segs][0];
-          b.y = an.path[segs][1];
-          px = b.x;
-          py = b.y;
+      const k = an.dur > 0 ? Math.min(1, (t - an.t0) / an.dur) : 1;
+      const s = t - an.t0;
+      switch (an.kind) {
+        case 'move': {
+          // a correction from the view (not a beat): eased in and out
+          moving = true;
+          const segs = an.path.length - 1;
+          const pos = ease(k) * segs;
+          const i = Math.min(segs - 1, Math.floor(pos));
+          const f = pos - i;
+          const [x0, y0] = an.path[i];
+          const [x1, y1] = an.path[i + 1];
+          px = x0 + (x1 - x0) * f;
+          py = y0 + (y1 - y0) * f;
+          if (k >= 1) {
+            b.x = an.path[segs][0];
+            b.y = an.path[segs][1];
+            px = b.x;
+            py = b.y;
+          }
+          break;
         }
-      } else if (an.kind === 'turn') {
-        an.from ??= b.rot;
-        rot = an.from + (an.to - an.from) * ease(k);
-        if (k >= 1) b.rot = an.to;
-      } else if (an.kind === 'bump') {
-        tilt = Math.sin(k * Math.PI) * 0.14;
-      } else if (an.kind === 'fall') {
-        visible = true;
-        if (an.edge) {
-          lift = -k * k * 3;
-          tilt = k * 1.6;
-          fade = 1 - k;
-        } else {
-          lift = -easeOut(k) * 0.55;
-          scale = 1 - k * 0.6;
-          rot += k * 3;
-          fade = 1 - k;
+        case 'path': {
+          // a beat's path, on the beat's shared clock of steps
+          const u = clockU(an.N, s);
+          const p = pathAt(an.path, u);
+          px = p.x;
+          py = p.y;
+          moving ||= p.moving;
+          for (const q of an.squeeze ?? []) {
+            const e = smooth(q.u0, q.u0 + 0.12, u) * (1 - smooth(q.u1, q.u1 + 0.35, u));
+            ox += q.dx * q.amt * e;
+            oz += q.dz * q.amt * e;
+          }
+          if (k >= 1) {
+            const end = an.path.at(-1);
+            b.x = end[0];
+            b.y = end[1];
+            px = b.x;
+            py = b.y;
+          }
+          break;
         }
-        if (k >= 1) {
-          b.visible = false;
-          visible = false;
+        case 'turn':
+          an.from ??= b.rot;
+          rot = an.from + (an.to - an.from) * ease(k) + (rot - b.rot);
+          if (k >= 1) b.rot = an.to;
+          break;
+        case 'bump':
+          tilt = Math.sin(k * Math.PI) * 0.14;
+          break;
+        case 'jolt': {
+          // a spring: quick lean and squash, two wobbles, settled
+          const decay = (1 - k) ** 2;
+          leanX += an.dx * an.lean * Math.sin(k * Math.PI * 3) * decay;
+          leanZ += an.dz * an.lean * Math.sin(k * Math.PI * 3) * decay;
+          squash += an.squash * Math.cos(k * Math.PI * 3) * decay;
+          jitter += an.shake * (1 - k);
+          break;
+        }
+        case 'lunge': {
+          const f = Math.sin(Math.min(1, k * 1.6) * Math.PI) * (k < 0.62 ? 1 : 0);
+          ox += an.dx * 0.17 * f;
+          oz += an.dz * 0.17 * f;
+          break;
+        }
+        case 'spin':
+          rot += easeOut(k) * an.turns * TAU;
+          break;
+        case 'wiggle':
+          // shaking itself off
+          rot += Math.sin(k * Math.PI * 5) * 0.32 * (1 - k);
+          break;
+        case 'drop': {
+          // back in: out of the air, stretched by the speed
+          visible = true;
+          lift += an.h * (1 - k * k);
+          squash -= 0.28 * k;
+          wide = 0;
+          break;
+        }
+        case 'plunge': {
+          visible = true;
+          wide = 1;
+          falling = true;
+          if (s < an.hang) {
+            // past the edge, over nothing, legs spinning: it hangs there, scrambling back toward the board
+            const h = s / an.hang;
+            ox += an.dx * 0.14 * easeOut(Math.min(1, h * 3));
+            oz += an.dz * 0.14 * easeOut(Math.min(1, h * 3));
+            rot += Math.sin(s * 40) * 0.17;
+            leanX -= an.dx * 0.4 * Math.min(1, h * 4);
+            leanZ -= an.dz * 0.4 * Math.min(1, h * 4);
+            lift += 0.05 * Math.sin(h * Math.PI);
+          } else if (s < an.hang + an.drop) {
+            // ...and then it remembers gravity
+            const f = (s - an.hang) / an.drop;
+            ox += an.dx * (0.14 + 0.3 * f);
+            oz += an.dz * (0.14 + 0.3 * f);
+            lift = -1.58 * f * f;
+            squash -= 0.32 * Math.min(1, f * 2.5);
+            leanX += an.dx * f * 1.3;
+            leanZ += an.dz * f * 1.3;
+          } else {
+            // far below: a flash on the floor, and it's gone
+            const g = Math.min(1, (s - an.hang - an.drop) / 0.3);
+            ox += an.dx * 0.44;
+            oz += an.dz * 0.44;
+            lift = -1.58;
+            squash += 0.45 * (1 - g);
+            fade = 1 - g;
+          }
+          if (k >= 1) {
+            b.visible = false;
+            visible = false;
+          }
+          break;
+        }
+        case 'gulp': {
+          visible = true;
+          wide = 1;
+          falling = true;
+          if (s < an.teeter) {
+            // a wobble on the rim
+            const h = s / an.teeter;
+            lift += 0.08 * Math.sin(h * Math.PI);
+            rot += Math.sin(s * 32) * 0.14;
+            squash -= 0.1 * Math.sin(h * Math.PI);
+          } else {
+            // sucked down, spinning
+            const f = Math.min(1, (s - an.teeter) / an.sink);
+            const e = f * f;
+            rot += e * 9;
+            lift = -0.8 * e;
+            scale *= 1 - 0.7 * e;
+            squash -= 0.3 * Math.min(1, f * 3);
+            fade = 1 - f ** 1.6;
+          }
+          if (k >= 1) {
+            b.visible = false;
+            visible = false;
+          }
+          break;
+        }
+        case 'fall': {
+          // (kept for anything that still asks for the plain fall)
+          visible = true;
+          if (an.edge) {
+            lift = -k * k * 3;
+            tilt = k * 1.6;
+            fade = 1 - k;
+          } else {
+            lift = -easeOut(k) * 0.55;
+            scale = 1 - k * 0.6;
+            rot += k * 3;
+            fade = 1 - k;
+          }
+          if (k >= 1) {
+            b.visible = false;
+            visible = false;
+          }
+          break;
         }
       }
       return k < 1;
@@ -1793,6 +2512,8 @@ export class Arena {
     const g = b.group;
     g.visible = visible;
     const p = this.course ? this.pos(px, py) : new THREE.Vector3();
+    p.x += ox;
+    p.z += oz;
     // the trail of light where it went
     if (visible && moving && fade > 0.5) {
       const last = b.trail[b.trail.length - 1];
@@ -1802,58 +2523,126 @@ export class Arena {
       if (Math.hypot(last.x - p.x, last.z - p.z) > 0.6) b.trail = []; // it was placed elsewhere
     }
     this.updateTrail(b, t);
+    this.updateStars(b, p, lift, visible, t);
     if (!visible) {
       if (b.card) b.card.visible = false;
+      if (b.face) this.dropFace(b);
       return;
     }
     const hover = b.model.hover ? Math.sin(t * 2.2 + b.phase) * 0.03 : 0;
     g.position.set(p.x, lift, p.z);
     g.rotation.set(0, rot, 0);
-    b.model.body.position.y = hover + Math.sin(t * 2.6 + b.phase) * 0.006;
-    b.model.body.rotation.x = -tilt;
+    const body = b.model.body;
+    body.position.y = hover + Math.sin(t * 2.6 + b.phase) * 0.006;
+    // lean toward a world direction: turn it into the robot's own frame
+    const c = Math.cos(rot);
+    const sn = Math.sin(rot);
+    const lx = leanX * c - leanZ * sn;
+    const lz = leanX * sn + leanZ * c;
+    body.rotation.set(-tilt + lz, 0, -lx);
+    const sq = Math.max(-0.45, Math.min(0.6, squash));
+    body.scale.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5);
     const pop = Math.max(0, Math.min(1, (t - b.pop) / 0.55));
     const popS = pop < 1 ? easeOut(pop) * (1 + Math.sin(pop * Math.PI) * 0.12) : 1;
     g.scale.setScalar(BOT_SCALE * scale * popS);
     const recoil = b.recoil ? Math.max(0, 1 - (t - b.recoil) / 0.25) : 0;
-    b.model.body.position.z = recoil * 0.05;
+    body.position.z = recoil * 0.05 + (jitter ? (Math.random() - 0.5) * 0.06 * jitter : 0);
 
     // light: ready robots glow brighter while programming; someone deciding pulses; away dims
     const hurt = b.hurt ? Math.max(0, 1 - (t - b.hurt) / 0.7) : 0;
+    const soot = b.soot ? Math.max(0, 1 - (t - b.soot) / 1.1) : 0; // a laser hit: its light sputters, its paint smokes
+    const boot = b.boot != null ? (t - b.boot) / 0.6 : 2; // back in: the light flickers on like a tube
     let glow = 1;
     if (this.readyMode) glow = b.ready ? 1.25 : 0.45 + Math.sin(t * 2 + b.phase) * 0.12;
     if (b.deciding) glow = 1 + Math.sin(t * 7) * 0.5;
     if (b.away) glow = 0.25;
     glow *= fade;
-    const flick = hurt > 0 && Math.random() < 0.5 ? 0.2 : 1;
-    b.model.eyeMat.color.setRGB(3.2 * glow * flick, 3.1 * glow * flick, 2.9 * glow * flick);
+    let eye = glow * (1 + wide * 0.8);
+    if (hurt > 0 && Math.random() < 0.5) eye *= 0.2;
+    if (soot > 0 && Math.random() < soot * 0.7) eye *= 0.1;
+    if (boot < 0) eye = 0;
+    else if (boot < 1) eye *= Math.random() < 0.35 + boot * 0.6 ? 1 : 0.05;
+    b.model.eyeMat.color.setRGB(3.2 * eye, 3.1 * eye, 2.9 * eye);
     b.model.poolMat.opacity = 0.75 * glow * (0.6 + 0.4 * (1 - this.dimCur * (b.id === this.focusOn ? 0 : 1)));
     b.model.ringMat.opacity = 0.9 * Math.min(1, glow);
     if (hurt > 0) {
       b.model.paint.emissive.copy(b.hurtColor).multiplyScalar(1);
       b.model.paint.emissiveIntensity = 0.2 + hurt * (Math.random() < 0.5 ? 1.4 : 0.3);
-      b.model.body.position.x = (Math.random() - 0.5) * 0.05 * hurt;
+      body.position.x = (Math.random() - 0.5) * 0.05 * hurt;
     } else {
       b.model.paint.emissive.set(b.color);
       b.model.paint.emissiveIntensity = 0.16 * (b.away ? 0.3 : 1);
-      b.model.body.position.x = 0;
+      body.position.x = jitter ? (Math.random() - 0.5) * 0.06 * jitter : 0;
+    }
+    if (soot > 0) {
+      b.model.paint.color.set(b.color).multiplyScalar(1 - 0.8 * soot);
+      b.sooted = true;
+    } else if (b.sooted) {
+      b.model.paint.color.set(b.color);
+      b.sooted = false;
     }
     if (b.tag) {
-      b.tag.visible = this.showNames && !this.focusOn && !b.card;
+      b.tag.visible = this.showNames && !this.focusOn && !b.card && !b.face;
       b.tag.material.opacity = b.away ? 0.4 : 1;
+    }
+    // its face, when something comic is happening to it
+    if (b.face) {
+      const f = b.face;
+      const k = (t - f.t0) / f.dur;
+      if (k >= 1) this.dropFace(b);
+      else {
+        const fs = this.faceScale ?? 1;
+        const sc = 0.86 * fs * easeBack(Math.min(1, k * (f.dur / 0.22))) * (k > 0.82 ? 1 - (k - 0.82) / 0.18 * 0.3 : 1);
+        f.s.scale.set(sc, sc, 1);
+        f.s.position.set(p.x, lift + 0.7 + 0.42 * fs + Math.sin(t * 9) * 0.015, p.z);
+        f.s.material.opacity = (k > 0.82 ? 1 - (k - 0.82) / 0.18 : 1) * Math.min(1, fade * 1.5);
+      }
     }
     // its card floats above it; the one being played grows a little
     if (b.card) {
       const c = b.card;
-      c.visible = true;
+      c.visible = !falling; // its card doesn't hang in the air after it
       const born = Math.max(0, Math.min(1, (t - c.userData.born) / 0.45));
       const played = c.userData.played ? Math.max(0, 1 - (t - c.userData.played) / 1.6) : 0;
       const s = (0.85 + 0.15 * easeOut(born)) * (1 + 0.28 * Math.min(1, played * 3));
       // the card turns over: its width opens from nothing, with a little overshoot
       const flip = born < 1 ? Math.sin(born * Math.PI * 0.5) * (1 + Math.sin(born * Math.PI) * 0.12) : 1;
       c.scale.set(c.userData.base.x * s * Math.max(0.02, flip), c.userData.base.y * s, 1);
-      c.position.set(p.x, 1.72 + played * 0.1 + (1 - easeOut(born)) * 0.25, p.z);
+      c.position.set(p.x, 1.72 + played * 0.1 + (1 - easeOut(born)) * 0.25 + (b.face ? 0.32 + 0.6 * ((this.faceScale ?? 1) - 1) : 0), p.z);
       c.material.opacity = Math.min(1, born * 3) * (this.focusOn ? 0 : 1);
     }
+  }
+
+  /** Dizzy stars circling a robot's head. */
+  updateStars(b, p, lift, visible, t) {
+    const S = b.stars;
+    const want = S && visible && t < S.until ? S.n : 0;
+    b.starSprites ??= [];
+    while (b.starSprites.length > want) {
+      const s = b.starSprites.pop();
+      this.fxGroup.remove(s);
+      s.material.dispose();
+    }
+    if (!want) {
+      if (S && t >= S.until) b.stars = null;
+      return;
+    }
+    while (b.starSprites.length < want) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTexture(), color: hdr(PALETTE.energy, 1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+      s.renderOrder = 34;
+      this.fxGroup.add(s);
+      b.starSprites.push(s);
+    }
+    const left = S.until - t;
+    const o = Math.min(1, left / 0.4) * Math.min(1, (t - S.t0) / 0.15);
+    b.starSprites.forEach((s, i) => {
+      const a = t * 4.2 + (i / want) * TAU;
+      const fs = this.faceScale ?? 1;
+      s.position.set(p.x + Math.cos(a) * 0.36 * fs, lift + 0.78 + Math.sin(a * 2) * 0.03, p.z + Math.sin(a) * 0.36 * fs);
+      const sc = (0.2 + 0.05 * Math.sin(t * 11 + i)) * fs;
+      s.scale.set(sc, sc, 1);
+      s.material.opacity = o;
+    });
   }
 
   /** If the computer can't keep up: full resolution goes first, then shadows, a little more resolution, and last the glow. */

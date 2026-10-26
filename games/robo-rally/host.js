@@ -71,7 +71,18 @@ export default function (root, api) {
   });
   hurryBtn.addEventListener('click', () => api.send('hurry'));
   const seatOf = (id) => view?.robots.find((r) => r.id === id)?.seat ?? 0;
-  const onArena = (kind, d) => sceneSound(kind, d, seatOf);
+  const onArena = (kind, d) => {
+    // a mishap on the board: that player's token at the bottom flinches too, so the room sees whose it was
+    if (kind === 'mishap' || kind === 'fall') flinch(d.id, kind === 'fall' || d.n > 1);
+    sceneSound(kind, d, seatOf);
+  };
+  function flinch(id, big) {
+    const el = rosterEl.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
+    if (!el) return;
+    el.classList.remove('flinch', 'flinch-big');
+    void el.offsetWidth; // restart the animation
+    el.classList.add(big ? 'flinch-big' : 'flinch');
+  }
 
   // ----- the 3D scene (it's big: load it once the font its labels use is ready) -----
   (async () => {
@@ -139,7 +150,8 @@ export default function (root, api) {
       if (v.beat.n !== lastBeat) {
         lastBeat = v.beat.n;
         if (!first && (v.phase === 'activate' || v.phase === 'over')) {
-          if (v.beat.what?.k === 'reveal') {
+          // the cards turn over above the robots, so everyone sees what's coming (alone, it would only repeat)
+          if (v.beat.what?.k === 'reveal' && v.robots.length > 1) {
             arena.showCards(v.robots.filter((r) => Array.isArray(r.regs?.[v.reg]) && r.regs[v.reg].length).map((r) => ({ id: r.id, types: r.regs[v.reg] })));
           }
           arena.playBeat(v.beat, robots);

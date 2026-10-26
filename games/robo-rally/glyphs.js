@@ -45,7 +45,34 @@ export const GLYPHS = {
   dots: [{ d: 'M12 20 h.01 M20 20 h.01 M28 20 h.01' }],
   left: [{ d: 'M23.5 11 L14.5 20 L23.5 29' }],
   right: [{ d: 'M16.5 11 L25.5 20 L16.5 29' }],
+  heart: [{ d: 'M20 31 C9 23 8 14.5 13.5 12.3 C17 11 19.3 13.3 20 15.6 C20.7 13.3 23 11 26.5 12.3 C32 14.5 31 23 20 31 Z', fill: true }],
+  star: [{ d: 'M20 5 L23.2 16.8 L35 20 L23.2 23.2 L20 35 L16.8 23.2 L5 20 L16.8 16.8 Z', fill: true }],
+  // a robot's face, for the big screen's comic moments: eyes (and a mouth) of light
+  'face-shock': [{ d: circle(12.5, 17, 4.6) }, { d: circle(27.5, 17, 4.6) }, { d: circle(12.5, 17, 1.4), fill: true }, { d: circle(27.5, 17, 1.4), fill: true }, { d: circle(20, 29.5, 2.8) }],
+  'face-uhoh': [{ d: 'M8.5 12.5 L15.5 10.5 M31.5 12.5 L24.5 10.5' }, { d: circle(12.5, 19.5, 2.2), fill: true }, { d: circle(27.5, 19.5, 2.2), fill: true }, { d: 'M12.5 29.5 q1.9 -2.4 3.8 0 t3.8 0 t3.8 0 t3.8 0' }],
+  'face-dizzy': [{ d: spiral(12, 17.5, 6.2, 1.6) }, { d: spiral(28, 17.5, 6.2, -1.6) }, { d: 'M13.5 30 q2.2 -2.6 4.4 0 t4.4 0 t4.4 0' }],
+  'face-dead': [{ d: 'M8.5 13.5 L16.5 21.5 M16.5 13.5 L8.5 21.5' }, { d: 'M23.5 13.5 L31.5 21.5 M31.5 13.5 L23.5 21.5' }, { d: 'M13.5 29 H26.5' }],
+  'face-happy': [{ d: 'M8 19.5 Q12.5 11.5 17 19.5' }, { d: 'M23 19.5 Q27.5 11.5 32 19.5' }, { d: 'M12.5 25.5 Q20 33.5 27.5 25.5' }],
+  'face-smug': [{ d: 'M8 15.5 H17 M23 15.5 H32' }, { d: 'M9 15.5 a3.5 3.5 0 0 0 7 0 Z M24 15.5 a3.5 3.5 0 0 0 7 0 Z', fill: true }, { d: 'M14 28 Q22 31.5 28.5 25' }],
+  'face-ouch': [{ d: 'M9 12.5 L16 17 L9 21.5' }, { d: 'M31 12.5 L24 17 L31 21.5' }, { d: 'M12.5 28.5 L15.5 26.2 L18.5 28.5 L21.5 26.2 L24.5 28.5 L27.5 26.2' }],
+  'face-grr': [{ d: 'M8.5 11.5 L16 14.5 M31.5 11.5 L24 14.5' }, { d: circle(12.5, 19, 2.2), fill: true }, { d: circle(27.5, 19, 2.2), fill: true }, { d: 'M12.5 25.5 H27.5 V30.5 H12.5 Z M12.5 28 H27.5 M17.5 25.5 V30.5 M22.5 25.5 V30.5' }],
 };
+
+/** A circle as path data. */
+function circle(cx, cy, r) {
+  return `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0`;
+}
+
+/** A spiral (a dizzy eye) as path data, winding out from the middle. */
+function spiral(cx, cy, r, turns = 2.25) {
+  const pts = [];
+  for (let i = 0; i <= 60; i++) {
+    const k = i / 60;
+    const a = k * turns * Math.PI * 2;
+    pts.push(`${(cx + Math.cos(a) * r * k).toFixed(2)} ${(cy + Math.sin(a) * r * k).toFixed(2)}`);
+  }
+  return `M${pts.join(' L')}`;
+}
 
 /** One glyph as an SVG string. */
 export function svgGlyph(name, cls = '') {

@@ -538,7 +538,18 @@ function endRound(s, env) {
 // ---------- running the queue ----------
 
 function fx(s, f) {
-  s.fxBuf?.push(f); // only while a task runs: effects outside the Activation Phase are not animated
+  if (!s.fxBuf) return; // only while a task runs: effects outside the Activation Phase are not animated
+  if (s.tick) f.at = s.tick; // the step of this task it happened in (see advance)
+  s.fxBuf.push(f);
+}
+
+/**
+ * The next step of the current task: everything that moves one space "at the same time" shares a step.
+ * A robot's path records the step at which it reached each point ([x, y, step]), so the big screen
+ * can play every path of a beat on one clock: a pushed robot moves only once its pusher reaches it.
+ */
+function advance(s) {
+  if (s.paths) s.tick = (s.tick ?? 0) + 1;
 }
 
 /**
@@ -555,6 +566,7 @@ export function step(s, env) {
     const task = s.queue.shift();
     s.fxBuf = [];
     s.paths = {};
+    s.tick = 0;
     s.cap = null;
     s.what = WHAT[task.t] ? { k: WHAT[task.t], fast: task.fast } : null;
     runTask(s, env, task);
@@ -563,10 +575,11 @@ export function step(s, env) {
     const what = s.what;
     delete s.fxBuf;
     delete s.paths;
+    delete s.tick;
     delete s.cap;
     delete s.what;
     if (list.length) {
-      s.beat = { n: s.beat.n + 1, fx: list, dur: beatTime(list), cap: cap ?? s.beat.cap, reg: s.reg, what: what ?? s.beat.what ?? null };
+      s.beat = { n: s.beat.n + 1, fx: list, dur: beatTime(list, s), cap: cap ?? s.beat.cap, reg: s.reg, what: what ?? s.beat.what ?? null };
       return s.beat;
     }
   }
@@ -576,15 +589,22 @@ export function step(s, env) {
 // what a task shows, for screens that draw it instead of saying it
 const WHAT = { reveal: 'reveal', belts: 'belt', push: 'push', gears: 'gear', blasers: 'blaser', fire: 'rlaser', batteries: 'battery', checkpoints: 'cp' };
 
-function beatTime(list) {
+function beatTime(list, s) {
   let ms = 350;
+  const STEP = 330; // one space of movement (every path of a beat runs on one clock of steps)
+  const shoved = new Set(list.filter((f) => f.k === 'shove').flatMap((f) => f.ids));
   for (const f of list) {
-    if (f.k === 'move') ms = Math.max(ms, 200 + (f.path.length - 1) * 330);
+    if (f.k === 'move') ms = Math.max(ms, 200 + (f.path.at(-1)?.[2] ?? f.path.length - 1) * STEP);
     else if (f.k === 'turn') ms = Math.max(ms, 600);
-    else if (f.k === 'beam') ms = Math.max(ms, 1000);
-    else if (f.k === 'fall') ms = Math.max(ms, 1300);
-    else if (f.k === 'reveal') ms = Math.max(ms, 1300);
-    else if (f.k === 'reboot') ms = Math.max(ms, 1100);
+    else if (f.k === 'beam') ms = Math.max(ms, 1000 + (f.at ?? 0) * STEP);
+    // falling: it reaches the edge or the pit at its step, hangs there for a moment, then drops;
+    // pushed to its doom by another robot, the big screen slows down to enjoy it
+    else if (f.k === 'fall') ms = Math.max(ms, (f.at ?? 0) * STEP + (f.edge ? 1500 : 1350) + (shoved.has(f.id) ? 450 : 0));
+    else if (f.k === 'shove') ms = Math.max(ms, (f.at ?? 1) * STEP + 450);
+    else if (f.k === 'bonk') ms = Math.max(ms, (f.at ?? 1) * STEP + 400);
+    // one robot alone: its card shows when it's played, so the reveal is only a breath
+    else if (f.k === 'reveal') ms = Math.max(ms, s && s.order.length < 2 ? 450 : 1300);
+    else if (f.k === 'reboot') ms = Math.max(ms, 1400);
     else if (f.k === 'cp') ms = Math.max(ms, 1400);
     else if (f.k === 'win') ms = Math.max(ms, 3000);
     else if (f.k === 'replace') ms = Math.max(ms, 1200);
@@ -879,13 +899,13 @@ function blocked(s, env, x, y, d) {
 }
 
 function notePath(s, R) {
-  const p = (s.paths[R.id] ??= [[R.x, R.y]]);
+  const p = (s.paths[R.id] ??= [[R.x, R.y, 0]]);
   return p;
 }
 
 /** Put a robot on a space (it has already been decided that it can go there). Falls if it should. */
 function placeRobot(s, env, R, x, y, { hover = false } = {}) {
-  notePath(s, R).push([x, y]);
+  notePath(s, R).push([x, y, Math.max(1, s.tick ?? 0)]);
   R.x = x;
   R.y = y;
   const cell = cellAt(env.course, x, y);
@@ -912,6 +932,7 @@ function stepRobot(s, env, R, d, o = {}) {
   for (;;) {
     const last = chain[chain.length - 1];
     if (blocked(s, env, last.x, last.y, d)) {
+      fx(s, { k: 'shove', id: R.id, ids: chain.map((X) => X.id), d, stuck: true });
       spiky(s, env, [R, ...chain]);
       return { ok: false, why: 'push', pushed: [Q.id] }; // a push into a wall: everyone stops
     }
@@ -919,6 +940,7 @@ function stepRobot(s, env, R, d, o = {}) {
     if (!A) break;
     chain.push(A);
   }
+  fx(s, { k: 'shove', id: R.id, ids: chain.map((X) => X.id), d }); // who pushed whom, for the big screen
   spiky(s, env, [R, ...chain]);
   for (let i = chain.length - 1; i >= 0; i--) {
     const X = chain[i];
@@ -943,10 +965,12 @@ function moveRobot(s, env, R, d, n, o = {}) {
   let moved = 0;
   let hitWall = false;
   for (let i = 0; i < n && R.on; i++) {
+    advance(s);
     const res = stepRobot(s, env, R, d, { hover, noPush: o.noPush });
     for (const id of res.pushed) pushed.add(id);
     if (!res.ok) {
       hitWall = res.why === 'wall';
+      if (res.why !== 'push') fx(s, { k: 'bonk', id: R.id, d, why: res.why, moved }); // ran into a wall (or a robot it can't push)
       break;
     }
     moved++;
@@ -984,6 +1008,7 @@ function swapRobots(s, env, A, B) {
   const ay = A.y;
   notePath(s, A);
   notePath(s, B);
+  advance(s);
   placeRobot(s, env, A, B.x, B.y);
   placeRobot(s, env, B, ax, ay);
 }
@@ -1036,6 +1061,7 @@ function rebootSpot(s, env, R, b) {
 function landOn(s, env, R, spot) {
   const Q = robotAt(s, spot.x, spot.y);
   if (Q && Q !== R) {
+    advance(s);
     for (const k of [0, 1, 3, 2]) {
       const d = turn(spot.d, k);
       if (stepRobot(s, env, Q, d, {}).ok || !Q.on) break;
@@ -1144,6 +1170,7 @@ function runBelts(s, env, fast, only, second) {
   }
   const movers = plans.filter((p) => p.ok);
   // move everyone at once: take them all off first so they don't bump into each other
+  advance(s);
   for (const p of movers) {
     notePath(s, p.R);
     p.R.x = -100;
@@ -1162,6 +1189,7 @@ function runBelts(s, env, fast, only, second) {
 }
 
 function runPushers(s, env) {
+  advance(s); // the panels push together
   for (const p of env.course.pushers) {
     if (!p.regs.includes(s.reg + 1)) continue;
     const R = robotAt(s, p.x, p.y);
@@ -1298,12 +1326,15 @@ function fireSpecial(s, env, R, key) {
       if (R.energy < 1) return 1;
       R.energy--;
       takeDamage(s, env, T, 2, 'weapon');
+      advance(s);
       if (T.on) stepRobot(s, env, T, R.d, {});
       break;
     case 'pressor-beam':
+      advance(s);
       stepRobot(s, env, T, R.d, {});
       break;
     case 'tractor-beam':
+      advance(s);
       stepRobot(s, env, T, turn(R.d, 2), {});
       break;
     case 'scrambler': {

@@ -95,6 +95,17 @@
 [data-phase="upgrade"] .lm-tok:not(.ready) .lm-tok-bot .lm-bot { opacity: .45; filter: none; }
 .lm-tok.ready .lm-tok-bot .lm-bot { filter: drop-shadow(0 0 .9rem var(--c)); }
 .lm-tok.winner { transform: translateY(-.3rem) scale(1.08); }
+/* something comic just happened to this robot on the board: its token flinches */
+.lm-tok.flinch .lm-tok-bot { animation: lm-flinch .55s cubic-bezier(.3, .7, .4, 1); }
+.lm-tok.flinch-big .lm-tok-bot { animation: lm-flinch-big .9s cubic-bezier(.3, .7, .4, 1); }
+@keyframes lm-flinch { 15% { transform: translateX(-.25rem) rotate(-9deg) scale(1.08, .9); } 35% { transform: translateX(.2rem) rotate(7deg); } 60% { transform: translateX(-.08rem) rotate(-3deg); } }
+@keyframes lm-flinch-big {
+  10% { transform: translateY(.2rem) scale(1.18, .78); }
+  25% { transform: translateY(-.7rem) rotate(-14deg) scale(.92, 1.1); }
+  45% { transform: translateY(.1rem) rotate(10deg) scale(1.06, .94); }
+  65% { transform: rotate(-5deg); }
+  82% { transform: rotate(2deg); }
+}
 
 /* what the token shows above the robot */
 .lm-think { display: flex; gap: .35rem; padding-bottom: .5rem; }
