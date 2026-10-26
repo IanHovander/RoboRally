@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 30,
+    "title": "Laser-pointer cat",
+    "description": "The tip of the gear's arrow peels off the glass as a bright mint dot and skitters round the front of Maya's ring, just outside it so her body never hides it. She tracks it like a cat: her nose snaps after it in jerky stop-start turns, she freezes, crouches with a little squash and a tiny side-to-side wiggle of her rear, then pounces with a short hop in place and lands on the dot, which goes out under her nose. She is facing east, and the arrow's tip relights on the gear (1.8 s). On a red gear the dot runs anticlockwise. Seeded feints (a pause, a flick back a few degrees, a false start) change each time, but the dot always dies exactly at her new front.",
+    "twist": "The gear doesn't turn her, it lures her: the rule is enforced by a dot of light and a robot that can't resist it. Lumen's light finally finds its most natural use.",
+    "why": "The surest laugh on the list. Everyone in the room has watched a cat do this, and a bright dot, jerky turns and a pounce read in silhouette from the sofa. The feints keep the running gag fresh."
+  },
+  {
+    "n": 2,
+    "idea": 37,
+    "title": "A hand in the dark",
+    "description": "A shadow made of missing light, like a pit's, slides onto the glass from the nearest board edge: at first a huge soft blur, because the hand is high up. As it comes down toward Maya it shrinks and sharpens into a clear hand, the board's grid and light going out under it, and her glow dims as it covers her. Thumb and finger close on her, twist a quarter, and she turns with them. Then the hand lifts, so the shadow grows soft and large again, slides back off the edge, and the glass's light returns (1.6 s). On a red gear it twists the other way.",
+    "twist": "It's the ghost of the cardboard game, where you turned the figure by hand, drawn in Lumen's own darkness. The shadow sharpening as it falls is how the room knows something enormous is coming down from above the TV.",
+    "why": "The gasp. A giant from outside the game reaching in is a real surprise, and a hand-sized shape of darkness is the most readable thing on the list from across the room. Repeated, it becomes 'here comes the hand', a call-out the room enjoys."
+  },
+  {
+    "n": 3,
+    "idea": 9,
+    "title": "Lighthouse",
+    "description": "The room dims a touch and Maya's eye throws a soft cone of warm white light (wide and hazy, never a laser's thin line) out through the dark room's air. As she turns, the beam sweeps from north across the right of the board, its spill gliding over the spaces of the glass and glinting off the board's edge. It comes to rest on the row she now faces, lighting the spaces in front of her up to the first wall or the board's edge. Then it folds back into her eye as the room comes up (1.5 s).",
+    "twist": "The beam makes the air of Lumen's dark room visible for a beat, and it shows her next move. Whatever it lands on (a pit, a wall laser, a flag, open board), the room reacts before she gets there.",
+    "why": "The anticipation pick: it is the only one whose content changes every time, so it holds up by being useful. The room learns to read the beam and groans or cheers early, and a long sweep of light reads at any robot size."
+  },
+  {
+    "n": 4,
+    "idea": 26,
+    "title": "Coin on a table",
+    "description": "Maya tips onto the rim of her base and wobbles like a coin settling on a table. Her tilt circles round her, slowly at first and then faster and faster as it flattens, her ring of light wobbling with her, while her heading creeps steadily a quarter round to east with no overshoot. Then she drops flat with a tiny squash and everything is suddenly, completely still (1.6 s). Every form wobbles on the edge of its own base, and on a red gear the wobble circles the other way. In the game, a glassy whirr rises in pitch and cuts to silence at the drop.",
+    "twist": "Everyone knows a coin spinning down on a table: the whirr rises in pitch and then stops dead, and that sudden silence is the punchline. The quarter turn happens almost by accident, hidden inside the wobble.",
+    "why": "Satisfying physics with a build-and-release rhythm people want to watch again, and the tilted silhouette reads from across the room. It is unlike the other four: no character, nothing added, just a familiar object behaving exactly right."
+  },
+  {
+    "n": 5,
+    "idea": 8,
+    "title": "Singing glass",
+    "description": "As the gear starts, Maya's ring rubs it like a wet finger round a wine glass. The smoked glass around her, about three spaces across, shimmers with fine restless ripples of light, a standing wave looking for its shape. As the tone swells (in the game), the light gathers onto the still lines and settles into a four-petal cross pointing north, east, south and west, with the east petal longest, pointing where she will end. She turns smoothly to east inside it, then the tone and the pattern sink back into the glass (1.8 s). The shimmer before it settles is different each time (seeded modes), but the figure it finds is always the compass.",
+    "twist": "Lumen's one material actually sings, and its vibration draws a compass: a real Chladni figure, with the needle set to her new heading.",
+    "why": "The beauty pick: a quiet 'ooh' rather than a laugh, made only of glass and light. The pattern spreads well beyond the robot, so it reads at TV size, and it is calm enough to repeat all night."
+  }
+]

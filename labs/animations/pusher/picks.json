@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 22,
+    "title": "Pressed against the TV",
+    "description": "The plate fires and Maya shoots toward us, and the camera rushes down to meet her so she swells to fill the screen. For a beat she is squashed flat against the inside of the TV: a soft smear of her red polish, with her eye-light as one bright streak in it, drawn on the overlay as if pressed on the screen's glass. The smear slips down a little and fades as the camera springs back home, and there she sits, tiny again, one space south and still facing east. Timing: 0.2 s fire, 0.4 s rush in, 0.5 s pressed, 0.7 s back home (1.8 s). This one is only for panels that push toward the camera. A panel that pushes any other way plays one of the other picks.",
+    "twist": "The TV is the last pane of glass in Lumen. Breaking the fourth wall makes a one-space shove feel enormous, and the pull-back shows how small it really was.",
+    "why": "The biggest laugh in the set and the least expected thing a board game could do. Only a few panels push toward the camera, so the big camera move stays rare and special, and while she fills the screen nobody can miss it."
+  },
+  {
+    "n": 2,
+    "idea": 37,
+    "title": "Overshoot, undo",
+    "description": "The plate shoots out on a telescoping arm of light far too long and keeps carrying Maya past her space, on toward the south edge, where she teeters over the dark drop. A beat. Then the board undoes it: she is reeled backwards up her own trail of light, and the trail gets sucked back in like rewinding tape, until she clicks into the one space the rules allow. The arm retracts sheepishly. Timing: 0.15 s fire, 0.55 s out, 0.35 s teeter, 0.55 s reel back, 0.2 s settle (1.8 s). In a real game the overshoot runs only over empty floor (up to 2 extra spaces, stopping short of any robot or wall), and it ends at the brink when an edge or pit is within reach.",
+    "twist": "The overreach is absurd, and Lumen's trail turns out to be the board's undo history. The rewind runs back along the light she just left.",
+    "why": "A gasp and then a laugh. It plays on real stakes, because the whole room knows that going off the edge means a reboot, then takes the danger back. The motion is big and easy to read, and the rewind up the trail is an image only Lumen has."
+  },
+  {
+    "n": 3,
+    "idea": 23,
+    "title": "Cuckoo",
+    "description": "The panel's housing is a clock door. On its register the door flips open and a little bird drawn in three strokes of warm light pops out on a stick of light. It bobs and opens its beak once per register number: 1 cuckoo on register 1, 3 on register 3, 5 on register 5, getting faster each time. Only the last cuckoo lunges and pokes Maya one space south with its beak. Then the bird springs back and the door clicks shut. The bird is about half a robot tall and moves in big, clear bobs so it reads on a TV. Timing on register 5: 0.15 s door, about 1.1 s of cuckoos speeding up, 0.2 s poke, 0.35 s slide, 0.2 s shut (just under 2 s). The fewer cuckoos on registers 1 and 3 leave more room.",
+    "twist": "Push panels fire on a printed schedule, so a cuckoo clock is the exact metaphor. Its count says which register it is, so the room learns the panel's 1-3-5 timetable without a word.",
+    "why": "A character with comic timing that the room can join in with: by the second time, people count the cuckoos out loud and wait for the poke. Because the count changes with the register, repeats feel like a running gag."
+  },
+  {
+    "n": 4,
+    "idea": 17,
+    "title": "The drawer",
+    "description": "There is no plate. The tile Maya stands on was a drawer all along: the panel's slot glows, and a thin tray of smoked glass with bright edges slides out of the wall with her on it, carrying her smoothly one space south like a till drawer opening, with a bright chime. It holds for a breath. Then it whips back into the wall in a few frames, so fast that she is left sitting on her new space with only a tiny wobble, still facing east. Timing: 0.1 s glow, 0.7 s drawer out, 0.3 s hold, 0.1 s whip back, 0.4 s wobble and settle (1.6 s).",
+    "twist": "She is served instead of shoved, and then comes the tablecloth trick: two physical gags in under two seconds, both made of Lumen's one material, glass.",
+    "why": "It is a sleight of hand ('how did she stay on?'), the kind of thing people ask to see again. A lit glass tray the size of a whole space is easy to read from the couch, and it delights in a way none of the other picks do."
+  },
+  {
+    "n": 5,
+    "idea": 1,
+    "title": "The door left ajar",
+    "description": "There is no plate. The wall fin behind the panel opens a crack, and a wedge of warm light spills across the glass toward us, with motes drifting in it like dust in a sunbeam. The room's floor catches a little of it, Ava's polish gleams, and Maya's long shadow stretches toward the camera. The wedge widens and the draught carries her one space south like a leaf: a gentle sideways sway as she drifts, but her pointer stays east. Then the crack eases shut and the last motes settle. Timing: 0.4 s crack opens, 0.8 s drift, 0.5 s crack closes (1.7 s).",
+    "twist": "The shove is made of Lumen's one light. For a beat the dark room seems to have a brighter room behind its wall, and nobody ever sees what is in there.",
+    "why": "A gasp of wonder instead of a laugh, which gives the set its calm, beautiful note. A bright wedge of light across the board reads at any size, and beauty holds up when it repeats."
+  }
+]

@@ -121,3 +121,11 @@ they faced, the board whole and the camera home.
 49. **Afterimage.** For one frame the whole picture turns to a photographic negative (the room white, the glass black, Maya a cyan silhouette), then fades back over a second like the afterimage of looking at a bulb. *Twist:* it isn't a flash but a flash's afterimage, and it burns the moment into the eye (a CSS invert filter on the canvas, eased off).
 
 50. **The last mote.** After the ceremony settles, one stray red mote drifts across the board, lands on Jun's top, and Jun's eye blinks; it's the last thing moving as the game carries on. *Twist:* a tiny coda for repeat viewers, and the only acknowledgement Jun gets all game.
+
+## The five to animate
+
+1. **Long exposure** (idea 1): the room points and laughs at the whole game's paths in one picture of light, which covers the board, comes from Lumen's own trails and is different every game.
+2. **Skipping stone** (idea 21): a gasp ("she's off the edge!") that turns into a cheer when the winner breaks the deadliest rule and skips home across the dark, with a different lap for each form.
+3. **House lights** (idea 45): the biggest laugh on the list, a full break from the look that changes the whole picture for a second and makes the return to Lumen feel luxurious.
+4. **Eyes in the dark** (idea 43): wonder and warmth instead of a laugh, as a crowd of eye-lights applauds by blinking, readable at any size, and a reveal the room will look forward to every game.
+5. **Domino run** (idea 30): the satisfying "again!" of a chain reaction made from the board's own wall fins, ending in a tiny tap on the rival, on a path that changes with where the rival is.

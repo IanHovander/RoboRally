@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 4,
+    "title": "Bungee",
+    "description": "Maya drives east across (5,1) and (6,1), drawing her usual red trail on the glass, and goes over the rim. As she drops, the end of that trail peels up off the glass at the rim and stretches down after her like elastic, thinning and brightening as it takes her weight. At full stretch it yanks her back up until she is level with the rim, almost home, for one held breath. Then the strand thins to a thread and snaps with a soft pop of light. She drops into the dark and goes out, while the loose end whips back across the glass toward (4,1) like a released rubber band and fades to nothing. Timing: drive about 0.9 s, drop and stretch 0.5 s, rebound 0.4 s, hang 0.25 s, snap and drop 0.5 s, whip and fade 0.5 s: about 3.1 s. Ends with Maya hidden, no trail left, Ava untouched on (2,3) facing north.",
+    "twist": "The trail, which only ever remembers where a robot has been, is suddenly holding her up. Hope is offered and taken back in half a second, and the whip of the loose end across the board is the punchline.",
+    "why": "The trail is already the boldest, most readable thing in today's picture (a bright red line), so a red line stretching down and springing back reads from the back of any room. It is slapstick physics made entirely of Lumen's own material, it gets a gasp and then a laugh, and the rebound height and the path of the whip can vary a little every time so it never plays quite the same."
+  },
+  {
+    "n": 2,
+    "idea": 43,
+    "title": "Off the TV",
+    "description": "Maya reaches the rim and doesn't notice the board has ended: with no pause and no look, she keeps driving on thin air at glass height, still trailing red, and drives straight out of the right side of the TV picture, as if the edge of the screen were the edge of the board. The frame is empty for half a beat. Then she drops in from the top of the screen near the right side, in front of the board and much closer to the camera, so she is big, tumbling slowly with her eye and ring smearing red light, and falls straight on out of the bottom of the picture. The board is never touched. Her trail on the glass fades as it always does. Timing: drive about 0.9 s, on to the screen edge 0.5 s, empty frame 0.3 s, fall through the frame 0.6 s, trail fade: about 2.6 s.",
+    "twist": "It is screen wrap from an old arcade game, except the screen wraps and the board doesn't: the fall happens to the TV, not to the slab.",
+    "why": "This is the biggest 'wait, what?!' of the five, and the most readable, because for one beat Maya is the largest thing on screen. It breaks the look for about a second and then comes straight home. Because it follows a consistent screen logic (out on the right, back in at the top), it turns into a running gag the room waits for rather than one that wears out."
+  },
+  {
+    "n": 3,
+    "idea": 38,
+    "title": "Undo, denied",
+    "description": "Maya drives off the rim and starts to fall. Then the picture plays backward: her fall reverses, she flies back up over the rim and reverses onto (6,1), her trail of light is eaten back up behind her and the light of the Move 3 card over her head rewinds, as if the game were offering an undo. There is a breath of stillness. Then it plays forward again, exactly the same and a little faster (about 1.4x): the same last space, the same tip, the same fall, and this time she goes out for good. Timing: drive about 0.9 s, fall 0.4 s, rewind 0.5 s, pause 0.2 s, replay of the last space and the fall 0.6 s, fade 0.4 s: about 3.0 s. Build it by recording Maya's poses and trail on the way out and playing them back reversed, then forward.",
+    "twist": "The rewind teases a mercy the rules don't allow. The replay is identical, frame for frame, so the joke is determinism (there are no take-backs in Robo Rally), and the second fall is funnier than the first.",
+    "why": "A whole motion running backward reads instantly from across a room, and the faithful replay gets the big laugh. The delight comes from the game's own playback rather than from physics or the board, so it is unlike the other four, and it makes the rule visible: the program has to run."
+  },
+  {
+    "n": 4,
+    "idea": 9,
+    "title": "Skipping stone",
+    "description": "Maya is a Pebble, so she skims. As she goes over the rim she doesn't drop: she meets the darkness flat, just below glass height, and skips across it, one, two, three, each hop shorter and lower (roughly 0.7, 0.45 and 0.25 of a space) and heading on east. Every touch spreads wide, slow, concentric rings of soft light over the black, as if the dark were a still lake, and the rings overlap and cross as they grow. They are well out past the rim and much bigger than she is, not a glow at the spot where she went over. On the third touch she stops skipping and sinks with one last small ripple, and the dark is still again. Timing: drive about 0.9 s, three skips 1.1 s, sink 0.4 s, ripples fade 0.6 s: about 3.0 s.",
+    "twist": "Her form's name is taken literally, and the void turns out to be water. The three skips echo the Move 3 she played.",
+    "why": "This is the beautiful one: the room goes 'ooh' instead of laughing. Expanding rings of light many times a robot's size read clearly on a TV, it is made purely of light on darkness, and because it is graceful rather than a gag it survives being seen several times a game. The ripples can fall a little differently each time."
+  },
+  {
+    "n": 5,
+    "idea": 3,
+    "title": "Raft",
+    "description": "As Maya drives east, the whole floating slab dips under her weight like a raft, tilting a few degrees down toward the east edge. The board, its light, its rim and both robots tilt together, and Ava leans with it. The tilt steepens as Maya reaches (6,1) and seems to tip her off. The instant she is gone, the slab springs back past level, bobs twice with a little overshoot each way and settles flat, while Ava rocks on her space like a seasick passenger, her ring sloshing, before coming to rest on (2,3) facing north. Timing: drive with the tilt about 0.9 s, off the rim 0.3 s, spring back and bobs 1.4 s: about 2.6 s. Build it by tilting arena.board around its north-south axis and giving the puppeted robots a matching lift and roll; camera roll is a fallback, since the dark room shows nothing else that would give it away.",
+    "twist": "'A slab of glass floating in a dark room' is taken literally: you only feel her weight once it's gone.",
+    "why": "When the whole board moves, the motion reads from anywhere in the room, and because it is calm and physical rather than a gag it gets better with repetition: it becomes how this world works, and the size of the tilt can scale with where on the board the robot leaves. Ava's seasick wobble adds the laugh."
+  }
+]

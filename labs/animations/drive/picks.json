@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 45,
+    "title": "Backing away slowly",
+    "description": "Rotate Right swings Maya round to face the room, and she freezes for a beat: her eye light flares wider and brighter and she rocks back a hair, like someone who has just noticed everyone on the sofa watching. Move Back plays a touch slower than usual, her eye never leaving the camera, then the U-Turn snaps her briskly round to face north, as if nothing happened. In general play the rule is narrow: a robot that turns to face the camera gives the room the same quick look (brighter eye, tiny recoil, no added time), and the full slow back-away plays only when a robot facing the camera plays Move Back.",
+    "twist": "Nobody wrote a scene, yet the players' random cards act one out: the robot catches the room watching and backs away slowly. The trigger is built from the rules (facing the camera, then Move Back), so it turns up by itself now and then and is never forced.",
+    "why": "The biggest laugh available on an everyday card, and it comes from the players' own programs. It reads from across the room in light and silhouette (a bright eye pointed straight out of the TV, a recoil, a slow retreat), costs about half a second, and the narrow trigger keeps it a surprise."
+  },
+  {
+    "n": 2,
+    "idea": 34,
+    "title": "Claw machine (rare)",
+    "description": "Once or twice a game, Move Back isn't driven. A thin arcade claw drawn in warm light lowers out of the dark on a single line, opens its three fingers over Maya and closes on her with a soft glint. It lifts her a little, carries her one space back (still facing south, pointer never turning), wobbles over the spot for a breath and drops her onto (3, 1) with a small bounce. The claw reels back up into the dark before the U-Turn ends.",
+    "twist": "The rule (one space back, without turning) is performed to the letter by the silliest machine possible, and everyone knows arcade claws drop things, so the wobble before the drop is real suspense. This one never misses.",
+    "why": "The loudest laugh and the most likely \"again!\" in the set. It breaks the look on purpose (an arcade machine in a calm glass room), but it is drawn in the same warm light and gone by the next card. It is rare by design so it stays a surprise, huge enough to read from any seat, and fits in the budget's spare second."
+  },
+  {
+    "n": 3,
+    "idea": 50,
+    "title": "Dolphin (rare)",
+    "description": "Once in a long while, Move 2 is a dolphin's arc. Maya rises a little, tips nose-down and slips into the smoked glass, which ripples and refracts around the spot. For the two spaces she is only a soft red glow gliding under the surface, the grid lines above her wavering as if seen through water. Then she breaches back onto (3, 2) facing east, the ripples close over, and the Rotate Right plays as normal.",
+    "twist": "The slab turns out to have an inside. The rule is obeyed one layer down, and for once the glass behaves like the material it's made of: it has depth, it refracts and it glows from within.",
+    "why": "The gasp of the set: wonder, not a joke. It shows off Lumen's own materials (glass, depth, glow, refraction) better than anything else on the list. A robot vanishing into the board then resurfacing gives a beat of real alarm ('is she in a pit?') that resolves within a second; a red glow under dark glass reads clearly from the sofa; and rarity keeps it magical."
+  },
+  {
+    "n": 4,
+    "idea": 25,
+    "title": "Ribbon",
+    "description": "Maya's trail of light behaves like a gymnast's ribbon tied to her ring. Move 2 draws it out straight as usual. Rotate Right flicks a quarter curl of it out beside her, and Move Back drags the curl taut and straight again with a soft shiver of light along its length. The U-Turn winds a full loop of it around her ring, left sitting at her feet like a tied bow while the trail fades on schedule.",
+    "twist": "The trail finally records turns, not just moves, and does it as physical comedy: a turn ties it up, the next move tugs the knot out. Anyone who looks up late can read 'she turned here' off the glass.",
+    "why": "The everyday pick that rewards watching: made only of Lumen's own trail, quiet enough for hundreds of viewings, and it adds information instead of noise. A bright loop in the player's colour reads from the sofa where a small robot's pointer doesn't, and its pleasure (the satisfying tug of the knot coming out) is unlike the other picks."
+  },
+  {
+    "n": 5,
+    "idea": 31,
+    "title": "Steering-wheel card",
+    "description": "The lit card above Maya stops being a label and becomes her controls, moving a split second ahead of her. For Move 2 it tips forward like a throttle and she pulls away as it does, easing upright as she arrives. For Rotate Right it turns a quarter in its own plane like a steering wheel and she follows. For Move Back it tips back toward the room, and for the U-Turn it is spun hand over hand through a half turn. Each time it springs back square, like a wheel let go, before the next card.",
+    "twist": "Instruction and execution become one gesture, like watching a driver's hands and then the car. The card leads and the robot follows, so the room reads what is about to happen a beat before it does.",
+    "why": "The card is the biggest, brightest thing over a small robot, so this is the most legible pick from across the room, and it adds no time. Its delight is gentle and clever rather than loud, which is right for a moment seen hundreds of times. It is the only pick that works through the program itself rather than the robot or the glass."
+  }
+]

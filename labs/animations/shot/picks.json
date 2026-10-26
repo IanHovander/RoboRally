@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 16,
+    "title": "Pile-up",
+    "description": "Theo fires and the beam comes out like water from a hose of light, its bright head racing down the row. It doesn't stop when it meets Maya: the head stops dead against her flank but the rest keeps coming, so the light crumples against her in bright zigzag folds and loops that pile up about half a space high, like carriages running into the buffers (a longer shot makes a bigger heap). The tail leaves Theo's muzzle and concertinas in after it. Then the whole heap is slurped into Maya in one gulp: she swells a little, settles back to her shape and gives one bright blink of her eye. She never leaves 1,1 or turns. About 1.4 s.",
+    "twist": "Light gets weight and momentum. 'The first robot in line stops the beam' comes true very literally, and the most ordinary thing on the board, a laser line, does slapstick.",
+    "why": "The beam is the biggest, brightest thing in the shot, so its crumpling reads from across the room, and the slurp is a punchline that gets people shouting 'again!'. The heap grows with range: a point-blank shot makes a small pile and a cross-board shot a real pile-up, so it stays varied over a night of shooting."
+  },
+  {
+    "n": 2,
+    "idea": 4,
+    "title": "The only light in the room",
+    "description": "As Theo fires, the room's light, the board's glow and every robot's ring and glow pool drop away in a breath (about 0.2 s), leaving the beam as the only light. It lights the glass along the row in cold blue-white and throws real shadows: Maya's flung long and thin westward off the end of the slab into the dark, Theo's thrown east behind him, Jun's stretched long toward the camera. At the hit, Maya's shadow gives one hard jerk, as if torn, while she herself stands still. Then the beam fades, the room's light comes back up and the shadows shrink away with it. About 1.6 s, ending with every light back exactly as it was.",
+    "twist": "A laser is a light, so in a world drawn with light it should throw shadows. For one beat the game turns off its own lighting to prove it, and the hit lands on her shadow instead of her.",
+    "why": "The whole picture changes, so it reads at once from the couch and gets a gasp. It is Lumen at its purest, light and the absence of light. The shadows fall from wherever everyone happens to stand, so no two shots look the same, and if several robots fire at once their shadows cross."
+  },
+  {
+    "n": 3,
+    "idea": 24,
+    "title": "The laser pointer",
+    "description": "Theo's beam lands first as a small bright dot on the glass just beside Maya, joined to him by a thin line, and the dot jitters about like a laser pointer in a shaky hand. Jun's eye light locks onto it. He crouches, squashing low and wiggling side to side the way a cat gets ready, then pounces half a space at it, and at that instant the dot hops up onto Maya: that's the hit. Jun freezes mid-pounce, embarrassed, then slides back to 3,3 facing north as if nothing happened. Maya and Theo never move. About 2.2 s.",
+    "twist": "The laser really is a laser pointer, and the bystander is the cat. Every cat owner in the room knows what's coming, and the beam's real target was never in doubt.",
+    "why": "It has a setup and a punchline the whole room recognises, told with big moves (the dot, the crouch, the pounce, the freeze) rather than fine detail, so it reads on a TV where Jun is small. It needs a bystander close to the target, which makes it an occasional treat rather than something that plays every register, and Jun ends exactly where the rules left him."
+  },
+  {
+    "n": 4,
+    "idea": 1,
+    "title": "Edge-on",
+    "description": "The beam crosses the row looking like an ordinary laser line, because it is really a long, thin card of light seen exactly edge-on. When it reaches Maya it draws itself in to card size against her flank and turns 90° to face the camera: it's a lit slide, like the cards on the players' phones, with a thin ⚠ on it (the SPAM card). It hangs there for a breath, then slides into her side like a slide going into a projector, and her body glows once as it goes in. About 1.5 s.",
+    "twist": "The laser was the damage card all along. You were seeing it from the side.",
+    "why": "The turn from a hair-thin line to a bright face is a big change of light that reads across the room, and it shows exactly what the rule does: one SPAM card goes into her deck. It's quick and explains itself, so it can play every register, and people who have seen it before start waiting for the turn."
+  },
+  {
+    "n": 5,
+    "idea": 38,
+    "title": "Wiped clean",
+    "description": "At the hit, a sliver of the beam glances off Maya's polish and flies straight at the camera, growing as it comes, and lands on the TV's own glass as a soft, out-of-focus smear of blue light (an overlay above the whole picture, with the board and robots behind it). It hangs there for half a second, glowing. Then a soft swipe, like a thumb, wipes it away in one curved stroke and leaves the picture clean. Maya never moves. About 2 s.",
+    "twist": "The room's own screen is in the line of fire, and instead of the cracked-screen cliché the gag is gentle: somebody just wipes it.",
+    "why": "The surprise is the screen itself, so it gets a gasp and then a laugh, and at full-screen size nobody can miss it. The surprise wears off fast, so it's kept rare (the first hit of the night, or a 1-in-20 roll), and then it becomes the shot people talk about."
+  }
+]

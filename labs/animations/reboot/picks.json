@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 3,
+    "title": "The light drains to her",
+    "description": "For a breath the whole board's light runs downhill. The glass dims from its edges inward while its light slides across the surface in slow streams, like water toward a drain, and gathers in one bright pool on the empty token that warms to Maya's red. The pool beads up like mercury into her Pebble, nose east, and her eye lights. Then the board's light seeps back out along the same streams, never as a ring or burst from her. Two last streams arrive late and grey and soak into her, each dimming her eye for a blink (the 2 SPAM). Theo's glow dims and returns with the board, and nothing else of his changes. About 2.4 s: 0.9 s drain, 0.6 s bead-up, 0.7 s light returns with the two grey drops, then rest.",
+    "twist": "A pit in Lumen is where the light is missing, so a reboot is its mirror image: the one place where all the light collects. The room notices only because everything else goes dark for a second, and the moment the board dims, every eye goes to the token without being told.",
+    "why": "This is the gasp, and the most readable picture of the five, because the whole screen changes, so it reads from the back of the room even though Maya is tiny. It is calm and beautiful rather than a joke, so it doesn't wear out at a few reboots a game. It turns Lumen's own thesis (light is presence) into motion, and it scales to several robots rebooting at once by splitting the light between their tokens."
+  },
+  {
+    "n": 2,
+    "idea": 16,
+    "title": "Skipping stone",
+    "description": "Maya skims in low and fast out of the dark beyond the board's edge (the edge nearest where she fell; here the east edge, along her row) and skips across the glass like a stone on a lake. She makes three touches, each one shorter and slower than the last, and each leaves a ripple that rolls out over the glass and bends the light seams for a moment. The first ripple is her red. The last two come up grey (the 2 SPAM). After the third touch she drops flat, slides the last half space with her trail behind her and stops dead on the token, nose east, with no splash on the token itself. About 2.2 s.",
+    "twist": "The Pebble is a stone and the glass is a lake for a second. By the second reboot of the night the room counts the skips out loud, and because the last two ripples are grey, the count is also the damage.",
+    "why": "This is the one that gets the room shouting. Counting along is a ritual that gets better with repetition, and the number of skips can follow the distance to the edge, so it never plays quite the same way twice. The long arc and the ripples read from the sofa, and it is the only pick whose delight is physical play."
+  },
+  {
+    "n": 3,
+    "idea": 17,
+    "title": "Shakes it off",
+    "description": "Maya is simply there on the token, coated in darkness, as if she'd just been fished out of the pit: a matte black silhouette with no eye and no ring, visible only against the token's glow under her. She holds still for a beat, then shakes from nose to tail like a wet dog, a fast roll wobble that travels backward along her body. The darkness flies off in black droplets that spatter the glass around her as dark spots and evaporate. Underneath, her polished red is revealed from the nose back, and her ring and then her eye come on last. Two droplets stick to her flank, blink grey twice and fade (the 2 SPAM). About 2.2 s.",
+    "twist": "In Lumen, darkness is what a pit is made of. Here it is something you can be soaked in and shake off, and one gesture says both \"she fell\" and \"she's fine\". The shake is pure dog.",
+    "why": "This is the laugh: body comedy that everyone recognises instantly. It is told entirely in silhouette, motion and colour (black blob, shake, red reveal), so it works at TV distance where fine detail doesn't. The pause before the shake gives her a moment of character. It's quick, and the spatter pattern changes every time, so it holds up over several reboots a night."
+  },
+  {
+    "n": 4,
+    "idea": 26,
+    "title": "Theo goes fishing",
+    "description": "Theo, the robot nearest the token, leans back and flicks forward like an angler without leaving his space or turning. His laser leaves his muzzle as a slack, drooping line, plainly not a shot. It sails in a long arc over the token and drops off the board's west edge into the dark, with a small bead of light bobbing at its end. The bead dips: a tug. Theo leans back and reels Maya in out of the dark on the end of the line. She swings up over the edge, sways across the glass and drops onto the token facing east. There she flops twice on the spot like a landed fish, and her eye dims grey with each flop (the 2 SPAM). The line zips back into his muzzle, Theo settles still facing west, and his eye glances away as if nothing happened. About 2.7 s: cast 0.6 s, tug 0.4 s, reel 0.9 s, land and flops 0.8 s.",
+    "twist": "The beam that normally hurts people does a rescue, and it's the only time a line of light ever curves in Lumen. Her rival saves her, and the flop turns the damage into something to laugh at instead of a punishment.",
+    "why": "This is social comedy. It gives another player's robot a starring role, so two people in the room react: Theo's player gets the credit and Maya's player gets teased. The nearest robot does the fishing, so the rescuer changes from reboot to reboot and the gag stays fresh across a night. The arcing line and the flop read from across the room, and only light and poses move, so Theo ends exactly where he was."
+  },
+  {
+    "n": 5,
+    "idea": 44,
+    "title": "Fogged screen",
+    "description": "A soft patch of the TV picture over the empty token fogs milky white, as if someone on the sofa had breathed on the screen. A fingertip wipes through the mist and quickly doodles her, a bit badly: a round body, a dot for an eye and an arrow pointing east, with two little smudges where the finger slips (the 2 SPAM). The doodle is made of clear picture, not paint, and through the wiped lines you can already glimpse red, because she is there behind the fog. The fog then evaporates from its edges inward and leaves the real Maya resting on the token, facing east, exactly where the doodle was. It is built in the DOM overlay (a blurred, milky layer with the strokes cut out of it). About 2.6 s: fog 0.4 s, doodle 1.2 s, clear 0.8 s.",
+    "twist": "The TV is glass too. For two seconds the room's side of the screen joins the game, drawn the way friends draw on things at a table, so it is both a surprise and a little intimate. Through the wiped lines the real Maya is already there, which brings it home to Lumen.",
+    "why": "This is the biggest surprise of the five: it breaks the fourth wall, so the first time people turn round to see who did it. The fog patch is large and high-contrast in screen space, which makes it readable however small Maya is. The doodle is hand-drawn, so it can vary each time (a wobblier body, a different arrow flourish) while the gag stays, and it bends no rule."
+  }
+]

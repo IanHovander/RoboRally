@@ -71,3 +71,14 @@ every robot on every register, so most ideas are small enough to watch hundreds 
 48. **Signature trail.** Up close, the trail isn't a line: it's the player's name written over and over in tiny thin type, MAYAMAYAMAYA, which blurs into a stripe of light from across the room. *Twist:* invisible from the sofa, discovered the first time someone walks up to the TV, and then everyone checks theirs.
 49. **Worn glass.** Each turn in place polishes its spot a little: spaces where robots turn often grow a faint bright scuff that builds through the round and clears when a new round starts. *Twist:* the board quietly becomes a heatmap of the round's traffic, like a worn stair, and the busiest junctions glow.
 50. **Dolphin (rare).** Once in a long while, Move 2 is a dolphin's arc: Maya dips into the smoked glass, glides the two spaces as a blurred red glow under the surface, and breaches back onto her space facing east. *Twist:* the slab turns out to have an inside; the rule is obeyed one layer down, and she's back on top before the Rotate Right.
+
+## The five to animate
+
+Two rare showstoppers and three everyday ideas. Each delights in a different way: a laugh from the players' own
+programs, a big silly machine, a gasp of wonder, a satisfying tug and a clever bit of clarity.
+
+1. **Backing away slowly (45).** The biggest everyday laugh, acted out by the players' own random cards. The trigger (facing the camera, then Move Back) is narrow, so it stays a surprise, and a bright eye staring out of the TV reads from any seat.
+2. **Claw machine (34, rare).** The loudest laugh and most likely "again!". It breaks the look on purpose for one beat, drawn in Lumen's warm light, and obeys "back one space, without turning" to the letter.
+3. **Dolphin (50, rare).** The gasp: the glass turns out to have an inside. It shows off Lumen's own materials (depth, refraction, glow) better than any other idea, and rarity keeps it magical.
+4. **Ribbon (25).** Physical comedy made only of the trail: turns tie it up and the next move tugs it straight. It is quiet enough for hundreds of viewings and leaves a readable record of each turn.
+5. **Steering-wheel card (31).** The card, the most legible thing over a small robot, becomes the controls and moves a beat ahead of her, so the room reads each card before it plays. It costs no time and never tires.

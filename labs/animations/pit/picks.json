@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 19,
+    "title": "Evel Knievel",
+    "description": "Maya rolls two spaces toward the hole, and instead of dropping in, a thin ramp of light flicks up out of the glass at the near rim. She launches, arcs cleanly over the black square and lands on (5,1) with a squash, her ring flaring in triumph. A beat. Then the black square quietly slides one space east under her, like a rug pulled out, and she drops straight through. The hole slides back to its own square at (4,1), its rim gives one innocent glint, and the ramp sinks back into the glass. (About 0.7 s to the rim, 0.5 s jump, 0.4 s beat, 0.35 s slide, 0.35 s drop, 0.4 s slide home: under 3 s.)",
+    "twist": "She beats the pit, so the board cheats: the hole moves to catch her and then tidies itself away, and the game ends exactly where the rules say.",
+    "why": "The biggest gasp followed by a laugh on the list: the room cheers the jump and howls when the floor moves. A black square sliding across lit glass is about the most readable thing a TV can show, however small the robot is. It breaks the rules for one beat and then restores them, which is exactly what the brief allows. It holds up to repetition: once the room knows the gag, the ramp alone makes people shout before the hole moves."
+  },
+  {
+    "n": 2,
+    "idea": 1,
+    "title": "Coat check",
+    "description": "As Maya crosses onto the pit, her colour stops at the rim but her body keeps going. Her ring, glow pool and eye light stay behind on the glass of (3,1) as a bright red Pebble-shaped stain. Her body, now plain dark glass with no light in it, rolls on over the hole and drops in without a sound. The stain she left shivers once, then runs off along the board's seams in thin red threads, like water into grout, and is gone.",
+    "twist": "Lumen's own rule taken literally: a pit is where light is missing, so light can't go in, and she has to leave her colour at the door.",
+    "why": "The quiet, clever one. The delight is an 'ooh' as the look explains itself, and there is no gag to wear out, so it is the pick most likely to survive being seen in every game and could become the everyday version. Nothing on the banned list or among the other picks resembles it. It reads at any size: the red stain beside the black hole is the brightest thing on the board, and the dark body disappearing is pure silhouette."
+  },
+  {
+    "n": 3,
+    "idea": 4,
+    "title": "Rear-ended by her own trail",
+    "description": "Maya sees the hole and stops dead on (3,1), right on the rim, rocking forward once: she is safe, and there is a beat of relief. But her trail of light, which always lags behind her, is still coming. It concertinas forward along her path into a bright, bunched knot of red light, like cars piling up, and rear-ends her. She lurches one space onto the pit and drops. The knot sits on the rim for a moment, then fades the way a trail always does.",
+    "twist": "In Lumen the trail always arrives a moment late, and here that delay is what pushes her in. The decoration behind her turns out to be solid, and it's her own.",
+    "why": "Slapstick timing: the room relaxes when she stops and laughs when her own light shoves her in. It is built entirely from Lumen's signature element, the trail, which is bright red and the most readable thing on screen. It differs from Evel Knievel: there the board cheats, here the betrayal is her own doing. It is quick and the robot is the punchline rather than a set piece, so it stays funny a few times a game."
+  },
+  {
+    "n": 4,
+    "idea": 38,
+    "title": "Onto the lens",
+    "description": "As Maya tips into the hole, the picture cuts for about half a second to a view from underneath the board. The glass is a ceiling of soft light with the pit as a black square in it, and Maya drops out of the square straight at us, eye wide, growing fast. She hits the lens: her red light presses flat across the screen as a Pebble-shaped smudge and fades to dark. Then the picture cuts back to the calm board from the usual camera, with the hole empty, as if nothing happened.",
+    "twist": "She falls onto the camera, so for a beat the TV itself is what she lands on, and the room is where the fall ends.",
+    "why": "The jolt. It is the only pick that breaks the frame and the look on purpose, which gets a shriek and then a laugh, and the robot that is usually tiny fills the whole screen, so readability is not a problem. It is not the banned 'camera follows her down': here the camera is waiting at the bottom. The cut is short enough to repeat a few times a game, and cutting back to the unchanged board brings it home to Lumen."
+  },
+  {
+    "n": 5,
+    "idea": 20,
+    "title": "Look to camera",
+    "description": "Maya drops cleanly into the hole: no spin, no shrink, just gone. Across the board Theo, who had nothing to do with it, slowly turns from facing north to face us, his eye light brightening as it swings toward the sofa: a deadpan look into the documentary camera. He holds it for a beat. Then he turns back north, a little faster than he turned away, as if nothing happened. (In the game, the witness would be whichever robot is nearest the pit.)",
+    "twist": "The only witness shares the moment with the people on the sofa rather than with the board. A robot that only ever moves when it's programmed briefly becomes a character, and the room becomes his audience.",
+    "why": "Reaction comedy: the only pick where the joke is not the fall but someone else's response to it, so it delights in a way none of the others do. His eye swinging round to the camera is a light pointed at the viewer, which reads from across the room. It is a running gag that gets better with repetition, and it varies by itself because the nearest witness changes each time. It is cheap to build: a half turn and back, ending exactly on Theo's pose."
+  }
+]

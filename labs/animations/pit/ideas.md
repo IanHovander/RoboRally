@@ -69,3 +69,11 @@ Every idea starts with Maya's Move 3 (about 1 s, unless the idea changes it). Ea
 48. **The pit gets bolder.** The pit gets a little bolder each time someone falls in: the first fall is a quiet drop, by the second its rim brightens as a robot approaches, and by the third the rim leans out a hair to meet its victim and flickers with satisfaction afterwards. It always ends back in its square. *Twist:* a running gag that rewards the players who have been watching all night.
 49. **Name tag.** Her floating name tag, MAYA, stays hovering over the empty hole after she's gone. Then the letters notice and drop in one at a time, and the final A teeters on the rim before following. *Twist:* a detail you only catch on the third viewing: the last letter needs a moment to make up its mind.
 50. **Theo's rainbow.** As she drops, the hole's rim catches the last of her light in one thin flare, and across the board Theo's prism body bends it into a small rainbow that fans across the glass at his base, then folds away. Theo doesn't move. *Twist:* refraction from the one Prism on the board, a quiet detail for repeat viewers that only happens when a Prism is watching.
+
+## The five to animate
+
+1. **Evel Knievel** (19): the biggest gasp-then-laugh on the list. The room cheers the jump and howls when the hole slides under her, a black square moving reads at any size, and it breaks the rules for one beat before putting them back.
+2. **Coat check** (1): the quiet, clever one. The look explains itself, so there is no gag to wear thin, and it is the likeliest everyday version; the red stain beside a black hole reads from anywhere.
+3. **Rear-ended by her own trail** (4): slapstick timing made from Lumen's signature trail. The room relaxes when she stops, then laughs when her own light shoves her in, a betrayal she causes herself rather than the board.
+4. **Onto the lens** (38): the jolt. It breaks the frame on purpose for half a second, the tiny robot fills the screen, and it lands on the room before cutting home to the unchanged board.
+5. **Look to camera** (20): reaction comedy. The joke is the witness, not the fall: his eye light turns to the sofa, it builds into a running gag that changes with whoever is nearest, and it costs almost nothing to build.

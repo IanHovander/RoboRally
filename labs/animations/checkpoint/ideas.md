@@ -69,3 +69,11 @@ Every idea plays Maya's Move 2 from (2,1) to (4,1) and ends inside the 3 s budge
 48. **The standings know.** The column's reaction depends on the race. The first robot to reach a flag gets a full ring-down. A robot claiming it last, after everyone else's rings are stacked, gets a small sympathetic pat: the column's light dips gently towards her with a soft low note. *Twist:* The animation reads the standings, so no two claims look alike and the room learns to read pride and pity in the light.
 49. **The tick.** For a few frames Maya's pointer, the little triangle that shows her facing, bends into a tick mark, then springs back into a triangle. *Twist:* A detail for the people watching closely. Once someone spots it, the whole room watches for it at every flag.
 50. **Make a wish.** As she arrives, the column flickers like a candle flame. Her eye gives a little puff, the column goes out, and a thin curl of smoke made of light rises. After a beat of darkness the column relights warm white with her ring at its foot. *Twist:* Birthday-candle logic, plus a split second where the flag seems gone for everyone, before it comes back because the others still need it.
+
+## The five to animate
+
+1. **Euler's disk** (12): the "again!" one, a hoop of light whose speeding wobble and rising whirr is a drumroll with an exact ending, and it settles as the ring the game keeps.
+2. **Token flip** (28): the gasp, the floor itself turns over like a board-game token with Maya on it, a big clean silhouette that stays on one square.
+3. **Heads turn** (21): the laugh of recognition, every robot caught staring and snapping back too fast, funnier with every extra player and no change to anyone's facing.
+4. **The detour** (45): slapstick rule-breaking, she bolts for flag 2 on an illegal diagonal and her own trail yanks her back, which also shows where she goes next.
+5. **Make a wish** (50): the one made of darkness, she blows the flag out like a birthday candle and it relights with her ring, the opposite of every brighter celebration.

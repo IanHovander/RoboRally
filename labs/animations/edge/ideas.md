@@ -71,3 +71,11 @@ nothing of Maya's left on the glass.
 48. **Question mark.** After she falls, her fading trail of light curls at the rim into a small question mark, its dot the last place her ring touched the glass, then fades as trails do. *Twist:* a tiny detail for the second viewing: the trail is as puzzled as the player.
 49. **Tally marks.** Every fall in the game scratches a small notch of light into the slab's side face exactly where the robot went over, in its colour, never on the playing surface; over a game the rim collects a scruffy record of every mistake. *Twist:* the board remembers; regulars start spotting the danger zones before anyone falls.
 50. **Diminishing interest.** The first fall of the game gets the full show; each one after gets lazier: the camera stops turning to look, then Ava doesn't bother to turn, then the lights don't dip, and by the fifth a thin-type "again?" glows for a moment over the gap. *Twist:* the game develops opinions, and its mounting boredom is funnier than any explosion.
+
+## The five to animate
+
+1. **Bungee (4).** The trail is already the boldest red line on screen; it stretches, almost saves her, snaps and whips back, so a slapstick gasp-then-laugh is drawn in Lumen's own light and reads from the back of the room.
+2. **Off the TV (43).** The biggest "wait, what?!": she drives out of the right side of the picture and falls back in, huge, in front of the board. It breaks the look for one second, and its consistent screen logic makes it a running gag rather than one that wears out.
+3. **Undo, denied (38).** The whole picture rewinds, offering a mercy the rules don't allow, then replays frame for frame, a little faster. The joke is the game's own playback (no take-backs), and the second fall gets the big laugh.
+4. **Skipping stone (9).** The beautiful one: the Pebble skims the dark three times, as if it were a lake, spreading rings of light much bigger than she is. The room says "ooh", and because it is graceful rather than a gag it holds up over repeat falls.
+5. **Raft (3).** The whole slab dips under her weight and bobs back once she's gone, with Ava rocking seasick. Whole-board motion is the most readable thing there is, and this calm bit of physics only gets better as it becomes how the world works.

@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 7,
+    "title": "Hula Hoop",
+    "description": "Maya takes her free space and shoves Theo one space east, but his blue ring of light doesn't go with him: it stays lying on space 3. Maya drives straight into it, so for a beat she wears two rings, her own red one and Theo's blue one. She gives a little shimmy, the blue ring stands up on its edge, rolls east after Theo like a hoop, and drops around him, wobbling faster and faster like a spun coin until it lies flat and glowing under him. Maya ends on 3,2 facing east, Theo on 4,2 still facing south, Jun untouched (about 2.2 s).",
+    "twist": "The ring of light, normally a bit of UI, is the slowest one at the scene to work out what happened, and its settle (the accelerating wobble of a spun coin) is a motion people can't stop watching.",
+    "why": "A prop with a personality gets a laugh, and the ring is the biggest, brightest shape a robot has, so it reads on a TV where the robot itself is small. It is made of Lumen's own ring of light, and it's short and light enough to enjoy every time this happens."
+  },
+  {
+    "n": 2,
+    "idea": 44,
+    "title": "The Dark Gasps",
+    "description": "At the instant Maya's nose meets Theo, the black room around the slab turns out to be full: a few hundred tiny warm points of light, in loose tiers below and around the slab like phones held up in a dark arena, appear at once and jolt upward together, a whole crowd catching its breath. They sink and fade back to black as Theo slides to rest. Nothing on the board changes, and the board's own light is never touched.",
+    "twist": "The dark room was never empty: it mirrors the real room, where everyone on the sofa is holding a phone. The crowd's size follows the drama, so a single shove gets a murmur of a few dozen lights, and a chain of pushes or a shove toward a pit gets the full arena.",
+    "why": "A gasp and then a laugh, from a reveal about the world itself rather than the robots. It reads as one whole-screen motion (hundreds of lights moving as one), not as detail on a small robot. It is pure Lumen, warm light in darkness, and like a crowd's 'ooh' at every big hit it holds up because it scales with how cruel the push was."
+  },
+  {
+    "n": 3,
+    "idea": 16,
+    "title": "Refraction Kiss",
+    "description": "When Maya's nose touches Theo, the warm white light of her eye shines into his glass Prism and comes out of the far side split into a small rainbow fan lying on the glass, ending exactly on space 4. Theo slides along his own spectrum into it, and as he stops the colours fold back into his ridge in one bright glint, leaving only warm white and the two players' colours again.",
+    "twist": "A prism does the one thing prisms do, and the rainbow quietly shows where he'll land before he gets there. Each form bends the pusher's light its own way when it is the one pushed: an Orb focuses it to a hot point on its destination, a Cube mirrors it, a Capsule draws a line of caustic.",
+    "why": "This is the gasp of pure beauty: Lumen's single warm light breaks into colour for one beat, so it reads from across the room as a burst of colour on dark glass. It is made of refraction and light and comes home to the look at once. Beauty holds up to repetition, and the six forms give six versions."
+  },
+  {
+    "n": 4,
+    "idea": 46,
+    "title": "No Dodging",
+    "description": "As Maya rolls through her free space, Theo hops up and sideways toward the room, trying to step out of her lane. The row lights up under the glass as a thin rail of warm light from Maya to space 4, and a short line of light catches him like a leash and snaps him back down into line. Maya's shove carries him the one space east anyway, still facing south, and the rail fades as they settle.",
+    "twist": "The victim tries to cheat and the rules physically refuse: 'you can't dodge a push' in one look, with the lane drawn in light.",
+    "why": "The futile escape gets a laugh, and it becomes a running gag that's funnier once the room knows it's coming. The hop and the snap are big moves that read on a small robot, and the rail teaches the rule. The dodge can vary (hop north, hop south, duck) while always ending on the legal space."
+  },
+  {
+    "n": 5,
+    "idea": 36,
+    "title": "Theo-Cam",
+    "description": "On a rare push (about one in ten, or the first push of a game), the camera dips from its high view down to glass level just beside Theo, looking back west along the row: Maya's eye fills the frame like oncoming headlights, her trail streaming behind her and the smoked glass gleaming under her. At contact the camera itself is shoved one space east along with Theo, a lurch of the whole picture, and then it floats back up to the game's usual framing as everyone settles (dive about 0.5 s, shove 0.4 s, home about 1 s).",
+    "twist": "The viewer is the one who gets pushed: a camera move that is also a physical gag. Its rarity is the point, because the room never knows which push will dive.",
+    "why": "This is the one that gets an 'again!': it's physical, it can't be predicted, and the robots fill the frame on any TV. It shows glass and light up close, and it stays rare so it never wears out, which leaves the other four to carry the everyday pushes."
+  }
+]

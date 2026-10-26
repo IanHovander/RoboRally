@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 1,
+    "title": "Long exposure",
+    "description": "Maya plays Move 2 as usual, her trail drawing behind her. The instant she touches flag 2 the column flashes red and every trail drawn this game relights on the glass at once, each in its player's colour, racing in from its start in about half a second: her clean red line from the start through flag 1 to here, Theo's loops and dead ends, Jun's wanderings, a line that stops dead at a pit and picks up again at the reboot token. The whole race hangs there as one long-exposure photograph for a breath, then fades back to smoked glass oldest part first, Maya's last two spaces going out last. In the lab the board has no past, so the prototype draws a plausible invented history; the port keeps a log of every robot's moves. Robots never move after the win: everyone ends where they stand, Maya on (4,1) facing east.",
+    "twist": "Lumen's trail, which forgets everything in a second, turns out to have remembered the whole game. The room gets to point and laugh at Theo's loop-the-loops, and no two games draw the same picture.",
+    "why": "The strongest laugh-and-point moment on the list, made only of Lumen's own trails. It covers the whole board, so it reads from across the room, and it cannot wear out because every game paints a different photograph."
+  },
+  {
+    "n": 2,
+    "idea": 21,
+    "title": "Skipping stone",
+    "description": "Maya lands on flag 2 and the column flashes, but she doesn't stop: she keeps sliding east, straight over the edge of the board, the move that kills every other robot. Instead of falling she skips across the darkness like a pebble on still water: three or four low, fast hops, each touch blooming a small ripple of light on the black where she touched (small water rings at her touch points, not a shockwave round the winner). The skips curve in a loop round the end of the slab, she slides back up onto the glass and onto flag 2, and she spins down like a stone coming to rest until she settles facing east with a soft plink. About 2.5 s of skipping after the move. Her trail draws the whole loop and fades.",
+    "twist": "The winner breaks the deadliest rule in Robo Rally and gets away with it, and it's a pun on her form: the dark room was still water all along. Each form gets its own lap (an Orb rolls a lap of the rim, a Spire spins round it like a top, a Capsule bobs like a float), so the finale changes with who wins.",
+    "why": "A real gasp ('she's off the edge!') that flips into a cheer and an 'again!'. Big, fast motion and blooms of light read from anywhere, and the variant for each form keeps it fresh game after game."
+  },
+  {
+    "n": 3,
+    "idea": 45,
+    "title": "House lights",
+    "description": "Maya touches flag 2 and, with a heavy clunk, the house lights come on. The dark room turns into a flat, too-bright grey studio. The smoked glass becomes a plain, cheap-looking tabletop, the streams and columns of light under it wash out to nothing, the bloom goes, and Theo's and Jun's eye-lights shrink to squinting slits. Only Maya still glows. About a second later, click: the dark comes back, the glow floods back into the glass, and flag 2's column stands in her colour as the game carries on. Nobody moves, and everything the prototype changed (lights, background, glass, bloom, eyes) is restored.",
+    "twist": "Everyone in the room knows the lights coming on at the end of a party. It breaks the Lumen look completely, on purpose, which makes coming back to it feel luxurious, and the winner is the one thing still shining when the magic is switched off.",
+    "why": "The biggest, most unexpected laugh on the list and its most daring break from the look, readable because the whole picture changes. It's short, so it stays a running joke instead of a chore at the end of each game."
+  },
+  {
+    "n": 4,
+    "idea": 43,
+    "title": "Eyes in the dark",
+    "description": "As the column flashes, the camera eases back a little and dozens of tiny eye-lights open one after another in the darkness around and below the floating slab. Each is a single light like a Lumen robot's eye, throwing a faint ring onto the floor far below: an audience of robots who have been standing in the dark the whole time. Their blinks travel round the room in ripples like applause, a wave of light that swells as it passes behind Maya. Then the eyes close in a scatter, the room is empty and dark again and the camera is home. Nobody on the board moves.",
+    "twist": "The dark room was never empty, and the applause is made of blinking. Lumen's darkness, the one thing that never does anything, turns out to be a crowd that cared about this race.",
+    "why": "A gasp of wonder and then an 'aww', which no other pick gives. Dozens of lights blinking in waves read as a crowd at any size, and after the first reveal the room waits for it every game."
+  },
+  {
+    "n": 5,
+    "idea": 30,
+    "title": "Domino run",
+    "description": "After Maya lands, thin panes of glass, lit along their top edges like Lumen's wall fins, rise out of the grid lines in a curving line that leads from her square across the board. A beat of stillness, then the first one tips and the run topples pane into pane, each fall a chime a step higher, snaking round toward Theo. The last pane gently taps him: he rocks on his square and settles, still facing west. Then the fallen panes sink back into the glass as lines of light that fade. Around 2 s after the move. Everyone ends where the rules have them.",
+    "twist": "The most satisfying thing in tabletop culture, built from the board's own walls and tuned to a rising scale, with a tiny tap on the rival as the punchline. The run snakes toward whichever rival is nearest, so its path changes every game.",
+    "why": "Pure satisfaction: the room watches it go and shouts 'again!'. Bright fins falling in a chain read clearly at any size, and the tap on the runner-up ends it on a laugh."
+  }
+]

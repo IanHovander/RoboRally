@@ -70,3 +70,11 @@ Every idea ends with her resting there, Theo untouched at (5,2) facing west, the
 48. **The token keeps count.** Every reboot this game has scratched a tiny notch of light into the token's ring, like tally marks on a cell wall. As Maya arrives the old notches light up one by one and a new one is scratched in with a squeak of glass, and she flinches at the scratch twice (the damage). *Twist:* the board remembers, and by the end of the night the most-used token is visibly scratched up and players point at it.
 49. **Worse every time.** The reboot gets worse each time the same player falls: the first is graceful, the second ends in a sagging sigh, the third has her lowered on a string of light, the fourth fetched by a claw with a "here we go again" wobble, and the 2-damage beat gets more theatrical each time. *Twist:* it's a running gag for the whole night, and the room laughs before it lands because they know what's coming.
 50. **Sewn back on.** A needle of red light pokes up through the glass near the board's edge and stitches toward the token, dipping in and out of the surface and leaving a dashed thread. At the token the thread pulls tight and gathers into Maya, with two stitch holes glowing on her ring for a moment (the damage). *Twist:* she's sewn back onto the board, and Lumen's trail of light turns out to be thread.
+
+## The five to animate
+
+1. **3. The light drains to her** (the gasp): the whole board goes dim and pours its light into the token. It is the most readable picture from the back of the room, and calm enough to see a few times a game.
+2. **16. Skipping stone** (the shout): the room counts the skips out loud, a ritual that improves with repetition, and the last two grey ripples are the damage.
+3. **17. Shakes it off** (the laugh): a black silhouette shaking like a wet dog reads in pure silhouette and motion, and says "she fell" and "she's fine" in one gesture.
+4. **26. Theo goes fishing** (the rivalry): the nearest robot reels her in on a slack, curving laser, so two players react, and the rescuer is different every time.
+5. **44. Fogged screen** (the surprise): the TV's own glass fogs over and a fingertip doodles her. The fourth wall breaks for two seconds, and the picture comes home to Lumen.

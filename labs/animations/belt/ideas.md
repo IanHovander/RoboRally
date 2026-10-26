@@ -117,3 +117,11 @@ Maya (red Pebble) starts on the express belt at (1,1) facing north. The express 
 49. **Express Delivery.** A ribbon of blue light lifts out of the belt as she sets off, wraps her like a parcel and ties itself in a bow. At the corner the bow tugs her round to east, and the ribbon unwraps and slides back into the stream. *Twist:* "express" is taken literally, and the belt itself is the wrapping.
 
 50. **Belt Memory.** Every robot that rides a belt leaves a faint thread of its colour woven into the stream, so late in a game the busy belts are braided ribbons of everyone's colours; this ride adds Maya's red. *Twist:* the board quietly keeps the story of the game; nobody is told, and someone notices it in round four.
+
+## The five to animate
+
+1. **2. Wait, There's More** (the laugh): she relaxes after the express step and gets yanked mid-sigh, so the room learns "blue means two" as a running gag. It's all posture and eye light, and it fits the two real beats, so it can play every ride.
+2. **30. Shape Sorter** (the satisfying one): a slot in her shape, made of darkness, waits on the corner, already pointing east, and she drops snugly into it. It forecasts the result, reads as one big shape, and doesn't wear out, so it's the everyday default.
+3. **25. Mirror Swap** (the magic trick): a glass pane on the corner's diagonal turns her the way a mirror turns light, and her reflection steps out. It's a quick "wait, how?" made only of glass and reflection, and it works on any corner.
+4. **47. Overshoot and Rewind** (the fake-out): the belt carries her too far, then the board rewinds her trail like tape and plays the turn properly. It's a deliberate rule-break that ends on the exact rule, uses big motion that reads at any size, and stays rare.
+5. **22. The Koi** (the wonder): a creature of light lives in the belts and, once in a while, carries her round the bend with a flick of its tail. It's big under the glass, and its rarity gives the room a reason to watch every belt ride.

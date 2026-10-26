@@ -67,3 +67,11 @@
 48. **Fake-out.** The amber charge leaves the battery under the glass and slides the wrong way, toward Ezra, who perks up; halfway there it stops, turns back as if remembering whose space this is, and dives into Maya while Ezra deflates. *Twist:* half a second of suspense over a rule everyone knows, and the right robot always gets it.
 49. **The glint.** For a few frames the highlight on Maya's polished shell takes the shape of a small bolt, the battery's bolt reflected in her finish like the glint on a cartoon smile, while her HUD number ticks up, and that is the whole animation. *Twist:* it's the quietest version, made only of reflection: people notice it the fifth time and then look for it every time.
 50. **The ladder.** The animation grows with how much energy she has: at 1-3 a quick sip, at 4-6 a gulp and a happy bounce, at 7-9 the glass around her hums and her ring brightens, and at the tenth cube the camera dips to look up through the slab as light pours into her from below and the overflow runs across the glass and spills off the edge. *Twist:* the room can read how rich anyone is from how the battery treats them, and "full" gets a spectacular beat because it really is rare.
+
+## The five to animate
+
+1. **24. Vending machine.** The laugh of recognition: a beat of nothing that is true to the rules, then a thump everyone has given a machine, a big up-and-down motion that reads on a tiny robot and becomes a ritual the room joins in on.
+2. **46. Brownout.** The gasp, then the laugh: the whole picture flickers as if Maya pulled too much power, so the most readable thing on screen moves no robot and lasts half a second, and it can recur all game as a running joke.
+3. **32. The banker's hand.** A real surprise from our side of the screen: an amber glass cube arrives as if handed in from the sofa, large enough to read, with an occasional fumble that keeps it fresh.
+4. **30. The bolt hops.** The "aww": the battery's own zigzag squeezes out from under her and hops aboard, a small bright creature that reads by its motion and stays charming on repeat.
+5. **1. The well.** The calm note: the battery goes dark like a pit, and one drop of light falls out of the black to refill it, a moment of wonder made of light and its absence.

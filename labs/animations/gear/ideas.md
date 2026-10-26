@@ -120,3 +120,11 @@ Theo untouched and the camera home.
 49. **The inscription.** The first time any gear acts in a game, a line of thin type writes itself round the gear's rim as she turns, like the lettering on a coin: "green gears turn right". Then it fades and never appears again (1.6 s). *Twist:* the board teaches the rule once, at the moment it matters, and then trusts you.
 
 50. **Stop-motion.** For the turn, the world drops to eight frames a second: Maya rotates in crisp steps, her ring and glow jittering a hair between frames like a clay figure an animator is handling. Then everything snaps back to silky smoothness (1.0 s). *Twist:* a deliberate break in the look, a handmade moment in a world of light, and it comes straight home.
+
+## The five to animate
+
+1. **Laser-pointer cat** (30): the surest laugh. Everyone has watched a cat chase a dot, it reads in silhouette, and the seeded feints keep the running gag fresh.
+2. **A hand in the dark** (37): the gasp. A giant from outside the game reaches in, drawn in Lumen's own darkness, and a hand-sized shadow is readable from any sofa.
+3. **Lighthouse** (9): the anticipation. The beam shows what she now faces, so the room groans or cheers early, and it is useful every single time.
+4. **Coin on a table** (26): the satisfying one. A familiar object spins down faster and faster to a dead stop, a rhythm people want to see again, with no character and nothing added.
+5. **Singing glass** (8): the beauty. The one material sings and draws a compass with the needle on east, a calm "ooh" that spreads wide enough to read on a TV.

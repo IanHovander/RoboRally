@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 24,
+    "title": "Vending machine",
+    "description": "Maya drives her Move 2 onto the battery at (3,1) and stops. Nothing happens: the battery's three amber arcs stay at their usual low glow, and for about a third of a second there is silence. She tips her nose down to look at it, rises a hair off the glass and thumps down, squashing flat for a frame. The arcs stutter on and off like a stuck machine, then the battery coughs: a gulp of amber light jumps up into her with a clunk, her eye warms to amber and cools back to its own colour, and she settles facing east. Now and then it pays out the instant she starts to rise, so she's caught hanging in mid-lift and drops back down sheepishly. About 1.3 s after the move, ending at rest on (3,1).",
+    "twist": "It's accurate to the rules. Energy is paid at the end of the register, not on arrival, so there really is a beat where she sits on the battery with nothing. And everyone in the room has thumped a vending machine.",
+    "why": "The laugh of recognition. The lift and thump is a big up-and-down motion that reads on a tiny robot, and the beat of nothing is the joke while costing only a third of a second. A ritual like this gets funnier once the room knows it's coming (people will start saying \"thump it\"), and the occasional early payout keeps them watching. About 2.2 s in all."
+  },
+  {
+    "n": 2,
+    "idea": 46,
+    "title": "Brownout",
+    "description": "The instant the charge lands, every light in the picture except Maya sags. The glass, the grid, the room's spill on the floor, Ezra's ring and eye, even the HUD (in the lab, the overlay) dim to about half and flicker once (down, half back, down, back), like house lights when the kettle goes on. It lasts about half a second. Through it Maya alone stays at her normal strength as the amber goes into her eye. Then everything comes back up with a slight overshoot and settles. Ezra's eye stutters a frame late, as if he's on the same circuit. When several robots charge on the same register the dip goes deeper.",
+    "twist": "It's the opposite of a flash. Maya doesn't light up; the world dims around her, as if she drew so much power that the TV itself sagged.",
+    "why": "The gasp, then the laugh: for a split second the room thinks the TV glitched. The whole screen is the most readable picture on the list, yet it moves no robot and takes half a second, so it can come back all game as a running joke (\"Maya's draining the grid again\"). It's made of nothing but light and darkness and it comes straight home. About 1.7 s in all."
+  },
+  {
+    "n": 3,
+    "idea": 32,
+    "title": "The banker's hand",
+    "description": "After Maya settles, an amber glass cube about a third of a space across comes in from below the bottom of the picture. It starts big and soft, as if it had just left a hand on the sofa, and arcs down onto the glass just in front of her on the camera side with a glass clack and a small reflection. It slides into her ring, she rocks back a hair as it melts into her, and her eye warms to amber. One time in four the unseen hand fumbles: the cube clips her nose, tumbles, drops into the battery's glow under her and shoots up into her from below instead. About 1.1 s, or 1.4 s with the fumble, ending with nothing left on the glass.",
+    "twist": "In the cardboard game, energy is a cube someone hands you across the table. Here it seems to come from one of the people watching, and the occasional fumble is the human touch.",
+    "why": "A real surprise, because it comes from a direction no animation in the game has come from: out of our side of the screen, toward the board. The cube is large as it enters, so it reads from across the room, and the fumble every few charges keeps it from becoming wallpaper. It uses only glass and amber light, nothing new to the look."
+  },
+  {
+    "n": 4,
+    "idea": 30,
+    "title": "The bolt hops",
+    "description": "As Maya settles on the battery, its bolt (the amber zigzag drawn under the glass) squeezes out from under her on the camera side, as if she'd been sitting on it. It stands up on the glass at about half her height, gives itself a shake, crouches and hops in a little arc onto her back. There it dives in, and her eye warms to amber. Behind it a fresh bolt fades back into the glass at the edge of her ring and the three arcs brighten, ready for the next robot. About 1.1 s after the move.",
+    "twist": "The board's own icon is alive, and it is the delivery. Squeezing out from under her gives it cartoon logic, and the fresh bolt fading back in tells the room the battery is still there.",
+    "why": "The \"aww\": a tiny, bright, unmistakable zigzag with a character's timing (shake, crouch, hop) reads by its motion even when it's small, and charm holds up to repetition better than a punchline. It is drawn in the battery's own light and comes home to the look the moment it dives in."
+  },
+  {
+    "n": 5,
+    "idea": 1,
+    "title": "The well",
+    "description": "As Maya settles, the battery's amber drains up into her: her eye and ring warm to amber while the space under her goes dark, a black disc in the glass's faint light, drawn the way Lumen draws pits. There is a beat of \"did she break it?\". Then a single drop of warm light falls out of the black above the board as a short, bright streak and lands at the edge of the dark disc with a soft plink. A small ripple, no wider than the space, runs round her ring, and the battery's glow and arcs fill back in from where the drop landed. Her eye cools back to her own red. About 1.3 s after the move.",
+    "twist": "It speaks the board's own language (no light means empty) and answers a question nobody asked: why batteries never run out. Someone up there keeps refilling them.",
+    "why": "The calm one, for a moment that comes round several times a game: wonder with a tiny bit of suspense. A falling point of light against black reads at any size, and a drip and a plink are a picture and a sound people never tire of. It is made of light and its absence, which is exactly Lumen."
+  }
+]

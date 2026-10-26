@@ -120,3 +120,11 @@ moves. Every idea below ends with Maya at 1,1 facing south, Theo at 5,1 facing w
 49. **Mirror, mirror.** In the glass's reflection under Maya, her mirrored self dodges the mirrored beam. A beat later the reflection notices, glitches, and snaps back into agreement with what really happened. *Twist:* a tiny detail for repeat viewers, in which the reflection lives a luckier life for half a second.
 
 50. **Reaction deck.** Each robot holds a shuffled deck of a dozen small reactions (the side-eye, the hiccup, the loose eye, the bow, the fluorescent stutter...), and every hit draws the next one, so the same reaction never plays twice in a row. *Twist:* the game's own deck mechanic runs the animations, which keeps its most frequent moment fresh all night.
+
+## The five to animate
+
+1. **Pile-up** (16): the beam is the biggest, brightest thing in the shot, and light crumpling against her like a hose and then slurped in is a slapstick punchline that grows with range.
+2. **The only light in the room** (4): the whole room goes dark and real shadows fly out from the beam, a gasp in Lumen's purest terms that looks different wherever the robots happen to stand.
+3. **The laser pointer** (24): a cat gag everyone in the room recognises, told in big moves (dot, crouch, pounce, freeze); an occasional treat that leaves Jun exactly where he was.
+4. **Edge-on** (1): the hair-thin line turning to show itself as the SPAM slide is a clean reveal that explains the rule, quick enough to play every register.
+5. **Wiped clean** (38): the TV's own glass gets hit and is gently wiped, a full-screen surprise that nobody misses, kept rare so it stays a surprise.

@@ -67,3 +67,11 @@
 48. **Trophy notches.** After the shove, a tiny pip in Maya's red is etched into the top edge of the panel's housing, so over a game each panel collects the colours of everyone it has pushed. *Twist:* a detail that pays off only across a whole game, as one panel slowly reveals itself as the bully of the board.
 49. **Through the lens.** For a beat, the glass between the panel and Maya bulges into a magnifying lens, so the little plate looms hugely enlarged and terrifying as it comes; the lens relaxes and the actual shove is tiny. *Twist:* refraction used for comic scale: a monster that turns out to be a doorstop.
 50. **Fingerprint.** The plate leaves a misty print of itself on Maya's polished back; once she stops, she gives a quick shimmy and a highlight sweeps across her body, wiping it clean. *Twist:* a fastidious robot, and a detail most people won't notice the first time.
+
+## The five to animate
+
+1. **22. Pressed against the TV.** The biggest laugh in the set: the TV's glass becomes the last pane in Lumen, and because few panels push toward the camera, the big camera move stays rare.
+2. **37. Overshoot, undo.** A gasp at real stakes (she is about to go off the edge) turns into a laugh when the board rewinds her up her own trail of light.
+3. **23. Cuckoo.** A clockwork character the room counts along with; the cuckoos match the register number, so repeats become a running gag and teach the panel's 1-3-5 timetable.
+4. **17. The drawer.** A sleight of hand made of glass: she is served on a drawer that slides out of the wall, and then the tablecloth trick leaves her behind, which people will want to see again.
+5. **1. The door left ajar.** The calm note: a wedge of warm light from a brighter room behind the wall carries her like a leaf, a moment of wonder that reads at any size.

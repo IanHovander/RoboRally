@@ -1,0 +1,42 @@
+[
+  {
+    "n": 1,
+    "idea": 2,
+    "title": "Wait, There's More",
+    "description": "On the express step the belt slides Maya one space east, to (2,1), and stops. She thinks the ride is over and settles in: she sinks into a comfortable squash and her eye drops to a soft, content glow. Mid-sigh, the all-belts step yanks her again. Her base goes first and her body lags behind, leaning back, and her eye snaps wide. She's carried onto the corner at (3,1), turned to face east, and stays a little stiff and upright with her eye still wide as the game carries on. About 2 s.",
+    "twist": "The gag is the real rule: blue belts move once, then all belts move again. By watching her get caught out, the room learns that \"blue means two\".",
+    "why": "It gets a laugh of recognition and it teaches the rule. The comedy is in timing and posture: the settle, the lurch and the eye going from dim to wide are all silhouette and light, so they read even when the robot is small. It follows the engine's two beats exactly and adds no extra time, so it can play on every express ride as a running gag in which she never learns."
+  },
+  {
+    "n": 2,
+    "idea": 30,
+    "title": "Shape Sorter",
+    "description": "As the belts start, a slot opens in the corner tile. It is Maya's own Pebble silhouette with its pointer notch already facing east, darker inside than the glass, with a thin line of her red round the edge. The rim and her shape tell it apart from a pit, which is square and has no rim. She's carried two spaces, turns the last few degrees to line up with the notch, and drops a hair into it with a snug little settle. Then her light fills the slot from the rim inward, like water finding its level, and the slot is gone. It's a fill, not a burst.",
+    "twist": "It's a baby's shape-sorter made of Lumen's darkness. The room sees where she's going and which way she'll face before she gets there, then enjoys the fit.",
+    "why": "This one delights through anticipation and the oddly satisfying click of a perfect fit, not through a joke, so it doesn't wear out. That makes it the best everyday default for the most frequent moment in the game. The destination and heading show up as a big shape of dark and light that reads from across the room, and each form gets its own slot (square for the Cube, a needle for the Spire)."
+  },
+  {
+    "n": 3,
+    "idea": 25,
+    "title": "Mirror Swap",
+    "description": "A pane of smoked glass with a bright edge rises out of the corner tile along its south-west to north-east diagonal, which is the angle at which a mirror really turns north into east. Maya is carried along the belt still facing north and slides into the pane. The moment she touches it, her reflection, already facing east, is the one that steps out onto the centre of the corner. The pane sinks back into the board and only the east-facing Maya is left.",
+    "twist": "A mirror is the classic way to turn light through 90 degrees, and here it turns her the same way. It plays as a magic trick: for a second, did the real Maya just go into the glass?",
+    "why": "It gets a gasp and a \"wait, how?\". It's the only magic trick in the five, and it's built entirely from Lumen's one material and reflection. The pane's bright edge and the swap read as silhouette, the trick is quick, and it works on any corner (for a left turn the pane stands on the other diagonal), so it can come round often as a variant."
+  },
+  {
+    "n": 4,
+    "idea": 47,
+    "title": "Overshoot and Rewind",
+    "description": "The belt is overeager. It carries Maya through the corner and on down the south leg, turning her to face south, until she's halfway to (3,2). Everything holds for a beat: the chevrons stall, as if the board has noticed its mistake. Then it rewinds. The chevrons run backwards, her red trail winds back up the belt like tape onto a spool, and she's pulled backwards up onto the corner. The corner's turn to east then plays properly, with a soft settle on (3,1). It fits in the 2.5 s budget.",
+    "twist": "For a moment the game seems to break its own rule, then it catches itself. The rewind is drawn in Lumen's own trail. It ends on the exact rule, and on the way it shows where the belt will take her next register.",
+    "why": "This is the fake-out. The room shouts \"hey, that's wrong!\", then laughs when the tape winds back. It's the brief, deliberate rule-break the brief invites, and it ends on the correct state. The motion is big and runs along the belt, so it reads at any size. Kept rare (once or twice a game), the surprise survives."
+  },
+  {
+    "n": 5,
+    "idea": 22,
+    "title": "The Koi",
+    "description": "Once in a while, a long, soft shape made of the belt's own light, about two spaces long, glides up the stream inside the slab. It's seen blurred through the smoked glass, and the chevrons part over its back. It rises under Maya and carries her on its back with a gentle bob. At the bend it flicks its tail, which swings her round to face east on the corner. Then it slips away down the south leg and fades into the stream. On every other ride the belt runs as it does today.",
+    "twist": "Something lives in the board's light. It doesn't show up every ride, so after its first appearance the room starts watching the belts for it.",
+    "why": "This one gets wonder rather than a laugh: it's the \"did you see that?!\" pick, and the rarest of the five. A creature two spaces long, lit under the glass, reads from across the room and makes the slab look deep. Because it's rare, the most frequent moment in the game becomes worth watching: every belt ride might be the one."
+  }
+]
