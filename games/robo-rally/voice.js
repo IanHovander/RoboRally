@@ -1,5 +1,7 @@
-// Floor Control: the big screen's narrator (the abandoned store's after-hours computer). It speaks with the
-// browser's own speech synthesis (works offline with local voices). When it can't be heard (no speech,
+// Floor Control: the big screen's narrator (the abandoned store's after-hours computer). Its lines are
+// recorded clips (voice/, made with scripts/render-voice.mjs); a line without a clip (a player's name) is a chirp
+// and its subtitle, so two voices never mix. If the clips can't load, the browser's own speech synthesis
+// says everything instead. When it can't be heard (no speech,
 // no voice, the big screen's sound locked or muted, an utterance failing, or captions switched on with C),
 // its words show as subtitles instead: onCaption() tells the screen what to show, and lines that can't be
 // heard last 400 ms plus 330 ms a word, so whatever waits on them waits for the reading.
@@ -10,6 +12,34 @@ import { state as soundState, setDuck } from './sound.js';
 
 const synth = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ----- the recorded lines: clips.json maps each line's words to its file -----
+const CLIPS = new URL('./voice/', import.meta.url);
+let clips = null; // { text: file }, once loaded
+const decoded = new Map(); // file -> Promise<AudioBuffer | null>
+fetch(new URL('clips.json', CLIPS))
+  .then((r) => (r.ok ? r.json() : null))
+  .then((m) => {
+    clips = m;
+    preload();
+  })
+  .catch(() => {});
+/** Fetch and decode every clip (under 2 MB), once there's an audio context to decode with. */
+function preload() {
+  if (clips && audio) for (const file of new Set(Object.values(clips))) bufferOf(file);
+}
+function bufferOf(file) {
+  if (!decoded.has(file)) {
+    decoded.set(
+      file,
+      fetch(new URL(file, CLIPS))
+        .then((r) => r.arrayBuffer())
+        .then((b) => audio.decodeAudioData(b))
+        .catch(() => null),
+    );
+  }
+  return decoded.get(file);
+}
 
 // Intelligible first: the robot feel comes from pitch, rate and the chirp, not from a novelty voice.
 const RANKED = [
@@ -88,6 +118,7 @@ function makeAudio() {
   } catch {
     audio = null;
   }
+  preload();
   return audio;
 }
 addEventListener('pointerdown', unlock, { capture: true });
@@ -125,14 +156,14 @@ export const readMs = (text) => 400 + 330 * words(text);
 export const voice = {
   /** Can the room hear it right now? */
   get audible() {
-    return !!synth && !!chosen && !failed && soundState() === 'on';
+    return soundState() === 'on' && (!!clips || (!!synth && !!chosen && !failed));
   },
   /** Are subtitles showing (the voice can't be heard, or captions are switched on)? */
   get captions() {
     return captionsOn || !this.audible;
   },
   get voiceName() {
-    return chosen?.name ?? null;
+    return clips ? 'Floor Control (recorded)' : chosen?.name ?? null;
   },
   /** Is a line being said (or read) right now? */
   get busy() {
@@ -217,6 +248,42 @@ export const voice = {
       if (!audible) {
         begin(true);
         safety = setTimeout(() => finish(false), readMs(text));
+        return;
+      }
+      if (clips) {
+        const file = clips[text];
+        if (!file) {
+          // no recording (a player's name): a chirp, and the words on screen
+          entry.captions = true;
+          chirp();
+          begin(true);
+          safety = setTimeout(() => finish(false), readMs(text));
+          return;
+        }
+        let source = null;
+        me.stop = () => {
+          try {
+            source?.stop();
+          } catch {}
+          finish(false);
+        };
+        if (blip) chirp();
+        // a clip that isn't ready in time is read instead
+        watchdog = setTimeout(() => !started && !done && readInstead(), 1500);
+        Promise.all([bufferOf(file), sleep(blip ? 90 : 0)]).then(([buf]) => {
+          if (done || started) return;
+          if (!buf || !audio) return readInstead();
+          clearTimeout(watchdog);
+          if (audio.state !== 'running') audio.resume?.().catch(() => {});
+          source = audio.createBufferSource();
+          source.buffer = buf;
+          source.connect(audio.destination);
+          source.onended = () => finish(true);
+          source.start();
+          setDuck(0.5);
+          begin(show);
+          safety = setTimeout(() => finish(true), buf.duration * 1000 + 1500);
+        });
         return;
       }
       const u = new SpeechSynthesisUtterance(text);

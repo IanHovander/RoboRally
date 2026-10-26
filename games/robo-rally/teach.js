@@ -226,10 +226,6 @@ export function createCallouts({ voice, line, send, arena, course }) {
   let regWatch = null; // this register: each robot's next flag and whether its path crossed it
   let bigJunk = null; // whose junk cards fly big (the first damage, while the narrator explains it)
   const robotOf = (v, id) => v.robots.find((r) => r.id === id);
-  const nameOf = (v, id) => {
-    const r = robotOf(v, id);
-    return spoken(r?.name, r?.seat ?? 0);
-  };
 
   function fire(id, text, { hold = 0, visual = null, always = false } = {}) {
     if (!alive || (!always && fired.has(id))) return;
@@ -328,7 +324,7 @@ export function createCallouts({ voice, line, send, arena, course }) {
       }
       if (reveal && reveal.reg === 0) {
         const sd = v.robots.find((r) => r.sd);
-        if (sd) fire('shutdown', `${nameOf(v, sd.id)} powered down. Sitting out a round to dump its damage.`, { hold: 1500 });
+        if (sd) fire('shutdown', 'Powered down. Sitting out a round to dump its damage.', { hold: 1500 });
       }
       if (['belt', 'push', 'gear'].includes(b.what?.k) && fx.some((f) => (f.k === 'move' && f.path.length > 1) || f.k === 'turn')) {
         fire('board', 'The floor moves after every slot.', { hold: 1800 });
@@ -343,16 +339,15 @@ export function createCallouts({ voice, line, send, arena, course }) {
       }
       const dmg = fx.find((f) => f.k === 'dmg' && f.src !== 'reboot');
       if (dmg && !fired.has('damage')) {
-        const n = (dmg.sp ?? 0) + (dmg.hw ?? 0);
         bigJunk = dmg.id; // its cards fly big this time
-        fire('damage', `No health here. Damage is junk cards. ${nameOf(v, dmg.id)}'s phone just got ${n === 1 ? 'one' : NUMBER[n] ?? n}.`, { hold: 3000 });
+        fire('damage', "No health here. Damage is junk cards, sent to that robot's phone.", { hold: 3000 });
       }
       if (!fired.has('shove') && fx.some((f) => f.k === 'shove')) {
         if (readBeat(b, { course: course(), robots: v.robots }).events.some((e) => e.kind === 'contact')) fire('shove', 'Shove. Robots push robots.', { hold: 1500 });
       }
       const fall = fx.find((f) => f.k === 'fall');
       if (fall) {
-        fire('fall', `${nameOf(v, fall.id)} is down. Back next round, on the blue ring.`, {
+        fire('fall', 'Robot down. Back next round, on the blue ring.', {
           hold: 2500,
           visual: () => {
             const at = rebootSpot(course(), fall, robotOf(v, fall.id));
@@ -365,7 +360,7 @@ export function createCallouts({ voice, line, send, arena, course }) {
       if (cp) {
         const total = course()?.checkpoints.length ?? 0;
         if (cp.n < total) {
-          fire('flag', `${nameOf(v, cp.id)}: flag ${NUMBER[cp.n] ?? cp.n}. Next target: flag ${NUMBER[cp.n + 1] ?? cp.n + 1}.`, {
+          fire('flag', `Flag ${NUMBER[cp.n] ?? cp.n}. Next target: flag ${NUMBER[cp.n + 1] ?? cp.n + 1}.`, {
             hold: 1500,
             visual: () => setTimeout(() => arena()?.flashFlag(cp.n + 1, robotOf(v, cp.id)?.color ?? '#f4efe4'), 1600),
           });
@@ -384,11 +379,11 @@ export function createCallouts({ voice, line, send, arena, course }) {
       if (!prev) return;
       if (prev.phase === 'activate' && v.phase !== 'activate' && v.teach) checkNearMiss(v);
       if (v.phase === 'over' && prev.phase !== 'over' && v.winner) {
-        fire('win', `Race complete. Winner: ${nameOf(v, v.winner)}.`, { always: true });
+        fire('win', 'Race complete. We have a winner.', { always: true });
       }
       if (!v.teach) return;
       if (v.phase === 'upgrade' && prev.phase !== 'upgrade') fire('shop', 'Shop open. Energy buys upgrades. Optional.');
-      if (v.prompt && v.prompt.deadline !== prev.prompt?.deadline) fire('decide', `${nameOf(v, v.prompt.id)} is choosing. Stand by.`);
+      if (v.prompt && v.prompt.deadline !== prev.prompt?.deadline) fire('decide', 'A robot is choosing. Stand by.');
     },
 
     /** Every frame: the programming clock. */
