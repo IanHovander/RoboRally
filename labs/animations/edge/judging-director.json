@@ -1,0 +1,69 @@
+{
+  "scores": [
+    {
+      "entry": "1c-bungee",
+      "delight": 8,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 8,
+      "craft": 7,
+      "repeat": 6,
+      "overall": 8,
+      "note": "Her own trail peels off the rim and catches her; the hold at rim level under the iris (2.1-2.6 s) is the best-acted beat of the set, and the snap with a hanging ghost lands the 'a little cruel'. The 0.25 s whip-pan home buries the loose end's whip, and after the snap the strand still ties her ghost to her falling body."
+    },
+    {
+      "entry": "2c-off-the-tv",
+      "delight": 9,
+      "surprise": 9,
+      "clarity": 7,
+      "lumen": 5,
+      "craft": 8,
+      "repeat": 5,
+      "overall": 7,
+      "note": "The biggest 'wait, what?!' of the set: a giant, slowly tumbling Maya drops past the lens after a well-telegraphed glow at the top of the frame, with no pops and no camera moves. Close up she is mostly glossy pink plastic and the light leaks are a film trope, not Lumen, and her fall passes through the bottom of the screen where the game's HUD sits."
+    },
+    {
+      "entry": "3c-undo-denied",
+      "delight": 5,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 6,
+      "craft": 4,
+      "repeat": 4,
+      "overall": 5,
+      "note": "A hard snap-zoom cut at 1.9 s (by far the biggest frame jump of any entry) and a blue room tint, and the pale ghosts read as a glowing slinky rather than her past poses. The replay is too quick for the 'same tape again' laugh to land, and she fades out just under the rim instead of falling."
+    },
+    {
+      "entry": "4c-skipping-stone",
+      "delight": 8,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 9,
+      "craft": 7,
+      "repeat": 8,
+      "overall": 8,
+      "note": "The most beautiful and purest Lumen entry: a mirror-black lake, wide rings of light, hop arcs drawn in the air and a quiet sink. At the end the full set of ripples vanishes in a single frame (3.73 s) while the camera cranes home in a hurried 0.5 s."
+    },
+    {
+      "entry": "5c-raft",
+      "delight": 5,
+      "surprise": 7,
+      "clarity": 4,
+      "lumen": 8,
+      "craft": 5,
+      "repeat": 7,
+      "overall": 5,
+      "note": "The damped bob of the glass slab is calm and lovely, and the strobed outlines are good Lumen line-work, if busy. But the key event is a glitch: Maya pops out of existence in two frames just below the rim (2.30 s), so the room never sees her go."
+    }
+  ],
+  "winner": {
+    "entry": "1c-bungee",
+    "why": "It is made of the one thing a Lumen viewer already watches, her own red trail, which stretches, flares under her weight and snaps, so the moment reads from the back of the room with no new vocabulary. The timing has real acting: drop and stretch (anticipation), a yank back to the rim (hope), a held beat under the iris (tension), and a snap that leaves a ghost hanging (the cruel punchline the scenario asks for). It works the same for every robot form and every edge, within budget at 3.07 s.",
+    "port": "Replace the 0.25 s whip-pan with an ease home of about 0.6 s, or let the camera settle before the loose end whips back, because right now the whip (the last laugh) is lost in the pan. Remove the strand segment that still runs from the hanging ghost to the falling Maya, so she drops free. Make the push-in relative to the exit rim on a 10-13-space board, cap the zoom, and keep the rim and the dangle in the upper 60% of the screen above the HUD; a north-edge exit hides the drop behind the slab and a south-edge exit drops toward the HUD, so the camera wish needs an azimuth or elevation per edge. Build the strand as its own tube seeded from the trail's last points, and hand the rest of the trail back on the snap so the normal trail fade does not draw it twice. The iris becomes a vignette pass and the ghost a translucent clone of the model; keep the snap bloom local. Damage and the cancelled program should wait for the snap, and the rebound height can vary a little."
+  },
+  "runner_up": {
+    "entry": "4c-skipping-stone",
+    "why": "It turns the void into a still lake, which surprises without being a gag. Rings of light many times her size on pure black, plus her reflection, are Lumen at its best and read clearly on a TV. Because it is graceful rather than a joke, it is the entry most likely to still please on the fourth fall of the evening.",
+    "port": "Fade the ripples to zero before handing back (they currently vanish in one frame at the end of the moment), and give the crane home about 0.8 s instead of 0.5 s. The conceit is Pebble-specific and five of the six forms are not Pebbles, so decide what an Orb, Cube or Spire does: the same skip with more or fewer hops, or a heavier single plonk. The dive to water level is a big camera move to repeat several times a game, so keep it modest and keep the lake action in the upper 60% of the screen (the outer rings already reach the HUD zone). The first-touch slowdown must be local to this effect, not the engine's clock. Check that the ripple planes under the glass top never draw over belts, pits or the slab's own light; the reflection is a mirrored clone of the model."
+  }
+}

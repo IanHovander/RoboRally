@@ -1,0 +1,124 @@
+{
+  "scores": [
+    {
+      "entry": "1c-iris-drain",
+      "delight": 8,
+      "surprise": 7,
+      "clarity": 9,
+      "lumen": 10,
+      "craft": 7,
+      "repeat": 6,
+      "overall": 8,
+      "note": "The board goes dark and its own light spirals into the empty token, so every eye on the couch lands on Maya without being told: the gasp of the set, and nobody can miss where she ended up. But the camera dives in and the board vanishes completely for about half a second every time, the streams look like flat white planks up close, and the two grey threads for the 2 SPAM barely register."
+    },
+    {
+      "entry": "2b-skipping-stone",
+      "delight": 6,
+      "surprise": 7,
+      "clarity": 6,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 7,
+      "overall": 6,
+      "note": "From the couch it reads as a fast glide with three splash rings rather than a stone skipping: the hops are low and flattened by the high camera, so there's little to count along with. She also cuts right across Theo, and their name tags overlap for half a second. The red ring followed by two grey ones is a good way to show the damage, though."
+    },
+    {
+      "entry": "2c-strobe-skip",
+      "delight": 6,
+      "surprise": 6,
+      "clarity": 4,
+      "lumen": 7,
+      "craft": 5,
+      "repeat": 4,
+      "overall": 5,
+      "note": "The camera drops to water level and the frozen ghosts pile up in one overlapping white cluster around the token, with Theo's tag sitting on a red ghost beside him, so the room sees a striking photograph but can't count 1-2-3 or tell at a glance which red shape is Maya. A camera dive on every reboot will wear thin fast."
+    },
+    {
+      "entry": "3b-shakes-it-off",
+      "delight": 7,
+      "surprise": 7,
+      "clarity": 8,
+      "lumen": 7,
+      "craft": 8,
+      "repeat": 8,
+      "overall": 7,
+      "note": "A black silhouette on a glowing token reads instantly, and the nose-to-tail shake is pure wet dog. Theo catching a drop on his face and then shaking it off himself is a second laugh, if anyone spots it at that size. The camera stays home, so nobody loses the board. The opening hold runs slightly long, and the shake itself is over in about 0.3 s."
+    },
+    {
+      "entry": "3c-bullet-time-shake",
+      "delight": 7,
+      "surprise": 4,
+      "clarity": 5,
+      "lumen": 5,
+      "craft": 7,
+      "repeat": 3,
+      "overall": 5,
+      "note": "The snap zoom and frozen droplets get a laugh the first time as a Matrix gag, but bullet time is the clich\u00e9 itself. Theo and the board leave the frame for about 1.5 s, and the droplets are glossy black beads, not anything made of light. A snap zoom on every reboot will be groaned at by the fifth."
+    },
+    {
+      "entry": "4a-gone-fishing",
+      "delight": 7,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 8,
+      "craft": 7,
+      "repeat": 6,
+      "overall": 7,
+      "note": "The sagging rope is the best line physics of the three, and hauling Maya up the side of the slab nose-first is real physical comedy. But the whole catch happens in the far back corner, where it's small on the TV, Maya has no name tag until she lands, and Theo's whistling glance doesn't read."
+    },
+    {
+      "entry": "4b-theo-goes-fishing",
+      "delight": 7,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 6,
+      "overall": 7,
+      "note": "The best acting of the fishing trio: Maya dangles limp by her nose, flops onto her side, then glares while Theo turns away. But the cast is a flat line rather than a sailing arc, the bite double-take is tiny at TV distance, and her name tag flips under her body as she lands."
+    },
+    {
+      "entry": "4c-night-fishing",
+      "delight": 8,
+      "surprise": 8,
+      "clarity": 8,
+      "lumen": 9,
+      "craft": 7,
+      "repeat": 6,
+      "overall": 8,
+      "note": "The camera eases out to frame the west edge, so the cast is a big, readable arc. The bead's glow pools on the black 'water', the bite throws rings of light, and Maya rises out of them on the end of the line: a rival's rescue told in Lumen's own light. Her name tag overlaps her body on landing, and Theo's look-away doesn't register."
+    },
+    {
+      "entry": "5a-fogged-screen",
+      "delight": 6,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 4,
+      "craft": 6,
+      "repeat": 4,
+      "overall": 6,
+      "note": "The speckled mist and drips running down the screen sell 'someone breathed on the TV' best, and the doodle marks the token and facing clearly. But the grey speckled patch looks like a dirty smudge on Lumen's dark glass, the finger is invisible (just a small ring), and a doodle on every reboot will feel twee by the tenth."
+    },
+    {
+      "entry": "5c-breath-on-the-lens",
+      "delight": 6,
+      "surprise": 7,
+      "clarity": 7,
+      "lumen": 5,
+      "craft": 7,
+      "repeat": 4,
+      "overall": 6,
+      "note": "Cleaner than 5a: a soft glowing mist with light-rimmed strokes, closer to Lumen's bloom. But it reads more as a glow than as breath, so the fourth-wall joke lands less well, and the grey smears look like dirt rather than damage."
+    }
+  ],
+  "winner": {
+    "entry": "4c-night-fishing",
+    "why": "It gets the best reaction from the room. Another player's robot does the rescue, so two people react at once: Theo's player takes a bow and Maya's player gets teased, and because the nearest robot does the fishing, the joke changes hands from reboot to reboot. Of the three fishing versions, this one stages the gag best for a TV: the cast is a big arc you can follow, the bite throws rings of light on the dark 'water', and Maya rises out of them, so the joke is built from Lumen's own light and ends with her clearly on the token facing east and Theo exactly where he was.",
+    "port": "Fix Maya's name tag overlapping her body as she lands. Borrow 4b's beats (the bite double-take, her glare, Theo looking away) and stage them big enough to read from the couch. Keep the line clearly not a shot: no hit flash on contact, and grey her eye only on the flops after the line has retracted, so nobody thinks Theo dealt the 2 SPAM. Keep the camera ease gentle, skip it when that edge is already in frame, and make sure it is home before the round goes on. Drop the bead off the edge nearest where she fell. Decide what happens with no robot on the board, or when several robots reboot in the same round (common): stagger the casts or let one robot fish twice, and never pull the camera toward two edges at once. Watch the 2.8 s length when several reboots happen in a row."
+  },
+  "runner_up": {
+    "entry": "1c-iris-drain",
+    "why": "It gets the gasp: the board's own light drains toward the token and every eye follows it, so this is the clearest picture of where she comes back, and it is Lumen's idea that light is presence turned into motion. It is calm rather than a joke, so it suits a room that wants a breath of beauty after a cruel fall, and it scales to several reboots at once by splitting the streams between their tokens.",
+    "port": "Make the streams look like light, not flat planks: soft additive ribbons with tapered ends. Don't black the board out completely; keep a faint outline so the board stays present. Make the lean optional or smaller, since a camera dive a few times a game, every game, adds up, and with several tokens at once the camera should stay home. Make the two grey threads and the eye dimming visible from the couch, or let the damage UI carry the 2 SPAM."
+  }
+}
