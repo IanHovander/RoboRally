@@ -85,7 +85,15 @@ for (const [id, sc] of Object.entries(SCENARIOS)) {
     count: ranked.length,
     winner: await pick(ranked[0], 'Winner'),
     runner: await pick(ranked[1], 'Runner-up'),
-    picks: { room: { winner: room.winner?.entry, runner_up: room.runner_up?.entry }, director: { winner: director.winner?.entry, runner_up: director.runner_up?.entry } },
+    // each judge's own first and second choice, by title, so a split shows on the page
+    picks: Object.fromEntries(
+      await Promise.all(
+        [['room', room], ['director', director]].map(async ([judge, v]) => [
+          judge,
+          await Promise.all([v.winner?.entry, v.runner_up?.entry].map(async (e) => (e ? { entry: e, lens: e[1], title: (await metaOf(path.join(HERE, id, `${e}.js`))).title ?? e } : null))),
+        ]),
+      ),
+    ),
   });
 }
 const html = fs.readFileSync(path.join(HERE, 'winners-template.html'), 'utf8').replace('__DATA__', JSON.stringify({ moments, gallery: GALLERY, lens: LENS }).replace(/</g, '\\u003c'));

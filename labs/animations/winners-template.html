@@ -73,6 +73,8 @@
   .said li { font-size: 14px; color: var(--dim); padding-left: 12px; border-left: 2px solid var(--edge); }
   .said li b { color: var(--light); font-weight: 500; }
   .port { font-size: 13px; color: var(--faint); }
+  .own { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 13px; color: var(--faint); }
+  .own b { color: var(--dim); font-weight: 500; }
   .port b { color: var(--dim); font-weight: 500; }
   .viewer { position: fixed; inset: 0; z-index: 20; background: rgba(3, 4, 6, 0.94); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .viewer[hidden] { display: none; }
@@ -149,6 +151,7 @@
           <p class="what">${esc(m.what)}</p>
         </header>
         <div class="pair">${card(m.winner)}${card(m.runner)}</div>
+        <p class="own">${['room', 'director'].map((j) => `<span><b>${JUDGE[j]}'s own picks:</b> ${(m.picks[j] ?? []).filter(Boolean).map((x, k) => `${k ? '2nd ' : '1st '}${esc(x.title)} <span class="${x.lens}">(${x.lens.toUpperCase()})</span>`).join(', ')}</span>`).join('')}</p>
       </section>`,
     )
     .join('');

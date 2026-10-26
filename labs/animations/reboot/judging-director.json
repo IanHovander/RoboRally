@@ -1,0 +1,124 @@
+{
+  "scores": [
+    {
+      "entry": "4a-gone-fishing",
+      "delight": 9,
+      "surprise": 8,
+      "clarity": 8,
+      "lumen": 7,
+      "craft": 8,
+      "repeat": 8,
+      "overall": 8,
+      "note": "The camera never moves, and the whole joke reads from the sofa: a bright slack rope arcs over the token, the bead bobs in the dark past the corner, Theo nearly gets yanked off his feet, Maya is hauled up the side of the slab and heaved onto the token, then two pale flops. The only blemishes are the mid-flop pose (a flat pale brick) and her name tag popping on at the end."
+    },
+    {
+      "entry": "4c-night-fishing",
+      "delight": 8,
+      "surprise": 8,
+      "clarity": 8,
+      "lumen": 9,
+      "craft": 7,
+      "repeat": 7,
+      "overall": 8,
+      "note": "The prettiest version of the gag: a clean arc for the cast, the bead's glow pooled on the black room floor and rings spreading when she bites, so the dark becomes a lake. The cost is a camera pan to the west edge and back, the line is thin for a 12-wide board, and her tag sinks into her body during the flops."
+    },
+    {
+      "entry": "1c-iris-drain",
+      "delight": 7,
+      "surprise": 7,
+      "clarity": 9,
+      "lumen": 8,
+      "craft": 7,
+      "repeat": 6,
+      "overall": 7,
+      "note": "The whirlpool at 0.7-0.9 s is the most beautiful frame in the set and the blackout makes the token impossible to miss, but the inflowing light looks like thick white hair or warp-speed streaks, not Lumen's fine seams. The camera lean plus a full second of black board is heavy for a beat that comes back several times a game; the two grey threads blanch her twice, cleanly, and the end has no jump."
+    },
+    {
+      "entry": "3b-shakes-it-off",
+      "delight": 7,
+      "surprise": 6,
+      "clarity": 7,
+      "lumen": 6,
+      "craft": 6,
+      "repeat": 7,
+      "overall": 6,
+      "note": "The black silhouette on the token's glow is a strong picture and the stunned hold before the shake is good timing, but the silhouette and its glow pool pop in on a single frame, black drops on dark glass barely read, and the two grey SPAM blinks and Theo's wet face will be invisible on a 12-wide board."
+    },
+    {
+      "entry": "5c-breath-on-the-lens",
+      "delight": 7,
+      "surprise": 8,
+      "clarity": 7,
+      "lumen": 5,
+      "craft": 7,
+      "repeat": 4,
+      "overall": 6,
+      "note": "The better-made fog: a soft breath with the board's lights glowing through, clean wiped strokes, and a doodle that states her space and facing literally. It is still a milky grey patch that breaks Lumen's dark calm, the SPAM smears are vague, and the fourth-wall joke only surprises once."
+    },
+    {
+      "entry": "4b-theo-goes-fishing",
+      "delight": 7,
+      "surprise": 7,
+      "clarity": 7,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 6,
+      "overall": 6,
+      "note": "The same gag with more acting, but the acting (double-take dips, her glare, his glance away) is too small to read at TV size, and the flick goes out nearly straight, like a shot, before it sags. Her tag slides across her body during the flops, and Theo's lean snaps flat in one frame at release."
+    },
+    {
+      "entry": "2b-skipping-stone",
+      "delight": 6,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 6,
+      "craft": 5,
+      "repeat": 6,
+      "overall": 5,
+      "note": "The red-then-grey ripples count the damage nicely, but the skips are too low to read as skips, her path crosses right over Theo for half a second with the two name tags stacked, and the rings roll off the board edge. The proud pose, the dizziness and Theo's duck are too small to see."
+    },
+    {
+      "entry": "2c-strobe-skip",
+      "delight": 6,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 7,
+      "craft": 5,
+      "repeat": 4,
+      "overall": 5,
+      "note": "The glass ghosts and the long-exposure arc are very Lumen, but the camera drops to water level for two seconds, the red ghost hides behind Theo's tag and the grey ghosts pile up on Maya, so the count turns into a cluster. That is too much camera for a moment that repeats."
+    },
+    {
+      "entry": "5a-fogged-screen",
+      "delight": 6,
+      "surprise": 8,
+      "clarity": 6,
+      "lumen": 3,
+      "craft": 5,
+      "repeat": 4,
+      "overall": 5,
+      "note": "A big surprise the first time, but the fog is an opaque, speckled grey blob (the brightest thing on screen, more terrazzo than breath), and the wiped arrow and drips read as black marker. 1.2 s of doodling will drag by the third reboot."
+    },
+    {
+      "entry": "3c-bullet-time-shake",
+      "delight": 6,
+      "surprise": 3,
+      "clarity": 5,
+      "lumen": 4,
+      "craft": 5,
+      "repeat": 3,
+      "overall": 4,
+      "note": "A two-frame snap zoom, a bullet-time orbit through black glossy beads and a pull-out with a roll in it: spectacular once, but it is the Matrix cliché. It hides the board and the name tags for 1.5 s, and the macro shot turns Lumen's glass world into black caviar on plastic."
+    }
+  ],
+  "winner": {
+    "entry": "4a-gone-fishing",
+    "why": "It is the only entry that is funny, readable from the back of the room and calm on camera all at once: the slack, sagging line is Lumen's laser breaking its own rule (light that curves), and the haul up the side of the slab and the heave onto the token have real weight. The joke is social: Theo's player gets the credit, Maya's gets teased, and the fisher changes from reboot to reboot, so it stays fresh across a night. It ends exactly on the rules' state, with Theo eased back to rest and no jump.",
+    "port": "Step the Verlet rope on a fixed timestep (about 120 Hz): its damping and 4 substeps run once per rendered frame, so at 30-60 fps in a TV browser it would behave differently from the lab. Drop the bead off an edge that is on screen: in the lab it goes off the north-west corner, not the nearest edge, and in the game the south edge is behind the HUD and the side margins are thin, so prefer the north or side edge nearest the token. Choose the nearest robot whichever way it faces, test a cast from a robot facing away, define a fallback when no robot is on the board, and stagger or split fishers when several robots reboot in the same round, inside the budget. Keep the line white, slack and beaded, never laser-coloured or straight, and keep the 2 SPAM on the flops after the line unhooks, so nobody reads it as Theo shooting her. Soften the flat, pale mid-flop pose, fade Maya's name tag in on landing instead of popping it on, and borrow 4c's ripple rings on the dark where the bead bobs and she comes up, without its camera move."
+  },
+  "runner_up": {
+    "entry": "4c-night-fishing",
+    "why": "The same gag, staged as the most Lumen picture in the set: the cast is a clean arc of light, the bead's glow pools on the black room floor and rings spread on it when she bites, so the darkness under the slab becomes a lake. Its timing (cast, hush, bite, reel, slap, two flops) is the clearest of the three fishing versions.",
+    "port": "Its beauty depends on a camera pan out past the west edge. In the game the board fills the width and the HUD covers the bottom 40%, so cap that move or bring the ripples close to the slab where they are already on screen. Thicken the line and the bead for a 12-wide board, since the dashed, taut line thins to a hair at TV size. Keep the name tag above her during the flops. The same notes as 4a apply: which edge, who fishes, several reboots at once, and not reading as a shot. Best of both: ship 4a's static-camera rope with 4c's water ripples."
+  }
+}
