@@ -93,10 +93,11 @@ const LENSES = [
   },
 ]
 
-// args: { scenario, picks?, lenses? }. With picks (the moment's picks.json) the ideas and the curation are skipped;
+// args: { scenario, picks?, lenses? }. With picks (the moment's picks.json array, or 'file' to have the animators read
+// it themselves) the ideas and the curation are skipped;
 // lenses (e.g. ['c']) runs only those animators.
 let ideas = null
-let curated = args.picks ? { picks: args.picks } : null
+let curated = args.picks ? { picks: Array.isArray(args.picks) ? args.picks : [] } : null
 if (!curated) {
 phase('Ideate')
 ideas = await agent(
@@ -128,8 +129,10 @@ You may sharpen an idea's wording (keep its number). Write the picks to ${DIR}/p
 )
 }
 const picks = (curated?.picks ?? []).slice(0, 5)
-if (picks.length < 5) log(`${S}: only ${picks.length} picks came back`)
-const pickText = picks.map((p) => `${p.n}. ${p.title} (idea ${p.idea}): ${p.description} Twist: ${p.twist}`).join('\n')
+if (args.picks !== 'file' && picks.length < 5) log(`${S}: only ${picks.length} picks came back`)
+const pickText = args.picks === 'file'
+  ? `Read them from ${DIR}/picks.json: for each pick, n, title, description and twist.`
+  : picks.map((p) => `${p.n}. ${p.title} (idea ${p.idea}): ${p.description} Twist: ${p.twist}`).join('\n')
 
 phase('Animate')
 const ACTIVE = LENSES.filter((L) => !args.lenses || args.lenses.includes(L.key))

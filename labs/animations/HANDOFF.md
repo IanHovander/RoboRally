@@ -58,6 +58,12 @@ Most **c** animators never started, because their moment's run hit a usage limit
 "Written, needs review" files were mid-iteration when work stopped: their animator may not have finished
 polishing them. Each counts as an entry, but check it before a final render.
 
+## Update: cinematic animators only
+
+After the pause the person asked for just the **c** (cinematic and light staging) animator on every moment, and
+no more **a** or **b** work beyond what is already finished. All 13 c animators were started on 2026-10-26 with
+`args: { scenario, picks: 'file', lenses: ['c'] }`. Judge each moment on the entries that exist.
+
 ## What's left
 
 1. **Finish the animations.** Run an animator for each lens with missing or unfinished entries, using
