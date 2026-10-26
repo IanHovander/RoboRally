@@ -17,6 +17,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CLIPS = new URL('./voice/', import.meta.url);
 let clips = null; // { text: file }, once loaded
 const decoded = new Map(); // file -> Promise<AudioBuffer | null>
+// Clips are fetched and decoded as soon as the game screen opens, long before the Briefing: decoding needs no
+// click (a silent offline context does it), so the first line never waits on the network.
+const decoder = typeof OfflineAudioContext !== 'undefined' ? new OfflineAudioContext(1, 1, 44100) : null;
 fetch(new URL('clips.json', CLIPS))
   .then((r) => (r.ok ? r.json() : null))
   .then((m) => {
@@ -24,17 +27,19 @@ fetch(new URL('clips.json', CLIPS))
     preload();
   })
   .catch(() => {});
-/** Fetch and decode every clip (under 2 MB), once there's an audio context to decode with. */
+/** Fetch and decode every clip (under 2 MB), in the order they're first said. */
 function preload() {
-  if (clips && audio) for (const file of new Set(Object.values(clips))) bufferOf(file);
+  if (clips && (decoder || audio)) for (const file of new Set(Object.values(clips))) bufferOf(file);
 }
 function bufferOf(file) {
   if (!decoded.has(file)) {
+    const ac = decoder ?? audio;
+    if (!ac) return Promise.resolve(null);
     decoded.set(
       file,
       fetch(new URL(file, CLIPS))
         .then((r) => r.arrayBuffer())
-        .then((b) => audio.decodeAudioData(b))
+        .then((b) => ac.decodeAudioData(b))
         .catch(() => null),
     );
   }
@@ -212,6 +217,7 @@ export const voice = {
       const begin = (withCaption) => {
         if (!started) {
           started = true;
+          entry.startMs = Math.round(performance.now()) - entry.at; // how long it took to start (for test scripts)
           try {
             onStart?.();
           } catch (err) {
@@ -267,13 +273,20 @@ export const voice = {
           } catch {}
           finish(false);
         };
+        makeAudio();
         if (blip) chirp();
-        // a clip that isn't ready in time is read instead
-        watchdog = setTimeout(() => !started && !done && readInstead(), 1500);
+        // a clip that isn't ready in time: its words show while it loads, and it's still heard when it arrives
+        watchdog = setTimeout(() => {
+          if (done || source) return;
+          entry.captions = true;
+          begin(true);
+          safety = setTimeout(() => !source && finish(false), readMs(text) + 3000);
+        }, 1500);
         Promise.all([bufferOf(file), sleep(blip ? 90 : 0)]).then(([buf]) => {
-          if (done || started) return;
-          if (!buf || !audio) return readInstead();
+          if (done) return;
+          if (!buf || !audio) return started ? undefined : readInstead();
           clearTimeout(watchdog);
+          clearTimeout(safety);
           if (audio.state !== 'running') audio.resume?.().catch(() => {});
           source = audio.createBufferSource();
           source.buffer = buf;
