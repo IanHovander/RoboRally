@@ -88,37 +88,47 @@ void main() {`;
     return { lift, tx, tz };
   };
 
-  // rings of light riding the wave crests
-  const rings = [];
-  const ringGeo = new THREE.RingGeometry(0.965, 1, 128);
+  // rings of light riding the wave crests, drawn on a sheet the size of the glass (so they stop at its edge)
+  const ripCol = [0, 1, 2].map(() => new THREE.Vector3());
+  const uRingT = { value: 0 };
+  const ringMat = new THREE.ShaderMaterial({
+    uniforms: { uRip: { value: rips }, uCol: { value: ripCol }, uT: uRingT },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform vec4 uRip[3]; uniform vec3 uCol[3]; uniform float uT; varying vec2 vUv;
+void main() {
+  vec2 p = vec2((vUv.x - 0.5) * ${W.toFixed(1)}, (0.5 - vUv.y) * ${H.toFixed(1)});
+  vec3 c = vec3(0.0);
+  for (int i = 0; i < 3; i++) {
+    float age = uT - uRip[i].z;
+    if (age <= 0.0 || uRip[i].w <= 0.0) continue;
+    float r = length(p - uRip[i].xy);
+    float R = 0.1 + age * ${SPEED.toFixed(2)};
+    float a = (r - R) / 0.03;
+    float b = (r - (R - 0.2)) / 0.026;
+    float ring = exp(-a * a) + 0.45 * exp(-b * b);
+    float fade = exp(-age * 2.9) * min(1.0, age * 14.0) * (uRip[i].w / 0.07);
+    c += uCol[i] * ring * fade;
+  }
+  gl_FragColor = vec4(c, 1.0);
+}`,
+  });
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(W, H), ringMat);
+  sheet.rotation.x = -Math.PI / 2;
+  sheet.position.y = 0.012;
+  sheet.renderOrder = 4;
+  lab.add(sheet);
   const ripple = (sx, color, amp, k) => {
     const at = lab.pos(sx, 1);
-    const slot = rips[k];
-    slot.set(at.x, at.z, lab.t, amp);
-    for (let j = 0; j < 2; j++) {
-      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(j ? 0.9 : 1.7), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-      const m = new THREE.Mesh(ringGeo, mat);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(at.x, 0.012, at.z);
-      m.renderOrder = 4;
-      lab.add(m);
-      rings.push({ m, t0: lab.t, lag: j * 0.075, strength: amp / 0.07 });
-    }
+    rips[k].set(at.x, at.z, lab.t, amp);
+    const c = new THREE.Color(color).multiplyScalar(1.9);
+    ripCol[k].set(c.r, c.g, c.b);
   };
   const stopRings = lab.every((dt, t) => {
     uRipT.value = t;
-    for (const r of rings) {
-      const age = t - r.t0 - r.lag;
-      if (age <= 0) {
-        r.m.visible = false;
-        continue;
-      }
-      r.m.visible = true;
-      const R = 0.12 + age * SPEED;
-      r.m.scale.setScalar(R);
-      const fade = Math.exp(-age * 2.2) * Math.min(1, age * 14);
-      r.m.material.opacity = Math.min(1, fade * r.strength);
-    }
+    uRingT.value = t;
   });
 
   // ---------- Theo floats on the glass while the waves pass ----------
@@ -133,8 +143,8 @@ void main() {`;
 
   // ---------- Maya's flight ----------
   const X0 = 8.9; // out in the dark past the east edge (6.5)
-  const X1 = 6.05; // touch 1 (red)
-  const X2 = 4.55; // touch 2 (grey)
+  const X1 = 5.8; // touch 1 (red): far enough in that its whole ripple shows
+  const X2 = 4.45; // touch 2 (grey)
   const X3 = 3.55; // touch 3 (grey)
   const XE = 3.0; // the token
   let eyeK = 1;
@@ -232,7 +242,7 @@ void main() {`;
   stopRings();
   theo.set({ lift: 0, pitch: 0, roll: 0, rot: WEST });
   for (const r of rips) r.w = 0;
-  for (const r of rings) r.m.visible = false;
+  sheet.visible = false;
   maya.each = null;
   maya.release({ x: 3, y: 1, d: 1, on: true });
   theo.release({ x: 5, y: 2, d: 3 });

@@ -58,21 +58,21 @@ export default async function play(lab) {
   const claw = lab.add(new THREE.Group());
   const head = new THREE.Group();
   claw.add(head);
-  const hubRing = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.016, 8, 40), mat);
+  const hubRing = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.024, 8, 40), mat);
   hubRing.rotation.x = Math.PI / 2;
   head.add(hubRing);
-  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.013, 8, 32), mat);
+  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 8, 32), mat);
   crown.rotation.x = Math.PI / 2;
   crown.position.y = 0.09;
   head.add(crown);
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * TAU;
-    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.1, 6), mat);
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 6), mat);
     strut.position.set(Math.cos(a) * 0.078, 0.045, Math.sin(a) * 0.078);
     strut.rotation.set(Math.sin(a) * 0.45, 0, -Math.cos(a) * 0.45);
     head.add(strut);
   }
-  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 1, 6), mat);
+  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 1, 6), mat);
   cable.geometry.translate(0, 0.5, 0);
   claw.add(cable);
   const knuckles = [];
@@ -83,8 +83,8 @@ export default async function play(lab) {
     new THREE.Vector3(0.37, -0.4, 0),
     new THREE.Vector3(0.29, -0.54, 0),
   ]);
-  const fingerGeo = new THREE.TubeGeometry(curve, 28, 0.018, 6);
-  const tipGeo = new THREE.SphereGeometry(0.026, 10, 8);
+  const fingerGeo = new THREE.TubeGeometry(curve, 28, 0.026, 6);
+  const tipGeo = new THREE.SphereGeometry(0.036, 10, 8);
   for (const a of [Math.PI / 2, Math.PI / 2 + TAU / 3, Math.PI / 2 + (2 * TAU) / 3]) {
     const f = new THREE.Group();
     f.rotation.y = a;
@@ -119,6 +119,7 @@ export default async function play(lab) {
 
   // ----- state, and the physics that runs every frame -----
   const L = 0.62; // hub to Maya's foot while she's held
+  const LIFT = 0.58; // how high it lifts her
   const st = {
     hubY: 2, // board row the claw hangs over
     hubH: 5.2, // height of the hub
@@ -197,6 +198,7 @@ export default async function play(lab) {
         lift: st.hubH - len * Math.cos(st.phi) * Math.cos(st.psi),
         pitch: -st.phi,
         roll: st.psi,
+        trail: false, // she's in the air: no trail on the glass
       });
     } else if (st.fall) {
       const k = Math.min(1, st.fall.t++ / 6);
@@ -206,7 +208,10 @@ export default async function play(lab) {
     const grip = st.squeeze;
     maya.set({ sy: 1 + sq + 0.05 * grip, sx: 1 - sq * 0.55 - 0.06 * grip, sz: 1 - sq * 0.55 - 0.06 * grip });
     // the bright card steps politely aside for the line, and comes back after
-    if (bot.card) bot.card.position.x += st.cardSide;
+    if (bot.card) {
+      bot.card.position.x += st.cardSide;
+      bot.card.position.y -= maya.pose.lift; // the card stays put while she's carried
+    }
     // the glint where a finger meets her
     glint.position.copy(lab.pos(3, st.hubY)).add(new THREE.Vector3(0.36, maya.pose.lift + 0.24, 0.26));
     glint.material.opacity = st.glint;
@@ -239,7 +244,7 @@ export default async function play(lab) {
   await lab.wait(0.05);
   // the lift: her weight comes on the line (the head dips), then up she goes, dangling
   await lab.tween(0.08, (e) => (st.hubH = L + 0.02 - 0.035 * e), ease.out);
-  await lab.tween(0.26, (e) => (st.hubH = L - 0.015 + (L + 0.33 - (L - 0.015)) * e), ease.inOut);
+  await lab.tween(0.3, (e) => (st.hubH = L - 0.015 + (L + LIFT - (L - 0.015)) * e), ease.inOut);
   // carried one space north; the pendulum does the rest
   await lab.tween(0.46, (e) => (st.hubY = 2 - e), ease.inOut);
   // the jiggle: it doesn't quite trust itself
@@ -268,7 +273,7 @@ export default async function play(lab) {
   await lab.tween(0.08, (e) => (st.open = e), ease.out);
   // the empty claw reels up into the dark, fingers closing
   lab.tween(0.42, (e, k) => {
-    st.hubH = L + 0.33 + (6.2 - (L + 0.33)) * ease.in3(k);
+    st.hubH = L + LIFT + (6.2 - (L + LIFT)) * ease.in3(k);
     st.open = 1 - 1.2 * e;
     st.phi *= 0.9;
     st.psi *= 0.9;
@@ -276,13 +281,13 @@ export default async function play(lab) {
   lab.tween(0.45, (e) => (st.cardSide = -0.72 * (1 - e)), ease.inOut);
   // wait for the landing and its bounce
   while (!st.fall.landed) await lab.wait(1 / 30);
-  await lab.wait(0.16);
+  await lab.wait(0.1);
 
   // ----- U-Turn, as normal (she's a little rattled: one wobble at the end) -----
   lab.playCard('a', ['ut']);
   const u0 = facing(2);
   const u1 = facing(2) - Math.PI;
-  await lab.tween(0.42, (e) => maya.set({ rot: u0 + (u1 - u0) * e }), ease.inOut);
+  await lab.tween(0.38, (e) => maya.set({ rot: u0 + (u1 - u0) * e }), ease.inOut);
   st.fall = null;
   await lab.wait(0.06);
   stop();

@@ -88,6 +88,7 @@ export default async function play(lab) {
   maya.each = (m, t) => {
     const T = t - t0;
     m.body.position.y = T > 1.18 && T < 3.24 ? 0 : m.body.position.y; // frozen: no idle bob
+    if (maya.bot.card && maya.bot.card.position.y < 1) maya.bot.card.visible = false; // a new card isn't placed until the next frame
     const b = eyeB(T);
     m.eyeMat.color.setRGB(3.2 * b, 3.1 * b, 2.9 * b);
     if (eye) eye.scale.set(eyeScale0.x * eyeH(T), eyeScale0.y * eyeW(T), eyeScale0.z * eyeH(T));

@@ -9,7 +9,9 @@ export const meta = {
 
 const TAU = Math.PI * 2;
 const R = 0.3975 * 1.3; // the robot's ring of light: radius in world units (RingGeometry 0.385-0.41, robots drawn at 1.3)
-const TUBE = 0.017;
+const TUBE = 0.022;
+// durations land on whole frames (30 fps), so sequential tweens don't each lose part of a frame
+const F = (s) => Math.round(s * 30) / 30 - 0.004;
 
 function glowTexture(THREE) {
   const c = document.createElement('canvas');
@@ -118,7 +120,7 @@ export default async function play(lab) {
   const theoLean = spring(150, 6.5); // + = his top toward east
   const mayaNod = spring(170, 8); // + = her nose dips forward
   const motion = { mx: 1, tx: 3, mvx: 0, tvx: 0, mxPrev: 1, txPrev: 3, mvPrev: 0, tvPrev: 0, kickM: 0, kickT: 0 };
-  const extra = { mx: 0, my: 0, mrot: 0, mroll: 0, mpitch: 0, tlift: 0, troll: 0 };
+  const extra = { mx: 0, my: 0, mrot: 0, mroll: 0, mpitch: 0, tlift: 0, troll: 0, trot: 0 };
   const stopPhysics = lab.every((dt) => {
     if (dt <= 0) return;
     const mv = (motion.mx - motion.mxPrev) / dt;
@@ -134,18 +136,19 @@ export default async function play(lab) {
     const lean = theoLean.step(dt, -ta * 0.42);
     const nod = mayaNod.step(dt, -ma * 0.3);
     // Theo faces south, so a lean of his top toward east is a roll to his left (negative)
-    theo.set({ x: motion.tx, roll: -lean + extra.troll, lift: extra.tlift });
+    theo.set({ x: motion.tx, roll: -lean + extra.troll, lift: extra.tlift, rot: SOUTH + extra.trot });
     maya.set({ x: motion.mx + extra.mx, y: 2 + extra.my, rot: EAST + extra.mrot, pitch: Math.max(-0.25, Math.min(0.3, nod)) + extra.mpitch, roll: extra.mroll });
     placeHoop();
   });
 
   // ----- 1. Maya rolls her free space and meets Theo -----
-  const V1 = 4.6; // cruise speed, spaces/s
+  const V1 = 5.0; // cruise speed, spaces/s
   const TA = 0.16; // getting up to speed
   const XA = 1 + 0.5 * V1 * TA;
   const XC = 2.37; // her nose meets his flank
   const TC = TA + (XC - XA) / V1;
-  await lab.tween(TC, (e, k) => {
+  const TCF = F(TC);
+  await lab.tween(TCF, (e, k) => {
     const t = k * TC;
     motion.mx = t < TA ? 1 + 0.5 * (V1 / TA) * t * t : XA + V1 * (t - TA);
   }, ease.linear);
@@ -154,20 +157,21 @@ export default async function play(lab) {
   if (theoRing) theoRing.visible = false;
   Object.assign(H, { x: 3, z: 2, h: 0, alpha: 0, phi: 0, psi: 0, op: 0.95, bead: 0, touch: 0 });
   motion.kickT = 0; // his velocity jump shows up as acceleration on its own
-  const V2 = 3.1; // Maya after the shove
+  const V2 = 3.4; // Maya after the shove
   const T2 = (2 * (3 - XC)) / V2; // she brakes to a stop on space 3
-  const VT = 5.0; // Theo leaves faster than she arrives: he slides away from her
-  const DT = 1.07; // he skids a hair past space 4...
+  const VT = 5.6; // Theo leaves faster than she arrives: he slides away from her
+  const DT = 1.06; // he skids a hair past space 4...
   const TT = (2 * DT) / VT;
-  const shove = lab.tween(Math.max(T2, TT) + 0.16, (e, k) => {
-    const t = k * (Math.max(T2, TT) + 0.16);
+  const TS = F(Math.max(T2, TT) + 0.12);
+  const shove = lab.tween(TS, (e, k) => {
+    const t = k * TS;
     const tm = Math.min(t, T2);
     motion.mx = XC + V2 * tm - 0.5 * (V2 / T2) * tm * tm;
     if (t < TT) motion.tx = 3 + VT * t - 0.5 * (VT / TT) * t * t;
-    else motion.tx = 3 + DT - (DT - 1) * ease.inOut(clamp01((t - TT) / 0.16)); // ...and eases back onto it
+    else motion.tx = 3 + DT - (DT - 1) * ease.inOut(clamp01((t - TT) / 0.12)); // ...and eases back onto it
   }, ease.linear);
   // the ring is dragged a few centimetres by friction, then stops dead; a little 'tink' of a hop
-  const left = lab.tween(0.34, (e, k) => {
+  const left = lab.tween(F(0.3), (e, k) => {
     H.x = 3 + 0.06 * ease.out(clamp01(k / 0.35));
     H.h = Math.max(0, Math.sin(clamp01((k - 0.3) / 0.45) * Math.PI)) * 0.035;
     H.alpha = Math.sin(clamp01((k - 0.3) / 0.6) * Math.PI) * 0.12;
@@ -186,14 +190,14 @@ export default async function play(lab) {
   scoop();
 
   // ----- 3. a beat: Maya wears two rings and looks down at the wrong one -----
-  await lab.tween(0.14, (e, k) => {
+  await lab.tween(F(0.07), (e, k) => {
     H.h = 0.15 - 0.03 * Math.sin(k * Math.PI);
     extra.mpitch = 0.16 * Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5);
   }, ease.linear);
 
   // ----- 4. the shimmy: the hoop goes round her twice, faster and faster -----
   const TURNS = 2;
-  const SHIM = 0.46;
+  const SHIM = F(0.4);
   await lab.tween(SHIM, (e, k) => {
     const th = TAU * TURNS * (0.55 * k + 0.45 * k * k);
     const env = Math.min(1, k * 4);
@@ -211,6 +215,8 @@ export default async function play(lab) {
     extra.mrot = 0.2 * env * Math.sin(th);
     extra.mroll = 0.09 * env * Math.sin(th + Math.PI / 2);
     extra.mpitch = 0.16 * (1 - Math.min(1, k * 3)) + 0.05 * env * Math.cos(th);
+    // Theo, ringless, looks back over his shoulder at Maya wearing his ring
+    extra.trot = -0.6 * smooth(0.05, 0.3, k);
   }, ease.linear);
 
   // ----- 5. the fling: it flies off her east side and stands up on its edge -----
@@ -220,7 +226,7 @@ export default async function play(lab) {
   const a0 = H.alpha;
   const p0 = H.phi;
   const s0 = H.psi;
-  const FLING = 0.16;
+  const FLING = F(0.13);
   await lab.tween(FLING, (e, k) => {
     const u = ease.out(k);
     H.x = x0 + (3.5 - x0) * u;
@@ -230,6 +236,7 @@ export default async function play(lab) {
     H.h = h0 + (R - h0) * u + Math.sin(k * Math.PI) * 0.22;
     H.psi = s0 - 3.2 * k;
     H.bead = 0.7 + 0.3 * k;
+    extra.trot = -0.6 * (1 - ease.inOut(k));
     // Maya recoils from throwing it and settles back on her space
     const r = 1 - k;
     extra.mx = -0.05 * Math.sin(k * Math.PI) ;
@@ -240,7 +247,7 @@ export default async function play(lab) {
   }, ease.linear);
 
   // ----- 6. it rolls after Theo, right through his glass, and starts to spin -----
-  const ROLL = 0.3;
+  const ROLL = F(0.25);
   const psi1 = H.psi;
   const theoGlow = theo.model.paint.emissiveIntensity;
   theo.each = (m) => {
@@ -269,7 +276,7 @@ export default async function play(lab) {
   extra.mpitch = 0;
 
   // ----- 7. the spun coin: it falls, the wobble races faster and faster, and it lies flat -----
-  const SPIN = 0.6;
+  const SPIN = F(0.5);
   let phi = H.phi;
   let tPrev = 0;
   await lab.tween(SPIN, (e, k) => {
@@ -305,7 +312,7 @@ export default async function play(lab) {
   };
   const p4 = lab.pos(4, 2);
   land.position.set(p4.x, 0.007, p4.z);
-  await lab.tween(0.2, (e, k) => {
+  await lab.tween(F(0.17), (e, k) => {
     H.op = 0.95 * (1 - k);
     landMat.opacity = 0.9 * (1 - k) ** 1.5;
     ringMat.opacity = 0.9 + 0.1 * (1 - k);

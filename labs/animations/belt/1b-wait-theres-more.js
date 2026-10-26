@@ -35,7 +35,7 @@ export default async function play(lab) {
   const roll = track([
     [0, 0], [0.12, -0.1, 'out'], [0.42, 0.02], [0.54, 0.09, 'out'], [0.68, -0.035], [0.8, 0],
     [0.9, 0.045], [1.0, -0.04], [1.1, 0],
-    [YANK, 0], [YANK + 0.05, -0.4, 'out'], [YANK + 0.22, -0.06, 'inOut'], [YANK + 0.3, 0],
+    [YANK, 0], [YANK + 0.05, -0.52, 'out'], [YANK + 0.22, -0.08, 'inOut'], [YANK + 0.3, 0],
   ]);
   // pitch (forward +): head snaps back at the yank, and the stiff body tips like a plank when the belt stops
   const lean = track([
@@ -46,7 +46,7 @@ export default async function play(lab) {
   const sy = track([
     [0, 1], [0.25, 1.03], [0.5, 1], [0.72, 1], [1.02, 0.8, 'out'],
     [1.2, 0.85, 'inOut'], [YANK, 0.81, 'inOut'],
-    [YANK + 0.06, 1.16, 'out'], [YANK + 0.2, 1.08, 'inOut'],
+    [YANK + 0.06, 1.2, 'out'], [YANK + 0.2, 1.08, 'inOut'],
   ]);
   const eyeOpen = track([[0, 1], [0.72, 1], [1.02, 0.36, 'out'], [1.2, 0.42], [YANK, 0.34], [YANK + 0.03, 2.7, 'out'], [YANK + 0.3, 2.35]]);
   const eyeGlow = track([[0, 1], [0.72, 1], [1.02, 0.34, 'out'], [1.2, 0.42], [YANK, 0.3], [YANK + 0.03, 1.75, 'out'], [YANK + 0.5, 1.45]]);
@@ -79,7 +79,7 @@ export default async function play(lab) {
     const s = t - SNICKER;
     const env = s > 0 ? Math.max(0, 1 - s / 0.62) : 0;
     const shudder = Math.abs(Math.sin(s * Math.PI * 2 * 5.2)) * env;
-    Object.assign(J, { roll: junRoll(t), lean: junLean(t), open: junSquint(t) * (1 - 0.35 * shudder), glow: 1 + 0.7 * env + 0.5 * shudder, sy: 1 - 0.075 * shudder });
+    Object.assign(J, { roll: junRoll(t), lean: junLean(t), open: junSquint(t) * (1 - 0.35 * shudder), glow: 1 + 0.7 * env + 0.5 * shudder, sy: 1 - 0.075 * shudder, hop: 0.03 * shudder });
     J.sx = J.sz = 1 + 0.03 * shudder;
   };
   const stop = lab.every(() => apply(Math.min(END, lab.t - t0)));
@@ -160,12 +160,12 @@ function rig(lab, p, openAxis) {
   m.group.traverse((o) => o.isMesh && o.material === m.poolMat && (pool = o));
   const poolBase = pool?.scale.clone();
   const st = {
-    lean: 0, roll: 0, sx: 1, sy: 1, sz: 1, open: 1, glow: 1, warm: 0, pool: 1, shake: 0,
+    lean: 0, roll: 0, sx: 1, sy: 1, sz: 1, hop: 0, open: 1, glow: 1, warm: 0, pool: 1, shake: 0,
     applyTo(model) {
       model.body.rotation.x = -st.lean;
       model.body.rotation.z = -st.roll;
       model.body.scale.set(st.sx, st.sy, st.sz);
-      model.body.position.x = st.shake;
+      model.body.position.set(st.shake, st.hop, 0);
       eyes.forEach((e, i) => {
         e.scale.copy(eyeBase[i]);
         e.scale[openAxis] = eyeBase[i][openAxis] * st.open;
@@ -180,7 +180,7 @@ function rig(lab, p, openAxis) {
     reset() {
       m.body.rotation.set(0, 0, 0);
       m.body.scale.set(1, 1, 1);
-      m.body.position.x = 0;
+      m.body.position.set(0, 0, 0);
       eyes.forEach((e, i) => e.scale.copy(eyeBase[i]));
       if (pool) pool.scale.copy(poolBase);
     },

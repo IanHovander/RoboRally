@@ -168,7 +168,7 @@ vec2 lumDrain(vec2 uv) {
   const makeTrickle = (from, ctrl, to) => {
     const curve = new THREE.QuadraticBezierCurve3(from, ctrl, to);
     const beads = [];
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 18; i++) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glowMat(GREY.clone()));
       m.rotation.x = -Math.PI / 2;
       m.renderOrder = 4;
@@ -185,14 +185,14 @@ vec2 lumDrain(vec2 uv) {
   const showTrickle = (tr, k, brightness) => {
     // k: 0 = at its start, 1 = arrived; the head leads, the tail follows a little behind
     tr.beads.forEach((m, i) => {
-      const kk = k - i * 0.035;
+      const kk = k - i * 0.016;
       m.visible = kk > 0 && kk < 1 && brightness > 0.01;
       if (!m.visible) return;
       const p = tr.curve.getPoint(kk);
       m.position.copy(p);
-      const s = (0.2 - i * 0.012) * (0.6 + 0.4 * brightness);
+      const s = (0.26 - i * 0.011) * (0.6 + 0.4 * brightness);
       m.scale.set(s, s, 1);
-      m.material.color.copy(GREY).multiplyScalar(1.3 * brightness * (1 - i / 10));
+      m.material.color.copy(GREY).multiplyScalar(1.1 * brightness * (1 - i / 19));
     });
   };
 

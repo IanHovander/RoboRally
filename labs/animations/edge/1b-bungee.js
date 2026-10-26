@@ -1,20 +1,23 @@
 // Edge, idea 1 (Bungee), animator b: character acting.
 // Maya struts off the rim, her own trail catches her like a bungee cord and hauls her back up, level with the
-// glass. She turns to the room, eye wide with hope... looks up at the cord as it thins to a thread... and it
-// snaps. The loose end whips back along the glass and cracks right in front of Ava, who flinches.
+// glass. One held breath: she turns to the room, eye wide with hope, and Ava leans in willing her home... Maya looks
+// up at the cord as it thins to a thread, her eye sinks, she gulps, and it snaps. She drops into the dark, and the
+// loose end whips back along the glass like a released rubber band and cracks: Ava jumps out of her skin.
 export const meta = {
   title: 'Bungee: the hopeful dangle',
   idea:
-    'Maya drives off the rim and her own trail of light peels up off the glass and catches her like a bungee cord. ' +
-    'It hauls her back up level with the glass, almost home: she turns to the room with her eye wide, beaming. Then she ' +
-    'looks up at the cord, it thins to a thread, her eye drops, and it snaps with a soft pop. She falls into the dark ' +
-    'and the loose end whips back along the glass like a released rubber band, cracking beside Ava, who flinches.',
+    'Maya drives off the rim and her own trail of light peels up off the glass and catches her like a bungee cord, ' +
+    'thinning and brightening as it takes her weight. It hauls her back up level with the glass, almost home: one held ' +
+    'breath, she turns to the room with her eye wide and Ava leans in, willing her home. Then Maya looks up at the cord, ' +
+    'it thins to a thread, her eye sinks, she gulps, and it snaps with a soft pop. She drops into the dark, and the ' +
+    'loose end whips back along the glass like a released rubber band and cracks: Ava jumps out of her skin.',
   notes:
     'Sound: a rising glassy stretch as the cord takes her weight (pitch follows the stretch), a hollow "boing" on the ' +
-    'rebound, a held hush, one thin creak as the cord thins, then a bright little glass "tink" for the snap, a falling ' +
-    'whistle that drops out, and a sharp light "crack" when the loose end lands. Port: the band is drawn by its own ' +
-    'ribbon (the game trail is hidden for the moment), built from the trail points the move just drew; the rebound ' +
-    'height and the whip path can take a little randomness. Ava only reacts where she stands: she ends exactly as she started.',
+    'rebound, a held hush, one thin creak as the cord thins, a tiny gulp, then a bright little glass "tink" for the ' +
+    'snap, a falling whistle that drops out, and a sharp light "crack" when the loose end lands. Port: the band is ' +
+    'drawn by its own ribbon (the game trail is hidden for the moment), built from the trail points the move just ' +
+    'drew; the rebound height and the whip path can take a little randomness. Ava only reacts where she stands and ' +
+    'ends exactly as she started. The camera leans in a little and comes home on its own values (no jump).',
 };
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -22,6 +25,57 @@ const lerp = (a, b, k) => a + (b - a) * k;
 const seg = (T, a, b) => clamp((T - a) / (b - a));
 const smooth = (k) => k * k * (3 - 2 * k);
 const bump = (k) => Math.sin(Math.PI * clamp(k)); // 0 → 1 → 0
+
+/** The picture's centring offset when the camera is at home (what scene.js placeCamera settles on). */
+function homeOffset(lab) {
+  const { THREE } = lab;
+  const A = lab.arena;
+  const h = A.camHome;
+  const cam = A.camera.clone();
+  cam.view = null;
+  cam.updateProjectionMatrix();
+  cam.position.set(h.target.x, h.target.y + Math.sin(h.elev) * h.dist, h.target.z + Math.cos(h.elev) * h.dist);
+  cam.lookAt(h.target);
+  cam.updateMatrixWorld();
+  let x0 = 9;
+  let x1 = -9;
+  let y0 = 9;
+  let y1 = -9;
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const v = new THREE.Vector3((x * A.course.w) / 2, 0, (z * A.course.h) / 2).project(cam);
+    x0 = Math.min(x0, v.x);
+    x1 = Math.max(x1, v.x);
+    y0 = Math.min(y0, v.y);
+    y1 = Math.max(y1, v.y);
+  }
+  return { sx: (A.frame.left - A.frame.right) / 2 - (x0 + x1) / 2, sy: (A.frame.bottom - A.frame.top) / 2 - (y0 + y1) / 2 };
+}
+
+/**
+ * Take the camera relative to its home. fn() returns { move: Vector3, zoom, el, free } where free (0..1) lets the
+ * picture's centring go (0 keeps it exactly as at home, so letting go at zero is seamless).
+ */
+function rig(lab, fn) {
+  const A = lab.arena;
+  const off = homeOffset(lab);
+  let sx = A.camCur?.sx ?? off.sx;
+  let sy = A.camCur?.sy ?? off.sy;
+  return lab.camera((home, t) => {
+    const r = fn() ?? {};
+    const free = r.free ?? 0;
+    const e = Math.min(1, A.dt * 6);
+    sx += (off.sx * (1 - free) - sx) * e;
+    sy += (off.sy * (1 - free) - sy) * e;
+    const k = Math.min(1, A.dt * 4); // lab.js eases the centring away at this rate; hand it what we want instead
+    if (A.camCur && k < 1) {
+      A.camCur.sx = sx / (1 - k);
+      A.camCur.sy = sy / (1 - k);
+    }
+    const target = home.target.clone();
+    if (r.move) target.add(r.move);
+    return { target, az: Math.sin(t * 0.07) * 0.03, el: home.el + (r.el ?? 0), dist: home.dist * (r.zoom ?? 1) };
+  });
+}
 
 function bandTexture(THREE) {
   const c = document.createElement('canvas');
@@ -147,22 +201,24 @@ export default async function play(lab) {
   const mayaEye = maya.model.body.children.find((o) => o.material === maya.model.eyeMat);
   const towardRim = Math.atan2(-(RIM - 2), -(ROW - 3)) * 0.8; // Ava's head turned toward the rim
 
-  // ---------------- the timeline (scene seconds from the start) ----------------
+  // ---------------- the timeline (moment seconds) ----------------
   const P = {
-    ant: [0.0, 0.16], // she rocks back, eager
-    drive: [0.16, 0.96], // 4 → the rim, with a strut
-    drop: [0.96, 1.42], // over the rim: she falls, the cord stretches
-    rebound: [1.42, 1.8], // yanked back up, level with the rim
-    hope: [1.8, 2.02], // she turns to the room, beaming
-    doubt: [2.02, 2.3], // she looks up at the cord as it thins
+    ant: [0.0, 0.14], // she rocks back, eager
+    drive: [0.14, 0.92], // 4 → the rim, with a strut
+    drop: [0.92, 1.4], // over the rim: she falls, the cord stretches
+    rebound: [1.4, 1.76], // yanked back up, level with the rim
+    hang: [1.76, 2.06], // the held breath: she turns to the room, beaming
+    doubt: [2.06, 2.3], // she looks up at the cord as it thins
     snap: 2.3,
-    fall: [2.3, 2.75],
-    whip: [2.32, 2.9], // the loose end races home
-    flinch: [2.88, 3.06],
-    settle: [3.06, 3.38],
+    fall: [2.3, 2.72],
+    whip: [2.32, 2.84], // the loose end races home along the glass
+    jump: [2.84, 3.08], // Ava jumps out of her skin
+    settle: [3.0, 3.32],
   };
-  const HANG = { x: RIM + 0.42, lift: -0.2 };
-  const BOTTOM = { x: RIM + 0.85, lift: -1.38 };
+  const END = 3.34;
+  const HANG = { x: RIM + 0.5, lift: -0.32 }; // dangling just over the rim, her eye level with the glass
+  const BOTTOM = { x: RIM + 1.0, lift: -1.8 };
+  const CRACK_X = 3.55; // where the loose end lands, just past (4,1)
 
   const mayaPose = (T) => {
     let x = 4;
@@ -187,7 +243,8 @@ export default async function play(lab) {
       pitch = -0.16 * (1 - smooth(seg(k, 0, 0.25))) + 0.1 * smooth(seg(k, 0.1, 0.4));
       lift = 0.035 * Math.abs(Math.sin(k * Math.PI * 2.5)); // a jaunty little strut
       sy = 1 + 0.04 * Math.sin(k * Math.PI * 5);
-      eye = 1.15;
+      eyeW = 0.65; // content, not looking
+      eye = 1.2;
     } else if (T < P.drop[1]) {
       const k = seg(T, ...P.drop);
       x = RIM + (BOTTOM.x - RIM) * (1 - (1 - k) ** 3);
@@ -196,47 +253,46 @@ export default async function play(lab) {
       // stretched as she falls, squashed as the cord catches her
       sy = 1 + 0.25 * bump(seg(k, 0.1, 0.8)) - 0.2 * bump(seg(k, 0.8, 1.2));
       sx = 1 - 0.08 * bump(seg(k, 0.1, 0.8)) + 0.14 * bump(seg(k, 0.8, 1.2));
-      eyeW = 1 + 1.0 * smooth(seg(k, 0.0, 0.2));
-      eye = 1.4;
+      eyeW = lerp(0.65, 2.1, smooth(seg(k, 0.0, 0.15)));
+      eye = 1.5;
     } else if (T < P.rebound[1]) {
       const k = seg(T, ...P.rebound);
       x = lerp(BOTTOM.x, HANG.x, ease.out(k));
-      lift = lerp(BOTTOM.lift, HANG.lift, ease.out3(k));
+      lift = lerp(BOTTOM.lift, HANG.lift, ease.out3(k)) + 0.05 * bump(seg(k, 0.75, 1)); // a little overshoot at the top
       pitch = lerp(1.1, -0.05, smooth(seg(k, 0.05, 0.9)));
       rot = facing(1) - 1.35 * smooth(seg(k, 0.3, 1)); // she spins on the cord to face the room
-      sy = 1 + 0.2 * bump(seg(k, 0, 0.6)) - 0.06 * bump(seg(k, 0.7, 1));
-      sx = 1 - 0.08 * bump(seg(k, 0, 0.6));
-      eyeW = 2 - smooth(k);
-      eye = 1.4;
+      sy = 1 + 0.2 * bump(seg(k, 0, 0.6)) - 0.08 * bump(seg(k, 0.75, 1));
+      sx = 1 - 0.08 * bump(seg(k, 0, 0.6)) + 0.05 * bump(seg(k, 0.75, 1));
+      eyeW = 2.1 - 0.9 * smooth(k);
+      eye = 1.5;
     } else if (T < P.doubt[1]) {
-      const kh = seg(T, ...P.hope);
+      const kh = seg(T, ...P.hang);
       const kd = seg(T, ...P.doubt);
       x = HANG.x;
-      lift = HANG.lift + 0.03 * Math.sin(kh * Math.PI) - 0.05 * smooth(kd);
       rot = facing(1) - 1.35;
-      // hope: eye wide and bright, a happy little wiggle
-      roll = 0.13 * Math.sin(kh * Math.PI * 4) * (1 - smooth(kd));
-      eye = 1 + 1.4 * smooth(seg(kh, 0, 0.4));
-      eyeW = 1 + 0.6 * smooth(seg(kh, 0, 0.4));
-      sy = 1 + 0.07 * bump(kh);
+      // the held breath: dead still... then hope dawns: her eye opens wide and brightens
+      lift = HANG.lift + 0.012 * Math.sin(kh * Math.PI) - 0.04 * smooth(kd);
+      eye = 1.5 + 1.3 * smooth(seg(kh, 0.35, 0.8));
+      eyeW = 1.2 + 0.7 * smooth(seg(kh, 0.35, 0.8));
+      sy = 1 + 0.06 * smooth(seg(kh, 0.35, 0.8));
       // doubt: she looks up at the cord; her light sinks; a gulp
-      rot = lerp(rot, facing(1) - 0.35, smooth(seg(kd, 0, 0.45)));
-      pitch = -0.45 * smooth(seg(kd, 0, 0.45));
-      eye = lerp(eye, 0.4, smooth(seg(kd, 0.35, 0.8)));
-      eyeW = lerp(eyeW, 0.45, smooth(seg(kd, 0.35, 0.8)));
-      sy -= 0.1 * bump(seg(kd, 0.6, 0.95));
-      sx = 1 + 0.06 * bump(seg(kd, 0.6, 0.95));
+      rot = lerp(rot, facing(1) - 0.45, smooth(seg(kd, 0, 0.4)));
+      pitch = -0.5 * smooth(seg(kd, 0, 0.4));
+      eye = lerp(eye, 0.45, smooth(seg(kd, 0.3, 0.75)));
+      eyeW = lerp(eyeW, 0.5, smooth(seg(kd, 0.3, 0.75)));
+      sy -= 0.12 * bump(seg(kd, 0.62, 0.95));
+      sx = 1 + 0.07 * bump(seg(kd, 0.62, 0.95));
     } else if (T < P.fall[1]) {
       const k = seg(T, ...P.fall);
       x = HANG.x + 0.15 * k;
-      lift = HANG.lift - 0.05 - 1.7 * k * k;
-      rot = facing(1) - 0.35 + 0.6 * k;
-      pitch = -0.45 + 1.7 * smooth(seg(k, 0.05, 1));
+      lift = HANG.lift - 0.04 - 1.8 * k * k;
+      rot = facing(1) - 0.45 + 0.6 * k;
+      pitch = -0.5 + 1.8 * smooth(seg(k, 0.05, 1));
       roll = 0.4 * k;
       sy = 1 + 0.25 * smooth(seg(k, 0.0, 0.35));
       sx = 1 - 0.1 * smooth(seg(k, 0.0, 0.35));
-      eye = 2.2 * (1 - seg(k, 0.5, 1));
-      eyeW = 2.1; // one last wide-eyed look
+      eye = 2.4 * (1 - seg(k, 0.5, 1));
+      eyeW = 2.2; // one last wide-eyed look
     } else {
       visible = false;
       x = HANG.x + 0.15;
@@ -252,52 +308,49 @@ export default async function play(lab) {
     let sx = 1;
     let sy = 1;
     let eye = 1;
+    let lift = 0;
     let x = 2;
     // she turns to watch Maya go
-    const watch = smooth(seg(T, 0.45, 0.85)) * (1 - smooth(seg(T, P.settle[0], P.settle[1])));
+    const watch = smooth(seg(T, 0.45, 0.85)) * (1 - smooth(seg(T, P.settle[0] + 0.05, P.settle[1])));
     rot += towardRim * watch;
     // a gasp as Maya goes over: she stretches up and rocks back
-    const gasp = bump(seg(T, 0.98, 1.4));
-    sy += 0.14 * gasp;
+    const gasp = bump(seg(T, 0.96, 1.4));
+    sy += 0.16 * gasp;
     sx -= 0.05 * gasp;
-    pitch -= 0.18 * gasp;
-    eye += 0.8 * gasp;
-    // during the hope she leans in, willing her home
-    const will = smooth(seg(T, 1.6, 1.95)) * (1 - smooth(seg(T, P.snap - 0.02, P.snap + 0.12)));
-    pitch += 0.22 * will;
-    x += 0.05 * will;
-    // the snap: a little jolt
-    sy += 0.1 * bump(seg(T, P.snap, P.snap + 0.16));
-    // the whip cracks right in front of her: flinch, squeeze shut, turn away
-    const flinch = smooth(seg(T, P.flinch[0], P.flinch[0] + 0.07)) * (1 - smooth(seg(T, P.flinch[1], P.settle[1] - 0.05)));
-    sy -= 0.26 * flinch;
-    sx += 0.13 * flinch;
-    pitch -= 0.28 * flinch;
-    x -= 0.09 * flinch;
-    rot += 0.6 * flinch;
-    eye *= 1 - 0.85 * flinch;
-    // and a shudder as she comes back
-    const sh = seg(T, P.flinch[1], P.settle[1]);
-    roll += 0.09 * Math.sin(sh * Math.PI * 6) * (sh > 0 && sh < 1 ? (1 - sh) ** 1.5 : 0);
-    return { x, rot, pitch, roll, sx, sy, eye };
+    pitch -= 0.2 * gasp;
+    eye += 0.9 * gasp;
+    // during the held breath she leans in, willing her home
+    const will = smooth(seg(T, 1.62, 2.0)) * (1 - smooth(seg(T, P.snap - 0.02, P.snap + 0.1)));
+    pitch += 0.24 * will;
+    x += 0.06 * will;
+    eye += 0.5 * will;
+    // the snap: "oh no" (sinks a little, her light drops)
+    const oh = smooth(seg(T, P.snap, P.snap + 0.1)) * (1 - smooth(seg(T, P.jump[0], P.jump[0] + 0.05)));
+    sy -= 0.06 * oh;
+    eye -= 0.45 * oh;
+    // the crack: she jumps out of her skin (straight up, stretched, eye blazing), lands squashed, shivers
+    const j = seg(T, ...P.jump);
+    lift += 0.2 * bump(seg(j, 0, 0.7)) ** 0.8;
+    sy += 0.24 * bump(seg(j, 0, 0.45)) - 0.16 * bump(seg(j, 0.6, 1));
+    sx += -0.08 * bump(seg(j, 0, 0.45)) + 0.1 * bump(seg(j, 0.6, 1));
+    pitch -= 0.25 * bump(seg(j, 0, 0.6));
+    eye += 1.8 * bump(seg(j, 0, 0.6));
+    const sh = seg(T, P.jump[1] - 0.04, P.settle[1]);
+    roll += 0.09 * Math.sin(sh * Math.PI * 7) * (sh > 0 && sh < 1 ? (1 - sh) ** 1.5 : 0);
+    return { x, rot, pitch, roll, sx, sy, eye, lift };
   };
 
-  // ---------------- the camera leans in on the rim for the drop, and lets go after the crack ----------------
-  const focus = W(5.35, -0.35);
-  focus.z += 0.15;
-  const camIn = [0.5, 1.1];
-  const camOut = [2.62, 3.4];
+  // ---------------- the camera leans in on the rim for the drop, keeping Ava in the picture ----------------
   const t0 = lab.t;
-  const releaseCam = lab.camera((home) => {
-    const T = lab.t - t0;
-    const k = smooth(seg(T, ...camIn)) * (1 - smooth(seg(T, ...camOut)));
-    return { target: home.target.clone().lerp(focus, k), dist: home.dist * lerp(1, 0.64, k), el: lerp(home.el, 0.66, k), az: 0.06 * k };
+  let T = 0;
+  const releaseCam = rig(lab, () => {
+    const k = smooth(seg(T, 0.55, 1.25)) * (1 - smooth(seg(T, 2.55, END - 0.02)));
+    return { move: new THREE.Vector3(0.5 * k, -0.42 * k, 0.05 * k), zoom: 1 - 0.12 * k, free: k };
   });
 
   // ---------------- every frame ----------------
   const trail = []; // the trail she draws: our own copy of Lumen's trail, so it can stretch
   const LIFE = 3.2;
-  let T = 0;
   let last = null;
   let snapped = false;
   lab.playCard('a', ['m3']);
@@ -307,7 +360,7 @@ export default async function play(lab) {
     maya.set({ x: m.x, y: ROW, lift: m.lift, rot: m.rot, pitch: m.pitch, roll: m.roll, sx: m.sx, sy: m.sy, sz: m.sx, visible: m.visible });
     maya.look = m;
     const a = avaPose(T);
-    ava.set({ x: a.x, y: 3, rot: a.rot, pitch: a.pitch, roll: a.roll, sx: a.sx, sy: a.sy, sz: a.sx });
+    ava.set({ x: a.x, y: 3, lift: a.lift, rot: a.rot, pitch: a.pitch, roll: a.roll, sx: a.sx, sy: a.sy, sz: a.sx });
     ava.look = a;
     if (T < P.drive[1] + 0.02) {
       const p = W(Math.min(m.x, RIM));
@@ -315,7 +368,7 @@ export default async function play(lab) {
     }
     if (T >= P.snap && !snapped) {
       snapped = true;
-      lab.shake(0.02, 0.2);
+      lab.shake(0.015, 0.18);
     }
   });
 
@@ -338,6 +391,7 @@ export default async function play(lab) {
     model.eyeMat.color.setRGB(3.2 * look.eye, 3.1 * look.eye, 2.9 * look.eye);
     if (mayaEye) mayaEye.scale.set(look.eyeW, 1, look.eyeW);
     if (!look.visible) model.poolMat.opacity = 0;
+    else model.poolMat.opacity *= clamp(1 + look.lift * 3); // her glow leaves the glass as she drops
     // her card stays up over the rim where she left it; it goes out when the cord snaps
     if (mb.card) {
       const c = W(Math.min(maya.pose.x, RIM + 0.1));
@@ -353,13 +407,13 @@ export default async function play(lab) {
     const kw = seg(T, ...P.whip);
     // tension: the band holds its light (and gains some) while it holds her
     const tension = smooth(seg(kd, 0.15, 0.95)) * (1 - 0.35 * smooth(kr)) + 0.6 * smooth(kdb);
-    const thin = lerp(lerp(lerp(1, 0.5, smooth(seg(kd, 0.2, 1))), 0.8, smooth(seg(kr, 0, 0.7))), 0.16, smooth(seg(kdb, 0.15, 1)));
+    const thin = lerp(lerp(lerp(1, 0.5, smooth(seg(kd, 0.2, 1))), 0.8, smooth(seg(kr, 0, 0.7))), 0.14, smooth(seg(kdb, 0.15, 1)));
     const anchorX = RIM - 0.6 * smooth(seg(kd, 0.1, 1)) + 0.25 * smooth(kr); // where it peels off the glass
-    const creak = kdb > 0.55 && kdb < 1 ? 0.55 + 0.45 * Math.sin(T * 120) : 1;
+    const creak = kdb > 0.5 && kdb < 1 ? 0.55 + 0.45 * Math.sin(T * 120) : 1;
     // the whip: the loose end races home along the glass, its tip overtaking at the end, and cracks
-    const endX = lerp(anchorX, 3.95, ease.inOut(kw)); // the end of what's left lying on the glass
-    const tipX = lerp(RIM + 0.15, 3.5, ease.in3(kw) * 0.7 + kw * 0.3);
-    const tipLift = lerp(-0.25, 0, kw) + 0.95 * bump(seg(kw, 0, 0.95)) ** 0.8;
+    const endX = lerp(anchorX, CRACK_X + 0.4, ease.inOut(kw)); // the end of what's left lying on the glass
+    const tipX = lerp(RIM + 0.15, CRACK_X, ease.in3(kw) * 0.7 + kw * 0.3);
+    const tipLift = lerp(-0.25, 0, kw) + 0.85 * bump(seg(kw, 0, 0.95)) ** 0.8;
     const fade = 1 - seg(T, P.whip[1], P.whip[1] + 0.16);
 
     const pts = [];
@@ -377,14 +431,14 @@ export default async function play(lab) {
     const lastK = pts.length ? pts[pts.length - 1].k : 1.8;
     if (!snapped && T >= P.drive[1] - 0.02 && look.visible) {
       // peeled up at the anchor, bent over the rim, down to her back
-      const A = W(anchorX, 0.008);
+      const A0 = W(anchorX, 0.008);
       const R = W(RIM + 0.03, 0.01);
       const B = back();
       const n = 30;
       const kb = (1 / Math.max(0.3, thin)) ** 0.7 * creak;
       for (let i = 1; i <= n; i++) {
         const k = i / n;
-        const q = quad(A, R, B, k);
+        const q = quad(A0, R, B, k);
         if (q.x < R.x) q.y = Math.max(0.008, q.y);
         pts.push({ p: q, w: 0.2 * thin * (1 - 0.3 * k), k: lerp(lastK, 2.4 * glow * kb, Math.min(1, k * 4)) });
       }
@@ -412,7 +466,7 @@ export default async function play(lab) {
     if (fade <= 0) tipGlow.material.opacity = 0;
     band.draw(pts, red);
     glowAt(pop, W(RIM + 0.06, 0.0), seg(T, P.snap, P.snap + 0.35), 1.2);
-    glowAt(crack, W(3.5, 0.06), seg(T, P.whip[1] - 0.02, P.whip[1] + 0.32), 1.1);
+    glowAt(crack, W(CRACK_X, 0.06), seg(T, P.whip[1] - 0.02, P.whip[1] + 0.32), 1.1);
   };
   ava.each = (model) => {
     const e = ava.look.eye;
@@ -420,9 +474,8 @@ export default async function play(lab) {
   };
 
   // the crack: a small ring of light where the loose end lands
-  lab.at(P.whip[1], () => lab.ring(W(3.5, 0), '#ff8a9c', 0.7, 0.03, 0.5));
-  lab.at(camOut[0], () => {});
-  await lab.wait(P.settle[1]);
+  lab.at(P.whip[1], () => lab.ring(W(CRACK_X, 0), '#ff8a9c', 0.7, 0.03, 0.5));
+  await lab.wait(END);
   stop();
   releaseCam();
   band.hide();

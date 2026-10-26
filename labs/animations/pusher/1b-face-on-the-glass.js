@@ -123,10 +123,10 @@ function makeSmear(lab, color) {
   return {
     root,
     /** slip (viewBox units down), squash, open (eye 0..1), look (-1..1), opacity, trailH, rip (0..1 ripple) */
-    set({ slip = 0, sx = 1, sy = 1, open = 1, look = 0, opacity = 1, trailH = 0, rip = -1 }) {
+    set({ slip = 0, sx = 1, sy = 1, open = 1, look = 0, down = 0, opacity = 1, trailH = 0, rip = -1 }) {
       all.setAttribute('transform', `translate(80 ${47 + slip}) scale(${sx} ${sy}) translate(-80 -47)`);
       root.style.opacity = String(opacity);
-      eye.setAttribute('transform', `translate(${80 + look * 12} 44.5) scale(${1 - Math.abs(look) * 0.25} ${Math.max(0.06, open)}) translate(-80 -44.5)`);
+      eye.setAttribute('transform', `translate(${80 + look * 12} ${44.5 + down * 9}) scale(${(1 - Math.abs(look) * 0.25) * (1 - 0.3 * Math.abs(down))} ${Math.max(0.06, open)}) translate(-80 -44.5)`);
       core.setAttribute('opacity', String(0.5 + 0.5 * open));
       trail.setAttribute('y', String(47 + slip - 26 - trailH));
       trail.setAttribute('height', String(Math.max(0, trailH + 16)));
@@ -177,11 +177,11 @@ export default async function play(lab) {
     if (T < FIRE) return { ...home, keep: 1 };
     if (T < RUSH) {
       const k = seg(T, FIRE, RUSH);
-      const mp = flyPos(k);
+      const mp = flyPos(k).add(new THREE.Vector3(0, 0.2 * k, 0));
       const aim = smooth(Math.min(1, k * 1.6));
       return { target: home.target.clone().lerp(mp, aim), dist: camDist(k), el: lerp(home.el, EL, aim), fov: lerp(30, 40, k * k), roll: 0.07 * k * k, keep: 1 - aim };
     }
-    if (!pressCam) pressCam = { target: flyPos(1), dist: D1, el: EL, fov: 40, roll: 0.07 };
+    if (!pressCam) pressCam = { target: flyPos(1).add(new THREE.Vector3(0, 0.2, 0)), dist: D1, el: EL, fov: 40, roll: 0.07 };
     if (T < PEEL) {
       // pressed: the glass gives a hair, then holds
       const k = seg(T, RUSH, RUSH + 0.12);
@@ -237,7 +237,7 @@ export default async function play(lab) {
       maya.set({ x: mp.x - origin.x, y: mp.z - origin.z, lift: mp.y, rot: facing(1), trail: false });
       const face = smooth(Math.min(1, k * 2.2));
       ma.yaw = lerp(0.2, -Math.PI / 2, face); // body turns to face us (south); her pointer stays east
-      ma.pitch = EL * face; // and tips her face up to the lens
+      ma.pitch = -0.3 * face; // and tips her top toward the lens, so her wide eye stares right at us
       ma.roll = 0.3 * Math.sin(k * 11) * (1 - k);
       ma.sx = 1;
       ma.sy = 1 + 0.15 * Math.sin(k * Math.PI);
@@ -258,12 +258,13 @@ export default async function play(lab) {
       ma.pitch = 0;
       ma.yaw = 0;
       ma.roll = 0;
-      // still pressed flat on her nose, then BOING back into shape
+      // still pressed flat, face-first toward us like a coin on the glass, then BOING back into shape
+      // (local x is south, toward the TV; local z runs along her heading)
       const pop = seg(T, 1.5, 1.86);
       const flat = 1 - outElastic(pop);
-      ma.sz = 1 - 0.55 * flat;
-      ma.sx = 1 + 0.3 * flat;
-      ma.sy = 1 - 0.25 * flat;
+      ma.sx = 1 - 0.55 * flat;
+      ma.sz = 1 + 0.35 * flat;
+      ma.sy = 1 - 0.3 * flat;
       // dazed: a woozy roll and a flickering eye, until the boing wakes her up
       const daze = 1 - seg(T, 1.5, 1.62);
       ma.roll = 0.2 * Math.sin(T * 10) * daze;
@@ -277,16 +278,27 @@ export default async function play(lab) {
       const hit = seg(p, 0, 0.1);
       const wob = damp(p, 34, 10);
       const grow = lerp(0.62, 1, out3(hit));
-      // blink ... blink ... a sheepish glance left, right
-      const b1 = Math.sin(seg(p, 0.12, 0.2) * Math.PI);
-      const b2 = Math.sin(seg(p, 0.25, 0.33) * Math.PI);
+      // blink ... blink ... a sheepish glance left, right ... then down: "uh-oh"
+      const b1 = Math.sin(seg(p, 0.08, 0.13) * Math.PI);
+      const b2 = Math.sin(seg(p, 0.17, 0.22) * Math.PI);
       const open = 1 - 0.95 * Math.max(b1, b2);
-      const look = -Math.sin(seg(p, 0.35, 0.44) * Math.PI) + Math.sin(seg(p, 0.44, 0.53) * Math.PI);
-      // then she slips: slowly, then faster, stretching as she peels
-      const s = seg(T, PEEL - 0.08, HOME);
-      const slip = 46 * s ** 2;
-      const fade = 1 - smooth(seg(T, PEEL + 0.05, PEEL + 0.5));
-      smear.set({ slip, sx: grow * (1 + 0.14 * wob) * (1 - 0.08 * s), sy: grow * (1 - 0.14 * wob) * (1 + 0.14 * s), open, look: look * 0.9, opacity: Math.min(1, hit * 5) * fade, trailH: slip * 0.85, rip: seg(p, 0, 0.3) });
+      const look = -Math.sin(seg(p, 0.24, 0.3) * Math.PI) + Math.sin(seg(p, 0.3, 0.36) * Math.PI);
+      const down = smooth(seg(p, 0.36, 0.41));
+      // then she slips: a creep, then gravity wins and she slides off the bottom of the screen
+      const s = seg(T, PEEL - 0.12, PEEL + 0.32);
+      const slip = 4 * smooth(Math.min(1, s * 3)) + 96 * Math.max(0, s - 0.2) ** 2 / 0.64;
+      const fade = 1 - smooth(seg(T, PEEL + 0.1, PEEL + 0.4));
+      smear.set({
+        slip,
+        sx: grow * (1 + 0.14 * wob) * (1 - 0.1 * s),
+        sy: grow * (1 - 0.14 * wob) * (1 + 0.22 * s),
+        open: open * (1 - 0.25 * down) + 0.6 * s,
+        look: look * 0.9,
+        down: down * (1 - s) - 1.2 * s,
+        opacity: fade,
+        trailH: slip * 0.8,
+        rip: seg(p, 0, 0.3),
+      });
     }
 
     // ---- Ava, the witness. Watches Maya fly at the TV; revealed still staring at it, double-takes, snickers.

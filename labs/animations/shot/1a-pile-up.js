@@ -31,8 +31,8 @@ export default async function play(lab) {
   const MUZ_Y = 0.13;
   const muzzleX = () => lab.pos(theo.pose.x, 1).x + MUZ_DX;
   const D0 = muzzleX() - FLANK; // how far the head travels
-  const L = D0 * 1.6; // the whole beam's length: it all ends up in the heap (longer shot, bigger heap)
-  const V = 11; // the light's speed (world units / s)
+  const L = D0 * 1.5; // the whole beam's length: it all ends up in the heap (longer shot, bigger heap)
+  const V = 13; // the light's speed (world units / s)
 
   // ---------- the heap's path: a crumpled ribbon of folds, a function of arc length ----------
   // the cars jackknife: zigzags across the row (readable from above), stacking up in layers, a curl on top
@@ -40,11 +40,11 @@ export default async function play(lab) {
   ctrl.push(new THREE.Vector3(FLANK, 0.14, row)); // the head, against her flank at beam height
   ctrl.push(new THREE.Vector3(FLANK + 0.02, 0.07, row + 0.05)); // it slumps to the glass
   const LAYERS = [
-    { y: 0.05, amp: 0.24, n: 4, w: 0.56 },
-    { y: 0.16, amp: 0.2, n: 4, w: 0.5 },
-    { y: 0.27, amp: 0.17, n: 3, w: 0.42 },
-    { y: 0.38, amp: 0.13, n: 3, w: 0.34 },
-    { y: 0.48, amp: 0.1, n: 2, w: 0.24 },
+    { y: 0.05, amp: 0.3, n: 4, w: 0.64 },
+    { y: 0.17, amp: 0.27, n: 4, w: 0.56 },
+    { y: 0.3, amp: 0.22, n: 3, w: 0.46 },
+    { y: 0.42, amp: 0.17, n: 3, w: 0.36 },
+    { y: 0.53, amp: 0.12, n: 2, w: 0.26 },
   ];
   LAYERS.forEach((ly, li) => {
     const east = li % 2 === 0;
@@ -71,7 +71,8 @@ export default async function play(lab) {
     return out.copy(pilePts[i]).lerp(pilePts[i + 1], f - i);
   };
   // the heap's own body: it squashes toward her with every fold landing, sags with its weight, wobbles
-  const heap = { push: 0, pushV: 0, sag: 0, wob: 0, wobV: 0, up: 0 };
+  const heap = { push: 0, pushV: 0, sag: 0, wob: 0, wobV: 0, up: 0, suck: 0 };
+  const MOUTH = new THREE.Vector3(FLANK - 0.12, 0.17, row);
   const shapeHeap = (p, s) => {
     const dx = p.x - FLANK;
     const h = p.y;
@@ -79,6 +80,7 @@ export default async function play(lab) {
     p.x = FLANK + dx * sq + Math.sin(h * 9 + heap.wob * 2) * heap.wob * 0.03;
     p.y = h * (1 - heap.sag + heap.push * 0.25) * (1 + heap.up) + 0.004;
     p.z += Math.sin(s * 3 + heap.wob) * heap.wob * 0.01;
+    if (heap.suck > 0) p.lerp(MOUTH, heap.suck);
     return p;
   };
 
@@ -133,8 +135,8 @@ export default async function play(lab) {
     return mesh;
   };
   const add = (c, k, op) => new THREE.MeshBasicMaterial({ color: hdr(c, k), transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false });
-  const coreMat = add('#ffffff', 2.6, 1);
-  const sheathMat = add(color, 1.5, 0.38);
+  const coreMat = add('#ffffff', 1.9, 1);
+  const sheathMat = add(color, 1.5, 0.24);
   const core = lab.add(makeTube(coreMat, 6));
   const sheath = lab.add(makeTube(sheathMat, 10));
   core.renderOrder = 6;
@@ -149,7 +151,7 @@ export default async function play(lab) {
   headHalo.scale.setScalar(0.75);
   headHalo.visible = false;
   // the heap's light pooled on the glass, and the line's light on the glass under it
-  const pool = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: hdr(color, 1.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
+  const pool = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: hdr(color, 0.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
   pool.rotation.x = -Math.PI / 2;
   pool.position.set(FLANK + 0.2, 0.006, row);
   pool.renderOrder = 2;
@@ -243,7 +245,7 @@ export default async function play(lab) {
       head.visible = headHalo.visible = false;
     }
     // reverse so the tube starts at the tail (just a nicer frame to start from)
-    core.update(pts.slice(0, n), 0.016);
+    core.update(pts.slice(0, n), 0.013);
     sheath.update(pts.slice(0, n), 0.042);
     // light on the glass: under the run, and pooled under the heap
     const runK = st.slurp > 0 ? 0 : clamp01(travelled / D0) * (tailD > 0 ? clamp01(1 - tailD / D0) : 1);
@@ -253,8 +255,8 @@ export default async function play(lab) {
     streak.scale.set(Math.max(0.01, Math.abs(a - b) + 0.6), 1, 1);
     streak.position.x = (a + b) / 2;
     const hk = clamp01((U - sl) / L);
-    pool.material.opacity = 0.2 + 0.8 * hk;
-    pool.scale.setScalar(0.4 + 0.9 * hk);
+    pool.material.opacity = 0.12 + 0.3 * hk;
+    pool.scale.setScalar(0.35 + 0.6 * hk);
     if (U <= 0 && st.slurp <= 0) pool.material.opacity = 0;
     // count folds landing: each one shoves the heap (and Maya) a little
     const f = Math.floor((U - 0.25) / 0.55);
@@ -281,8 +283,10 @@ export default async function play(lab) {
     maya.set({ x: 1, y: 1, rot: MAYA_ROT, roll: m.lean * 0.12, sx: 1 + 0.2 * s, sz: 1 + 0.2 * s, sy: 1 + 0.1 * s - 0.06 * Math.max(0, m.lean) });
     if (m.blink > 0) {
       const b = m.blink;
-      const k = b < 0.25 ? 0.05 : 1 + 2.4 * Math.sin(((b - 0.25) / 0.75) * Math.PI);
+      const k = b < 0.25 ? 0.05 : 1 + 4 * Math.sin(((b - 0.25) / 0.75) * Math.PI);
       model.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
+      // the swallowed light flushes through her polish once
+      model.paint.emissiveIntensity = 0.16 + 0.9 * Math.max(0, 1 - b * 1.6);
     }
   };
   maya.set({ x: 1, y: 1, rot: MAYA_ROT });
@@ -343,6 +347,7 @@ export default async function play(lab) {
     st.slurp = total * e;
     st.whip = k;
     heap.up = 0.06 * (1 - k);
+    heap.suck = 0.8 * ease.in(k);
     mayaState.swell = 0.25 * e;
   }, ease.in3);
   st.done = true;

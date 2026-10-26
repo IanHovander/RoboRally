@@ -86,7 +86,7 @@ export default async function play(lab) {
   const tipWorld = () => (gear ? gear.mesh.localToWorld(tipLocal.clone()) : C.clone().add(new THREE.Vector3(0, 0, 0.25)));
 
   // a patch of dark over the arrowhead while its light is away
-  const hole = flat(0.16, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }), 0.007);
+  const hole = flat(0.3, new THREE.MeshBasicMaterial({ map: glowTex, color: 0x000000, transparent: true, opacity: 0, depthWrite: false }), 0.007);
   hole.renderOrder = 3;
 
   // ----- the dot: a bright core, a halo, a pool of mint on the glass and a short comet tail -----
@@ -131,7 +131,7 @@ export default async function play(lab) {
   // the chase: the dot darts in stop-start hops; she snaps after each one a beat late
   const feint = Math.floor(lab.rand() * 3); // 0: it flicks back, 1: a false start fools her, 2: a long tease
   const dart = () => lab.range(0.055, 0.075);
-  const hold = () => lab.range(0.06, 0.11);
+  const hold = () => lab.range(0.05, 0.09);
   const dotKeys = [[0, 0], [HUNT, 0]];
   const herKeys = [[0, 0], [HUNT + 0.05, 0]];
   let t = HUNT;
@@ -164,7 +164,7 @@ export default async function play(lab) {
     herKeys.push([t + 0.04 + LAG + SNAP, here + q * 1.3, ease.outBack], [t + 0.33, here, ease.inOut]);
     t += 0.24;
   } else {
-    wait(lab.range(0.14, 0.18)); // a long tease: nothing, nothing...
+    wait(lab.range(0.12, 0.15)); // a long tease: nothing, nothing...
   }
   go(q * lab.range(2.6, 2.9));
   wait(lab.range(0.05, 0.08));
@@ -175,10 +175,10 @@ export default async function play(lab) {
   dotKeys.push([STALK + 0.06, turn, ease.out]);
   const herStalk = q * 3.15; // where she freezes: a little short of the dot
   herKeys.push([STALK + 0.12, herStalk, ease.out]);
-  const CROUCH = STALK + 0.1;
-  const POUNCE = CROUCH + 0.24;
-  const LAND = POUNCE + 0.17;
-  const END = LAND + 0.26;
+  const CROUCH = STALK + 0.08;
+  const POUNCE = CROUCH + 0.3;
+  const LAND = POUNCE + 0.2;
+  const END = LAND + 0.3;
   herKeys.push([POUNCE, herStalk - q * 0.12, ease.inOut], [LAND, turn, ease.inOut]); // a tiny wind-up the other way, then the leap
   dotKeys.push([LAND, turn]);
 
@@ -189,6 +189,8 @@ export default async function play(lab) {
   const restore = () => {
     mBody.scale.set(1, 1, 1);
     mBody.position.x = 0;
+    mBody.rotation.y = 0;
+    mBody.rotation.z = 0;
     tBody.scale.set(1, 1, 1);
     tBody.position.x = 0;
     if (mEye) mEye.scale.set(1, 1, 1);
@@ -198,7 +200,7 @@ export default async function play(lab) {
 
   // Theo's head turns to watch, a little late and a little less (a bystander)
   const toMaya = Math.atan2(-(C.x - T.x), -(C.z - T.z));
-  const theoLook = theoRot0 + 0.45 * (((toMaya - theoRot0 + 3 * Math.PI) % TAU) - Math.PI);
+  const theoLook = theoRot0 + 0.7 * (((toMaya - theoRot0 + 3 * Math.PI) % TAU) - Math.PI);
 
   let relit = false;
   const t0 = lab.t;
@@ -218,7 +220,7 @@ export default async function play(lab) {
       pos = tip.clone().lerp(ring, outK);
       pos.y = 0.03 + bump(k * 1.5) * 0.04;
     } else {
-      pos = at(keys(dotKeys, s), R);
+      pos = at(keys(dotKeys, s), R - 0.13 * ease.inOut(seg(s, POUNCE, LAND))); // it shies in toward her as she comes down on it
     }
     pos.add(tremble);
     const dying = seg(s, LAND - 0.02, LAND + 0.07);
@@ -258,40 +260,43 @@ export default async function play(lab) {
     // ----- Maya -----
     const h = keys(herKeys, s);
     const spotK = seg(s, SPOT, SPOT + 0.15);
-    const startle = s > SPOT ? bump(seg(s, SPOT, SPOT + 0.1)) * (1 - seg(s, SPOT + 0.1, SPOT + 0.15)) : 0;
+    const startle = s > SPOT ? bump(seg(s, SPOT, SPOT + 0.13)) : 0;
     const hunting = seg(s, SPOT + 0.08, SPOT + 0.18) * (1 - seg(s, LAND + 0.1, END));
-    const crouch = ease.out(seg(s, CROUCH, CROUCH + 0.08)) * (1 - seg(s, POUNCE - 0.02, POUNCE + 0.03));
+    const crouch = ease.out(seg(s, CROUCH, CROUCH + 0.07)) * (1 + 0.35 * ease.in(seg(s, POUNCE - 0.09, POUNCE))) * (1 - seg(s, POUNCE, POUNCE + 0.04));
     const air = seg(s, POUNCE, LAND);
     const hop = s > POUNCE && s < LAND ? Math.sin(Math.PI * air) : 0;
     const landK = seg(s, LAND, LAND + 0.16);
     const squashLand = s > LAND ? Math.exp(-landK * 4) * Math.cos(landK * 9) : 0;
     const proud = bump(seg(s, LAND + 0.1, END));
     const sheep = bump(seg(s, falseAt + 0.14, falseAt + 0.38)); // caught out by the false start: nose down, eye dim
-    // the wiggle of her rear before the leap: she yaws about her nose, so her back end swings
-    const wig = crouch * Math.sin((s - CROUCH) * 44) * 0.16 * seg(s, CROUCH + 0.05, CROUCH + 0.09);
+    // the wiggle of her rear before the leap, faster and faster: she yaws about her nose, so her back end swings
+    const u = s - CROUCH;
+    const wig = Math.min(1, crouch) * Math.sin(26 * u + 70 * u * u) * 0.3 * seg(s, CROUCH + 0.03, CROUCH + 0.11) * (1 - seg(s, POUNCE - 0.04, POUNCE));
+    const hopPitch = s > POUNCE && s < LAND ? (air < 0.45 ? -0.4 * Math.sin((Math.PI * air) / 0.45) : 0.42 * Math.sin((Math.PI * (air - 0.45)) / 0.55)) : 0;
     const fwd = new THREE.Vector2(-Math.sin(rot0 - spin * h), -Math.cos(rot0 - spin * h));
-    const lunge = 0.1 * hop + 0.08 * (s > LAND ? 1 - ease.out(landK) : 0) - 0.03 * crouch; // nose out to the dot, then back to her space
+    const lunge = (s < LAND ? 0.26 * ease.out(air) : 0.26 * (1 - ease.inOut(seg(s, LAND + 0.06, END)))) - 0.05 * Math.min(1, crouch); // nose out to the dot, then back to her space
     maya.set({
       x: gx + fwd.x * lunge,
       y: gy + fwd.y * lunge,
       rot: rot0 - spin * h,
-      lift: 0.07 * startle + 0.2 * hop,
+      lift: 0.12 * startle + 0.36 * hop,
     });
     // she leans with her body only, so her ring of light stays flat on the glass
-    const mPitch = -0.35 * startle + 0.12 * hunting + 0.14 * crouch - 0.22 * hop * (air < 0.5 ? 1 : -0.6) - 0.16 * proud - 0.12 * sheep;
+    const mPitch = -0.4 * startle + 0.12 * hunting + 0.3 * crouch + hopPitch + 0.25 * squashLand - 0.28 * proud + 0.22 * sheep;
     maya.each = (m) => {
       m.body.rotation.x = -mPitch;
       m.body.position.y += 0.3 * Math.abs(Math.sin(mPitch));
-      const sy = 1 + 0.16 * startle - 0.06 * hunting - 0.16 * crouch + 0.18 * hop * (air < 0.6 ? 1 : 0.3) - 0.3 * squashLand + 0.06 * proud;
+      const sy = 1 + 0.25 * startle - 0.06 * hunting - 0.24 * crouch + 0.3 * hop * (air < 0.5 ? 1 : 0.2) - 0.36 * squashLand + 0.12 * proud;
       const sxz = 1 / Math.sqrt(Math.max(0.4, sy));
       m.body.scale.set(sxz, sy, sxz);
       m.body.rotation.y = wig;
+      m.body.rotation.z = 0.5 * wig;
       m.body.position.x = Math.sin(wig) * 0.26;
       // her eye: wide and bright when she spots it, a narrow hot slit while she stalks, a sparkle when proud
-      const glow = 1 + 1.4 * spotK * hunting + 0.9 * crouch + 1.2 * proud - 0.5 * sheep;
+      const glow = 1 + 1.4 * spotK * hunting + 0.9 * Math.min(1, crouch) + 1.8 * proud - 0.6 * sheep;
       m.eyeMat.color.multiplyScalar(glow);
       if (mEye) {
-        const open = 1 + 0.6 * startle - 0.45 * crouch;
+        const open = 1 + 0.8 * startle - 0.5 * Math.min(1, crouch);
         mEye.scale.set(open, 1 + 0.25 * startle, open);
       }
     };

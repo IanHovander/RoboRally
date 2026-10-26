@@ -83,7 +83,7 @@ export default async function play(lab) {
 
   const others = 0; // robots that already hold this flag: the hoop settles on top of their rings
   const restY = 0.06 + others * 0.07;
-  const R0 = 0.64; // a little wider than her ring of light
+  const R0 = 0.72; // a little wider than her ring of light
   const RT = 0.27; // the game's taken ring
   const TUBE = 0.012 / RT;
 
@@ -105,7 +105,7 @@ export default async function play(lab) {
 
   const Z = new THREE.Vector3(0, 0, 1);
   const n = new THREE.Vector3();
-  const hz = { y: 2.5, R: R0, a: 0.78, phi: 2.2, glow: 2.6, op: 0 };
+  const hz = { y: 2.1, R: R0, a: 0.78, phi: 2.2, glow: 2.6, op: 0 };
   const placeHoop = () => {
     n.set(Math.sin(hz.a) * Math.cos(hz.phi), Math.cos(hz.a), Math.sin(hz.a) * Math.sin(hz.phi));
     hoop.quaternion.setFromUnitVectors(Z, n);
@@ -192,10 +192,10 @@ export default async function play(lab) {
       // condenses out of the top of the column, hangs a hair, then falls like a dropped coin
       const kf = seg(t, DROP, LAND);
       hz.op = seg(t, APPEAR, APPEAR + 0.12);
-      hz.y = 2.5 - (2.5 - hoopH(A0, R0)) * ease.in(kf);
+      hz.y = 2.1 - (2.1 - hoopH(A0, R0)) * ease.in(kf);
       hz.phi += dt * 1.6;
       hz.a = A0 + 0.05 * Math.sin(t * 9) * (1 - kf);
-      hz.glow = 2.6 + (1 - seg(t, APPEAR, APPEAR + 0.2)) * 3;
+      hz.glow = 2.6 + (1 - seg(t, APPEAR, APPEAR + 0.2)) * 1.2;
     } else if (t < SPIN0) {
       // clink: a small bounce off the edge it landed on
       const kb = seg(t, LAND, SPIN0);
@@ -222,7 +222,7 @@ export default async function play(lab) {
       const back = ease.outBack(kc, 2.2);
       hz.R = R0 + (RT - R0) * back;
       hz.y = TUBE * hz.R + (restY - TUBE * hz.R) * ease.out(kc);
-      hz.glow = 1.8 + 3.2 * (1 - seg(t, CLICK, CLICK + 0.18)) * (1 - kc * 0) + 0.8 * Math.sin(Math.PI * kc);
+      hz.glow = 1.8 + 1.6 * (1 - seg(t, CLICK, CLICK + 0.18)) + 0.8 * Math.sin(Math.PI * kc);
       hz.op = 1;
       rate = 0;
       contact = 0;

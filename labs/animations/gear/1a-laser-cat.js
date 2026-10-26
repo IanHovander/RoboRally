@@ -130,7 +130,14 @@ export default async function play(lab) {
   let head = rot0;
   let vel = 0;
   const startle = 0.34;
-  const tagY = lab.bot('a').tag?.position.y;
+  const tag = lab.bot('a').tag;
+  const tagWorld = new THREE.Vector3(C.x, 0.86 * 1.3, C.z);
+  // the gear: its arrow's light leaves with the dot, and relights (with its quarter turn) when she lands
+  const gearFrom = gear ? gear.extra : 0;
+  let gearScale = 1;
+  const stopGear = lab.every(() => {
+    if (gear) gear.mesh.material.color.multiplyScalar(gearScale);
+  });
   const t0 = lab.t;
   let splashed = false;
   let last = 0;
@@ -148,6 +155,7 @@ export default async function play(lab) {
       const quiver = tt > tStop && tt < tLand ? Math.sin(tt * 90) * 0.012 : 0;
       const p = at(h + quiver, d.r, 0.03 + hop);
       const alive = tt < tLand;
+      gearScale = alive ? 1 - 0.6 * seg(tt, 0, 0.1) : 1;
       dot.visible = pool.visible = alive;
       dot.position.copy(p);
       pool.position.set(p.x, 0.012, p.z);
@@ -244,6 +252,8 @@ export default async function play(lab) {
         pitch += 0.12 * sq;
         if (!splashed) {
           splashed = true;
+          if (gear) gear.kick = { t0: lab.arena.time, from: gearFrom, to: gearFrom - spin * (Math.PI / 2) };
+          if (gear) gear.pulse = lab.arena.time;
           const where = at(rot1, 0.62);
           lab.ring(where, mint, 0.16, 0.02, 0.3);
           lab.particles(where.clone().setY(0.04), [mint, '#ffffff'], 12, { speed: 1.0, up: 1.1, gravity: 7, size: 0.04, dur: 0.45 });
@@ -264,12 +274,17 @@ export default async function play(lab) {
       m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
       const drink = tt >= tLand ? Math.exp(-(tt - tLand) * 10) : 0;
       m.ringMat.color.copy(red).lerp(new THREE.Color(mint), drink).multiplyScalar(1.6 + 2 * drink);
-      const tag = lab.bot('a').tag;
-      if (tag) tag.position.y = tagY; // the name stays put
+      // her name stays put while she jumps about
+      if (tag) {
+        maya.group.updateMatrixWorld(true);
+        tag.position.copy(maya.group.worldToLocal(tagWorld.clone()));
+      }
     };
   });
 
   maya.each = null;
+  stopGear();
+  if (tag) tag.position.set(0, 0.86, 0);
   maya.model.ringMat.color.copy(red).multiplyScalar(1.6);
   maya.release({ x: after.x, y: after.y, d: after.d });
 }
