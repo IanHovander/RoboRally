@@ -223,18 +223,35 @@
   color: var(--light); font-family: var(--font); user-select: none; -webkit-user-select: none;
 }
 .pl button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.pl-top { display: flex; align-items: center; gap: .7rem; height: 3rem; padding: 0 3.2rem 0 1rem; }
+/* above the sheets (so "?" works while a decision is open), but taps pass through the bar to the shell's menu dots */
+.pl-top { position: relative; z-index: 31; display: flex; align-items: center; gap: .7rem; height: 3rem; padding: 0 3.4rem 0 1rem; pointer-events: none; }
+.pl-top > * { pointer-events: auto; }
+.pl:not(.vip) .pl-top { padding-right: .6rem; } /* the leader's menu dots sit at the far right; everyone else's "?" is flush right */
+.pl-me-wrap { display: grid; place-items: center; }
 .pl-me { width: 1.6rem; height: 1.6rem; filter: drop-shadow(0 0 .4rem color-mix(in srgb, var(--me) 70%, transparent)); }
 .pl-spacer { flex: 1; }
 .pl-flags { display: flex; gap: 3px; }
 .pl-flags i { width: .95rem; height: 3px; border-radius: 2px; background: rgba(244, 239, 228, .22); }
 .pl-flags i.on { background: var(--me); box-shadow: 0 0 6px var(--me); }
 .pl-flags.big i { width: 1.6rem; height: 4px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+/* flags as little flags: taken ones lit in my color, the next one outlined */
+.pl-flags.glyphs { gap: 1px; }
+.pl-flags.glyphs i { display: grid; place-items: center; width: 1.05rem; height: 1.25rem; background: none; box-shadow: none; color: rgba(244, 239, 228, .2); }
+.pl-flags.glyphs i .lm-g { width: 100%; height: 100%; }
+.pl-flags.glyphs i.on { color: var(--me); filter: drop-shadow(0 0 3px var(--me)); }
+.pl-flags.glyphs i.next { color: var(--light); }
+.pl-flags.glyphs i.next .lm-g path[fill] { fill: none; stroke: currentColor; stroke-width: 2.4; }
+.pl-flags.glyphs.big i { width: 1.9rem; height: 2.2rem; background: none; box-shadow: none; color: var(--c); filter: drop-shadow(0 0 4px var(--c)); }
 .pl-en { display: inline-flex; align-items: center; gap: .1rem; color: var(--energy); font-weight: 400; font-variant-numeric: tabular-nums; }
 .pl-en .lm-g { width: 1.1rem; height: 1.1rem; }
 .pl-spam { display: inline-flex; align-items: center; gap: .25rem; color: var(--coral); font-weight: 400; font-size: .95rem; }
 .pl-spam .lm-card.xs { width: 1.05rem; height: 1.35rem; border-radius: .2rem; box-shadow: none; animation: none; }
 .pl-spam .lm-card.xs .lm-g { width: 90%; height: 90%; }
+/* my junk as a little stack of two coral cards (all I own: hand, deck and discard), then the count */
+.pl-stack { position: relative; display: inline-block; width: 1.4rem; height: 1.5rem; }
+.pl-stack .lm-card.xs { position: absolute; right: 0; top: .12rem; width: 1.05rem; height: 1.35rem; border-radius: .2rem; box-shadow: none; animation: none; }
+.pl-stack .lm-card.xs:first-child { transform: translate(-.3rem, -.12rem) rotate(-9deg); opacity: .6; }
+.pl-stack .lm-card.xs .lm-g { width: 90%; height: 90%; }
 .pl-timer { min-width: 1.6rem; text-align: right; font-size: 1.15rem; font-weight: 300; color: var(--dim); }
 .pl-body { position: relative; min-height: 0; }
 .pl-toast {
@@ -255,15 +272,16 @@
 
 .pl-watch { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); }
 .pl-watch .lm-g { width: 3rem; height: 3rem; animation: lm-breathe 3s ease-in-out infinite; }
+.pl-watch > span { display: grid; place-items: center; padding: 1rem; }
 
 /* ----- setup ----- */
 .pl-setup { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr auto auto; gap: 1.4rem; padding: .5rem 1rem 1rem; }
-.pl-course { display: grid; grid-template-columns: 3rem 1fr 3rem; align-items: center; gap: .3rem; min-height: 0; }
+.pl-course { display: grid; grid-template-columns: 3rem minmax(0, 1fr) 3rem; align-items: center; gap: .3rem; min-height: 0; }
 .pl-arrow { appearance: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--hair2); background: none; color: var(--dim); cursor: pointer; }
 .pl-arrow .lm-g { width: 1.5rem; height: 1.5rem; }
-.pl-course-card { display: grid; justify-items: center; gap: .7rem; min-height: 0; }
+.pl-course-card { display: grid; justify-items: center; gap: .7rem; min-height: 0; min-width: 0; }
 .pl-course-card img { width: 100%; max-height: 40vh; object-fit: contain; filter: drop-shadow(0 0 1.5rem rgba(140, 160, 190, .15)); }
-.pl-course-card b { font-weight: 200; font-size: 1.7rem; letter-spacing: .3em; text-indent: .3em; text-transform: uppercase; white-space: nowrap; }
+.pl-course-card b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: 200; font-size: clamp(1.25rem, 6.4vw, 1.7rem); letter-spacing: .26em; text-indent: .26em; text-transform: uppercase; white-space: nowrap; }
 .pl-course-meta { display: flex; align-items: center; gap: 1.2rem; color: var(--dim); font-size: 1rem; }
 .pl-course-meta > span:last-child { display: inline-flex; align-items: center; gap: .15rem; }
 .pl-course-meta .lm-g { width: 1.2rem; height: 1.2rem; }
@@ -278,9 +296,22 @@
 .pl-seg button { appearance: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; border: 0; background: none; color: var(--dim); font-size: 1.05rem; cursor: pointer; }
 .pl-seg button .lm-g { width: 1.3rem; height: 1.3rem; }
 .pl-seg button.on { background: var(--light); color: var(--ink); }
+.pl-seg-ic { display: grid; place-items: center; width: 2rem; color: var(--faint); }
+.pl-seg-ic .lm-g { width: 1.25rem; height: 1.25rem; }
+.pl-opts-wrap { position: relative; }
+/* an option just changed: its clip, above the row, for 4 seconds */
+.pl-optclip { position: absolute; left: 0; right: 0; bottom: calc(100% + .7rem); height: 110px; border-radius: .9rem; overflow: hidden; border: 1px solid var(--hair2); background: #0b0e13; animation: pl-fade .3s ease; transition: opacity .4s; }
+.pl-optclip.out { opacity: 0; }
+.pl-optclip canvas { display: block; width: 100%; height: 100%; }
+.pl-optx { position: absolute; inset: 0; display: grid; place-items: center; color: var(--coral); pointer-events: none; }
+.pl-optx .lm-g { width: 4.5rem; height: 4.5rem; filter: drop-shadow(0 0 .6rem rgba(255, 122, 107, .7)); }
+.pl-optnum { position: absolute; right: .7rem; top: .4rem; display: grid; place-items: center; font-weight: 200; font-size: 2.6rem; line-height: 1; color: var(--light); text-shadow: 0 0 1rem rgba(0, 0, 0, .8); }
+.pl-optnum .lm-g { width: 2.4rem; height: 2.4rem; }
 
 /* ----- start ----- */
-.pl-start { position: absolute; inset: 0; display: grid; padding: .5rem 1rem 1rem; }
+.pl-start { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .7rem; padding: .3rem 1rem 1rem; }
+.pl-overview { display: grid; place-items: center; max-height: 22vh; }
+.pl-overview canvas { display: block; border-radius: .4rem; }
 .pl-dock-box { display: grid; place-items: center; min-height: 0; }
 .pl-dock-wrap { position: relative; }
 .pl-dock { display: block; border-radius: .8rem; }
@@ -358,6 +389,8 @@
 .pl-slot.stacking { box-shadow: 0 0 0 2px var(--me); }
 .pl-crab { position: absolute; right: -.3rem; top: -.3rem; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--me); color: var(--ink); }
 .pl-crab .lm-g { width: 1rem; height: 1rem; }
+.pl-dice { position: absolute; inset: 0; opacity: .4; pointer-events: none; }
+.pl-dice .lm-card { width: 100%; height: 100%; border-radius: .7rem; box-shadow: none; }
 .pl.locked .pl-slot.full .lm-card { box-shadow: 0 0 1rem color-mix(in srgb, var(--me) 70%, transparent), 0 0 0 2px var(--me); }
 
 .pl-map { position: relative; min-height: 0; border-radius: 1rem; overflow: hidden; background: #0b0e13; border: 1px solid var(--hair); }
@@ -417,20 +450,52 @@
 .pl-return-head b { font-weight: 200; font-size: 2rem; }
 
 /* ----- the race ----- */
-.pl-run { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr auto; gap: 1rem; padding: .4rem .8rem 1rem; }
+.pl-run { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .8rem; padding: .4rem .8rem 1rem; }
+.pl-col { display: grid; gap: .45rem; justify-items: center; min-width: 0; }
+.pl-col .pl-slot { width: 100%; }
 .pl-regs.run .pl-slot { cursor: default; border-color: rgba(244, 239, 228, .15); }
-.pl-regs.run .pl-slot.full { opacity: .45; }
+.pl-regs.run .pl-slot[data-tap] { cursor: pointer; }
+.pl-regs.run .pl-slot.full > .lm-card { opacity: .45; }
 .pl-regs.run .pl-slot.now { opacity: 1; transform: translateY(-.3rem) scale(1.06); }
-.pl-regs.run .pl-slot.now .lm-card { box-shadow: 0 0 1.4rem var(--me), 0 0 0 2px var(--me); }
-.pl-regs.run .pl-slot.past { opacity: .18; }
-.pl-next { position: absolute; bottom: -.5rem; right: -.3rem; }
-.pl-next .lm-card.xs { width: 1.3rem; height: 1.7rem; border-radius: .25rem; animation: none; }
+.pl-regs.run .pl-slot.now .lm-card { opacity: 1; box-shadow: 0 0 1.4rem var(--me), 0 0 0 2px var(--me); }
+.pl-regs.run .pl-slot.past > .lm-card, .pl-regs.run .pl-slot.past > i { opacity: .3; }
+.pl-regs.run .pl-slot.past { border-color: rgba(244, 239, 228, .07); }
+.pl-regs.run .pl-slot.gone { opacity: .1; transform: translateY(.25rem) rotate(4deg) scale(.92); filter: grayscale(1); transition: all .8s cubic-bezier(.5, 0, .7, .4); }
+.pl-regs.run .pl-col:nth-child(odd) .pl-slot.gone { transform: translateY(.3rem) rotate(-5deg) scale(.9); }
+/* what happened to me in that slot: at most three small marks */
+.pl-marks { display: flex; justify-content: center; align-items: center; gap: 2px; height: 1rem; }
+.pl-marks .rp-mark { width: 1rem; height: 1rem; animation: lm-pop .45s cubic-bezier(.2, 1.4, .3, 1) both; }
+.pl-marks .rp-mark.dmg, .pl-marks .rp-mark.shot { width: auto; }
+.pl-marks .rp-mark:nth-child(2) { animation-delay: .1s; }
+.pl-marks .rp-mark:nth-child(3) { animation-delay: .2s; }
+/* a Haywire waiting for next round, under the slot where I was hit: its real face */
+.pl-next { position: absolute; bottom: -.55rem; right: -.35rem; z-index: 2; border-radius: .3rem; box-shadow: 0 0 .8rem rgba(185, 155, 255, .8); }
+.pl-next .lm-card.xs { width: 1.5rem; height: 1.95rem; border-radius: .25rem; animation: none; }
+.pl-next .lm-hw .lm-g.sm { width: .45rem; height: .45rem; }
+.pl-next .lm-hw b { font-size: .42rem; }
+.pl-next.arrive { animation: pl-arrive .7s cubic-bezier(.2, 1.2, .3, 1); }
+@keyframes pl-arrive { from { transform: translate(1.6rem, 2.4rem) rotate(25deg) scale(1.6); opacity: 0; box-shadow: 0 0 2rem rgba(185, 155, 255, 1); } }
+
+.pl-look-box { display: grid; min-height: 0; }
 .pl-look { display: grid; place-items: center; color: rgba(244, 239, 228, .14); }
 .pl-look .lm-g { width: 4rem; height: 4rem; }
-.pl-run-extra { display: grid; gap: .7rem; justify-items: center; }
-.pl-state { color: var(--dim); }
+.pl-fallen { display: grid; place-items: center; min-height: 0; cursor: pointer; }
+.pl-fallen canvas { display: block; width: 100%; max-height: 100%; aspect-ratio: 16 / 10; border-radius: 1rem; border: 1px solid var(--hair); background: #0b0e13; }
+.pl-run-foot { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: .7rem; min-height: 3.4rem; }
+.pl-deckstack { display: flex; align-items: center; gap: .35rem; padding: .3rem; color: var(--coral); font-weight: 300; font-size: 1.15rem; cursor: pointer; }
+.pl-deckstack .pl-stack { width: 2rem; height: 2.3rem; }
+.pl-deckstack .pl-stack .lm-card.xs { width: 1.55rem; height: 2rem; border-radius: .25rem; }
+.pl-deckstack .pl-stack.empty .lm-card.xs { opacity: .12; filter: grayscale(1); }
+.pl-deckstack b { font-weight: 300; font-variant-numeric: tabular-nums; }
+.pl-deckstack b.tick { animation: pl-tick .5s cubic-bezier(.2, 1.4, .3, 1); }
+@keyframes pl-tick { 40% { transform: scale(1.5); color: var(--light); } }
+.pl-drop { position: absolute; z-index: 32; pointer-events: none; }
+.pl-drop .lm-card { width: 1.55rem; height: 2rem; border-radius: .25rem; }
+.pl-run-extra { display: grid; gap: .7rem; justify-items: end; }
+.pl-run-extra:empty { display: none; }
+.pl-state { color: var(--dim); cursor: pointer; }
 .pl-state .lm-g { width: 2.6rem; height: 2.6rem; animation: lm-breathe 2s ease-in-out infinite; }
-.pl-waiting { display: flex; align-items: center; gap: .6rem; }
+.pl-waiting { display: flex; align-items: center; gap: .6rem; cursor: pointer; }
 .pl-waiting .lm-bot { width: 2.4rem; height: 2.4rem; }
 .pl-think { display: flex; gap: .3rem; }
 .pl-think i { width: .4rem; height: .4rem; border-radius: 50%; background: var(--dim); animation: lm-think 1.4s ease-in-out infinite; }
@@ -441,6 +506,16 @@
 .pl-arm-state { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 1px solid var(--hair2); }
 .pl-arm.on .pl-arm-state { background: var(--me); color: var(--ink); border-color: var(--me); }
 .pl-arm-state .lm-g { width: 1.2rem; height: 1.2rem; }
+
+/* ----- the Briefing: look up; the skip pill (tally dots: votes, then votes still needed) ----- */
+.pl-brief { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr auto; padding: .5rem 1rem 1rem; }
+.pl-look.big .lm-g { width: 6rem; height: 6rem; animation: lm-breathe 3s ease-in-out infinite; }
+.pl-skip { display: flex; justify-content: center; align-items: center; gap: .9rem; background: none; color: var(--dim); border-color: var(--hair2); box-shadow: none; }
+.pl-skip .lm-g { width: 1.7rem; height: 1.7rem; }
+.pl-skip.on { background: var(--me); border-color: var(--me); color: var(--ink); box-shadow: 0 0 2rem color-mix(in srgb, var(--me) 45%, transparent); }
+.pl-tally { display: flex; gap: .3rem; }
+.pl-tally i { width: .55rem; height: .55rem; border-radius: 50%; border: 1.5px solid currentColor; opacity: .7; }
+.pl-tally i.on { background: currentColor; opacity: 1; }
 
 /* ----- the end ----- */
 .pl-over { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr auto auto; justify-items: center; align-items: center; gap: 1.4rem; padding: 1rem; }
@@ -488,6 +563,14 @@
 .pl-choice.main { background: var(--light); color: var(--ink); border-color: var(--light); }
 .pl-choice.quiet { background: none; color: var(--dim); }
 .pl-choice:disabled { opacity: .3; }
+/* press and hold: a ring of ink fills around the glyph in 800 ms; a plain tap wiggles */
+.pl-hold { position: relative; overflow: hidden; }
+.pl-hold-ring { position: absolute; left: 50%; top: 50%; width: 2.7rem; height: 2.7rem; margin: -1.35rem 0 0 -1.35rem; border-radius: 50%; background: conic-gradient(var(--ink) calc(var(--p) * 1turn), rgba(21, 24, 29, .15) 0); -webkit-mask: radial-gradient(closest-side, transparent 80%, #000 82%); mask: radial-gradient(closest-side, transparent 80%, #000 82%); }
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+.pl-hold.holding .pl-hold-ring { animation: pl-hold .8s linear forwards; }
+@keyframes pl-hold { to { --p: 1; } }
+.pl-hold.wiggle { animation: pl-wiggle .4s ease; }
+@keyframes pl-wiggle { 20% { transform: translateX(-6px) rotate(-1deg); } 45% { transform: translateX(5px) rotate(1deg); } 70% { transform: translateX(-3px); } }
 .pl-opt-name { font-size: .85rem; letter-spacing: .03em; }
 .pl-beam { display: inline-block; width: 3rem; height: 3px; border-radius: 2px; background: var(--laser); box-shadow: 0 0 10px var(--laser); }
 

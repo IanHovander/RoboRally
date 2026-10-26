@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { io } from 'socket.io-client';
 import * as E from '../games/robo-rally/engine.js';
+import rules from '../games/robo-rally/rules.js';
 import { COURSES, PIECES, getCourse } from '../games/robo-rally/board.js';
 import { cardType } from '../games/robo-rally/cards.js';
 
@@ -319,6 +320,307 @@ const at = (R) => `${R.x},${R.y},${'NESW'[R.d]}`;
 }
 
 // ---------------------------------------------------------------------------------------------
+// 1b. The room around the rules (rules.js): the Briefing, round 1, holds, each phone's story
+// ---------------------------------------------------------------------------------------------
+
+/** A game through rules.js with fake phones: the real actions, views and timers (fired by hand). */
+function room(n, { raced = [], opts = {} } = {}) {
+  const players = Array.from({ length: n }, (_, i) => ({ id: `q${i}`, name: `Q${i}`, color: '#336699', connected: true, isVip: i === 0 }));
+  const timers = new Map();
+  const ctx = {
+    state: null,
+    players,
+    player: (id) => players.find((p) => p.id === id) ?? null,
+    timer: (name, ms, fn) => timers.set(name, { ms, fn }),
+    cancelTimer: (name) => timers.delete(name),
+    after: () => () => {},
+    end: () => {},
+  };
+  rules.setup(ctx);
+  const t = {
+    ctx,
+    players,
+    timers,
+    get s() {
+      return ctx.state;
+    },
+    act: (i, type, payload) => rules.actions[type](ctx, players[i], payload),
+    host: (type, payload) => rules.hostActions[type](ctx, payload),
+    fire(name) {
+      const tm = timers.get(name);
+      if (!tm) return false;
+      timers.delete(name);
+      tm.fn(ctx);
+      return true;
+    },
+    hv: () => rules.hostView(ctx),
+    pv: (i) => rules.playerView(ctx, players[i]),
+    /** Run the race beat by beat (answering prompts) until `stop()` or the phase changes. */
+    race(stop = () => false, answer = (p) => p.def) {
+      for (let i = 0; i < 5000 && ctx.state.phase === 'activate' && !stop(); i++) {
+        const p = ctx.state.prompt;
+        if (p) t.act(players.findIndex((x) => x.id === p.id), 'answer', { v: answer(p) });
+        else if (!t.fire('beat')) break;
+      }
+    },
+  };
+  for (const i of raced) t.act(i, 'hello', { raced: true });
+  for (const [key, value] of Object.entries(opts)) t.act(0, 'setOpt', { key, value });
+  t.act(0, 'begin');
+  return t;
+}
+const pickAll = (t) => t.players.forEach((p, i) => t.act(i, 'pick', { n: i + 1 }));
+const everyone = (n) => Array.from({ length: n }, (_, i) => i);
+
+/** Move a card of type t into a robot's hand (from its hand, deck or discard; SPAM from the damage pile). */
+function grab(s, R, t) {
+  for (const pile of [R.hand, R.deck, R.discard, s.damage]) {
+    const i = pile.findIndex((c) => cardType(c) === t);
+    if (i < 0) continue;
+    const [c] = pile.splice(i, 1);
+    R.hand.push(c);
+    return c;
+  }
+  throw new Error(`no ${t} card`);
+}
+/** Lock in a program of card types (null: leave that slot empty). */
+function plan(s, id, types) {
+  const R = s.robots[id];
+  R.draft = { regs: types.map((t) => (t ? [grab(s, R, t)] : [])), keep: [] };
+  R.done = true;
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/** True if a view is plain JSON: no Sets, Maps, class instances or undefined in arrays. */
+function plain(v) {
+  if (v === null || ['string', 'number', 'boolean', 'undefined'].includes(typeof v)) return true;
+  if (Array.isArray(v)) return v.every((x) => x !== undefined && plain(x));
+  return Object.getPrototypeOf(v) === Object.prototype && Object.values(v).every(plain);
+}
+
+{
+  const t = room(3, { raced: [0, 1, 2] });
+  pickAll(t);
+  check(t.s.phase === 'program' && t.s.round === 1 && !t.hv().teach && t.hv().brief === null, 'no newcomer: no Briefing, programming starts');
+}
+{
+  const t = room(3, { raced: [0, 1] });
+  check(t.hv().teach === true, 'a phone that never says hello counts as a newcomer');
+  t.act(2, 'hello', { raced: true });
+  check(t.hv().teach === false, '...until it says it has raced');
+  t.act(2, 'hello', { raced: false });
+  pickAll(t);
+  const hv = t.hv();
+  check(t.s.phase === 'brief' && t.s.round === 1 && hv.teach && same(hv.brief, { votes: [], need: 2 }), `a newcomer is racing: the Briefing runs after the start pads (got ${t.s.phase})`);
+  check(same(t.pv(0).brief, { votes: 0, need: 2, mine: false }), "the phone's Briefing view: votes, votes needed, mine");
+  t.act(2, 'hello', { raced: true });
+  check(t.hv().teach === true, 'who is new is decided when the start pads are picked');
+  check(t.timers.get('deadline')?.ms === 150_000, 'the Briefing has a 150 s deadline');
+  check(t.act(0, 'lock', { regs: t.s.robots.q0.hand.slice(0, 5).map((c) => [c]) })?.error && t.act(0, 'buy')?.error, 'nobody can program or shop during the Briefing');
+}
+for (const [n, k] of [[1, 1], [2, 2], [3, 2], [5, 3]]) {
+  const t = room(n);
+  pickAll(t);
+  for (let i = 0; i < k - 1; i++) t.act(i, 'skip', { on: true });
+  const still = t.s.phase === 'brief' && t.hv().brief.votes.length === k - 1 && t.hv().brief.need === k;
+  t.act(k - 1, 'skip', { on: true });
+  check(still && t.s.phase === 'program', `${k} of ${n} votes skip the Briefing (and ${k - 1} don't)`);
+}
+{
+  const t = room(3);
+  pickAll(t);
+  t.act(0, 'skip', { on: true });
+  const voted = t.pv(0).brief.mine && t.pv(1).brief.votes === 1 && same(t.hv().brief.votes, ['q0']);
+  t.act(0, 'skip', { on: false });
+  t.act(1, 'skip', { on: true });
+  check(voted && t.s.phase === 'brief' && !t.pv(0).brief.mine && t.hv().brief.votes.length === 1, 'a second tap takes the vote back');
+  t.players[2].connected = false;
+  rules.onDisconnect(t.ctx, t.players[2]);
+  check(t.s.phase === 'brief' && t.hv().brief.need === 2, 'a dropped phone lowers the votes needed (2 of 2 left)');
+  t.act(0, 'skip', { on: true });
+  check(t.s.phase === 'program', '...and the remaining phones can still skip it');
+}
+for (const how of ['briefDone', 'briefSkip', 'deadline']) {
+  const t = room(2);
+  pickAll(t);
+  if (how === 'deadline') t.fire('deadline');
+  else t.host(how);
+  check(t.s.phase === 'program' && t.s.brief === null && t.timers.get('deadline')?.ms === 120_000, `${how} ends the Briefing and starts the programming timer`);
+}
+{
+  const t = room(2, { raced: [0, 1] });
+  pickAll(t);
+  const v = t.pv(0);
+  check(t.s.phase === 'program' && v.me.up.hand.length === 3 && v.me.en === 3 && v.me.hand.length === 9, 'round 1 has no shop: straight to programming, with 3 upgrades and 3 Energy kept');
+  t.fire('deadline');
+  t.race();
+  check(t.s.phase === 'upgrade' && t.s.round === 2, `round 2 opens the shop (got ${t.s.phase} round ${t.s.round})`);
+  const u = room(1, { raced: [0], opts: { upgrades: false } });
+  pickAll(u);
+  u.fire('deadline');
+  u.race();
+  check(u.s.phase === 'program' && u.s.round === 2, 'without upgrades every round is programming');
+}
+{
+  const t = room(2, { raced: [0, 1] });
+  pickAll(t);
+  t.host('hold', { ms: 3000 });
+  check(!t.timers.has('beat'), 'hold does nothing outside the race');
+  t.fire('deadline');
+  t.fire('beat');
+  const before = t.timers.get('beat').ms;
+  t.host('hold', { ms: 60_000 });
+  const due = t.s.beatDue - Date.now();
+  check(t.timers.get('beat').ms === 4000 && due > 3900 && due <= 4000, `hold extends the current beat, at most 4 s (was ${before} ms)`);
+  t.host('hold', { ms: 500 });
+  check(t.timers.get('beat').ms === 4000, 'a shorter hold never shortens it');
+  t.s.prompt = { id: 'q0', deadline: Date.now() + 9000 };
+  t.timers.delete('beat');
+  t.host('hold', { ms: 3000 });
+  check(!t.timers.has('beat'), 'hold is ignored while someone is choosing');
+}
+{
+  // Act Fast: which slots the timer filled at random
+  const t = room(2, { raced: [0, 1] });
+  pickAll(t);
+  const R = t.s.robots.q0;
+  const hw = t.s.damage.find((c) => /^h/.test(cardType(c)));
+  t.s.damage.splice(t.s.damage.indexOf(hw), 1);
+  Object.assign(R.regs[3], { cards: [hw], locked: true });
+  t.act(0, 'draft', { regs: [[R.hand[0]], [R.hand[1]], [], [], []] });
+  const h = t.s.robots.q1.hand;
+  t.act(1, 'lock', { regs: [[h[0]], [h[1]], [h[2]], [h[3]], [h[4]]] });
+  t.fire('deadline');
+  check(same(t.pv(0).me.auto, [2, 4]) && same(t.hv().robots[0].auto, [2, 4]), `auto: the empty, unlocked slots time filled (got ${JSON.stringify(t.pv(0).me.auto)})`);
+  check(same(t.pv(1).me.auto, []) && same(t.hv().robots[1].auto, []), 'auto: nothing for a phone that locked in');
+}
+{
+  // A scripted round on the lab board: a push into a pit, a SPAM swap, a belt ride, robot lasers
+  const t = room(4, { raced: everyone(4), opts: { course: 'lab', upgrades: false } });
+  pickAll(t);
+  const s = t.s;
+  s.prio = 0;
+  s.damage.sort((a, b) => (cardType(a) === 'sp' ? 0 : 1) - (cardType(b) === 'sp' ? 0 : 1));
+  const put = (id, x, y, d) => Object.assign(s.robots[id], { x, y, d, on: true });
+  put('q0', 3, 6, 3); // A shoves B into the pit
+  put('q1', 2, 6, 0);
+  put('q2', 0, 3, 1); // C plays SPAM, gets Move 1, onto the blue belt; C and D shoot each other
+  put('q3', 6, 3, 3);
+  plan(s, 'q0', ['m1', null, null, null, null]);
+  plan(s, 'q1', [null, null, null, null, null]);
+  plan(s, 'q2', ['sp', null, null, null, null]);
+  plan(s, 'q3', [null, null, null, null, null]);
+  const C = s.robots.q2;
+  const top = grab(s, C, 'm1');
+  C.hand.splice(C.hand.indexOf(top), 1);
+  C.deck.unshift(top);
+  t.fire('deadline');
+  t.race(() => s.reg >= 1);
+  const story = (i) => t.pv(i).me.story;
+  const want = {
+    q0: [['s', 3, 6, 3], ['c', ['m1'], [3, 6, 2, 6], 0]],
+    q1: [['s', 2, 6, 0], ['p', 'q0', [2, 6, 1, 6], [3, 6, 2, 6]], ['f', false], ['d', 2, 0, 'reboot']],
+    q2: [['s', 0, 3, 1], ['x', 'sp', 'm1'], ['c', ['m1'], [0, 3, 1, 3], 0], ['b', true, [1, 3, 2, 3, 3, 3], 0], ['l', 'q3', 6, 3, 3, 1], ['d', 1, 0, 'laser']],
+    q3: [['s', 6, 3, 3], ['l', 'q2', 3, 3, 1, 1], ['d', 1, 0, 'laser']],
+  };
+  check(story(0)?.round === 1 && story(0).regs.length === 5, 'each phone gets its own story of the round: 5 registers');
+  check(same(story(0).regs[0], want.q0), `story: my card and the path it took (got ${JSON.stringify(story(0).regs[0])})`);
+  check(same(story(1).regs[0], want.q1), `story: pushed by a robot (its path too), fell, took reboot damage (got ${JSON.stringify(story(1).regs[0])})`);
+  check(same(story(2).regs[0], want.q2), `story: SPAM replaced, the new card, a blue belt's 2 spaces, a robot laser and its damage (got ${JSON.stringify(story(2).regs[0])})`);
+  check(same(story(3).regs[0], want.q3), `story: shot by a robot (got ${JSON.stringify(story(3).regs[0])})`);
+  check(same(story(1).regs[1], []) && story(0).regs[1][0][0] === 's', 'story: a fallen robot has nothing in the registers after its fall');
+  t.race();
+  check(t.s.phase === 'program' && story(2).round === 1 && story(2).regs[4].length > 0, 'story: kept through the next programming phase');
+  t.fire('deadline');
+  check(story(2).round === 2 && story(2).regs.every((r) => !r.length), 'story: a new one starts when the race does');
+}
+{
+  // board lasers, a gear and a wall: one robot on the lab board
+  const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
+  pickAll(t);
+  const s = t.s;
+  s.damage.sort((a, b) => (cardType(a) === 'sp' ? 0 : 1) - (cardType(b) === 'sp' ? 0 : 1));
+  Object.assign(s.robots.q0, { x: 5, y: 1, d: 2 }); // in the wall laser's beam
+  plan(s, 'q0', [null, null, null, null, null]);
+  t.fire('deadline');
+  t.race(() => s.reg >= 1);
+  const regs = () => t.pv(0).me.story.regs;
+  check(same(regs()[0], [['s', 5, 1, 2], ['l', 0, 9, 1, 3, 1], ['d', 1, 0, 'laser']]), `story: a board laser's source is 0 (got ${JSON.stringify(regs()[0])})`);
+}
+{
+  const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
+  pickAll(t);
+  const s = t.s;
+  Object.assign(s.robots.q0, { x: 6, y: 7, d: 0 });
+  plan(s, 'q0', ['m1', null, null, null, null]); // onto the green gear
+  t.fire('deadline');
+  t.race(() => s.reg >= 1);
+  const r = t.pv(0).me.story.regs;
+  check(same(r[0], [['s', 6, 7, 0], ['c', ['m1'], [6, 7, 6, 6], 0], ['g', 1]]), `story: a gear turned me (got ${JSON.stringify(r[0])})`);
+}
+{
+  const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
+  pickAll(t);
+  const s = t.s;
+  Object.assign(s.robots.q0, { x: 8, y: 2, d: 0 });
+  plan(s, 'q0', ['m3', null, null, null, null]);
+  t.fire('deadline');
+  t.race(() => s.reg >= 1);
+  const r = t.pv(0).me.story.regs;
+  check(same(r[0], [['s', 8, 2, 0], ['c', ['m3'], [8, 2, 8, 1, 8, 0], 0], ['w']]), `story: a wall stopped me (got ${JSON.stringify(r[0])})`);
+}
+{
+  // The busiest case: 8 robots, upgrades, the longest course, 10 rounds. Every phone's view stays small.
+  const t = room(8, { raced: everyone(8), opts: { course: 'everything-must-go', upgrades: true } });
+  t.s.rng = 20261025;
+  pickAll(t);
+  let views = 0;
+  let stories = 0;
+  let clean = true;
+  let rounds = 0;
+  const pick = (list) => list[Math.floor(E.rand(t.s) * list.length)];
+  const measure = () => {
+    for (let i = 0; i < 8; i++) {
+      const v = t.pv(i);
+      views = Math.max(views, JSON.stringify(v).length);
+      stories = Math.max(stories, JSON.stringify(v.me.story ?? null).length);
+    }
+  };
+  while (rounds < 10 && t.s.phase !== 'over') {
+    if (t.s.phase === 'upgrade') {
+      for (let i = 0; i < 8; i++) {
+        const R = t.s.robots[`q${i}`];
+        t.act(i, 'buy');
+        for (const c of [...R.up.hand]) if (!t.act(i, 'install', { card: c, replace: R.up.perm[0] ?? R.up.temp[0] })) break;
+        t.act(i, 'done');
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const R = t.s.robots[`q${i}`];
+      t.act(i, 'arm', { on: true });
+      const hand = [...R.hand];
+      if (E.rand(t.s) < 0.05) t.act(i, 'lock', { shutdown: true });
+      else if (E.rand(t.s) < 0.5) t.act(i, 'lock', { regs: R.regs.map((r) => (r.locked || !hand.length ? [] : [hand.shift()])) });
+    }
+    if (t.s.phase === 'program') t.fire('deadline'); // the rest are filled at random (Act Fast)
+    measure();
+    clean &&= plain(t.hv()) && plain(t.pv(0));
+    for (let i = 0; i < 3000 && t.s.phase === 'activate'; i++) {
+      const p = t.s.prompt;
+      if (p) t.act(t.players.findIndex((x) => x.id === p.id), 'answer', { v: pick(p.options).v });
+      else if (!t.fire('beat')) break;
+      measure();
+    }
+    clean &&= plain(t.hv()) && plain(t.pv(0));
+    rounds++;
+  }
+  check(rounds === 10, `the 8-robot race ran 10 rounds (${rounds})`);
+  check(views < 16_000, `the largest phone view stays under 16 KB (${views} bytes)`);
+  check(stories < 2500, `every story stays under 2.5 KB (${stories} bytes)`);
+  check(clean, 'the views are plain JSON (no Sets or Maps)');
+}
+
+// ---------------------------------------------------------------------------------------------
 // 2. A real game through the server
 // ---------------------------------------------------------------------------------------------
 
@@ -372,12 +674,15 @@ try {
   check(taken?.error, 'two robots cannot pick the same start space');
   await act(players[1], 'pick', { n: 2 });
   await act(players[2], 'pick', { n: 3 });
-  check(await until(() => players[0].self.view.phase === 'upgrade'), 'the race begins with the Upgrade Phase');
+  // these phones never said hello, so they count as newcomers: the Briefing comes first
+  check(await until(() => players[0].self.view.phase === 'brief' && host.self.view.phase === 'brief'), 'newcomers racing: the Briefing starts after the start pads');
+  check(host.self.view.teach === true && host.self.view.brief?.need === 2, 'the big screen knows to teach, and that 2 of 3 votes skip the Briefing');
+  await act(players[0], 'skip', { on: true });
+  check(await until(() => host.self.view.brief?.votes.length === 1 && players[0].self.view.brief?.mine), 'a phone votes to skip');
+  await act(players[1], 'skip', { on: true });
+  check(await until(() => players[0].self.view.phase === 'program' && players[0].self.view.round === 1), 'a majority skips it, and round 1 goes straight to programming (no shop)');
   const v0 = players[0].self.view;
   check(v0.me.up.hand.length === 3 && v0.me.en === 3, 'each robot gets 3 upgrades and 3 Energy');
-  check(!JSON.stringify(host.self.view).includes(v0.me.up.hand[0] + '"') || true, 'big screen view built');
-  for (const p of players) await act(p, 'done');
-  check(await until(() => players[0].self.view.phase === 'program'), 'Programming Phase after everyone is done upgrading');
   const me = players[0].self.view.me;
   check(me.hand.length === 9, 'a hand of 9 cards');
   const others = players.slice(1).map((p) => p.self.view.me.hand).flat();
@@ -395,7 +700,10 @@ try {
   check(await until(() => host.self.view.phase === 'activate'), 'the race runs once everyone has locked in');
   check(await until(() => host.self.view.beat.fx.some((f) => f.k === 'reveal')), 'register 1 is revealed on the big screen');
   check(await until(() => Array.isArray(host.self.view.robots[0].regs[0])), 'the revealed cards are on the big screen');
-  check(await until(() => host.self.view.phase === 'upgrade' && host.self.view.round === 2, 45000), 'all 5 registers run and round 2 begins');
+  host.socket.emit('action', { type: 'hold', payload: { ms: 1500 } });
+  check(await until(() => host.self.view.phase === 'upgrade' && host.self.view.round === 2, 45000), 'all 5 registers run and round 2 opens the shop');
+  const story = players[0].self.view.me.story;
+  check(story?.round === 1 && story.regs.length === 5 && story.regs[0][0]?.[0] === 's' &&!JSON.stringify(host.self.view).includes('"story"'), "each phone gets the story of its round (and the big screen doesn't)");
   players[2].socket.disconnect();
   await wait(200);
   for (const p of players.slice(0, 2)) await act(p, 'done');

@@ -1,4 +1,6 @@
-/* The lobby's rule film (big screen): a phone beside the glass board. Prefix lf-. */
+/* The lobby's rule film (big screen): a phone beside the glass board. Prefix lf-.
+   The phone (mimic.js) also appears beside the board during the Briefing, so its styles live here: the shell
+   loads this file on the big screen's page, and it stays loaded during the game. */
 
 .lesson-stage { transition: opacity .7s ease; }
 
@@ -7,6 +9,7 @@
   position: absolute;
   left: 4.2vw;
   top: 50%;
+  z-index: 2;
   width: clamp(10.5rem, 14.5vw, 19rem);
   aspect-ratio: 9 / 17;
   transform: translateY(-50%);
@@ -19,6 +22,7 @@
   background: linear-gradient(170deg, rgba(26, 32, 41, .8), rgba(10, 13, 18, .85));
   box-shadow: 0 2rem 4rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .03);
   opacity: 0;
+  pointer-events: none;
   transition: opacity .8s ease, transform .8s cubic-bezier(.2, .8, .2, 1);
 }
 .lf-phone::before { /* the speaker slot */
@@ -26,22 +30,34 @@
   border-radius: 1rem; background: rgba(244, 239, 228, .14);
 }
 .lf-phone.show { opacity: 1; }
-.lf-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: .35rem; }
+.lf-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .35rem; }
 .lf-slots i {
-  display: grid; place-items: center; aspect-ratio: 3 / 4; border-radius: .45rem;
+  display: grid; place-items: center; min-width: 0; aspect-ratio: 3 / 4; border-radius: .45rem;
   border: 1px dashed rgba(244, 239, 228, .28);
   transition: transform .45s cubic-bezier(.2, .8, .2, 1), box-shadow .45s, opacity .45s, border-color .3s;
 }
-.lf-slots i.full { border: 0; }
+.lf-slots i.full, .lf-slots i.locked { border: 0; }
 .lf-slots .lm-card { width: 100%; height: 100%; border-radius: .45rem; box-shadow: 0 0 .8rem rgba(244, 239, 228, .3); }
+.lf-slots .lm-hw .lm-g.sm, .lf-card .lm-hw .lm-g.sm { width: 32%; height: auto; aspect-ratio: 1; } /* a Haywire's moves, small enough for the phone's slots */
+.lf-slots .lm-hw b, .lf-card .lm-hw b { font-size: .55rem; }
 .lf-phone.locked .lf-slots i.full .lm-card { box-shadow: 0 0 1rem color-mix(in srgb, var(--c) 70%, transparent), 0 0 0 2px var(--c); }
 .lf-slots i.now { transform: translateY(-.35rem) scale(1.12); }
 .lf-slots i.now .lm-card { box-shadow: 0 0 1.6rem var(--c), 0 0 0 2px var(--c); }
 .lf-slots i.done { opacity: .3; }
+/* a slot jammed by a Haywire: its card face down, violet, glowing; it turns over when it runs */
+.lf-slots i.locked .lm-card { box-shadow: 0 0 1.1rem rgba(185, 155, 255, .8), 0 0 0 2px rgba(185, 155, 255, .9); animation: lf-jam 2.4s ease-in-out infinite; }
+.lf-slots i.landed { animation: lf-land .5s cubic-bezier(.2, 1.4, .3, 1); }
+.lf-slots i.flip { animation: lf-flip .45s ease-in-out; }
+@keyframes lf-jam { 50% { box-shadow: 0 0 1.8rem rgba(185, 155, 255, .95), 0 0 0 2px rgba(185, 155, 255, 1); } }
+@keyframes lf-land { from { transform: scale(1.35); } }
+@keyframes lf-flip { 50% { transform: scaleX(0); } }
+/* the timer ran out: the empty slots flicker through faces, then settle */
+.lf-slots i.dice .lm-card { opacity: .4; box-shadow: none; }
+.lf-slots i.settled { animation: lf-land .4s cubic-bezier(.2, 1.4, .3, 1); }
 
 .lf-hand { display: grid; grid-template-columns: repeat(4, 1fr); align-content: end; gap: .4rem; padding-bottom: .2rem; }
 .lf-card {
-  position: relative; z-index: 1; aspect-ratio: 3 / 4;
+  position: relative; z-index: 1; aspect-ratio: 3 / 4; border-radius: .45rem;
   opacity: 0; transform: translateY(1.5rem);
   transition: transform .45s cubic-bezier(.3, .7, .2, 1), opacity .4s;
 }
@@ -49,14 +65,41 @@
 .lf-phone.show .lf-card.flying { transition-delay: 0s; z-index: 3; }
 .lf-card.gone { opacity: 0 !important; transition: opacity .15s !important; }
 .lf-card .lm-card { width: 100%; height: 100%; border-radius: .45rem; }
+
+/* the bottom row: the deck stack (left, only when it matters), the lock button (middle) */
+.lf-bottom { display: grid; grid-template-columns: 1fr 2.4fr 1fr; align-items: center; gap: .4rem; }
 .lf-lock {
-  justify-self: center; display: grid; place-items: center; width: 70%; height: 2.4rem; border-radius: 2rem;
+  display: grid; place-items: center; height: 2.4rem; border-radius: 2rem;
   border: 1px solid rgba(244, 239, 228, .25); color: var(--faint);
   transition: all .5s cubic-bezier(.2, .8, .2, 1);
 }
 .lf-lock .lm-g { width: 1.5rem; height: 1.5rem; }
 .lf-phone.locked .lf-lock { background: var(--c); border-color: var(--c); color: var(--ink); box-shadow: 0 0 1.6rem color-mix(in srgb, var(--c) 60%, transparent); }
 .lf-phone.run .lf-hand, .lf-phone.run .lf-lock { opacity: .25; transition: opacity .8s; }
+.lf-deck { position: relative; justify-self: start; width: 1.7rem; height: 2.25rem; opacity: 0; transition: opacity .5s; }
+.lf-phone.deck .lf-deck { opacity: 1; }
+.lf-deck b { position: absolute; inset: 0; border-radius: .3rem; border: 1px solid rgba(244, 239, 228, .35); background: rgba(26, 32, 41, .95); }
+.lf-deck b + b { transform: translate(.18rem, -.18rem); }
+.lf-top { position: absolute; inset: 0; transform: translate(.36rem, -.36rem); }
+.lf-top .lm-card { width: 100%; height: 100%; border-radius: .3rem; }
+.lf-top .lm-card .lm-g { width: 80%; height: 80%; }
+.lf-deck.hit .lf-top { animation: lf-land .45s cubic-bezier(.2, 1.4, .3, 1); }
+
+/* the phone's "?" (top right, as on the real phones); it glows when the Briefing points at it */
+.lf-ask {
+  position: absolute; top: .45rem; right: .9rem; display: grid; place-items: center; width: 1.6rem; height: 1.6rem;
+  border-radius: 50%; color: var(--dim); font-weight: 300; font-size: 1rem; line-height: 1;
+  transition: color .4s, background .4s, box-shadow .4s;
+}
+.lf-ask.glow { color: var(--ink); background: var(--light); box-shadow: 0 0 1.4rem rgba(244, 239, 228, .7); }
+.lf-phone.asking .lf-slots, .lf-phone.asking .lf-hand .lf-card:not(.ask), .lf-phone.asking .lf-bottom { opacity: .35; transition: opacity .5s; }
+.lf-card.ask .lm-card { box-shadow: 0 0 0 2px var(--c), 0 0 1.4rem var(--c); animation: lf-breathe 1.2s ease-in-out infinite; }
+@keyframes lf-breathe { 50% { box-shadow: 0 0 0 1px var(--c), 0 0 .6rem var(--c); } }
+
+/* the phone's timer: a hairline across the top that shrinks to nothing */
+.lf-clock { position: absolute; top: 2.1rem; left: 1rem; right: 1rem; height: 2px; opacity: 0; transition: opacity .3s; }
+.lf-phone.timing .lf-clock { opacity: 1; }
+.lf-clock i { position: absolute; inset: 0; background: var(--energy); box-shadow: 0 0 10px rgba(255, 197, 110, .8); transform-origin: 50% 50%; }
 
 .lf-finger {
   position: absolute; left: 0; top: 0; z-index: 5; width: 1.9rem; height: 1.9rem; margin: -.95rem 0 0 -.95rem;
@@ -66,6 +109,23 @@
 }
 .lf-finger.on { opacity: 1; }
 .lf-finger.press { scale: .72; background: rgba(244, 239, 228, .6); }
+
+/* a card flying across the screen (junk from a robot to a phone or a player's token) */
+.lf-fly { --s: 2.2rem; position: absolute; left: 0; top: 0; z-index: 6; width: var(--s); height: calc(var(--s) * 1.29); pointer-events: none; will-change: transform; }
+.lf-fly .lm-card { width: 100%; height: 100%; border-radius: .4rem; }
+.lf-fly .lm-card .lm-g { width: 74%; height: 74%; }
+.lm-card.lf-back { background: var(--violet); background-image: repeating-linear-gradient(45deg, rgba(21, 24, 29, .18) 0 3px, transparent 3px 8px); }
+
+/* the scene's 1-5 strip above the board, as in a race (style.css's .lm-regs isn't loaded in the lobby) */
+.lf-regs { position: absolute; display: flex; gap: .8rem; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity .6s; }
+.lf-regs.on { opacity: 1; }
+.lf-regs i {
+  display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 50%;
+  font-style: normal; font-weight: 300; font-size: 1.05rem; color: var(--faint);
+  border: 1px solid var(--hair2); transition: all .5s cubic-bezier(.2, .8, .2, 1);
+}
+.lf-regs i.done { color: transparent; border-color: transparent; background: rgba(244, 239, 228, .28); transform: scale(.32); }
+.lf-regs i.now { color: var(--ink); background: var(--light); border-color: var(--light); font-weight: 500; transform: scale(1.18); box-shadow: 0 0 24px rgba(244, 239, 228, .55); }
 
 /* The scenes: one dot each, under the board. The lit one is a bar that fills as its scene plays.
    They're buttons (mouse, touch, keys): hovering one lifts it, clicking jumps to that scene. */

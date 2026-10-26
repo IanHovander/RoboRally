@@ -84,6 +84,11 @@ function roboRally(bot, v) {
     setTimeout(fn, ms + Math.random() * 1500);
   };
   const me = v.me;
+  // bots have raced before, so only a real newcomer brings on the Briefing (and bots never vote to skip it)
+  if (!bot.helloed) {
+    bot.helloed = true;
+    act('hello', { raced: true });
+  }
   if (v.prompt) return once(`ask:${v.prompt.deadline}`, 500, () => act('answer', { v: pick(v.prompt.options).v }));
   if (v.phase === 'start' && v.myPick == null) {
     const free = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => !v.robots.some((r) => r.pick === n));

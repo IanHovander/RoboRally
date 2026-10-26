@@ -8,6 +8,7 @@ let wet = null;
 let noiseBuf = null;
 let muted = false;
 let level = 1;
+let duck = 1; // the narrator is speaking: everything else steps back (voice.js)
 const listeners = new Set();
 
 const C5 = 523.25;
@@ -19,7 +20,7 @@ function setup() {
   if (!AC) return null;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 0.55 * level;
+  master.gain.value = muted ? 0 : 0.55 * level * duck;
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -16;
   comp.ratio.value = 3;
@@ -69,7 +70,7 @@ export function unlock() {
 export function setMuted(m) {
   muted = !!m;
   try { localStorage.setItem('lumen.muted', muted ? '1' : ''); } catch {}
-  if (master) master.gain.value = muted ? 0 : 0.55 * level;
+  if (master) master.gain.value = muted ? 0 : 0.55 * level * duck;
   if (!muted) unlock();
   notify();
 }
@@ -77,7 +78,13 @@ export function setMuted(m) {
 /** Overall loudness (the lobby's rule film plays quieter than a race). */
 export function setLevel(k) {
   level = k;
-  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.55 * level, ctx.currentTime, 0.4);
+  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.55 * level * duck, ctx.currentTime, 0.4);
+}
+
+/** Duck under the narrator's voice: 0.5 while it speaks, 1 afterwards (on top of setLevel). */
+export function setDuck(k) {
+  duck = k;
+  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.55 * level * duck, ctx.currentTime, 0.15);
 }
 
 const lastSound = new Map();

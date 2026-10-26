@@ -158,6 +158,22 @@ function faceTexture(kind) {
   });
 }
 
+/** A numeral of light (the order robots act in). */
+function numeralTexture(n) {
+  return sharedTex(`num-${n}`, () => {
+    const c = canvas(128, 128);
+    const g = c.getContext('2d');
+    g.shadowColor = '#ffffff';
+    g.shadowBlur = 12;
+    g.fillStyle = '#ffffff';
+    g.font = `300 104px ${FONT}, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(n), 64, 70);
+    return c;
+  });
+}
+
 /** A four-point sparkle (dizzy stars, sparkles). */
 function starTexture() {
   return sharedTex('star', () => {
@@ -630,6 +646,12 @@ export class Arena {
     this.dim = 0; // 0..1: the room's lights going down (the win)
     this.dimCur = 0;
     this.showNames = true;
+    this.namesAlways = false; // round 1: name tags stay up, above any floating card
+    this.tagsOnly = null; // a Set of ids: only these robots' name tags show (the Briefing's roll call)
+    this.beamLinger = 0; // extra seconds a laser beam stays lit (a callout is talking about it)
+    this.trace = null; // the board's light tracing on (the Briefing's first shot)
+    this.boostT = -10; // the robots' lights brighten for a moment
+    this.tempo = 1; // how fast the scene's time runs (the Briefing plays its lessons a little faster)
     this.listeners = new Set();
     // the comic moments: real time (the camera's), slow motion, a shake, a punch-in; mishaps per register
     this.realTime = 0;
@@ -784,6 +806,7 @@ export class Arena {
         }
       });
     }
+    this.lightLine = null; // (its mesh was on the board, just disposed)
     this.belts = [];
     this.gears.clear();
     this.pushers.clear();
@@ -1006,7 +1029,11 @@ export class Arena {
 
   // ----- the camera -----
 
-  /** Where the board should sit on screen: margins as fractions of the canvas. */
+  /**
+   * Where the board should sit on screen: margins as fractions of the canvas. headroom: how high above the
+   * far edge things float (cards over robots, names above them) that must stay inside the frame. With it,
+   * that whole box is centred in the frame; without it (null), the glass alone is centred (2.3 is fitted).
+   */
   setFrame(frame) {
     const key = JSON.stringify(frame);
     if (key === this.frameKey) return;
@@ -1027,7 +1054,7 @@ export class Arena {
     const corners = [];
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       // the far edge has robots with cards floating over them; the near edge, the slab's thickness
-      corners.push(new THREE.Vector3((x * c.w) / 2, z < 0 ? 2.3 : 0.3, (z * c.h) / 2), new THREE.Vector3((x * c.w) / 2, -0.36, (z * c.h) / 2));
+      corners.push(new THREE.Vector3((x * c.w) / 2, z < 0 ? f.headroom ?? 2.3 : 0.3, (z * c.h) / 2), new THREE.Vector3((x * c.w) / 2, -0.36, (z * c.h) / 2));
     }
     if (cam.view?.enabled) cam.clearViewOffset();
     let lo = 3;
@@ -1151,12 +1178,17 @@ export class Arena {
       let x1 = -9;
       let y0 = 9;
       let y1 = -9;
+      // the board's glass sits in the middle of the frame; with a headroom, the whole box does (the glass and
+      // the cards floating over its far edge), so the cards stay inside the frame too
+      const room = f.headroom != null;
       for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        const v = new THREE.Vector3((x * c.w) / 2, 0, (z * c.h) / 2).project(cam);
-        x0 = Math.min(x0, v.x);
-        x1 = Math.max(x1, v.x);
-        y0 = Math.min(y0, v.y);
-        y1 = Math.max(y1, v.y);
+        for (const h of room ? [z < 0 ? f.headroom : 0.3, -0.36] : [0]) {
+          const v = new THREE.Vector3((x * c.w) / 2, h, (z * c.h) / 2).project(cam);
+          x0 = Math.min(x0, v.x);
+          x1 = Math.max(x1, v.x);
+          y0 = Math.min(y0, v.y);
+          y1 = Math.max(y1, v.y);
+        }
       }
       sx = cx - (x0 + x1) / 2;
       sy = cy - (y0 + y1) / 2;
@@ -1252,6 +1284,7 @@ export class Arena {
 
   removeBot(b) {
     this.clearChaos(b);
+    this.dropShutMark(b);
     this.scene.remove(b.group);
     if (b.card) {
       this.fxGroup.remove(b.card);
@@ -1383,6 +1416,253 @@ export class Arena {
     this.dim = k;
   }
 
+  // ----- teaching: small helpers for the Briefing, the first-time callouts and the lobby film -----
+
+  /** A point in the world, on screen: CSS px within the container. */
+  project(v) {
+    if (!this.size) return { x: 0, y: 0 };
+    this.camera.updateMatrixWorld();
+    const p = v.clone().project(this.camera);
+    return { x: ((p.x + 1) / 2) * this.size.w, y: ((1 - p.y) / 2) * this.size.h };
+  }
+
+  /** Where a robot is on screen (its body), or null. */
+  screenPos(id) {
+    const b = this.bots.get(id);
+    if (!b) return null;
+    const p = b.group.position.clone();
+    p.y += 0.45;
+    return this.project(p);
+  }
+
+  /** Where a space of the course is on screen. */
+  cellScreenPos(x, y, h = 0) {
+    if (!this.course) return null;
+    return this.project(this.pos(x, y).setY(h));
+  }
+
+  /**
+   * A dotted line of light on the glass, with a numbered dot where each card ends: the phones' light line,
+   * on the big screen. ghosts: [{ x, y, n, path: [[x, y]...] }] (minimap.previewProgram's shape; n null for
+   * a plain dot). A longer line than before grows on from where the old one ended.
+   */
+  ghostPath(ghosts, color = PALETTE.light) {
+    if (!this.course) return;
+    const c = this.course;
+    if (!this.lightLine) {
+      const S = Math.max(40, Math.min(112, Math.floor(1800 / Math.max(c.w, c.h))));
+      const cv = canvas(c.w * S, c.h * S);
+      const t = tex(cv);
+      const mat = new THREE.MeshBasicMaterial({ map: t, color: hdr(0xffffff, 1.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(c.w, c.h), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = 0.012;
+      m.renderOrder = 2;
+      this.board.add(m);
+      this.lightLine = { m, cv, t, S, mat, pts: [], cum: [0], marks: [], shown: 0, drawn: -1, fadeT: null };
+    }
+    const G = this.lightLine;
+    const pts = [];
+    const marks = [];
+    for (const gh of ghosts) {
+      for (const [x, y] of gh.path?.length ? gh.path : [[gh.x, gh.y]]) {
+        const last = pts.at(-1);
+        if (!last || last[0] !== x || last[1] !== y) pts.push([x, y]);
+      }
+      marks.push({ x: gh.x, y: gh.y, n: gh.n ?? null, at: pts.length - 1 });
+    }
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    Object.assign(G, { pts, cum, marks, color, fadeT: null, drawn: -1 });
+    G.shown = Math.min(G.shown, cum.at(-1) ?? 0);
+    G.mat.opacity = 1;
+  }
+
+  /** The light line fades away. */
+  clearGhost() {
+    if (this.lightLine && this.lightLine.fadeT == null) this.lightLine.fadeT = this.time;
+  }
+
+  updateGhost(dt) {
+    const G = this.lightLine;
+    if (!G) return;
+    if (G.fadeT != null) {
+      const k = (this.time - G.fadeT) / 0.45;
+      G.mat.opacity = Math.max(0, 1 - k);
+      if (k >= 1) {
+        this.board.remove(G.m);
+        G.m.geometry.dispose();
+        G.mat.dispose();
+        G.t.dispose();
+        this.lightLine = null;
+      }
+      return;
+    }
+    const len = G.cum.at(-1) ?? 0;
+    if (G.shown < len) G.shown = Math.min(len, G.shown + dt * 7); // it grows at 7 spaces a second
+    if (G.drawn === G.shown) return;
+    G.drawn = G.shown;
+    G.cv.width = G.cv.width; // a full reset (with canvas shadows, clearRect alone can leave the last glow behind)
+    const g = G.cv.getContext('2d');
+    const S = G.S;
+    const X = (x) => (x + 0.5) * S;
+    const Y = (y) => (y + 0.5) * S;
+    g.save();
+    g.shadowColor = G.color;
+    g.shadowBlur = S * 0.14;
+    g.strokeStyle = G.color;
+    g.lineCap = 'round';
+    g.lineWidth = S * 0.075;
+    g.setLineDash([0.001, S * 0.19]);
+    g.beginPath();
+    g.moveTo(X(G.pts[0]?.[0] ?? 0), Y(G.pts[0]?.[1] ?? 0));
+    for (let i = 1; i < G.pts.length; i++) {
+      const [x0, y0] = G.pts[i - 1];
+      const [x1, y1] = G.pts[i];
+      if (G.cum[i] <= G.shown) g.lineTo(X(x1), Y(y1));
+      else {
+        const f = (G.shown - G.cum[i - 1]) / (G.cum[i] - G.cum[i - 1] || 1);
+        if (f > 0) g.lineTo(X(x0 + (x1 - x0) * f), Y(y0 + (y1 - y0) * f));
+        break;
+      }
+    }
+    g.stroke();
+    g.setLineDash([]);
+    const seen = new Map();
+    for (const mk of G.marks) {
+      if (G.cum[mk.at] > G.shown + 1e-6) continue;
+      const key = `${mk.x},${mk.y}`;
+      seen.set(key, { ...mk, ns: [...(seen.get(key)?.ns ?? []), mk.n].filter((n) => n != null) });
+    }
+    const lastKey = G.marks.length ? `${G.marks.at(-1).x},${G.marks.at(-1).y}` : '';
+    for (const [key, mk] of seen) {
+      const end = key === lastKey && G.shown >= (G.cum.at(-1) ?? 0) - 1e-6;
+      const r = S * (end ? 0.2 : 0.17);
+      g.shadowBlur = S * 0.12;
+      g.fillStyle = end ? G.color : 'rgba(6,8,11,.9)';
+      g.lineWidth = S * 0.04;
+      g.beginPath();
+      g.arc(X(mk.x), Y(mk.y), r, 0, TAU);
+      g.fill();
+      g.stroke();
+      const label = mk.ns.join('');
+      if (label && !end) {
+        g.shadowBlur = 0;
+        g.fillStyle = G.color;
+        g.font = `500 ${Math.round(S * (label.length > 1 ? 0.16 : 0.22))}px ${FONT}, sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(label, X(mk.x), Y(mk.y) + S * 0.01);
+      }
+    }
+    g.restore();
+    G.t.needsUpdate = true;
+  }
+
+  /**
+   * The order robots act in: a numeral of light (1, 2, 3...) on the glass at each robot's feet, one after
+   * another, for 1.4 s. ids: in turn order.
+   */
+  orderMarks(ids, { dur = 1.4 } = {}) {
+    const cam = this.camera.position;
+    ids.forEach((id, i) => {
+      const b = this.bots.get(id);
+      if (!b || !b.visible) return;
+      const at = this.pos(b.x, b.y);
+      const dir = new THREE.Vector3(cam.x - at.x, 0, cam.z - at.z).normalize();
+      const mat = new THREE.MeshBasicMaterial({ map: numeralTexture(i + 1), color: hdr(PALETTE.light, 1.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 6;
+      const holder = new THREE.Group();
+      holder.add(m);
+      holder.rotation.y = Math.atan2(dir.x, dir.z);
+      holder.position.copy(at).addScaledVector(dir, 0.46).setY(0.02);
+      this.fxGroup.add(holder);
+      this.effects.push({
+        t0: this.time + i * 0.16,
+        dur,
+        update: (k) => {
+          mat.opacity = k < 0.1 ? k / 0.1 : k > 0.72 ? Math.max(0, (1 - k) / 0.28) : 1;
+          const s = 0.7 + 0.3 * easeBack(Math.min(1, k * 6));
+          m.scale.set(s, s, s);
+        },
+        end: () => {
+          this.fxGroup.remove(holder);
+          m.geometry.dispose();
+          mat.dispose();
+        },
+      });
+    });
+  }
+
+  /** A flag's column flashes (as when it's reached), without a robot. flicker: it stutters (a near miss). */
+  flashFlag(n, color = PALETTE.light, { flicker = false, strength = 1 } = {}) {
+    const col = this.columns.find((x) => x.n === n);
+    if (!col) return;
+    col.flash = this.time;
+    col.flashColor = new THREE.Color(color);
+    col.flashK = strength;
+    col.flicker = flicker ? this.time : null;
+  }
+
+  /** The camera leans in on a space, and a ring of light marks it. */
+  spotlight(x, y, { hold = 0.9, k = 0.3, color = PALETTE.light } = {}) {
+    if (!this.course) return;
+    const at = this.pos(x, y);
+    this.punchIn = { t0: this.realTime, hold, k, at: at.clone().setY(0) };
+    this.ring(at, color, 1.3, 0.04, 1.3);
+  }
+
+  /** A ring of light on a space. */
+  ringAt(x, y, color = PALETTE.light, size = 1, dur = 1.1) {
+    if (this.course) this.ring(this.pos(x, y), color, size, 0.04, dur);
+  }
+
+  /** A mark (glyph) rises over a space and fades. */
+  popAt(x, y, name, color = PALETTE.light, text = '', opts = {}) {
+    if (this.course) this.popGlyph({ group: { position: this.pos(x, y) } }, name, color, text, opts);
+  }
+
+  /** These robots are shut down: their lights at a third, a power mark floating over each. */
+  setShutdown(ids) {
+    const want = new Set(ids ?? []);
+    for (const b of this.bots.values()) {
+      const on = want.has(b.id);
+      if (on === !!b.shut) continue;
+      b.shut = on;
+      if (on) {
+        b.shutMark = glyphSprite('power', PALETTE.light, { height: 0.5 });
+        b.shutMark.material.opacity = 0.8;
+        this.fxGroup.add(b.shutMark);
+      } else this.dropShutMark(b);
+    }
+  }
+
+  dropShutMark(b) {
+    if (!b.shutMark) return;
+    this.fxGroup.remove(b.shutMark);
+    b.shutMark.material.map.dispose();
+    b.shutMark.material.dispose();
+    b.shutMark = null;
+  }
+
+  /** Lift a robot a little off the glass (or set it back down). */
+  raise(id, on = true) {
+    const b = this.bots.get(id);
+    if (b) b.raiseTo = on ? 0.15 : 0;
+  }
+
+  /** The board's light traces on from nothing, over dur seconds. */
+  traceOn(dur = 2.4) {
+    this.trace = { t0: this.time, dur };
+  }
+
+  /** Every robot's light brightens for a moment. */
+  brighten() {
+    this.boostT = this.time;
+  }
+
   // ----- cards over the robots -----
 
   /** Register revealed: each robot's card floats over it. list: [{ id, types }] */
@@ -1447,7 +1727,7 @@ export class Arena {
     const t0 = this.time;
     const when = (u) => clockTime(N, u); // seconds into the beat at which the clock reaches u steps
     const paths = new Map(beat.fx.filter((f) => f.k === 'move').map((f) => [f.id, f.path]));
-    const ctx = { N, t0, when, paths, read, faces: new Set(), counted: new Set(), byId };
+    const ctx = { N, t0, when, paths, read, faces: new Set(), counted: new Set(), byId, beat };
     // faces for the few robots in the biggest moments, not for everyone at once
     for (const e of read.events) {
       if (ctx.faces.size < 3 || e.kind === 'fall') ctx.faces.add(e.id);
@@ -2020,7 +2300,16 @@ export class Arena {
   }
 
   damage(b, f, ctx) {
-    if (f.src === 'reboot') return; // the fall itself is the show
+    const junk = { id: b.id, sp: f.sp ?? 0, hw: f.hw ?? 0, src: f.src };
+    if (f.src === 'reboot') {
+      // the fall itself is the show; its junk cards leave from where it fell, once it's gone
+      const e = ctx.read.events.find((x) => x.kind === 'fall' && x.id === b.id);
+      const path = ctx.paths.get(b.id);
+      const ta = path ? ctx.when(e?.at ?? lastTick(path)) : 0;
+      const fell = ctx.beat?.fx.find((x) => x.k === 'fall' && x.id === b.id);
+      this.later(ta + 1.05, () => this.emit('junk', { ...junk, x: fell?.x ?? b.x, y: fell?.y ?? b.y }));
+      return;
+    }
     const laser = f.src === 'laser' || f.src === 'weapon';
     const delay = laser ? 0.13 : f.at ? ctx.when(Math.max(0, f.at - 0.5)) : 0;
     this.later(delay, () => {
@@ -2030,6 +2319,8 @@ export class Arena {
       p.y = 0.35;
       this.shards(p, color, 10 + 6 * (f.sp + f.hw));
       this.emit(laser ? 'fizzle' : 'damage', { id: b.id, n: (f.sp ?? 0) + (f.hw ?? 0), hw: f.hw });
+      // the junk cards themselves: host.js flies them to that player's token (or the film's phone)
+      this.emit('junk', { ...junk, x: b.x, y: b.y });
     });
   }
 
@@ -2102,10 +2393,13 @@ export class Arena {
     group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     group.scale.y = 0.001;
     this.fxGroup.add(group);
+    const linger = this.beamLinger; // held at full brightness this much longer
     this.effects.push({
       t0: this.time,
-      dur: 0.9,
-      update: (k) => {
+      dur: 0.9 + linger,
+      update: (kk) => {
+        const s = kk * (0.9 + linger);
+        const k = (s < 0.36 ? s : s < 0.36 + linger ? 0.36 : s - linger) / 0.9;
         const grow = Math.min(1, k * 6);
         group.scale.y = grow;
         group.position.copy(from).addScaledVector(dir, (len * grow) / 2);
@@ -2258,14 +2552,17 @@ export class Arena {
   frameLoop() {
     const real = Math.min(this.clock.getDelta(), 0.1);
     this.realTime += real;
-    const dt = real * this.timeScale(); // the scene's time: slower in slow motion
+    const dt = real * this.timeScale() * this.tempo; // the scene's time: slower in slow motion (faster in the Briefing's lessons)
     this.time += dt;
     const t = this.time;
     this.adapt(real);
     this.dimCur += (this.dim - this.dimCur) * Math.min(1, dt * 1.5);
     const lit = 1 - this.dimCur;
 
-    if (this.topMat) this.topMat.emissiveIntensity = 0.35 + 0.65 * lit;
+    // the Briefing's first shot: the board's light traces on from nothing
+    const traced = this.trace ? smooth(0, 1, (t - this.trace.t0) / this.trace.dur) : 1;
+    if (this.trace && traced >= 1) this.trace = null;
+    if (this.topMat) this.topMat.emissiveIntensity = (0.35 + 0.65 * lit) * traced;
     for (const belt of this.belts) {
       belt.tex.offset.y = (belt.tex.offset.y - dt * belt.speed * (belt.pulse && t - belt.pulse < 1.2 ? 2.2 : 1)) % 1;
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
@@ -2290,7 +2587,8 @@ export class Arena {
       const flash = col.flash ? Math.max(0, 1 - (t - col.flash) / 2.4) : 0;
       const breathe = 0.85 + Math.sin(t * 1.1 + col.n) * 0.12;
       const base = new THREE.Color(PALETTE.light).lerp(col.flashColor, flash);
-      col.mat.color.copy(base).multiplyScalar((breathe + flash * 2.2) * (0.45 + 0.55 * lit));
+      const stutter = col.flicker != null && t - col.flicker < 1 ? (Math.sin((t - col.flicker) * 38) > 0 ? 1.3 : 0.15) : 1;
+      col.mat.color.copy(base).multiplyScalar((breathe + flash * 2.2 * (col.flashK ?? 1)) * (0.45 + 0.55 * lit) * stutter * traced);
       col.col.scale.set(1 + flash * 0.8, 1 + flash * 0.15, 1);
       col.col.rotation.y = Math.atan2(this.camera.position.x - col.col.position.x, this.camera.position.z - col.col.position.z);
     }
@@ -2300,6 +2598,8 @@ export class Arena {
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
 
     for (const b of this.bots.values()) this.animateBot(b, t, dt);
+    if (this.namesAlways || this.tagsOnly) this.spreadTags(real);
+    this.updateGhost(dt);
     // (an effect may start others: those land in the fresh list and join the ones still running)
     const kept = [];
     for (let pass = 0; pass < 4 && this.effects.length; pass++) {
@@ -2530,6 +2830,9 @@ export class Arena {
       return;
     }
     const hover = b.model.hover ? Math.sin(t * 2.2 + b.phase) * 0.03 : 0;
+    // raised a little (the Briefing's roll call: this one is yours)
+    b.raise = (b.raise ?? 0) + ((b.raiseTo ?? 0) - (b.raise ?? 0)) * Math.min(1, dt * 7);
+    lift += b.raise;
     g.position.set(p.x, lift, p.z);
     g.rotation.set(0, rot, 0);
     const body = b.model.body;
@@ -2556,6 +2859,8 @@ export class Arena {
     if (this.readyMode) glow = b.ready ? 1.25 : 0.45 + Math.sin(t * 2 + b.phase) * 0.12;
     if (b.deciding) glow = 1 + Math.sin(t * 7) * 0.5;
     if (b.away) glow = 0.25;
+    if (b.shut) glow *= 0.35; // shut down: its lights at a third, a power mark over it
+    glow *= 1 + 0.7 * Math.max(0, 1 - (t - this.boostT) / 1.6);
     glow *= fade;
     let eye = glow * (1 + wide * 0.8);
     if (hurt > 0 && Math.random() < 0.5) eye *= 0.2;
@@ -2571,19 +2876,44 @@ export class Arena {
       body.position.x = (Math.random() - 0.5) * 0.05 * hurt;
     } else {
       b.model.paint.emissive.set(b.color);
-      b.model.paint.emissiveIntensity = 0.16 * (b.away ? 0.3 : 1);
+      b.model.paint.emissiveIntensity = 0.16 * (b.away ? 0.3 : 1) * (b.shut ? 0.35 : 1);
       body.position.x = jitter ? (Math.random() - 0.5) * 0.06 * jitter : 0;
     }
-    if (soot > 0) {
-      b.model.paint.color.set(b.color).multiplyScalar(1 - 0.8 * soot);
+    if (soot > 0 || b.shut) {
+      // sooty from a laser hit, or shut down: its paint goes dark too
+      b.model.paint.color.set(b.color).multiplyScalar(Math.min(1 - 0.8 * soot, b.shut ? 0.4 : 1));
       b.sooted = true;
     } else if (b.sooted) {
       b.model.paint.color.set(b.color);
       b.sooted = false;
     }
     if (b.tag) {
-      b.tag.visible = this.showNames && !this.focusOn && !b.card && !b.face;
+      const cardUp = b.card?.visible && b.card.material.opacity > 0.05;
+      b.tag.visible = this.tagsOnly
+        ? this.tagsOnly.has(b.id) && !this.focusOn
+        : this.showNames && !this.focusOn && (this.namesAlways || (!b.card && !b.face));
       b.tag.material.opacity = b.away ? 0.4 : 1;
+      // round 1 (and the roll call): the name is stacked above the floating card, with a gap, and drawn over
+      // every card and robot, so neither its own card nor a neighbour's can cover it
+      const always = this.namesAlways || !!this.tagsOnly;
+      b.tag.material.depthTest = !always;
+      b.tag.renderOrder = always ? 36 : 20;
+      const s = BOT_SCALE * scale * popS;
+      const fs = this.faceScale ?? 1;
+      const want = cardUp ? (b.card.position.y + b.card.scale.y / 2 + 0.3 - lift) / s : b.face ? (0.7 + 0.85 * fs + 0.28) / s : 0.86;
+      if (always) {
+        b.tagBase = (b.tagBase ?? want) + (want - (b.tagBase ?? want)) * Math.min(1, dt * 12);
+        b.tag.position.y = b.tagBase + (b.tagLift ?? 0); // (spreadTags lifts it clear of a neighbour's name)
+      } else {
+        b.tag.position.y = 0.86; // (hidden while a card or a face is up: it comes back where it always was)
+        b.tagBase = null;
+        b.tagLift = 0;
+      }
+    }
+    if (b.shutMark) {
+      b.shutMark.visible = visible;
+      b.shutMark.position.set(p.x, lift + 1.55 + Math.sin(t * 1.6 + b.phase) * 0.04, p.z);
+      b.shutMark.material.opacity = 0.75 + Math.sin(t * 1.6 + b.phase) * 0.2;
     }
     // its face, when something comic is happening to it
     if (b.face) {
@@ -2610,6 +2940,37 @@ export class Arena {
       c.scale.set(c.userData.base.x * s * Math.max(0.02, flip), c.userData.base.y * s, 1);
       c.position.set(p.x, 1.72 + played * 0.1 + (1 - easeOut(born)) * 0.25 + (b.face ? 0.32 + 0.6 * ((this.faceScale ?? 1) - 1) : 0), p.z);
       c.material.opacity = Math.min(1, born * 3) * (this.focusOn ? 0 : 1);
+    }
+  }
+
+  /**
+   * Names that stay up (round 1, the roll call) never sit on top of each other: robots on neighbouring
+   * spaces have their names stacked, the nearer one lowest, each farther one lifted just clear of it.
+   */
+  spreadTags(dt) {
+    const tags = [];
+    for (const b of this.bots.values()) {
+      if (!b.tag?.visible || !b.group.visible || b.tagBase == null) continue;
+      const s = b.group.scale.y;
+      const base = new THREE.Vector3(b.group.position.x, b.group.position.y + b.tagBase * s, b.group.position.z);
+      const p = this.project(base);
+      const up = this.project(base.clone().setY(base.y + 1));
+      const ppu = Math.max(1, p.y - up.y); // screen px per world unit, upward, at this depth
+      tags.push({ b, s, x: p.x, y: p.y, ppu, w: b.tag.scale.x * s * ppu, h: b.tag.scale.y * s * ppu });
+    }
+    tags.sort((a, c) => c.y - a.y); // nearest (lowest on screen) first
+    const placed = [];
+    for (const T of tags) {
+      let y = T.y;
+      for (let pass = 0; pass < 8; pass++) {
+        const hit = placed.find((P) => Math.abs(P.x - T.x) < (P.w + T.w) / 2 + 4 && Math.abs(P.y - y) < (P.h + T.h) / 2 + 2);
+        if (!hit) break;
+        y = hit.y - (hit.h + T.h) / 2 - 3;
+      }
+      placed.push({ ...T, y });
+      const lift = (T.y - y) / T.ppu / T.s; // in the robot's own units
+      T.b.tagLift = (T.b.tagLift ?? 0) + (lift - (T.b.tagLift ?? 0)) * Math.min(1, dt * 14);
+      T.b.tag.position.y = T.b.tagBase + T.b.tagLift;
     }
   }
 

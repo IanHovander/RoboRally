@@ -18,13 +18,41 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 - **Boards and courses are original** (Loading Dock, Garden Center, Checkout Lanes, Stockroom, Electronics), not
   copies of the boxed boards.
 - **Pictures, not paragraphs:** cards, upgrades and rules are shown as icons and short looping animations.
-- **Factory lobby:** the 3D course, phone joining, and three animated lessons. No game chooser or team branding.
+- **Factory lobby:** the 3D course, phone joining, and animated lessons. No game chooser or team branding.
 - **Your robot:** tap ⇄ beside your name in the waiting room to choose an avatar. Your selection survives reconnecting.
 - **Players:** 2–6 is the rulebook's range; up to 8 work (8 start spaces), and 1 player can practice.
-- **Tests:** `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, and
-  runs a full game through the server.
+- **Tests:** `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, checks
+  the Briefing, holds and each phone's story of the race, and runs a full game through the server.
 - `node test/avatar.mjs` checks robot selection and reconnects. `npm test` retains framework coverage using
   example games in a test-only server; normal servers and the website build register only Robo Rally.
+
+### How the game teaches
+
+Nobody has to read the rules. The lobby plays a wordless film of the basics. Each phone remembers whether it has
+finished a race; when a newcomer is racing, *Floor Control* (the store's after-hours computer) narrates a
+70-second Briefing on the big screen between picking start pads and round 1. A majority of phones can vote to
+skip it. During that race the same voice calls out each first-time moment once (the first laser hit, the first
+fall...), holding the race for a moment. On the phone, **?** lets you point at anything (a card, a slot, a square
+of the map) and answers with looping clips; the Book shows every clip. During the race, each slot on your phone
+collects marks for what happened to you, and tapping it replays it. The full design is `docs/teaching/design.md`.
+
+### Differences from the rulebook
+
+- **Round 1 has no shop.** The race starts with programming; your 3 upgrades and 3 Energy wait for round 2's
+  shop. (It meant nothing before a robot had moved. The only cost is one upgrade draw.)
+- **The programming timer (Act Fast) is on, at 2 minutes,** by default; the rulebook calls it a variant for
+  experienced players. At zero, empty slots get random cards from your hand. "No timer" still ends after 5 minutes.
+- **Rebooting onto an occupied spot:** the robot there is shoved one space along the token's arrow, or right, left
+  or back if that's blocked. It's a normal push (chains, Spiky, even into a pit). If the spot is still taken, the
+  rebooting robot takes the nearest free space.
+- **Deflector Shield pays by itself** when a laser would hit you (the card says "may"). Switch it off in its sheet.
+- **Priority and start pads:** the first Priority holder is random (rulebook: the youngest player), seats follow
+  joining order, and start pads are first come, first served (rulebook: youngest first).
+- **Shutdown is chosen instead of programming**, not declared after it. Same effect.
+- **Again after a Haywire repeats the whole Haywire** (for example Move 1, Rotate Right, Move 1). The rulebook only
+  covers Double Program and Crab Legs (Again repeats the second card).
+- **Two robots reaching the last flag in the same slot:** the first in Priority order wins (the rulebook doesn't
+  say).
 
 ## Three ways to run it
 
@@ -222,6 +250,10 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
 
 - **`tools/bots.html?room=ABCD&n=20`** (on the site) adds 20 fake phones that play by themselves, each a real WebRTC
   connection.
+- **`dev-phone.html?to=program`** (on `npm run dev`) is one Robo Rally phone running the real rules, no server
+  needed. `to=` setup, start, brief, upgrade, program, race or over; `&n=8` players, `&course=…`, `&prompt=weapon`.
+  `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier), and
+  `?to=brief&votes=2` shows the Briefing with two votes to skip it.
 - **`host.html?relay=1`** makes the big screen send every phone through the relay (like phones on mobile data);
   **`host.html?tls=1`** uses only the relay over TLS on port 443 (like a strict school network). Each player's
   chip shows RELAY or DIRECT.

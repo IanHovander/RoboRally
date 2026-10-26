@@ -70,6 +70,10 @@ html.phone body { overflow: hidden; overscroll-behavior: none; }
 .round-go:disabled { opacity: 0.4; }
 
 /* ---------- waiting in the lobby: your robot, and (for the first player) the start ---------- */
+/* "?" (styled in games/robo-rally/guide.css; here only where it sits) */
+.ask-btn { position: absolute; top: max(0.4rem, env(safe-area-inset-top)); right: 0.4rem; z-index: 5; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--dim); }
+.ask-btn svg { width: 1.5rem; height: 1.5rem; }
+.ask-btn[hidden] { display: none; }
 .wait-screen { display: grid; grid-template-rows: 1fr auto auto auto 1fr auto; justify-items: center; align-items: center; }
 .me-robot {
   grid-row: 2;

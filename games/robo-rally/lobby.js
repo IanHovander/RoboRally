@@ -1,13 +1,16 @@
-// The lobby's rule film on the big screen. Three short scenes, played by the real rules (lessons.js) on
-// Lumen's glass board, with a phone beside it so people see what their own phone will do:
-//   1. Tap five cards into five slots. The robot runs them in order, to the flag.
+// The lobby's rule film on the big screen. Four short wordless scenes, played by the real rules (lessons.js)
+// on Lumen's glass board, with a phone beside it (mimic.js) so people see what their own phone will do:
+//   1. Tap five cards into five slots. The robot runs them in order, to the flag. It starts facing the
+//      camera, so its left turn goes to the screen's right; a dotted line of light shows where it will go.
 //   2. After each card the board acts: belts carry, gears turn, lasers hit, pits swallow (and you come back).
-//   3. Robots push each other. Flags in order. First to the last flag wins.
-// Players who have joined star in it: their colors, their robots, their names.
+//   3. Damage is cards: a laser in the back sends a SPAM card to the phone, a Haywire jams slot 3 and runs there.
+//   4. Robots push each other. Flags in order. First to the last flag wins.
+// Every scene shows the race's 1-5 strip while its cards run, and numerals of light under the robots in
+// the order they act. Players who have joined star in it: their colors, their robots, their names.
 // The dots under the board are the scenes: the lit one fills as its scene plays. Clicking a dot (or ← →)
 // jumps to that scene; the film carries on from there by itself.
-import { LESSONS, lessonCourse, runLesson } from './lessons.js';
-import { cardSvgHtml, svgGlyph } from './glyphs.js';
+import { LESSONS, lessonCourse, runLesson, playRun, runLength } from './lessons.js';
+import { createMimic } from './mimic.js';
 import { sceneSound, setLevel } from './sound.js';
 
 const DEMO = [
@@ -16,7 +19,6 @@ const DEMO = [
   { id: 'demo-c', name: '', color: '#ffd43b', avatar: 1 },
 ];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const DECOYS = ['bk', 'ut', 'm1', 'rl', 'rr', 'm2'];
 const STOP = Symbol('another scene took over');
 const FADE_MS = 700; // the board fades out, then in, between scenes (.lesson-stage's opacity transition)
 const SETTLE_MS = 1600; // a beat can still fire delayed effects (a fall's ring, its sound) this long after it starts
@@ -32,22 +34,17 @@ export function mountLumenLobby(stage, ui) {
   let lastBeatAt = 0;
   const runs = LESSONS.map((l, i) => runLesson(l, 11 + i));
 
-  ui.innerHTML = `
-    <div class="lf-phone" aria-hidden="true">
-      <div class="lf-slots">${'<i></i>'.repeat(5)}</div>
-      <div class="lf-hand"></div>
-      <div class="lf-lock">${svgGlyph('check')}</div>
-      <div class="lf-finger"></div>
-    </div>
-    <div class="lf-dots">${LESSONS.map((_, i) => `<button class="lf-dot" data-i="${i}" aria-label="Scene ${i + 1}"><i><b></b></i></button>`).join('')}</div>`;
-  const phone = ui.querySelector('.lf-phone');
-  const slotsEl = ui.querySelector('.lf-slots');
-  const hand = ui.querySelector('.lf-hand');
-  const lock = ui.querySelector('.lf-lock');
-  const finger = ui.querySelector('.lf-finger');
-  const dots = [...ui.querySelectorAll('.lf-dot')];
+  const mimic = createMimic(ui);
+  const regsEl = document.createElement('div');
+  regsEl.className = 'lf-regs';
+  regsEl.innerHTML = [1, 2, 3, 4, 5].map((n) => `<i>${n}</i>`).join('');
+  const dotsEl = document.createElement('div');
+  dotsEl.className = 'lf-dots';
+  dotsEl.innerHTML = LESSONS.map((_, i) => `<button class="lf-dot" data-i="${i}" aria-label="Scene ${i + 1}"><i><b></b></i></button>`).join('');
+  ui.append(regsEl, dotsEl);
+  const dots = [...dotsEl.children];
 
-  ui.querySelector('.lf-dots').addEventListener('click', (e) => {
+  dotsEl.addEventListener('click', (e) => {
     const dot = e.target.closest('.lf-dot');
     if (dot) jumpTo(Number(dot.dataset.i));
   });
@@ -86,11 +83,14 @@ export function mountLumenLobby(stage, ui) {
     }
   }
 
+  // board between the phone (left) and the join column (right)
+  const frame = () => (innerWidth / innerHeight > 1.5 ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 });
   function layout() {
-    if (!arena) return;
-    const wide = innerWidth / innerHeight > 1.5;
-    // board between the phone (left) and the join column (right)
-    arena.setFrame(wide ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 });
+    const f = frame();
+    // the strip sits centered over the board's frame, just above it
+    regsEl.style.left = `${((1 + (f.left - f.right) / 2) / 2) * 100}%`;
+    regsEl.style.top = `calc(${(f.top / 2) * 100}% - 2.2rem)`;
+    arena?.setFrame(f);
   }
   addEventListener('resize', layout);
 
@@ -113,6 +113,15 @@ export function mountLumenLobby(stage, ui) {
       const bar = d.querySelector('b');
       bar.style.transition = k === i && ms > 0 ? `transform ${ms}ms linear` : 'none';
       bar.style.transform = `scaleX(${k === i ? p : 0})`;
+    });
+  }
+
+  /** The strip of registers: n lit (0-based), earlier ones done; null hides it. */
+  function showRegs(n) {
+    regsEl.classList.toggle('on', n != null);
+    [...regsEl.children].forEach((el, k) => {
+      el.classList.toggle('now', n != null && k === n);
+      el.classList.toggle('done', n != null && k < n);
     });
   }
 
@@ -140,130 +149,46 @@ export function mountLumenLobby(stage, ui) {
     }
   }
 
+  /** Which program steps the fingertip fills slowly (the rest fill quickly). */
+  const slowStep = (lesson) => (st) => !!lesson.phone && (lesson.slowRounds ?? [1]).includes(st.round);
+
   /** How long a scene plays: playLesson's pauses, added up. */
   function lessonLength(lesson, run) {
-    let ms = FADE_MS + 1400;
-    for (const st of run.steps) {
-      if (st.kind === 'program') {
-        const n = st.cards[0].length;
-        ms += (lesson.phone && st === run.steps[0] ? 1300 + n * 1480 + 960 + 700 : 700 + n * 170 + 300) + 500;
-      } else ms += st.beat.dur * 1.12 + (st.beat.what?.k === 'reveal' ? 150 : 60);
-    }
+    const slow = slowStep(lesson);
+    const ms = FADE_MS + 1400 + runLength(run, { programMs: (st) => mimic.programMs(st.cards[0].filter(Boolean).length, slow(st)) });
     return ms + (run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
   }
 
   async function playLesson(lesson, run, pause) {
     // out: the board and the phone fade together (the scene may still be moving: it fades as it is)
     stage.style.opacity = '0';
-    phone.classList.remove('show');
-    finger.className = 'lf-finger';
+    mimic.hide();
+    showRegs(null);
     await pause(Math.max(FADE_MS, SETTLE_MS - (performance.now() - lastBeatAt)));
     // a clean start: robots at their start spaces, nothing left glowing from the last scene
-    resetPhone();
+    mimic.reset();
+    mimic.showDeck(!!lesson.deck);
     arena.reset(lessonCourse(lesson)); // the board built afresh (even the same one), robots and effects gone
     arena.syncRobots(robotsAt(run.start));
     hush = false;
     stage.style.opacity = '1';
     await pause(1400);
-    let program = null;
-    for (const st of run.steps) {
-      if (st.kind === 'program') {
-        program = st.cards;
-        await programPhone(st.cards[0], lesson.phone && program === run.steps[0].cards, pause);
-        await pause(500);
-        continue;
-      }
-      const robots = robotsAt(st.robots);
-      const b = st.beat;
-      if (b.what?.k === 'reveal') {
-        arena.showCards(robots.map((r, i) => ({ id: r.id, types: r.on ? [program[i][st.reg]] : [] })));
-        litSlot(st.reg);
-      }
-      lastBeatAt = performance.now();
-      arena.playBeat(b, robots);
-      arena.syncRobots(robots);
-      await pause(b.dur * 1.12 + (b.what?.k === 'reveal' ? 150 : 60));
-      arena.syncRobots(robots);
-    }
-    litSlot(-1);
-    await pause(run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
-  }
-
-  // ----- the phone beside the board -----
-
-  function resetPhone() {
-    phone.classList.remove('locked', 'show', 'run');
-    for (const s of slotsEl.children) {
-      s.className = '';
-      s.innerHTML = '';
-    }
-    hand.innerHTML = '';
-    finger.className = 'lf-finger';
-  }
-
-  /** Deal the hand, then (slowly, with a fingertip) or (quickly) put the five cards in the slots. */
-  async function programPhone(types, slow, pause) {
-    const color = cast(0).color;
-    phone.style.setProperty('--c', color);
-    phone.classList.remove('locked', 'run');
-    for (const s of slotsEl.children) {
-      s.className = '';
-      s.innerHTML = '';
-    }
-    const decoys = DECOYS.filter((t) => !types.includes(t)).slice(0, 2);
-    const handTypes = [...types];
-    // a stable shuffle so the hand doesn't look sorted
-    const order = [3, 0, 5, 1, 6, 2, 4].filter((i) => i < types.length + decoys.length);
-    const all = [...handTypes, ...decoys];
-    hand.innerHTML = order.map((i, n) => `<span class="lf-card" data-i="${i}" style="--n:${n}">${cardSvgHtml(all[i])}</span>`).join('');
-    phone.classList.add('show');
-    await pause(slow ? 1300 : 700);
-    for (let k = 0; k < types.length; k++) {
-      const card = hand.querySelector(`[data-i="${k}"]`);
-      const slot = slotsEl.children[k];
-      if (!card) continue;
-      if (slow) await tap(card, pause);
-      flyInto(card, slot, all[k]);
-      await pause(slow ? 520 : 170);
-    }
-    if (slow) await tap(lock, pause);
-    phone.classList.add('locked');
-    finger.className = 'lf-finger';
-    await pause(slow ? 700 : 300);
-    phone.classList.add('run');
-  }
-
-  /** The fingertip glides to el and presses it. */
-  async function tap(el, pause) {
-    const p = phone.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    finger.style.transform = `translate(${r.left - p.left + r.width / 2}px, ${r.top - p.top + r.height * 0.6}px)`;
-    finger.classList.add('on');
-    await pause(420 + 380);
-    finger.classList.add('press');
-    await pause(160);
-    finger.classList.remove('press');
-  }
-
-  function flyInto(card, slot, type) {
-    const a = card.getBoundingClientRect();
-    const b = slot.getBoundingClientRect();
-    card.style.transform = `translate(${b.left - a.left + (b.width - a.width) / 2}px, ${b.top - a.top + (b.height - a.height) / 2}px) scale(${b.width / a.width})`;
-    card.classList.add('flying');
-    const version = gen;
-    setTimeout(() => {
-      if (version !== gen) return; // another scene took over meanwhile
-      slot.innerHTML = cardSvgHtml(type);
-      slot.className = 'full';
-      card.classList.add('gone');
-    }, 430);
-  }
-
-  function litSlot(i) {
-    [...slotsEl.children].forEach((s, k) => {
-      s.classList.toggle('now', k === i);
-      s.classList.toggle('done', i >= 0 && k < i);
+    await playRun(arena, run, {
+      pause,
+      cast,
+      mimic,
+      slow: slowStep(lesson),
+      line: !!lesson.line,
+      regs: showRegs,
+      onBeat: (st) => {
+        lastBeatAt = performance.now();
+        // the robot reached the end of its line of light: the line has said what it had to say
+        if (lesson.line && st.beat.fx.some((f) => f.k === 'win')) arena.clearGhost();
+      },
     });
+    showRegs(null);
+    mimic.lit(-1);
+    await pause(run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
   }
 
   function release() {
@@ -274,7 +199,8 @@ export function mountLumenLobby(stage, ui) {
       arena = null;
     }
     stage.replaceChildren();
-    resetPhone();
+    mimic.reset();
+    showRegs(null);
   }
 
   return {

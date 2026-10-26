@@ -13,11 +13,17 @@
 <script type="module">
 // A phone without a server: the real rules run right here, so every screen can be looked at.
 //   dev-phone.html?to=program&course=closing-time&prompt=weapon
+//   ?to=setup | start | brief | upgrade | program | activate (or race) | over
+//   ?to=brief&votes=2          the Briefing, with 2 of the other phones voting to skip it
+//   ?to=race&story=demo        a scripted round on Closing Time (3+ players); stops when I fall in slot 5
+//   ?to=race&story=demo&reg=4  ...or at the start of slot 4 (a Haywire waits under slot 2)
+//   ?to=program&story=demo     after that round: round 2's programming, with the story as "last round"
 import rules from './games/robo-rally/rules.js';
 import * as E from './games/robo-rally/engine.js';
 import mountPlayer from './games/robo-rally/player.js';
 import { wireActions } from './js/ui.js';
-import { UPGRADES } from './games/robo-rally/cards.js';
+import { UPGRADES, cardType } from './games/robo-rally/cards.js';
+import { getCourse } from './games/robo-rally/board.js';
 const q = new URLSearchParams(location.search);
 const colors = ['#51cf66', '#ff4d6d', '#4dabf7', '#ffd43b', '#cc5de8', '#ff922b', '#22d3ee', '#f783ac'];
 const n = Number(q.get('n') ?? 4);
@@ -50,34 +56,78 @@ function redraw() { screen.update(JSON.parse(JSON.stringify(rules.playerView(ctx
 window.dev = { ctx, act, E, redraw, rules };
 
 const to = q.get('to') ?? 'setup';
-const course = q.get('course') ?? 'closing-time';
+const demo = q.get('story') === 'demo' && n >= 3;
+const course = demo ? 'closing-time' : q.get('course') ?? 'closing-time';
 rules.actions.setOpt(ctx, me, { key: 'course', value: course });
 if (q.get('upgrades') === '0') rules.actions.setOpt(ctx, me, { key: 'upgrades', value: false });
 rules.actions.setOpt(ctx, me, { key: 'timer', value: 120 });
+const env = { course: getCourse(course), connected: () => true, now: () => Date.now(), name: (id) => ctx.player(id)?.name };
+// the race runs on the rules' own beat timer, fired here by hand (so each phone's story is recorded)
+const beat = () => { const fn = timers.get('beat'); timers.delete('beat'); fn?.(ctx); return !!fn; };
+const race = (stop) => { for (let k = 0; k < 4000 && s().phase === 'activate' && !s().prompt && !stop() && beat(); k++); };
+
+/** Round 1 on Closing Time, scripted so that my story has a bit of everything:
+ *  slot 1 SPAM, swapped for Move 2, into the wall laser · 2 Power Up, the laser again, and Ada's (a Haywire)
+ *  3 Ada shoves me onto the belt; her laser · 4 Move 3 into a wall; Bolt's laser · 5 Bolt shoves me into a pit */
+function demoRound() {
+  const S = s();
+  const R = (i) => S.robots[players[i].id];
+  const take = (piles, t) => {
+    for (const pile of piles) {
+      const i = pile.findIndex((c) => cardType(c) === t);
+      if (i >= 0) return pile.splice(i, 1)[0];
+    }
+  };
+  const program = (i, types) => {
+    const X = R(i);
+    const regs = types.map((t) => [take([X.hand, X.deck, X.discard, S.damage], t)]);
+    X.hand.push(...regs.flat());
+    return regs;
+  };
+  S.prio = 0;
+  Object.assign(R(0), { x: 3, y: 5, d: 1 });
+  Object.assign(R(1), { x: 4, y: 4, d: 2 });
+  Object.assign(R(2), { x: 9, y: 3, d: 3 });
+  for (let i = 3; i < n; i++) Object.assign(R(i), { draft: { regs: [[], [], [], [], []], keep: [] }, done: true }); // the rest stay on their pads
+  const mine = program(0, ['sp', 'pu', 'rl', 'm3', 'rr']);
+  R(0).deck.unshift(take([R(0).hand, R(0).deck, R(0).discard], 'm2')); // what the SPAM turns into
+  S.damage.unshift(...['sp', 'sp', 'h01', 'sp', 'sp', 'sp', 'sp'].map((t) => take([S.damage], t)));
+  act(1, 'lock', { regs: program(1, ['m1', 'rl', 'm2', 'rr', 'rl']) });
+  act(2, 'lock', { regs: program(2, ['rr', 'rl', 'rr', 'rl', 'm1']) });
+  act(0, 'lock', { regs: mine }); // everyone's in: the race starts
+}
+
+// Everyone has finished a race before, so there's no Briefing, except at ?to=brief (the others are new).
+if (to !== 'brief') players.forEach((p, i) => act(i, 'hello', { raced: true }));
 if (to !== 'setup') {
   act(0, 'begin');
   if (to !== 'start') {
-    players.forEach((p, i) => act(i, 'pick', { n: i + 1 }));
+    players.forEach((p, i) => act(i, 'pick', { n: i + 1 })); // round 1 has no shop: this is its programming (or the Briefing)
+    if (to === 'brief') for (let i = 1; i < n && i <= Number(q.get('votes') ?? 0); i++) act(i, 'skip', { on: true });
     if (q.get('upgrades') !== '0') {
       // everyone has energy to spend; I get a few upgrades to look at
       for (const id of s().order) s().robots[id].energy = 6;
       const R = s().robots[me.id];
       if (q.get('installed')) for (const k of q.get('installed').split(',')) R.up[UPGRADES[k].kind].push(k);
     }
-    if (to !== 'upgrade') {
-      players.forEach((p, i) => i > 0 && s().phase === 'upgrade' && act(i, 'done'));
-      if (s().phase === 'upgrade') act(0, 'done');
+    const racing = ['activate', 'race', 'over'].includes(to) || !!q.get('prompt');
+    if (demo) {
+      demoRound();
+      const reg = Number(q.get('reg') ?? 0);
+      race(() => racing && (reg ? s().reg >= reg - 1 : !s().robots[me.id].on)); // not racing: the whole round
+      if (to === 'program' && s().phase === 'upgrade') players.forEach((p, i) => act(i, 'done'));
+    } else if (to === 'upgrade') E.startUpgrade(s(), env); // open a shop in round 1, just to look at it
+    else if (to !== 'brief') {
       if (q.get('rb')) { const R = s().robots[me.id]; R.on = false; R.reboot = { b: 0, round: 0 }; }
-      if (to === 'activate' || to === 'over' || q.get('prompt')) {
+      if (racing) {
         for (let i = 1; i < n; i++) { const R = s().robots[players[i].id]; act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) }); }
         const R = s().robots[me.id];
         act(0, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) });
-        // run a few beats
-        const env = { course: (await import('./games/robo-rally/board.js')).getCourse(s().opts.course), connected: () => true, now: () => Date.now(), name: (id) => ctx.player(id)?.name };
-        for (let k = 0; k < Number(q.get('beats') ?? 6) && s().phase === 'activate'; k++) E.step(s(), env);
-        if (to === 'over') { s().phase = 'over'; s().winner = me.id; s().robots[me.id].cp = 2; }
+        let k = 0;
+        race(() => k++ >= Number(q.get('beats') ?? 6)); // run a few beats
       }
     }
+    if (to === 'over') { s().phase = 'over'; s().winner = me.id; s().robots[me.id].cp = 2; }
   }
 }
 const prompt = q.get('prompt');

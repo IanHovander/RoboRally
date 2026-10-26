@@ -111,6 +111,9 @@ $('me-robot').addEventListener('click', () => {
 });
 
 $('vip-start').addEventListener('click', () => socket.emit('lobby', { cmd: 'start' }));
+// "?" on the waiting screen: the game's Book of rules, as little clips
+$('ask-btn').innerHTML = svgGlyph('ask');
+$('ask-btn').addEventListener('click', () => import('../games/robo-rally/guide.js').then((m) => m.openBook({ context: 'lobby', color: state?.you?.color, you: state?.you })));
 $('menu-btn').addEventListener('click', () => ($('menu').hidden = !$('menu').hidden));
 $('menu').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -218,6 +221,7 @@ function renderWait(room, you) {
   $('me-forms').hidden = !inLobby;
   $('me-forms').innerHTML = FORMS.map((_, i) => `<i class="${i === formOf(you) ? 'on' : ''}"></i>`).join('');
   $('wait-name').textContent = you.name;
+  $('ask-btn').hidden = false;
   // a game is running without you: watch the big screen
   $('wait-watch').hidden = inLobby;
   $('wait-watch').innerHTML = inLobby ? '' : String(html`${raw(svgGlyph('eye'))}`);

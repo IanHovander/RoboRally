@@ -257,72 +257,7 @@ export function drawCourse(g, course, o = {}) {
   }
 
   // where my program would take me: a line of light through the spaces, a dot per register
-  const gc = o.ghostColor ?? C.light;
-  const ghosts = o.ghosts ?? [];
-  if (ghosts.length) {
-    g.save();
-    if (glow) {
-      g.shadowColor = gc;
-      g.shadowBlur = T * 0.25;
-    }
-    g.strokeStyle = gc;
-    g.lineWidth = lw(0.07, 2);
-    g.globalAlpha = 0.9;
-    g.beginPath();
-    let first = true;
-    for (const gh of ghosts) {
-      for (const [x, y] of gh.path ?? [[gh.x, gh.y]]) {
-        if (first) g.moveTo(px(x + 0.5), py(y + 0.5));
-        else g.lineTo(px(x + 0.5), py(y + 0.5));
-        first = false;
-      }
-    }
-    g.stroke();
-    g.restore();
-    const marks = new Map();
-    for (const gh of ghosts) {
-      const key = `${gh.x},${gh.y}`;
-      const m = marks.get(key) ?? { ...gh, ns: [] };
-      m.ns.push(gh.n);
-      Object.assign(m, { d: gh.d, fell: gh.fell, unknown: gh.unknown });
-      marks.set(key, m);
-    }
-    const lastKey = `${ghosts.at(-1).x},${ghosts.at(-1).y}`;
-    for (const [key, gh] of marks) {
-      const cx = px(Math.max(-0.4, Math.min(course.w - 0.6, gh.x)) + 0.5);
-      const cy = py(Math.max(-0.4, Math.min(course.h - 0.6, gh.y)) + 0.5);
-      if (gh.fell) {
-        g.strokeStyle = C.laser;
-        g.lineWidth = lw(0.08, 2);
-        const k = T * 0.17;
-        g.beginPath();
-        g.moveTo(cx - k, cy - k);
-        g.lineTo(cx + k, cy + k);
-        g.moveTo(cx + k, cy - k);
-        g.lineTo(cx - k, cy + k);
-        g.stroke();
-        continue;
-      }
-      const end = key === lastKey;
-      const r = T * (end ? 0.27 : 0.2);
-      g.fillStyle = end ? gc : '#0b0e13';
-      g.strokeStyle = gc;
-      g.lineWidth = lw(0.05, 1.5);
-      g.beginPath();
-      g.arc(cx, cy, r, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-      if (end && !gh.unknown) pointer(g, cx, cy, gh.d, r + T * 0.15, T * 0.1, gc);
-      const label = gh.unknown ? '?' : end ? '' : gh.ns.join('');
-      if (label && T >= 16) {
-        g.fillStyle = gc;
-        g.font = `600 ${Math.round(T * (label.length > 2 ? 0.17 : 0.24))}px ${FONT}`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(label, cx, cy + T * 0.01);
-      }
-    }
-  }
+  if (o.ghosts?.length) drawGhostLine(g, course, o.ghosts, { tile: T, ox, oy, color: o.ghostColor, glow });
 
   // robots
   for (const r of o.robots ?? []) {
@@ -340,6 +275,89 @@ export function drawCourse(g, course, o = {}) {
       g.restore();
     }
     drawRobot(g, r.form ?? formOf(r), cx, cy, T * 0.36, (r.d ?? 0) * (Math.PI / 2), r.color, { glow, me: r.me, alpha: r.away ? 0.45 : 1 });
+  }
+  g.restore();
+}
+
+/**
+ * The light line: where a program goes, a dot per register (its number), a pointer at the end,
+ * a cross where it falls, "?" where it can't be known. o: { tile, ox, oy, color, glow, alpha, dashed, numbers }
+ */
+export function drawGhostLine(g, course, ghosts, o = {}) {
+  if (!ghosts?.length) return;
+  const T = o.tile ?? 32;
+  const ox = o.ox ?? 0;
+  const oy = o.oy ?? 0;
+  const px = (x) => ox + x * T;
+  const py = (y) => oy + y * T;
+  const lw = (k, min = 1) => Math.max(min, T * k);
+  const gc = o.color ?? C.light;
+  g.save();
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.globalAlpha = o.alpha ?? 1;
+  g.save();
+  if (o.glow ?? T >= 14) {
+    g.shadowColor = gc;
+    g.shadowBlur = T * 0.25;
+  }
+  g.strokeStyle = gc;
+  g.lineWidth = lw(o.dashed ? 0.05 : 0.07, 2);
+  if (o.dashed) g.setLineDash([lw(0.1, 3), lw(0.12, 4)]);
+  g.globalAlpha = (o.alpha ?? 1) * 0.9;
+  g.beginPath();
+  let first = true;
+  for (const gh of ghosts) {
+    for (const [x, y] of gh.path ?? [[gh.x, gh.y]]) {
+      if (first) g.moveTo(px(x + 0.5), py(y + 0.5));
+      else g.lineTo(px(x + 0.5), py(y + 0.5));
+      first = false;
+    }
+  }
+  g.stroke();
+  g.restore();
+  const marks = new Map();
+  for (const gh of ghosts) {
+    const key = `${gh.x},${gh.y}`;
+    const m = marks.get(key) ?? { ...gh, ns: [] };
+    m.ns.push(gh.n);
+    Object.assign(m, { d: gh.d, fell: gh.fell, unknown: gh.unknown });
+    marks.set(key, m);
+  }
+  const lastKey = `${ghosts.at(-1).x},${ghosts.at(-1).y}`;
+  for (const [key, gh] of marks) {
+    const cx = px(Math.max(-0.4, Math.min(course.w - 0.6, gh.x)) + 0.5);
+    const cy = py(Math.max(-0.4, Math.min(course.h - 0.6, gh.y)) + 0.5);
+    if (gh.fell) {
+      g.strokeStyle = C.laser;
+      g.lineWidth = lw(0.08, 2);
+      const k = T * 0.17;
+      g.beginPath();
+      g.moveTo(cx - k, cy - k);
+      g.lineTo(cx + k, cy + k);
+      g.moveTo(cx + k, cy - k);
+      g.lineTo(cx - k, cy + k);
+      g.stroke();
+      continue;
+    }
+    const end = key === lastKey;
+    const r = T * (end ? 0.27 : 0.2);
+    g.fillStyle = end && !o.dashed && !gh.unknown ? gc : '#0b0e13'; // a "?" stays readable: light on dark
+    g.strokeStyle = gc;
+    g.lineWidth = lw(0.05, 1.5);
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    if (end && !gh.unknown) pointer(g, cx, cy, gh.d, r + T * 0.15, T * 0.1, gc);
+    const label = gh.unknown ? '?' : end || o.numbers === false ? '' : gh.ns.join('');
+    if (label && T >= 16) {
+      g.fillStyle = gc;
+      g.font = `600 ${Math.round(T * (label.length > 2 ? 0.17 : 0.24))}px ${FONT}`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(label, cx, cy + T * 0.01);
+    }
   }
   g.restore();
 }
@@ -410,6 +428,7 @@ function chevron(g, x, y, d, s) {
 /**
  * Where a program would take a robot, ignoring other robots and damage: a ghost per register.
  * Follows walls, pits, the board edge, conveyors, push panels and gears.
+ * opts: { lessDeadly (safe edges), hover (Hover Unit: the robot's own moves cross pits it doesn't stop on) }
  */
 export function previewProgram(course, start, regs, opts = {}) {
   let { x, y, d } = start;
@@ -423,14 +442,15 @@ export function previewProgram(course, start, regs, opts = {}) {
     if (!c) return null;
     return course.tokens.has(cy * course.w + cx) && c.k !== 'pit' ? { ...c, k: 'floor' } : c;
   };
-  const step = (dir) => {
+  // own: a step of the robot's own card (Hover Unit carries it over pits it doesn't stop on)
+  const step = (dir, own = false) => {
     if (wallBetween(course, x, y, dir)) return false;
     if (opts.lessDeadly && !cell(x + DX[dir], y + DY[dir])) return false;
     x += DX[dir];
     y += DY[dir];
     path.push([x, y]);
     const c = cell(x, y);
-    if (!c || c.k === 'pit') fell = true;
+    if (!c || (c.k === 'pit' && !(own && opts.hover))) fell = true;
     return true;
   };
   const ops = (types) => {
@@ -459,7 +479,10 @@ export function previewProgram(course, start, regs, opts = {}) {
     if (list.length === 2 && list.every((t) => typeof t === 'string')) list = [list.includes('rr') ? 'crabr' : 'crabl'];
     for (const [k, a, b] of ops(list)) {
       if (k === 'rt') d = turn(d, a);
-      else for (let i = 0; i < b && !fell; i++) if (!step(turn(d, a))) break;
+      else {
+        for (let i = 0; i < b && !fell; i++) if (!step(turn(d, a), true)) break;
+        if (opts.hover && !fell && cell(x, y)?.k === 'pit') fell = true; // hovering ends on a pit: in it goes
+      }
     }
     last = list;
     // board elements

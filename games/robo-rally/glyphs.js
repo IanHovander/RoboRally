@@ -46,6 +46,15 @@ export const GLYPHS = {
   left: [{ d: 'M23.5 11 L14.5 20 L23.5 29' }],
   right: [{ d: 'M16.5 11 L25.5 20 L16.5 29' }],
   heart: [{ d: 'M20 31 C9 23 8 14.5 13.5 12.3 C17 11 19.3 13.3 20 15.6 C20.7 13.3 23 11 26.5 12.3 C32 14.5 31 23 20 31 Z', fill: true }],
+  // the phone's guide: ask, the book, skip, the map's magnifier, a die (filled at random), a deck
+  ask: [{ d: 'M14.6 15.4 a5.6 5.6 0 1 1 8.6 4.7 c-2 1.3 -3.2 2.6 -3.2 5' }, { d: 'M20 30.6 m-1.9 0 a1.9 1.9 0 1 0 3.8 0 a1.9 1.9 0 1 0 -3.8 0', fill: true }],
+  book: [{ d: 'M20 13 C16.5 10.6 12.5 10 9 10.8 V29 C12.5 28.2 16.5 28.8 20 31 C23.5 28.8 27.5 28.2 31 29 V10.8 C27.5 10 23.5 10.6 20 13 Z' }, { d: 'M20 13 V31' }],
+  skip: [{ d: 'M9.5 12 L18.5 20 L9.5 28 Z', fill: true }, { d: 'M19 12 L28 20 L19 28 Z', fill: true }, { d: 'M31 12 V28' }],
+  zoom: [{ d: 'M18 18 m-8 0 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0' }, { d: 'M24 24 L31 31' }, { d: 'M14.5 18 H21.5 M18 14.5 V21.5' }],
+  dice: [{ d: 'M13.5 10 H26.5 Q30 10 30 13.5 V26.5 Q30 30 26.5 30 H13.5 Q10 30 10 26.5 V13.5 Q10 10 13.5 10 Z' }, { d: 'M15.6 15.6 m-1.8 0 a1.8 1.8 0 1 0 3.6 0 a1.8 1.8 0 1 0 -3.6 0 M20 20 m-1.8 0 a1.8 1.8 0 1 0 3.6 0 a1.8 1.8 0 1 0 -3.6 0 M24.4 24.4 m-1.8 0 a1.8 1.8 0 1 0 3.6 0 a1.8 1.8 0 1 0 -3.6 0', fill: true }],
+  deck: [{ d: 'M15.5 9 H27 Q30 9 30 12 V26' }, { d: 'M13 13 H23 Q26 13 26 16 V30 Q26 33 23 33 H13 Q10 33 10 30 V16 Q10 13 13 13 Z' }],
+  // a Haywire lying face down (its back: a diamond with a lit middle)
+  hw: [{ d: 'M20 10 L30 20 L20 30 L10 20 Z' }, { d: 'M20 16 L24 20 L20 24 L16 20 Z', fill: true }],
   star: [{ d: 'M20 5 L23.2 16.8 L35 20 L23.2 23.2 L20 35 L16.8 23.2 L5 20 L16.8 16.8 Z', fill: true }],
   // a robot's face, for the big screen's comic moments: eyes (and a mouth) of light
   'face-shock': [{ d: circle(12.5, 17, 4.6) }, { d: circle(27.5, 17, 4.6) }, { d: circle(12.5, 17, 1.4), fill: true }, { d: circle(27.5, 17, 1.4), fill: true }, { d: circle(20, 29.5, 2.8) }],
@@ -111,7 +120,7 @@ export function drawGlyph(g, name, x, y, size, color, width = 3.2) {
 export function cardTone(idOrType) {
   const t = cardType(idOrType);
   if (t === 'sp') return 'spam';
-  if (HAYWIRE[t]) return 'hay';
+  if (HAYWIRE[t] || t === 'hw') return 'hay'; // 'hw': a Haywire face down
   return 'prog';
 }
 
@@ -126,7 +135,7 @@ export function haywireParts(type) {
       else if (a === 2) out.push(...(b > 1 ? ['bk', `×${b}`] : ['bk']));
       else out.push(a === 3 ? 'side-l' : a === 1 ? 'side-r' : 'side');
     } else if (k === 'rt') out.push(a === 1 ? 'rr' : a === -1 ? 'rl' : 'ut');
-    else if (k === 'en') out.push('pu');
+    else if (k === 'en') out.push('pu', `+${a}`); // Power Surge: a bolt and how much (+3)
     else out.push(k);
   }
   return out;

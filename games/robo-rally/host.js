@@ -1,26 +1,44 @@
 // The big screen during a race: Lumen's glass board (scene.js) fills the screen, and a quiet layer of
 // light on top says only what the room needs: whose robot is whose, who is ready, the card each robot
 // is playing, the flags each has, and the time left. Sounds (sound.js) make heads turn at the big moments.
-import { html, raw } from '../../js/ui.js';
+// It also teaches, without words: numerals of light show the order robots act in, the "1" badge marks
+// the Priority, junk cards fly from a hit robot to its player's token, names stay up in round 1, and
+// shut-down robots look shut down. When a newcomer is racing, the narrator (voice.js) gives the Briefing
+// (briefing.js) before round 1 and calls out first-time moments in the race (teach.js).
+import { html, raw, loadCss } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { drawCourse } from './minimap.js';
-import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle } from './glyphs.js';
+import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle, GLYPHS } from './glyphs.js';
 import { sfx, unlock, onState as onSound, setMuted, setLevel, sceneSound, state as soundState } from './sound.js';
+import { voice } from './voice.js';
+import { createVoiceLine, createCallouts, flyJunk, junkCards, topMargin } from './teach.js';
+import { createMimic } from './mimic.js';
+import { startBriefing } from './briefing.js';
 
 const TIMERS = [0, 60, 120, 180];
 const PHASE_MS = { start: 40_000, upgrade: 60_000 };
+const RACE_FRAME = { top: 0.2, bottom: 0.4, left: 0.04, right: 0.04, headroom: 2.95 };
+// the skip glyph (the phones' guide adds it to glyphs.js; drawn here too in case it isn't there)
+const SKIP = () => (GLYPHS.skip ? svgGlyph('skip') : '<svg class="lm-g" viewBox="0 0 40 40" aria-hidden="true"><path d="M9.5 12 L18.5 20 L9.5 28 Z" fill="currentColor"/><path d="M19 12 L28 20 L19 28 Z" fill="currentColor"/><path d="M31 12 V28" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>');
+// a roster flag: a pennant on a pole (lit, outlined or dim by CSS)
+const FLAG = '<svg viewBox="0 0 40 40" aria-hidden="true"><path class="pole" d="M13 34 V7"/><path class="cloth" d="M13 8.5 H29 L24.5 14.5 L29 20.5 H13 Z"/></svg>';
 
 export default function (root, api) {
+  loadCss(new URL('./teach.css', import.meta.url).href); // the teaching layer's styles, after style.css
   root.innerHTML = `
     <div class="lm-host">
       <div class="lm-3d"></div>
       <div class="lm-veil"></div>
+      <div class="tc-black"></div>
       <div class="lm-timer"><i></i><b></b></div>
       <div class="lm-regs"></div>
       <div class="lm-title"></div>
       <div class="lm-center"></div>
       <div class="lm-roster"></div>
+      <div class="tc-layer"></div>
       <div class="lm-corner">
+        <div class="tc-tally" hidden></div>
+        <button class="lm-icon-btn tc-skip" data-skip title="Skip" hidden>${SKIP()}</button>
         <button class="lm-icon-btn lm-hurry" data-hurry title="Hurry up" hidden>${svgGlyph('play')}${svgGlyph('play')}</button>
         <button class="lm-icon-btn lm-sound" data-sound title="Sound"></button>
       </div>
@@ -35,6 +53,10 @@ export default function (root, api) {
   const rosterEl = $('.lm-roster');
   const soundBtn = $('[data-sound]');
   const hurryBtn = $('[data-hurry]');
+  const skipBtn = $('[data-skip]');
+  const tallyEl = $('.tc-tally');
+  const layer = $('.tc-layer');
+  const blackEl = $('.tc-black');
 
   let view = null;
   let arena = null;
@@ -55,6 +77,7 @@ export default function (root, api) {
   // ----- sound -----
   setLevel(1);
   const offSound = onSound((st) => {
+    setTimeout(() => refreshFrame()); // (later: this runs once right away, before refreshFrame exists)
     soundBtn.innerHTML = svgGlyph(st === 'on' ? 'sound' : 'mute');
     soundBtn.classList.toggle('off', st !== 'on');
     soundBtn.title = st === 'locked' ? 'Click for sound' : st === 'muted' ? 'Sound off' : 'Sound on';
@@ -71,17 +94,184 @@ export default function (root, api) {
   });
   hurryBtn.addEventListener('click', () => api.send('hurry'));
   const seatOf = (id) => view?.robots.find((r) => r.id === id)?.seat ?? 0;
+  const tokenOf = (id) => rosterEl.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
   const onArena = (kind, d) => {
     // a mishap on the board: that player's token at the bottom flinches too, so the room sees whose it was
     if (kind === 'mishap' || kind === 'fall') flinch(d.id, kind === 'fall' || d.n > 1);
+    // junk cards: from the robot (or where it fell) to that player's token, every time
+    if (kind === 'junk' && !briefing && tokenOf(d.id)) {
+      const from = d.src === 'reboot' ? arena.cellScreenPos(d.x, d.y, 0.3) : arena.screenPos(d.id);
+      flyJunk(layer, junkCards(d), from, tokenOf(d.id), { big: callouts.bigJunk(d.id), onLand: () => flinch(d.id, d.sp + d.hw > 1) });
+    }
     sceneSound(kind, d, seatOf);
   };
   function flinch(id, big) {
-    const el = rosterEl.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
+    const el = tokenOf(id);
     if (!el) return;
     el.classList.remove('flinch', 'flinch-big');
     void el.offsetWidth; // restart the animation
     el.classList.add(big ? 'flinch-big' : 'flinch');
+  }
+
+  // ----- the narrator: its line of light, subtitles, the first-time callouts -----
+  const line = createVoiceLine(host);
+  const offCaption = voice.onCaption((text) => line.caption(text));
+  const callouts = createCallouts({
+    voice,
+    line,
+    send: (type, payload) => api.send(type, payload),
+    arena: () => arena,
+    course: () => (view ? getCourse(view.opts.course) : null),
+  });
+  const mimic = createMimic(host);
+
+  // ----- the Briefing (phase 'brief'): it borrows the arena, then hands it back -----
+  let briefing = null;
+  let briefOver = false; // this Briefing has ended here (played out or skipped): don't start it again
+  let prioHold = false; // the Briefing is moving the "1" badge itself
+  function maybeBrief(v) {
+    if (v.phase !== 'brief') {
+      briefOver = false;
+      if (briefing) stopBriefing();
+      return;
+    }
+    if (briefing || briefOver || !arena) return;
+    host.classList.add('briefing');
+    briefing = startBriefing({
+      arena,
+      view: () => view,
+      robots: () => sceneRobots(view),
+      voice,
+      line,
+      mimic,
+      layer,
+      box3d,
+      blackout(on, ms) {
+        blackEl.style.transition = ms ? `opacity ${ms}ms ease` : 'none';
+        blackEl.classList.toggle('on', on);
+      },
+      regs(n) {
+        regsEl.innerHTML = n == null ? '' : String(html`${[0, 1, 2, 3, 4].map((i) => html`<i class="${i === n && 'now'} ${i < n && 'done'}">${i + 1}</i>`)}`);
+        shown.delete(regsEl);
+      },
+      roster: {
+        /** The roll call: the others wait dimmed; the one being named lights up, and stays lit. */
+        rollCall(on) {
+          rosterEl.classList.toggle('tc-rollcall', on);
+        },
+        light(id) {
+          for (const tok of rosterEl.querySelectorAll('.tc-now')) tok.classList.remove('tc-now');
+          tokenOf(id)?.classList.add('tc-lit', 'tc-now');
+        },
+        prioPulse() {
+          prioHold = true;
+          prioEl.classList.remove('pulse');
+          void prioEl.offsetWidth;
+          prioEl.classList.add('pulse');
+        },
+        prioTo(id) {
+          prioHold = true;
+          placePrio(id);
+        },
+        shop() {
+          for (const tok of rosterEl.querySelectorAll('.lm-tok')) {
+            const el = document.createElement('span');
+            el.className = 'tc-shopfloat';
+            el.innerHTML = svgGlyph('shop');
+            tok.append(el);
+            setTimeout(() => el.remove(), 2200);
+          }
+        },
+      },
+      done() {
+        api.send('briefDone');
+        endBriefing();
+      },
+    });
+  }
+  /** Skip it from the big screen: Esc, Space, Enter, or the skip button. */
+  function skipBriefing() {
+    if (view?.phase !== 'brief') return;
+    api.send('briefSkip');
+    endBriefing();
+  }
+  function endBriefing() {
+    briefOver = true;
+    stopBriefing();
+  }
+  /** The Briefing is over: everything it changed goes back, and the arena shows the race again. */
+  function stopBriefing() {
+    const b = briefing;
+    briefing = null;
+    host.classList.remove('briefing');
+    b?.stop();
+    prioHold = false;
+    mimic.reset();
+    regsEl.innerHTML = '';
+    shown.delete(regsEl);
+    blackEl.style.transition = 'opacity .4s';
+    blackEl.classList.remove('on');
+    box3d.style.opacity = '';
+    for (const tok of rosterEl.querySelectorAll('.tc-lit')) tok.classList.remove('tc-lit', 'tc-now');
+    rosterEl.classList.remove('tc-rollcall');
+    if (arena) {
+      arena.tagsOnly = null;
+      arena.calmWin = false;
+      arena.tempo = 1;
+      arena.trace = null;
+      for (const id of arena.bots.keys()) arena.raise(id, false);
+      arena.clearGhost();
+      arena.setDim(0);
+      if (view) {
+        arena.reset(getCourse(view.opts.course));
+        apply(view, true);
+        render(view);
+      }
+    }
+  }
+  const onKey = (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest?.('input, textarea, select, dialog')) return;
+    if (e.key === 'c' || e.key === 'C') {
+      voice.toggleCaptions();
+      refreshFrame();
+      if (!briefing && !voice.busy) {
+        line.show({ progress: null });
+        line.hide(700); // a flash of the line: captions switched
+      }
+      return;
+    }
+    if (view?.phase !== 'brief') return;
+    if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      skipBriefing();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      briefing?.next();
+    }
+  };
+  window.addEventListener('keydown', onKey);
+  skipBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    skipBriefing();
+  });
+
+  // ----- the Priority: a "1" badge on its holder's token; it slides to the next one each round -----
+  const prioEl = document.createElement('div');
+  prioEl.className = 'tc-prio';
+  prioEl.textContent = '1';
+  function placePrio(id) {
+    const spot = id && tokenOf(id)?.querySelector('.lm-tok-bot');
+    if (!spot) {
+      prioEl.remove();
+      return;
+    }
+    if (prioEl.parentElement === spot) return;
+    const before = prioEl.isConnected ? prioEl.getBoundingClientRect() : null;
+    spot.append(prioEl);
+    if (before) {
+      const after = prioEl.getBoundingClientRect();
+      prioEl.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px)` }, { transform: 'none' }], { duration: 400, easing: 'cubic-bezier(.3,.7,.2,1)' });
+    }
   }
 
   // ----- the 3D scene (it's big: load it once the font its labels use is ready) -----
@@ -126,13 +316,35 @@ export default function (root, api) {
       .filter(Boolean);
   }
 
+  // During the race the board leaves the top tenth of the screen to the 1-5 strip and the narrator's line,
+  // and a card (with its name above it, in round 1) over a robot on the far row still fits under them.
   const frameFor = (phase) =>
-    phase === 'setup' ? { top: 0.12, bottom: 0.8, left: 0.1, right: 0.1 }
-      : phase === 'over' ? { top: 0.1, bottom: 0.3, left: 0.05, right: 0.05 }
-        : phase === 'start' ? { top: 0.34, bottom: 0.4, left: 0.04, right: 0.04 }
-        : { top: 0.13, bottom: 0.4, left: 0.04, right: 0.04 };
+    phase === 'setup' ? { top: 0.12, bottom: 0.8, left: 0.1, right: 0.1, headroom: null }
+      : phase === 'over' ? { top: 0.1, bottom: 0.3, left: 0.05, right: 0.05, headroom: null }
+        : phase === 'start' ? { top: 0.34, bottom: 0.4, left: 0.04, right: 0.04, headroom: null }
+        : { ...RACE_FRAME, top: topMargin(voice) };
+  /** Subtitles came or went (sound on or off, C): the board makes room for them, or takes it back. */
+  const refreshFrame = () => {
+    if (arena && view && !briefing) arena.setFrame(frameFor(view.phase));
+  };
+
+  /** The order robots act in this register: from the Priority holder round the seats, skipping robots that are out or shut down. */
+  function priorityOrder(v) {
+    const list = v.robots;
+    const k = Math.max(0, list.findIndex((r) => r.id === v.prio));
+    return list.map((_, i) => list[(k + i) % list.length]).filter((r) => r.x != null && r.on !== false && !r.sd);
+  }
 
   function apply(v, first = false) {
+    if (briefing) {
+      // the Briefing has the arena; when the phase moves on, it hands it back (and that redraws all this)
+      if (v.phase === 'brief') {
+        lastBeat = v.beat.n;
+        return;
+      }
+      return stopBriefing();
+    }
+    if (v.phase !== 'brief') briefOver = false;
     const robots = sceneRobots(v);
     if (arena) {
       arena.setCourse(v.opts.course);
@@ -153,7 +365,11 @@ export default function (root, api) {
           // the cards turn over above the robots, so everyone sees what's coming (alone, it would only repeat)
           if (v.beat.what?.k === 'reveal' && v.robots.length > 1) {
             arena.showCards(v.robots.filter((r) => Array.isArray(r.regs?.[v.reg]) && r.regs[v.reg].length).map((r) => ({ id: r.id, types: r.regs[v.reg] })));
+            // ...and numerals of light at their feet say who goes first, second, third
+            const order = priorityOrder(v);
+            if (order.length > 1) arena.orderMarks(order.map((r) => r.id));
           }
+          callouts.beat(v); // first-time moments (before the beat plays: a callout may make a beam linger)
           arena.playBeat(v.beat, robots);
         }
       }
@@ -165,6 +381,8 @@ export default function (root, api) {
       arena.setDeciding(v.prompt?.id ?? null);
       arena.setTaken(v.robots);
       arena.showNames = v.phase !== 'setup';
+      arena.namesAlways = v.round === 1 && ['program', 'activate'].includes(v.phase); // round 1: whose robot is whose
+      arena.setShutdown(v.robots.filter((r) => r.sd && r.on !== false).map((r) => r.id));
       if (v.phase === 'over') {
         arena.focusOn = v.winner;
         arena.setDim(0.72);
@@ -172,7 +390,15 @@ export default function (root, api) {
         arena.focusOn = null;
         arena.setDim(v.phase === 'setup' ? 0.15 : 0);
       }
-    } else if (flat) drawFlat(v, robots);
+      if (v.phase === 'brief' && !briefOver) maybeBrief(v);
+    } else if (flat) {
+      drawFlat(v, robots);
+      // no 3D here, so no Briefing to show: let the race begin
+      if (v.phase === 'brief' && !briefOver) {
+        briefOver = true;
+        api.send('briefDone');
+      }
+    }
   }
 
   function drawFlat(v, robots) {
@@ -212,7 +438,8 @@ export default function (root, api) {
 
   const robotById = (v, id) => v.robots.find((r) => r.id === id);
   const G = (name) => raw(svgGlyph(name));
-  const flagBars = (v, r) => html`<span class="lm-flags">${Array.from({ length: v.cps }, (_, i) => html`<i class="${i < (r.cp ?? 0) && 'on'}"></i>`)}</span>`;
+  // flags: the ones taken lit in the player's color, the next one outlined
+  const flagBars = (v, r) => html`<span class="lm-flags tc-flags">${Array.from({ length: v.cps }, (_, i) => html`<i class="${i < (r.cp ?? 0) ? 'on' : i === (r.cp ?? 0) && 'next'}">${raw(FLAG)}</i>`)}</span>`;
 
   /** What a robot's token shows above its name, by phase. */
   function tokenTop(v, r) {
@@ -267,6 +494,7 @@ export default function (root, api) {
   }
 
   function renderRegs(v) {
+    if (briefing) return; // the Briefing shows its own strip
     if (v.phase !== 'activate') return set(regsEl, '');
     set(regsEl, html`${[0, 1, 2, 3, 4].map((i) => html`<i class="${i === v.reg && 'now'} ${i < v.reg && 'done'}">${i + 1}</i>`)}`);
   }
@@ -345,6 +573,7 @@ export default function (root, api) {
     const left = timed ? v.deadline - api.now() : 0;
     const relaxed = v?.phase === 'program' && !v.opts.timer;
     const visible = timed && (!relaxed || left < 30_000) && left > 0;
+    if (v?.phase === 'program') callouts.tick(v, left);
     timerEl.classList.toggle('on', !!visible);
     if (!visible) return;
     if (v.deadline !== timerDeadline) {
@@ -365,6 +594,19 @@ export default function (root, api) {
   }
   timerLoop();
 
+  /** The Briefing's skip tally: the skip mark, a small robot for each vote, an empty ring for each still needed. */
+  function renderTally(v) {
+    const votes = v.phase === 'brief' ? v.brief?.votes ?? [] : [];
+    tallyEl.hidden = !votes.length;
+    skipBtn.hidden = v.phase !== 'brief';
+    if (!votes.length) return set(tallyEl, '');
+    const need = Math.max(0, (v.brief?.need ?? 0) - votes.length);
+    set(tallyEl, html`${raw(SKIP())}${votes.map((id) => {
+      const r = robotById(v, id);
+      return r ? html`<span class="tc-voter" style="--c:${r.color}">${raw(robotSvg(r))}</span>` : '';
+    })}${Array.from({ length: need }, () => html`<i class="tc-need"></i>`)}`);
+  }
+
   function render(v) {
     host.dataset.phase = v.phase;
     host.classList.toggle('upgrades', !!v.opts.upgrades);
@@ -372,11 +614,13 @@ export default function (root, api) {
     renderRegs(v);
     renderTitle(v);
     renderCenter(v);
+    renderTally(v);
+    if (!prioHold) placePrio(['setup', 'start', 'over'].includes(v.phase) ? null : v.prio);
     hurryBtn.hidden = !['start', 'upgrade', 'program'].includes(v.phase);
   }
 
   // for test scripts: what the big screen sees
-  window.lumenHost = { view: () => view, arena: () => arena };
+  window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts };
 
   return {
     update(next) {
@@ -386,12 +630,20 @@ export default function (root, api) {
       apply(next);
       render(next);
       noticeChanges(next, prev);
+      callouts.view(next, prev);
     },
     destroy() {
       cancelAnimationFrame(raf);
       offSound();
       window.removeEventListener('pointerdown', gesture);
       window.removeEventListener('keydown', gesture);
+      window.removeEventListener('keydown', onKey);
+      briefing?.stop();
+      briefing = null;
+      callouts.stop();
+      voice.cancel();
+      offCaption();
+      line.destroy();
       arena?.destroy();
     },
   };

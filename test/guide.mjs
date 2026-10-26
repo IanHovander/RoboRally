@@ -1,0 +1,191 @@
+// The phone's Guide (chunk A): topics, clips, the map hit-test, marks and replays, and the fixed demos.
+//   node test/guide.mjs
+import fs from 'node:fs';
+import { TOPICS, SECTIONS, sectionTopics, tileCaption, topicAtCell, cardTopic, words, UPGRADE_ORDER, bookTiles } from '../games/robo-rally/topics.js';
+import { hasDemo, demoKeys, compileDemo, lessonFrames } from '../games/robo-rally/demo.js';
+import { previewProgram } from '../games/robo-rally/minimap.js';
+import { haywireParts } from '../games/robo-rally/glyphs.js';
+import { marksFor, causesFor, replayPlan, ranCards, cropFor } from '../games/robo-rally/replay.js';
+import { COURSES, getCourse } from '../games/robo-rally/board.js';
+import { UPGRADES, HAYWIRE, PROGRAM } from '../games/robo-rally/cards.js';
+
+let failures = 0;
+const check = (cond, msg) => {
+  if (!cond) {
+    failures++;
+    console.log(`FAIL ${msg}`);
+  }
+};
+
+// ----- every topic: its clips exist, its words stay few -----
+for (const [id, t] of Object.entries(TOPICS)) {
+  for (const [key, cap] of t.clips) {
+    check(hasDemo(key), `${id}: clip ${key} exists`);
+    check(words(cap) <= 4, `${id}: caption "${cap}" is at most 4 words`);
+  }
+  check(words(t.fine ?? '') <= 25, `${id}: fine print is at most 25 words (${words(t.fine)})`);
+  check(SECTIONS.some((s) => s.id === t.sec), `${id}: section ${t.sec} exists`);
+  check(words(tileCaption(id)) <= 3 || (t.sec === 'haywire' && !t.name), `${id}: tile caption "${tileCaption(id)}" is at most 3 words`);
+}
+check(SECTIONS.length === 13, '13 mechanics sections');
+check(sectionTopics('upgrades').length === 40 && sectionTopics('haywire').length === 17, '57 generated tiles (40 upgrades, 17 Haywires)');
+check(UPGRADE_ORDER.slice(0, 24).every((k) => UPGRADES[k].kind === 'perm'), 'upgrades: permanent first');
+for (const s of SECTIONS) check(sectionTopics(s.id).length > 0, `section ${s.id} has tiles`);
+
+// the Book shows each clip once per section, and every tile has a short caption (or a card face)
+{
+  const noRepeats = (tiles) => tiles.filter((x) => x.clip).length === new Set(tiles.filter((x) => x.clip).map((x) => x.clip[0])).size;
+  for (const s of SECTIONS) {
+    const tiles = bookTiles(sectionTopics(s.id));
+    check(noRepeats(tiles), `the Book's ${s.id} section shows each clip once`);
+    check(tiles.length > 0, `the Book's ${s.id} section isn't empty after that`);
+    for (const x of tiles) check((x.cap && words(x.cap) <= 3) || (s.id === 'haywire' && !TOPICS[x.id].name), `${s.id}: tile ${x.id} has a caption of 1-3 words ("${x.cap}")`);
+  }
+  // "Now" while programming with a hand where several cards share a clip
+  const now = bookTiles(['slots', 'line', 'lock', 'timer', 'm1', 'm2', 'm3', 'rr', 'rl', 'ut', 'ag', 'sp', 'h01', 'haywire-slot:h01', 'deck']);
+  check(noRepeats(now), `"Now" shows each clip once (${now.map((x) => x.clip?.[0] ?? x.id)})`);
+  check(now.every((x) => x.cap || (TOPICS[x.id].sec === 'haywire' && !TOPICS[x.id].name)), '"Now": every tile has a caption, the ✓ and the deck too');
+  check(now.some((x) => x.id === 'm2' && x.clip[0] === 'push') && !now.some((x) => x.id === 'm3'), '"Now": a shared clip moves on to the next one, or the tile goes');
+  check(now.find((x) => x.id === 'rl')?.cap === 'Whose left?' && now.find((x) => x.id === 'rr')?.cap === 'Stays put', '"Now": each turn card gets its own clip');
+}
+
+// every card has a topic (hand cards and slots ask by card type)
+for (const t of [...Object.keys(PROGRAM), ...Object.keys(HAYWIRE)]) check(TOPICS[cardTopic(`${t}.7`)], `card ${t} has a topic`);
+for (const k of Object.keys(UPGRADES)) check(TOPICS[k], `upgrade ${k} has a topic`);
+
+// ----- every data-ask in player.js resolves to a topic -----
+const src = fs.readFileSync(new URL('../games/robo-rally/player.js', import.meta.url), 'utf8');
+const asks = [...src.matchAll(/data-ask="([^"]*)"/g)].map((m) => m[1]);
+check(asks.length > 40, `player.js asks about many things (${asks.length})`);
+for (const a of asks) {
+  const literal = a.replace(/\$\{[^}]*\}/g, '');
+  const id = literal.split(':')[0];
+  if (!id) continue; // fully dynamic: cardTopic(id), an upgrade key, a prompt's upgrade (checked above)
+  check(id === 'map' || id === 'replay' || TOPICS[id], `data-ask="${a}" resolves to a topic`);
+}
+const dynamic = asks.filter((a) => a.startsWith('${')).map((a) => a.slice(2, -1));
+check(dynamic.every((d) => ['cardTopic(id)', 'k', 'key', 'ask', 'ask[key]', 'promptAsk(p)', 'askOf(o.v)'].includes(d)), `dynamic asks come from known helpers (${[...new Set(dynamic)].join(', ')})`);
+
+// ----- every demo compiles; the lobby film's scenes too -----
+for (const key of demoKeys()) {
+  if (key.startsWith('film-')) continue;
+  try {
+    const c = compileDemo(key);
+    check(c.frames.length > 1 && c.total > 0, `demo ${key} has frames`);
+  } catch (err) {
+    check(false, `demo ${key} compiles: ${err.message}`);
+  }
+}
+try {
+  const { LESSONS, runLesson } = await import('../games/robo-rally/lessons.js');
+  LESSONS.slice(0, 4).forEach((lesson, i) => {
+    const c = lessonFrames(runLesson(lesson));
+    check(c.frames.length > 3 && c.total > 0, `film-${i + 1} (${lesson.id}) has frames`);
+  });
+} catch (err) {
+  check(false, `the lobby film's scenes compile: ${err.message}`);
+}
+
+// ----- E1: Spiky. Stopping next to it does nothing; driving into it pushes it, and the pusher is hurt -----
+{
+  const { frames } = compileDemo('spiky');
+  const moves = frames.map((f, i) => [i, f.bots.b.x]).filter(([i, x]) => i > 0 && x !== frames[i - 1].bots.b.x).map(([i]) => i);
+  check(moves.length === 2, 'spiky: b moves twice');
+  const hurt = frames.findIndex((f) => f.fx.some((x) => x.k === 'burst' && x.id === 'b'));
+  check(hurt > moves[1], 'spiky: no burst on b before its second move');
+  check(frames.at(-1).bots.a.x === 4, 'spiky: the second move pushes a');
+}
+// E5: the blank demos now show something (a pop, a token, a fly, a ring)
+for (const key of ['re-initialize', 'h05', 'brakes', 'memory-cards', 'spam-filter', 'memory-swap', 'rewire', 'upgrades', 'h11', 'modular-chassis', 'h14', 'abort-switch', 'all-aboard', 'overclocked', 'lucky-booster']) {
+  const { frames } = compileDemo(key);
+  check(frames.some((f) => f.fx.length || f.ui.token || f.ui.strip?.some(Boolean)), `${key} shows its effect`);
+}
+// E6: Power Surge's face: a bolt and +3
+check(haywireParts('h13').join(' ') === 'pu +3 dmg', `Power Surge's face is bolt +3 ! (${haywireParts('h13')})`);
+// E3: a "?" ends the light line (Spin Out, Double Program, Swap say "?" like SPAM)
+{
+  const c = getCourse('closing-time');
+  const st = c.starts[0];
+  const ghosts = previewProgram(c, st, [['m1'], ['?'], ['m1']]);
+  check(ghosts.length === 2 && ghosts[1].unknown, 'the line stops at "?"');
+}
+// E4: Hover Unit crosses pits on its own moves, but not when it stops on one, nor on belts or pushes
+{
+  const def = { w: 5, h: 1, cells: ['floor', 'pit', 'floor', 'pit', 'floor'].map((k) => ({ k, walls: 0, b: 0 })), lasers: [], pushers: [], checkpoints: [], boards: [{}], tokens: new Map() };
+  const over = previewProgram(def, { x: 0, y: 0, d: 1 }, [['m2']], { hover: true });
+  check(!over[0].fell && over[0].x === 2, 'hover: Move 2 crosses the pit');
+  const into = previewProgram(def, { x: 0, y: 0, d: 1 }, [['m1']], { hover: true });
+  check(into[0].fell, 'hover: stopping on a pit falls');
+  const plain = previewProgram(def, { x: 0, y: 0, d: 1 }, [['m2']], {});
+  check(plain[0].fell, 'no hover: Move 2 falls into the pit');
+}
+
+// ----- the map hit-test, on every course -----
+const kinds = new Set();
+for (const info of COURSES) {
+  const c = getCourse(info.id);
+  for (let y = -1; y <= c.h; y++) {
+    for (let x = -1; x <= c.w; x++) {
+      for (const [fx, fy] of [[0.5, 0.5], [0.1, 0.5], [0.9, 0.5], [0.5, 0.1], [0.5, 0.9]]) for (const id of topicAtCell(c, x, y, fx, fy)) kinds.add(id);
+    }
+  }
+  // specific squares
+  const belt = c.cells.findIndex((q) => q?.k === 'belt' && !c.lasers.length);
+  if (belt >= 0) check(topicAtCell(c, belt % c.w, Math.floor(belt / c.w))[0]?.startsWith('belt'), `${info.id}: a belt is a belt`);
+  check(topicAtCell(c, -1, 0)[0] === 'edge', `${info.id}: off the board is the edge`);
+  const cp = c.checkpoints[0];
+  check(topicAtCell(c, cp.x, cp.y).includes('flag'), `${info.id}: a flag is a flag`);
+  const rb = c.boards.find((b) => b.reboot)?.reboot;
+  if (rb) check(topicAtCell(c, rb.x, rb.y).includes('reboot-ring'), `${info.id}: the reboot ring`);
+  const L = c.lasers[0];
+  if (L) check(topicAtCell(c, L.x, L.y).includes('board-laser'), `${info.id}: a laser's square`);
+  const P = c.pushers[0];
+  if (P) check(topicAtCell(c, P.x, P.y, P.side === 1 ? 0.95 : P.side === 3 ? 0.05 : 0.5, P.side === 0 ? 0.05 : P.side === 2 ? 0.95 : 0.5).includes('pusher'), `${info.id}: a push panel`);
+}
+for (const k of ['belt-green', 'belt-blue', 'gear', 'pit', 'battery', 'wall', 'pusher', 'flag', 'reboot-ring', 'board-laser', 'edge', 'dock']) check(kinds.has(k), `the map can answer "${k}"`);
+{
+  const c = getCourse('closing-time');
+  const st = c.starts[0];
+  const at = topicAtCell(c, st.x, st.y, 0.5, 0.5, { robots: [{ ...st, me: true }], ghosts: [{ x: st.x, y: st.y, path: [[st.x, st.y]] }] });
+  check(at[0] === 'me' && at.includes('line') && at.includes('dock'), `my robot first, then the line, then the square (${at})`);
+}
+
+// ----- marks and replays -----
+{
+  const steps = [['s', 3, 5, 1], ['x', 'sp', 'm2'], ['c', ['m2'], [3, 5, 4, 5, 5, 5], 0], ['p', 'p1', [5, 5, 6, 5], [4, 5, 5, 5]], ['b', true, [6, 5, 8, 5], 1], ['l', 0, 5, 9, 0, 1], ['d', 1, 1, 'laser'], ['g', -1], ['e', 1], ['w'], ['cp', 1], ['u', 'boink', [8, 5, 8, 4], 0], ['zz', 1], ['f', false], ['r', 6, 4, 2]];
+  const m = marksFor(steps, { auto: true });
+  check(m.length === 3 && m[0].k === 'fall' && m[1].k === 'dmg' && m[2].k === 'pushed', `marks: the three most important (${m.map((x) => x.k)})`);
+  check(m[1].sp === 1 && m[1].hw === 1, 'marks: SPAM and Haywire together');
+  const causes = causesFor(steps, { auto: true });
+  check(causes[0].k === 'auto' && causes.some((x) => x.k === 'belt' && x.fast) && causes.some((x) => x.k === 'gear'), 'the cause row lists everything in order');
+  const plan = replayPlan(steps);
+  check(plan.start.x === 3 && plan.start.y === 5 && plan.start.d === 1, 'replay: starts at the reveal pose');
+  check(plan.segs.length === steps.length - 2, `replay: a segment per known step (${plan.segs.length})`);
+  check(plan.end.x === 6 && plan.end.y === 4 && plan.end.d === 2 && plan.end.vis, 'replay: ends where I rebooted, facing the way I chose');
+  const r = replayPlan([['r', 2, 2, 3], ['c', ['m1'], [2, 2, 1, 2], 0]]);
+  check(r.start.x === 2 && !r.start.vis && r.end.x === 1, 'replay: a register that begins with a reboot');
+  const cards = ranCards(steps);
+  check(cards[0].t === 'sp' && cards[0].was && cards[1].t === 'm2' && !cards[1].was, 'the replay header: the replaced card greyed, then what ran');
+  const crop = cropFor(getCourse('closing-time'), [[3, 5], [8, 5]], 340, 212);
+  check(crop.tile >= 28 && crop.tile <= 56, `the replay crops to 28-56 px squares (${crop.tile})`);
+  const far = cropFor(getCourse('closing-time'), [[0, 0], [12, 9]], 340, 212, { x: 3, y: 5 });
+  check(far.tile === 28, 'a big replay centres on my robot');
+  // the view never shows space beyond the course, and what happened stays in it (it shifts, not centres blindly)
+  for (const info of COURSES) {
+    const c = getCourse(info.id);
+    for (const [W, H] of [[328, 205], [398, 249]]) {
+      for (const [x, y] of [[0, 0], [1, 4], [c.w - 1, c.h - 1], [0, c.h - 1], [c.w - 1, 0], [6, 5], [-1, 3]]) {
+        const cells = [[x, y], [x + 1, y], [x + 1, y + 1]];
+        const v = cropFor(c, cells, W, H, { x, y });
+        const inside = v.ox <= 0.01 && v.ox + c.w * v.tile >= W - 0.01 && v.oy <= 0.01 && v.oy + c.h * v.tile >= H - 0.01;
+        check(inside, `${info.id} ${W}x${H}: a replay at ${x},${y} stays inside the course (${JSON.stringify(v)})`);
+        const sx = v.ox + (Math.max(0, Math.min(c.w - 1, x)) + 0.5) * v.tile;
+        const sy = v.oy + (Math.max(0, Math.min(c.h - 1, y)) + 0.5) * v.tile;
+        check(sx > 0 && sx < W && sy > 0 && sy < H, `${info.id} ${W}x${H}: my robot at ${x},${y} is in view`);
+      }
+    }
+  }
+}
+
+console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
+process.exit(failures ? 1 : 0);

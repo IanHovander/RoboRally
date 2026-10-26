@@ -1,0 +1,100 @@
+/* Robo Rally · the big screen's teaching layer (host.js loads it after style.css). Prefix tc-.
+   The narrator's line of light and subtitles, the Briefing's skip tally and black, the "1" badge for the
+   Priority, the roster's flags, junk cards in flight. Colors and type come from the shell (base.css). */
+
+/* the screen going to black and back (the Briefing's first shot); under the layer of light */
+.tc-black { position: absolute; inset: 0; background: var(--void, #06080b); opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+.tc-black.on { opacity: 1; }
+
+/* lesson boards fade in and out during the Briefing */
+.lm-host.briefing .lm-3d { transition: opacity .35s ease; }
+
+/* things flying over everything (junk cards) */
+.tc-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+
+/* ----- the narrator: a line of light, top centre; it ripples as it speaks ----- */
+.tc-voice {
+  position: absolute; top: 4.6rem; left: 50%; z-index: 3; transform: translateX(-50%); isolation: isolate;
+  width: clamp(18rem, 22vw, 26rem); height: 1.6rem; pointer-events: none; opacity: 0; /* (voice line: its drawing sets this) */
+}
+.tc-voice canvas { display: block; width: 100%; height: 100%; filter: drop-shadow(0 0 3px rgba(244, 239, 228, .75)) drop-shadow(0 0 9px rgba(244, 239, 228, .3)); }
+/* Behind the line and the words: a soft, feathered patch of dark glass (no edge, no box), so they read over
+   any board: a dark stadium as wide as the words, blurred so its rim melts into the scene. */
+.tc-voice::before, .tc-sub::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; border-radius: 999px;
+  background: rgba(6, 8, 11, .86);
+  filter: blur(18px);
+}
+.tc-voice::before { inset: -.2rem -1.6rem; opacity: .75; }
+.tc-sub::before { inset: -.9rem -2.6rem; }
+/* subtitles: only when the voice can't be heard (or captions are on: C) */
+.tc-sub {
+  position: absolute; top: 6.6rem; left: 50%; z-index: 3; transform: translate(-50%, -.3rem); isolation: isolate;
+  max-width: 60vw; width: max-content; text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity .25s ease, transform .35s ease;
+}
+.tc-sub span {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  font-weight: 300; font-size: clamp(1.3rem, 1.9vw, 2.3rem); line-height: 1.3; letter-spacing: .02em; color: var(--light);
+  text-shadow: 0 0 .5rem var(--ink, #06080b), 0 0 1.2rem var(--ink, #06080b), 0 0 .15rem var(--ink, #06080b);
+}
+.tc-sub.on { opacity: 1; transform: translate(-50%, 0); }
+/* the race is over: the winner's name has the top; the narrator speaks under it */
+[data-phase="over"] .tc-voice { top: calc(7vh + 8rem); }
+[data-phase="over"] .tc-sub { top: calc(7vh + 10rem); }
+
+/* ----- the Briefing's skip: a button in the corner, and the tally of votes beside it ----- */
+.tc-tally { display: flex; align-items: center; gap: .35rem; height: 2.6rem; padding: 0 .3rem; color: var(--dim); }
+.tc-tally[hidden] { display: none; }
+.tc-tally > .lm-g { width: 1.4rem; height: 1.4rem; margin-right: .2rem; }
+.tc-voter { width: 1.4rem; height: 1.4rem; animation: lm-pop .45s cubic-bezier(.2, 1.4, .3, 1); }
+.tc-voter .lm-bot { width: 100%; height: 100%; filter: drop-shadow(0 0 .35rem color-mix(in srgb, var(--c) 70%, transparent)); }
+.tc-need { width: 1rem; height: 1rem; margin: 0 .2rem; border-radius: 50%; border: 1px solid rgba(244, 239, 228, .45); }
+.tc-skip { opacity: .55; }
+.tc-skip .lm-g { width: 50%; height: 50%; }
+
+/* ----- the Priority: a "1" of light on its holder's token (replaces the small dot) ----- */
+.lm-host .lm-tok.prio::after { display: none; }
+.tc-prio {
+  position: absolute; top: -.5rem; left: -.75rem; z-index: 2; display: grid; place-items: center;
+  width: 1.3rem; height: 1.3rem; border-radius: 50%; background: var(--light); color: var(--ink, #06080b);
+  font-weight: 500; font-size: .8rem; line-height: 1; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 .7rem rgba(244, 239, 228, .7);
+}
+.tc-prio.pulse { animation: tc-pulse 1.1s ease-out; }
+@keyframes tc-pulse { 0% { box-shadow: 0 0 0 0 rgba(244, 239, 228, .9); scale: 1; } 30% { scale: 1.35; } 100% { box-shadow: 0 0 0 1.4rem rgba(244, 239, 228, 0); scale: 1; } }
+
+/* ----- the roster's flags: taken ones lit in the player's color, the next one outlined ----- */
+.lm-host .tc-flags { gap: .12rem; }
+.lm-host .tc-flags i { width: 1.15rem; height: 1.15rem; border-radius: 0; background: none; box-shadow: none; }
+.tc-flags svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.tc-flags path { fill: none; stroke: rgba(244, 239, 228, .26); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; transition: fill .6s, stroke .6s; }
+.tc-flags .next path { stroke: rgba(244, 239, 228, .8); }
+.tc-flags .on path { stroke: var(--c); }
+.tc-flags .on .cloth { fill: var(--c); filter: drop-shadow(0 0 4px var(--c)); }
+
+/* ----- the Briefing's roll call: the others wait dimmed; a token lights as its name is said ----- */
+.lm-roster.tc-rollcall .lm-tok:not(.tc-lit) { opacity: .3; }
+.lm-tok.tc-lit .lm-tok-bot .lm-bot { filter: drop-shadow(0 0 .9rem var(--c)) brightness(1.15); }
+.lm-tok.tc-now { transform: translateY(-.7rem) scale(1.14); }
+.lm-tok.tc-now .lm-tok-bot .lm-bot { filter: drop-shadow(0 0 1.6rem var(--c)) brightness(1.3); }
+.lm-tok.tc-now .lm-tok-name { text-shadow: 0 0 1rem var(--c); }
+/* ...and a shop floats over every token (energy buys upgrades) */
+.tc-shopfloat {
+  position: absolute; left: 50%; top: 1.4rem; width: 2.2rem; height: 2.2rem; margin-left: -1.1rem; color: var(--energy);
+  filter: drop-shadow(0 0 .5rem rgba(255, 197, 110, .7)); pointer-events: none;
+  animation: tc-float 2.1s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+.tc-shopfloat .lm-g { width: 100%; height: 100%; }
+@keyframes tc-float { 0% { opacity: 0; transform: translateY(1rem) scale(.6); } 25% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.2rem); } }
+
+/* the phone beside the board during the Briefing sits above the roster */
+.lm-host .lf-phone { z-index: 3; }
+
+@media (max-height: 800px) {
+  .tc-voice { top: 4.1rem; }
+  .tc-sub { top: 5.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tc-shopfloat, .tc-prio.pulse { animation: none; }
+}
