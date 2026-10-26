@@ -130,7 +130,7 @@ export default async function play(lab) {
   const right = new THREE.Vector3();
   const upv = new THREE.Vector3();
   const back = new THREE.Vector3();
-  const D = 3.1; // distance from the lens
+  const D = 4.1; // distance from the lens
   const SX = 0.6; // across the picture: 0 centre, 1 right edge
   function fallState(t) {
     const cam = lab.camera3;
@@ -169,7 +169,10 @@ export default async function play(lab) {
     const dt = Math.max(0, t - T_OUT - 0.04);
     const fallAng = Math.min(1.32, 0.5 * 18 * dt * dt);
     const settle = dt > 0 ? 0.1 * Math.sin(Math.max(0, dt - 0.38) * 16) * Math.exp(-4 * Math.max(0, dt - 0.38)) * (dt > 0.38 ? 1 : 0) : 0;
-    const ang = fallAng + settle;
+    // the thud jolts the hanging ribbon too
+    const dj = t - T_THUD;
+    const jolt = dj > 0 ? -0.22 * Math.sin(dj * 19) * Math.exp(-dj * 5) : 0;
+    const ang = fallAng + settle + jolt;
     let i = 0;
     for (const s of laid) {
       if (s.t > t) break;
@@ -198,7 +201,7 @@ export default async function play(lab) {
   const eyeSmear = makeRibbon(lab, 16);
   const ringMesh = maya.group.children.find((o) => o.isMesh && o.material === maya.model.ringMat && o.geometry.type === 'RingGeometry');
   const ghosts = [];
-  for (let j = 0; j < 9; j++) {
+  for (let j = 0; j < 28; j++) {
     const m = new THREE.Mesh(ringMesh.geometry, new THREE.MeshBasicMaterial({ color: RED.clone().multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     m.matrixAutoUpdate = false;
     m.visible = false;
@@ -252,25 +255,29 @@ export default async function play(lab) {
     } else if (phase === 'fall') {
       phase = 'out';
       maya.release({ x: 7, y: 1, on: false });
+      // released mid-frame: the game already placed her this frame, so hide her by hand until it catches up
+      maya.group.visible = false;
+      const c = lab.bot('a').card;
+      if (c) c.visible = false;
     }
 
     // smears while she falls past the lens
     if (phase === 'fall') {
       const eyePts = [];
       for (let j = 0; j < 14; j++) {
-        const tj = Math.max(T_IN, t - j * 0.011);
+        const tj = Math.max(T_IN, t - j * 0.015);
         const M = poseMatrix(fallState(tj));
         const e = EYE.clone().applyMatrix4(M);
         const k = (1 - j / 14) ** 1.3 * 3.2;
-        eyePts.push({ x: e.x, y: e.y, z: e.z, w: 0.035 * (1 - j / 16), r: k, g: k * 0.97, b: k * 0.9, flat: 0 });
+        eyePts.push({ x: e.x, y: e.y, z: e.z, w: 0.05 * (1 - j / 16), r: k, g: k * 0.97, b: k * 0.9, flat: 0 });
       }
       eyeSmear.draw(eyePts);
       ghosts.forEach((m, j) => {
-        const tj = t - (j + 1) * 0.016;
+        const tj = t - (j + 1) * 0.0038;
         if (tj < T_IN) return (m.visible = false);
         m.visible = true;
         m.matrix.copy(poseMatrix(fallState(tj))).multiply(ringMesh.matrix);
-        m.material.opacity = 0.55 * (1 - (j + 1) / (ghosts.length + 1)) ** 1.4;
+        m.material.opacity = 0.16 * (1 - (j + 1) / (ghosts.length + 1)) ** 1.5;
       });
     } else {
       eyeSmear.draw([]);

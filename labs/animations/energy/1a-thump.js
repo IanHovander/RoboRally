@@ -199,7 +199,7 @@ export default async function play(lab) {
     const accel = T < MOVE ? (k < 0.5 ? 1 : -1) * 22 : 0;
     // what she means to do with her nose: look down; while heaving up, nose up a hair
     const look = smooth(seg(T, LOOK, LOOK + 0.1));
-    let want = 0.34 * look * (1 - smooth(seg(T, RISE, RISE + 0.08)));
+    let want = 0.42 * look * (1 - smooth(seg(T, RISE, RISE + 0.08)));
     if (!early) want += -0.1 * smooth(seg(T, UP, TOP)) * (1 - seg(T, SLAM, HIT));
     else want += -0.08 * smooth(seg(T, UP, COUGH)) * (1 - smooth(seg(T, CLUNK + 0.25, END)));
     if (T >= HIT && !kicked) {
@@ -242,7 +242,7 @@ export default async function play(lab) {
       if (T < UP) sy = 1 - 0.14 * crouch;
       else {
         // early payout: caught in mid-lift, held there, then lowered down sheepishly
-        const up = 0.11 * (1 - (1 - seg(T, UP, COUGH + 0.05)) ** 2.4);
+        const up = 0.2 * (1 - (1 - seg(T, UP, COUGH + 0.06)) ** 2.4);
         const down = smooth(seg(T, CLUNK + 0.24, END - 0.04));
         lift = up * (1 - down);
         sy = lerp(0.86, 1.06, smooth(seg(T, UP, UP + 0.06))) - 0.06 * seg(T, CLUNK, CLUNK + 0.1);

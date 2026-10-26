@@ -54,7 +54,7 @@ export default async function play(lab) {
 
   // ----- the hole, and the light flowing back into it (two little canvases, 1 space across) -----
   const N = 256;
-  const HR = 0.44; // hole radius, in spaces
+  const HR = 0.6; // hole radius, in spaces: wider than her body, so it reads round her
   const px = (u) => (u * N) / 1; // spaces -> canvas px (the plane is 1 space across)
   const C = N / 2;
   const DROP = [0, HR * 0.98]; // where the drop lands: the hole's edge, camera side (dx, dz in spaces)
@@ -154,12 +154,25 @@ export default async function play(lab) {
     grad.addColorStop(0.18, 'rgba(255,255,255,.8)');
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     streakTex.g.fillStyle = grad;
-    streakTex.g.fillRect(24, 0, 16, 64);
+    streakTex.g.fillRect(20, 0, 24, 64);
   }
   const streakMat = new THREE.MeshBasicMaterial({ map: streakTex.t, color: hdr(0xffd9a0, 3.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const streak = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.5).translate(0, 0.25, 0), streakMat);
+  const streak = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.55).translate(0, 0.25, 0), streakMat);
   streak.visible = false;
   lab.add(streak);
+  const headTex = canvasTex(64);
+  {
+    const gr = headTex.g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.35, 'rgba(255,255,255,.5)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    headTex.g.fillStyle = gr;
+    headTex.g.fillRect(0, 0, 64, 64);
+  }
+  const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: headTex.t, color: hdr(0xffd9a0, 2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  head.scale.setScalar(0.22);
+  head.visible = false;
+  lab.add(head);
   const landAt = lab.pos(3 + DROP[0], 1 + DROP[1]);
 
   // ----- the ripple: two sparks running round her ring from where it landed -----
@@ -168,6 +181,7 @@ export default async function play(lab) {
     const m = new THREE.Mesh(new THREE.RingGeometry(0.505, 0.56, 24, 1, -0.32, 0.64), ripMat);
     m.rotation.order = 'YXZ';
     m.position.set(bat.x, 0.013, bat.z);
+    m.renderOrder = 8; // over the hole
     lab.add(m);
     return m;
   });
@@ -189,7 +203,12 @@ export default async function play(lab) {
   const st = { body: {}, ez: {}, amber: 0, eyeK: 1 };
   const ringBase = maya.model.ringMat.color.clone();
   const poolBase = maya.model.poolMat.color.clone();
+  // her ring of light (and pointer) floats over the hole
+  const ringMeshes = [];
+  maya.group.traverse((o) => o.isMesh && o.material === maya.model.ringMat && ringMeshes.push([o, o.renderOrder]));
+  for (const [o] of ringMeshes) o.renderOrder = 7;
   const restore = () => {
+    for (const [o, r] of ringMeshes) o.renderOrder = r;
     maya.model.ringMat.color.copy(ringBase);
     maya.model.poolMat.color.copy(poolBase);
     maya.model.body.scale.set(1, 1, 1);
@@ -281,7 +300,9 @@ export default async function play(lab) {
       streak.position.set(landAt.x, h, landAt.z);
       streak.rotation.y = Math.atan2(cam.position.x - landAt.x, cam.position.z - landAt.z);
       streak.scale.set(1, 0.6 + 1.2 * dk, 1); // stretches as it speeds up
+      head.position.set(landAt.x, h + 0.04, landAt.z);
     }
+    head.visible = streak.visible;
     // the ripple runs round her ring, both ways, to meet at the back
     const rk = (t - PLINK) / 0.34;
     ripMat.opacity = rk > 0 && rk < 1 ? Math.sin(Math.min(1, rk * 4) * Math.PI * 0.5) * (1 - rk) : 0;
@@ -312,7 +333,7 @@ export default async function play(lab) {
 
   await lab.wait(END);
   stop();
-  darkMesh.visible = frontMesh.visible = sleeve.visible = streak.visible = false;
+  darkMesh.visible = frontMesh.visible = sleeve.visible = streak.visible = head.visible = false;
   ripMat.opacity = 0;
   actBody(maya.model, {});
   actBody(ezra.model, {});

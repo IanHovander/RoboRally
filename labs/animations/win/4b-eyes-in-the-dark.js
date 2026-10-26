@@ -172,15 +172,14 @@ export default async function play(lab) {
   const first = seat(-1.3, -5.0, { kind: 'pill', h: 0.42, tOpen: FIRST, hue: '#4dabf7' });
   const second = seat(-0.6, -5.3, { kind: 'dot', h: 0.3, tOpen: SECOND, hue: '#ffd43b' });
   // everyone else: standing on the floor behind the slab and round its sides (where the camera can see the dark)
-  for (let i = 0; i < 78; i++) {
+  for (let i = 0; i < 48; i++) {
     let x;
     let z;
-    for (let tries = 0; tries < 40; tries++) {
-      z = -2.6 - 6.4 * lab.rand() ** 0.8;
-      const half = 4.9 + 0.6 * (-z - 2.6);
+    for (let tries = 0; tries < 60; tries++) {
+      z = -4.0 - 4.4 * lab.rand() ** 0.85;
+      const half = 4.9 + 0.75 * (-z - 4.0);
       x = lab.range(-half, half);
-      if (Math.abs(x) < 4.1 && z > -2.9) continue; // not under the slab
-      if (crowd.every((c) => Math.hypot(c.x - x, c.z - z) > 0.78)) break;
+      if (crowd.every((c) => Math.hypot((c.x - x) * 0.8, c.z - z) > 0.82)) break;
     }
     const e = seat(x, z);
     // they open spreading out from the first one, quickly
@@ -275,10 +274,10 @@ export default async function play(lab) {
       e.open = lid;
       const wv = e.wave ?? 0;
       e.s.visible = lid > 0.01;
-      e.s.scale.set(e.w * (1 + 0.25 * wv), e.hh * lid * (1 + 0.35 * wv), 1);
+      e.s.scale.set(e.w * (1 + 0.15 * Math.min(2, wv)), e.hh * lid * (1 + 0.25 * Math.min(2, wv)), 1);
       e.s.position.x = e.x + e.look;
-      e.s.material.color.set(lab.PALETTE.light).multiplyScalar(3.0 * (1 + 0.7 * wv));
-      e.ring.material.opacity = 0.32 * clamp01(lid * 1.5) * (1 + 0.6 * wv);
+      e.s.material.color.set(lab.PALETTE.light).multiplyScalar(3.0 * (1 + 0.3 * Math.min(2, wv)));
+      e.ring.material.opacity = 0.13 * clamp01(lid * 1.5) * (1 + 0.5 * Math.min(2, wv));
     }
 
     // ----- Maya -----

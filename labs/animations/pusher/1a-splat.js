@@ -174,6 +174,25 @@ export default async function play(lab) {
       g.fillStyle = sg;
       g.fillRect(ex - rx * 0.3, ey - smearUp, rx * 0.6, smearUp);
     }
+    // her pointer, squashed flat against the glass just off her nose (she faces east: screen right)
+    {
+      const px = cx + rx * 1.02;
+      const py = cy + ry * 0.12;
+      const pw = rx * 0.16;
+      const ph = ry * 0.16;
+      g.save();
+      g.shadowColor = 'rgba(255,90,120,1)';
+      g.shadowBlur = H * 0.03;
+      g.fillStyle = 'rgba(255,130,155,0.95)';
+      g.beginPath();
+      g.moveTo(px + pw, py);
+      g.lineTo(px, py - ph);
+      g.lineTo(px + pw * 0.12, py);
+      g.lineTo(px, py + ph);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
     g.shadowColor = 'rgba(255,238,205,1)';
     g.shadowBlur = H * 0.06;
     g.fillStyle = '#fffaf0';
@@ -237,44 +256,45 @@ export default async function play(lab) {
     distMul = 1 - Math.sin(Math.min(1, k * 2.2) * Math.PI) * 0.05;
   }, ease.linear);
   // stuck... stuck... then it gives
-  await lab.tween(0.46, (e, k) => {
+  await lab.tween(0.42, (e, k) => {
     smear.slide = Math.max(0, k - 0.45) ** 2 * 0.14;
     smear.drip = ease.out(clamp01((k - 0.35) / 0.65)) * 0.55;
   }, ease.linear);
 
-  // ---------- 1.02-1.62 the camera springs home; she is still flat; boing ----------
+  // ---------- the camera springs home; the smear lets go; she is still flat as a coin... boing ----------
   const s0 = smear.slide;
   const d0 = smear.drip;
-  lab.tween(0.38, (e, k) => {
-    smear.slide = s0 + 0.07 * k + 0.12 * k * k;
-    smear.drip = d0 + 0.45 * k;
+  lab.tween(0.24, (e, k) => {
+    smear.slide = s0 + 0.06 * k + 0.1 * k * k;
+    smear.drip = d0 + 0.4 * k;
     smear.alpha = 1 - ease.in(k);
   }, ease.linear);
-  lab.at(0.12, () => maya.set({ visible: true }));
-  lab.at(0.3, async () => {
+  lab.at(0.04, () => maya.set({ visible: true }));
+  lab.at(0.36, async () => {
     // the pop: up and too tall, a little hop, then a wobble that dies away
-    await lab.tween(0.5, (e, k) => {
-      const b = ease.outElastic(Math.min(1, k * 1.08));
+    await lab.tween(0.36, (e, k) => {
+      const b = ease.outElastic(Math.min(1, k * 1.05));
       sq.y = lerp(0.1, 1, b);
       sq.x = lerp(1.5, 1, b);
       sq.z = lerp(1.45, 1, b);
-      maya.set({ lift: Math.max(0, Math.sin(Math.min(1, k * 2.6) * Math.PI)) * 0.1 });
+      maya.set({ lift: Math.max(0, Math.sin(Math.min(1, k * 2.4) * Math.PI)) * 0.12 });
     }, ease.linear);
     sq.x = sq.y = sq.z = 1;
+    maya.set({ lift: 0 });
   });
-  lab.at(0.62, async () => {
+  lab.at(0.72, async () => {
     // two dazed blinks
-    await lab.tween(0.2, (e, k) => (eye = k < 0.25 || (k > 0.5 && k < 0.75) ? 0.08 : 1), ease.linear);
+    await lab.tween(0.16, (e, k) => (eye = k < 0.25 || (k > 0.5 && k < 0.75) ? 0.08 : 1), ease.linear);
     eye = 1;
   });
-  await lab.tween(0.6, (e, k) => {
+  await lab.tween(0.48, (e, k) => {
     const spring = 1 - (1 - k) ** 3 * Math.cos(k * Math.PI * 2.3);
     camMix = 1 - spring;
     offMix = clamp01(spring);
   }, ease.linear);
   camMix = 0;
   offMix = 1;
-  await lab.wait(0.24);
+  await lab.wait(0.41);
 
   stopDraw();
   g.clearRect(0, 0, W, H);

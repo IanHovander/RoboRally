@@ -105,7 +105,7 @@ export default async function play(lab) {
 
   const Z = new THREE.Vector3(0, 0, 1);
   const n = new THREE.Vector3();
-  const hz = { y: 2.1, R: R0, a: 0.78, phi: 2.2, glow: 2.6, op: 0 };
+  const hz = { y: 1.8, R: R0, a: 0.78, phi: 2.2, glow: 2.6, op: 0 };
   const placeHoop = () => {
     n.set(Math.sin(hz.a) * Math.cos(hz.phi), Math.cos(hz.a), Math.sin(hz.a) * Math.sin(hz.phi));
     hoop.quaternion.setFromUnitVectors(Z, n);
@@ -123,9 +123,9 @@ export default async function play(lab) {
   const BOUNCE = 0.15;
   const SPIN0 = LAND + BOUNCE;
   const CLICK = 2.3;
-  const CINCH0 = 2.4;
-  const CINCH1 = 2.66;
-  const END = 2.72;
+  const CINCH0 = 2.46;
+  const CINCH1 = 2.72;
+  const END = 2.78;
 
   const A0 = hz.a;
   const W0 = 8.5; // precession rate when it starts to roll (rad/s)
@@ -183,6 +183,8 @@ export default async function play(lab) {
       pose.sz *= 1 - 0.05 * w;
     }
     maya.set(pose);
+    // her played card steps aside while the hoop falls and spins (the game's focus mode does the same)
+    if (me.card) me.card.material.opacity *= 1 - seg(t, APPEAR - 0.12, APPEAR + 0.08) * (1 - seg(t, CLICK + 0.15, END));
 
     // ---------- the hoop ----------
     let contact = 0; // 0..1 how much it's touching the glass (for the glint and smear)
@@ -192,7 +194,7 @@ export default async function play(lab) {
       // condenses out of the top of the column, hangs a hair, then falls like a dropped coin
       const kf = seg(t, DROP, LAND);
       hz.op = seg(t, APPEAR, APPEAR + 0.12);
-      hz.y = 2.1 - (2.1 - hoopH(A0, R0)) * ease.in(kf);
+      hz.y = 1.8 - (1.8 - hoopH(A0, R0)) * ease.in(kf);
       hz.phi += dt * 1.6;
       hz.a = A0 + 0.05 * Math.sin(t * 9) * (1 - kf);
       hz.glow = 2.6 + (1 - seg(t, APPEAR, APPEAR + 0.2)) * 1.2;
@@ -203,7 +205,7 @@ export default async function play(lab) {
       hz.a = A0 + 0.07 * Math.sin(Math.PI * kb);
       hz.y = hoopH(hz.a, R0) + 0.08 * Math.sin(Math.PI * kb);
       hz.phi += dt * W0 * 0.6;
-      hz.glow = 2.6 + 2.2 * (1 - kb);
+      hz.glow = 2.4 + 1.0 * (1 - kb);
       contact = kb > 0.85 ? 1 : 0.4 * (1 - kb);
     } else if (t < CLICK) {
       // Euler's disk: the tilt sinks, and the lower it gets the faster the contact point races round
@@ -213,7 +215,7 @@ export default async function play(lab) {
       hz.phi += dt * rate;
       hz.y = hoopH(hz.a, R0);
       hz.op = 1;
-      hz.glow = 2.6;
+      hz.glow = 2.4;
       contact = 1;
     } else {
       // click: flat. A beat lying still, then it cinches in to the taken ring's size and height

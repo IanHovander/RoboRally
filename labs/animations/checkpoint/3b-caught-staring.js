@@ -55,12 +55,14 @@ function actor(lab, key) {
   p.model.body.traverse((o) => o.isMesh && o.material === p.model.eyeMat && eyes.push(o));
   let tick = null;
   p.group.traverse((o) => o.isMesh && o.geometry?.type === 'ShapeGeometry' && (tick = o));
-  const a = { p, sq: 1, eye: 1, squint: 1, point: 1 };
+  const a = { p, sq: 1, eye: 1, squint: 1, point: 1, lean: 0, tip: 0 };
   const eyeScale = eyes.map((e) => e.scale.clone());
   const tickZ = tick?.position.z ?? 0;
   p.each = (m) => {
     const w = 1 / Math.sqrt(Math.max(0.3, a.sq));
     m.body.scale.set(w, a.sq, w);
+    m.body.rotation.x = -a.lean; // lean only the body: the ring and pointer stay flat on the glass
+    m.body.rotation.z = -a.tip;
     m.eyeMat.color.setRGB(3.2 * a.eye, 3.1 * a.eye, 2.9 * a.eye);
     eyes.forEach((e, i) => e.scale.copy(eyeScale[i]).multiplyScalar(1).setX(eyeScale[i].x * a.squint));
     if (tick) {
@@ -70,6 +72,7 @@ function actor(lab, key) {
   };
   a.reset = () => {
     p.model.body.scale.set(1, 1, 1);
+    p.model.body.rotation.set(0, 0, 0);
     eyes.forEach((e, i) => e.scale.copy(eyeScale[i]));
     if (tick) {
       tick.scale.set(1, 1, 1);
@@ -127,7 +130,7 @@ export default async function play(lab) {
     const l = a.lag;
     a.ch = {
       rot: T([[0.86 + l, h], [1.0 + l, s + dir * 0.06, 'out'], [1.08 + l, s, 'inOut'], [SNAP, s], [SNAP + 0.07, h - dir * 0.36, 'out'], [SNAP + 0.2, h + dir * 0.08, 'inOut'], [SNAP + 0.34, h, 'inOut']]),
-      pitch: T([[0.78 + l, 0], [0.85 + l, -0.14, 'out'], [1.0 + l, 0.24, 'out'], [SNAP, 0.36, 'inOut'], [SNAP + 0.06, -0.16, 'out'], [SNAP + 0.3, -0.04, 'inOut'], [2.36, 0, 'inOut']]),
+      pitch: T([[0.78 + l, 0], [0.85 + l, -0.14, 'out'], [1.0 + l, 0.24, 'out'], [SNAP, 0.46, 'inOut'], [SNAP + 0.06, -0.2, 'out'], [SNAP + 0.3, -0.04, 'inOut'], [2.36, 0, 'inOut']]),
       lift: T([[0.78 + l, 0], [0.84 + l, 0.05, 'out'], [0.92 + l, 0, 'in']]),
       sq: T([[0.78 + l, 1], [0.84 + l, 1.1, 'out'], [1.0 + l, 1.04, 'inOut'], [SNAP, 1.1, 'inOut'], [SNAP + 0.06, 0.86, 'out'], [SNAP + 0.28, 1, 'inOut']]),
       eye: T([[0.8 + l, 1], [0.85 + l, 2.0, 'out'], [1.0 + l, 1.5, 'inOut'], [SNAP - 0.12, 1.7], [SNAP - 0.08, 0.6, 'out'], [SNAP - 0.04, 1.7, 'in'], [SNAP + 0.02, 0.45, 'out'], [2.2, 0.5], [2.4, 1, 'inOut']]),
@@ -142,7 +145,8 @@ export default async function play(lab) {
     const drive = t < 0.3 ? -0.1 : t < 0.6 ? 0.18 : 0;
     lean.to = drive;
     lean.step(dt);
-    maya.p.set({ x: M.x(t), y: 1, rot: M.rot(t), pitch: M.pitch(t) + lean.x });
+    maya.p.set({ x: M.x(t), y: 1, rot: M.rot(t) });
+    maya.lean = M.pitch(t) + lean.x;
     maya.sq = M.sq(t);
     maya.squint = M.squint(t);
     maya.eye = M.eye(t);
@@ -152,7 +156,9 @@ export default async function play(lab) {
       // "nothing to see here": a little sway from side to side after the snap
       const w = clamp01((t - (SNAP + 0.22)) / 0.1) * clamp01((2.4 - t) / 0.15);
       const sway = Math.sin((t - SNAP - 0.22) * TAU * 2.1) * 0.08 * w;
-      a.p.set({ x: a.home.x, y: a.home.y, rot: c.rot(t), pitch: c.pitch(t), roll: sway, lift: c.lift(t), trail: false });
+      a.p.set({ x: a.home.x, y: a.home.y, rot: c.rot(t), lift: c.lift(t), trail: false });
+      a.lean = c.pitch(t);
+      a.tip = sway;
       a.sq = c.sq(t);
       a.eye = c.eye(t);
       a.point = c.point(t);

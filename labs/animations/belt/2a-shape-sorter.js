@@ -45,7 +45,7 @@ function springBody(k, c) {
 const SPAN = 1.7; // world units the slot's canvas covers
 const PX = 320; // canvas pixels
 const K = PX / SPAN; // pixels per world unit
-const BODY = 1.3 * 1.28; // pebble shape units -> world (the robot's scale, plus a hair of clearance)
+const BODY = 1.3 * 1.32; // pebble shape units -> world (the robot's scale, plus a hair of clearance)
 
 /** The slot's outline, facing east: shape +y (the front) -> world +x, shape +x (her right) -> world +z (south). */
 function slotPath(g, dz = 0, grow = 1) {
@@ -185,8 +185,35 @@ export default async function play(lab) {
   };
   const stopSlot = lab.every(applySlot);
 
+  // the meniscus: the slot's own shape (east-facing: pebble +y -> world east, +x -> south), extruded upward
+  const shapeOf = (pts) => {
+    const sh = new THREE.Shape();
+    // shape coords (X, Y) lie flat as world (x, -z): a pebble point (px, py) facing east sits at (py, -px)
+    const P = (x, y) => [y, -x];
+    sh.moveTo(...P(pts[0][0], pts[0][1]));
+    for (let i = 1; i < pts.length; i += 3) sh.bezierCurveTo(...P(...pts[i]), ...P(...pts[i + 1]), ...P(...pts[i + 2]));
+    return sh;
+  };
+  const b = BODY;
+  const peb = shapeOf([[0, 0.29], [0.11, 0.29], [0.31, -0.12], [0.29, -0.22], [0.27, -0.31], [0.13, -0.33], [0, -0.29], [-0.13, -0.33], [-0.27, -0.31], [-0.29, -0.22], [-0.31, -0.12], [-0.11, 0.29], [0, 0.29]].map(([x, y]) => [x * b, y * b]));
+  const tc = 0.485;
+  const tri = new THREE.Shape();
+  const T = (x, y) => [(tc + (y + 0.47 - tc) * 1.3) * 1.3, -(x * 1.3) * 1.3];
+  tri.moveTo(...T(0, 0.085));
+  tri.lineTo(...T(0.075, -0.02));
+  tri.lineTo(...T(-0.075, -0.02));
+  tri.closePath();
+  const mGeo = new THREE.ExtrudeGeometry([peb, tri], { depth: 1, bevelEnabled: false, curveSegments: 24 });
+  mGeo.rotateX(-Math.PI / 2);
+  const menisc = lab.add(new THREE.Mesh(mGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(RED).multiplyScalar(1.3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
+  menisc.position.set(C.x, 0.004, C.z);
+  menisc.scale.y = 0.001;
+  menisc.renderOrder = 2.5;
+  menisc.visible = false;
+  lab.cleanup(() => mGeo.dispose());
+
   // ---- her parts on the glass (ring, pointer, pool) stay on the glass when she sinks, and draw over the slot ----
-  const flat = m.group.children.filter((o) => o !== m.body);
+  const flat = m.group.children.filter((o) => o.isMesh); // ring, pointer, pool (not the body, not the name tag)
   const flatY = flat.map((o) => o.position.y);
   const flatOrder = flat.map((o) => o.renderOrder);
   flat.forEach((o) => o.renderOrder !== 2 && (o.renderOrder = 3));
@@ -214,7 +241,7 @@ export default async function play(lab) {
     model.body.rotation.z = soft(-lx * 8) - S.roll;
     model.body.position.y = 0.3 * Math.sin(Math.hypot(model.body.rotation.x, model.body.rotation.z)) * 0.8;
     model.body.scale.set(S.sx, S.sy, S.sx);
-    model.paint.emissiveIntensity = emissive0 + 0.9 * S.glow;
+    model.paint.emissiveIntensity = emissive0 + 0.5 * S.glow;
     model.poolMat.opacity *= S.pool;
     flat.forEach((o, i) => (o.position.y = flatY[i] - S.lift / 1.3));
   };
@@ -277,13 +304,11 @@ export default async function play(lab) {
   await lab.tween(0.07, (e) => (S.rot = facing(0) + q * (0.74 + 0.26 * e)), ease.out);
   S.rot = facing(1);
 
-  // ---- 4. the drop: gravity, a THUNK, a squash, a ring through the glass ----
+  // ---- 4. the drop: gravity, a THUNK, a squash, the rim flares and the glass jolts ----
   await lab.tween(0.09, (e) => (S.lift = 0.05 - 0.15 * e), ease.in);
   S.lift = -0.1;
-  lab.ring(new THREE.Vector3(C.x, 0, C.z), RED, 0.7, 0.012, 0.45);
-  lab.ring(new THREE.Vector3(C.x, 0, C.z), '#ffffff', 0.45, 0.014, 0.3);
-  lab.shake(0.012, 0.15);
-  lab.tween(0.3, (e, k) => (slot.rim = 1 + 1.4 * (1 - k) ** 2), ease.linear);
+  lab.shake(0.014, 0.16);
+  lab.tween(0.3, (e, k) => (slot.rim = 1 + 1.6 * (1 - k) ** 2), ease.linear);
   await lab.tween(0.15, (e, k) => {
     const s = Math.sin(k * Math.PI) * (1 - k * 0.4);
     S.sy = 1 - 0.22 * s;
@@ -294,32 +319,44 @@ export default async function play(lab) {
   S.sy = S.sx = 1;
   S.rot = facing(1);
 
-  // ---- 5. her light runs in from the rim like water, sloshes once, levels, lights her from below and floats
-  // her back up; at the brim it overflows in one soft ring and the slot is gone ----
-  let overflow = false;
-  await lab.tween(0.55, (e, k) => {
-    const slosh = Math.sin(k * TAU * 1.1) * 0.07 * (1 - k) ** 1.4;
+  // ---- 5. her light runs in from the rim like water and the level rises, sloshing; it wells up over the
+  // brim in a soft meniscus that floats her back up, wobbles, and settles flush ----
+  await lab.tween(0.26, (e, k) => {
+    const slosh = Math.sin(k * TAU * 0.8) * 0.06 * (1 - k);
     drawFill(e, slosh);
     drawHole(e);
-    S.glow = Math.sin(Math.min(1, k * 1.1) * Math.PI * 0.5) * 1.0;
-    S.pool = 1 - 0.6 * Math.sin(k * Math.PI);
-    // buoyed up by the rising light
-    const kb = Math.min(1, k * 1.15);
-    S.lift = -0.1 + 0.1 * ease.inOut(kb) + 0.014 * Math.sin(kb * Math.PI);
+    S.glow = 0.6 * e;
+    S.pool = 1 - 0.6 * e;
+    S.lift = -0.1 + 0.05 * e;
     S.roll = slosh * 0.6;
-    slot.rim = 1 - 0.3 * e;
-    if (k > 0.8 && !overflow) {
-      overflow = true;
-      lab.ring(new THREE.Vector3(C.x, 0, C.z), RED, 0.55, 0.011, 0.5);
-    }
+    slot.rim = 1 - 0.2 * e;
   }, ease.out);
+  // the meniscus: a slab of her light standing proud of the glass for a moment
+  menisc.visible = true;
+  await lab.tween(0.36, (e, k) => {
+    const h = 0.06 * Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5) * (1 - 0.75 * ease.inOut(Math.max(0, (k - 0.35) / 0.65))) + 0.004 * Math.sin(k * TAU * 2) * (1 - k);
+    menisc.scale.y = Math.max(0.001, h);
+    menisc.material.opacity = 0.75;
+    const wob = Math.sin(k * TAU * 1.5) * (1 - k) ** 1.5;
+    menisc.scale.x = 1 + 0.03 * wob;
+    menisc.scale.z = 1 - 0.03 * wob;
+    S.glow = 0.6 + 0.4 * Math.sin(k * Math.PI);
+    S.lift = -0.05 + 0.05 * ease.out(Math.min(1, k * 1.5)) + 0.02 * Math.sin(Math.min(1, k * 1.25) * Math.PI);
+    S.roll = 0.03 * wob;
+    S.pool = 0.4 + 0.2 * k;
+  }, ease.linear);
   S.lift = 0;
   S.roll = 0;
   // full to the brim: the light settles into the glass and the slot is gone
+  const h0 = menisc.scale.y;
   await lab.tween(0.2, (e) => {
     slot.fade = 1 - e;
-    S.glow = 1 - e;
+    S.glow = 0.6 * (1 - e);
+    S.pool = 0.6 + 0.4 * e;
+    menisc.material.opacity = 0.75 * (1 - e);
+    menisc.scale.y = h0 * (1 - e) + 0.001;
   }, ease.inOut);
+  menisc.visible = false;
   slot.fade = 0;
   S.glow = 0;
   stopSlot();

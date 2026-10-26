@@ -83,7 +83,7 @@ export default async function play(lab) {
   lens.style.cssText = 'position:absolute;pointer-events:none;border-radius:50%;backdrop-filter:blur(5px) saturate(1.25);-webkit-backdrop-filter:blur(5px) saturate(1.25);-webkit-mask-image:radial-gradient(closest-side,#000 45%,transparent 100%);mask-image:radial-gradient(closest-side,#000 45%,transparent 100%);opacity:0';
   ov.append(lens, glass);
   const g = glass.getContext('2d');
-  const R = H * 0.25; // the smear's radius in pixels
+  const R = H * 0.22; // the smear's radius in pixels
   const sm = { ripple: 0, lobes: [], on: false, x: 0, y: 0, spread: 0, alpha: 0, drip: 0, wipe: -1, wobble: 0, dirX: 1, dirY: 0, flecks: [] };
   const blob = (x, y, rx, ry, a, rot = 0) => {
     if (a <= 0.003 || rx <= 0.5 || ry <= 0.5) return;
@@ -92,9 +92,9 @@ export default async function play(lab) {
     g.rotate(rot);
     g.scale(rx, ry);
     const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1);
-    gr.addColorStop(0, `rgba(185,220,255,${0.62 * a})`);
-    gr.addColorStop(0.55, `rgba(110,180,250,${0.48 * a})`);
-    gr.addColorStop(0.82, `rgba(150,205,255,${0.62 * a})`);
+    gr.addColorStop(0, `rgba(200,228,255,${0.75 * a})`);
+    gr.addColorStop(0.55, `rgba(110,180,250,${0.56 * a})`);
+    gr.addColorStop(0.8, `rgba(140,200,255,${0.48 * a})`);
     gr.addColorStop(1, 'rgba(77,150,247,0)');
     g.fillStyle = gr;
     g.beginPath();
@@ -118,11 +118,11 @@ export default async function play(lab) {
     const wob = sm.wobble;
     const ang = Math.atan2(sm.dirY, sm.dirX);
     g.globalCompositeOperation = 'lighter';
-    g.filter = `blur(${Math.round(H * 0.018)}px)`;
+    g.filter = `blur(${Math.round(H * 0.035)}px)`;
     // the body of the splat, a bit longer along the way it was flying, wobbling as it spreads, its edge
     // lumpy where the drop burst
     blob(sm.x, sm.y, R * sp * (1.0 + 0.12 * wob), R * sp * (0.86 - 0.1 * wob), a, ang);
-    for (const l of sm.lobes) blob(sm.x + Math.cos(l.a) * l.d * R * sp, sm.y + Math.sin(l.a) * l.d * R * sp * 0.9, l.r * R * sp, l.r * R * sp * 0.85, a * 0.7);
+    for (const l of sm.lobes) blob(sm.x + Math.cos(l.a) * l.d * R * sp, sm.y + Math.sin(l.a) * l.d * R * sp * 0.9, l.r * R * sp, l.r * R * sp * 0.85, a * 0.4);
     blob(sm.x, sm.y, R * sp * 0.3, R * sp * 0.27, a * 0.8, ang);
     // the glass rings from the impact: one soft ripple running out
     if (sm.ripple > 0 && sm.ripple < 1) {
@@ -132,7 +132,7 @@ export default async function play(lab) {
       g.beginPath();
       g.ellipse(sm.x, sm.y, R * (0.6 + 2.2 * sm.ripple), R * (0.55 + 2.0 * sm.ripple), 0, 0, Math.PI * 2);
       g.stroke();
-      g.filter = `blur(${Math.round(H * 0.018)}px)`;
+      g.filter = `blur(${Math.round(H * 0.035)}px)`;
     }
     // flecks thrown out by the impact
     for (const f of sm.flecks) {
@@ -246,7 +246,7 @@ export default async function play(lab) {
   const dl = Math.hypot(at.x - from.x, at.y - from.y) || 1;
   sm.dirX = (at.x - from.x) / dl;
   sm.dirY = (at.y - from.y) / dl;
-  sm.lobes = Array.from({ length: 6 }, (_, i) => ({ a: (i / 6) * Math.PI * 2 + lab.range(-0.3, 0.3), d: lab.range(0.55, 0.8), r: lab.range(0.3, 0.45) }));
+  sm.lobes = Array.from({ length: 6 }, (_, i) => ({ a: (i / 6) * Math.PI * 2 + lab.range(-0.3, 0.3), d: lab.range(0.45, 0.62), r: lab.range(0.32, 0.45) }));
   lab.tween(0.4, (e) => (sm.ripple = e), ease.out).then(() => (sm.ripple = 0));
   sm.flecks = Array.from({ length: 6 }, () => ({ a: lab.range(0, Math.PI * 2), d: lab.range(1.0, 1.6), r: lab.range(0.08, 0.16), k: lab.range(0.4, 0.8) }));
   lab.arena.emit('splat', {});

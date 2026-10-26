@@ -94,7 +94,7 @@ export default async function play(lab) {
       rotV += (err * 420 - rotV * 34) * dt * cat.lock;
       cat.rot += rotV * dt;
     }
-    cat.wigT += dt * (5 + 9 * cat.wiggle) * Math.PI * 2;
+    cat.wigT += dt * (3 + 4 * cat.wiggle) * Math.PI * 2;
   });
   jun.each = (model) => {
     const c = cat;
@@ -109,10 +109,9 @@ export default async function play(lab) {
       x: c.x + px, y: c.y + py, lift: 0, rot: c.rot + w * 0.24,
       pitch: 0,
       roll: 0,
-      sy: 1 - 0.32 * crouch - 0.14 * st - 0.28 * land,
-      sx: 1 + 0.14 * crouch - 0.06 * st + 0.18 * land,
-      sz: 1 + 0.1 * crouch + 0.34 * st + 0.18 * land,
     });
+    // squash and stretch the body only, so his ring stays round and flat on the glass
+    model.body.scale.set(1 + 0.2 * crouch - 0.06 * st + 0.18 * land, 1 - 0.4 * crouch - 0.14 * st - 0.28 * land, 1 + 0.14 * crouch + 0.34 * st + 0.18 * land);
     // only his body leaves the glass: his ring stays down there, so you can see he's in the air
     model.body.position.y += c.lift / 1.3;
     // lean and wiggle the body only, so his ring stays flat on the glass
@@ -229,6 +228,7 @@ export default async function play(lab) {
   jun.each = null;
   jun.model.paint.emissive.set(lab.bot('c').color);
   if (visor) visor.scale.set(1, 1, 1);
+  jun.model.body.scale.set(1, 1, 1);
   jun.release({ x: 3, y: 3, d: 0 });
   void clamp01;
 }

@@ -39,6 +39,7 @@ function actor(lab, key) {
   const eyeScale = eyes.map((e) => e.scale.clone());
   const a = { p, sq: 1, wide: 1, eye: 1, squint: 1, lean: 0, tip: 0 };
   p.each = (m) => {
+    if (a.pinCard && p.bot.card) p.bot.card.position.y -= p.pose.lift; // the card stays where the game shows it
     const w = a.wide / Math.sqrt(Math.max(0.3, a.sq));
     m.body.scale.set(w, a.sq, w);
     m.body.rotation.x = -a.lean;
@@ -122,6 +123,7 @@ export default async function play(lab) {
 
   // ---- the actors ----
   const maya = actor(lab, 'a');
+  maya.pinCard = true;
   const east = maya.p.pose.rot;
   const lookers = Object.keys(sc.bots)
     .filter((k) => k !== 'a' && sc.bots[k].on !== false)
@@ -129,6 +131,8 @@ export default async function play(lab) {
       const a = actor(lab, k);
       const r = sc.bots[k];
       a.home = { x: r.x, y: r.y, rot: a.p.pose.rot };
+      const dl = Math.hypot(r.x - flag.x, r.y - flag.y) || 1;
+      a.away = { x: (r.x - flag.x) / dl, y: (r.y - flag.y) / dl }; // recoils away from the flag
       a.lag = i * 0.03;
       return a;
     });
@@ -141,27 +145,31 @@ export default async function play(lab) {
   const F0 = 0.92; // the turn starts while it is still rising
   const F1 = 1.7; // ... and is done
   const SLAP = 1.8;
-  const END = 2.72;
+  const DIZZY = SLAP + 0.06; // the world is still turning
+  const SHAKE = SLAP + 0.4; // she shakes it off
+  const END = 2.84;
   // the turn: fast off the start, drifting slowly through upside down (the hang), fast into the landing
   const psiOf = (t) => {
     const k = clamp01((t - F0) / (F1 - F0));
     const u = 2 * k - 1;
     return Math.PI * (1 + 0.78 * Math.sign(u) * u * u + 0.22 * u);
   };
-  const L = T([[POP, 0], [UP, 1.08, 'out3'], [F1 - 0.08, 1.0, 'inOut'], [SLAP, 0, 'in']]);
+  const L = T([[POP, 0], [UP, 0.92, 'out3'], [F1 - 0.08, 0.86, 'inOut'], [SLAP, 0, 'in']]);
   const rumble = (t) => (t > RUMBLE && t < POP ? Math.sin(t * 120) * 0.008 * Math.sin(((t - RUMBLE) / (POP - RUMBLE)) * Math.PI) : 0);
 
   const M = {
     x: T([[0, 2], [ARRIVE, 4, 'inOut']]),
     // arrives and puffs up, pleased; the rumble: a double take down at her feet; the pop squashes her flat
-    lean: T([[0.56, 0.12], [0.66, -0.1, 'out'], [RUMBLE, -0.06], [RUMBLE + 0.05, 0.34, 'out'], [POP - 0.02, 0.3], [POP + 0.06, -0.05, 'out'], [F0 + 0.1, 0, 'inOut'], [SLAP, 0], [SLAP + 0.08, 0.12, 'out'], [SLAP + 0.2, -0.04, 'inOut'], [END - 0.3, -0.12, 'out'], [END, 0, 'inOut']]),
-    sq: T([[ARRIVE, 1], [0.66, 1.1, 'out'], [RUMBLE, 1.04], [POP, 0.96], [POP + 0.06, 0.66, 'out'], [UP + 0.08, 0.86, 'out'], [F1, 0.82], [SLAP, 0.86], [SLAP + 0.04, 0.6, 'out'], [SLAP + 0.16, 1.18, 'out'], [SLAP + 0.3, 0.94, 'inOut'], [SLAP + 0.42, 1.0, 'inOut'], [END - 0.3, 1.12, 'out'], [END, 1, 'inOut']]),
-    eye: T([[ARRIVE, 1], [0.66, 1.5, 'out'], [RUMBLE, 1.3], [RUMBLE + 0.04, 2.2, 'out'], [POP + 0.1, 2.0], [F0 + 0.12, 0.25, 'out'], [1.24, 0.25], [1.29, 2.2, 'out'], [1.42, 1.9], [1.5, 0.25, 'out'], [SLAP + 0.02, 0.25], [SLAP + 0.08, 1.6, 'out'], [SLAP + 0.4, 0.9, 'inOut'], [END - 0.3, 2.0, 'out'], [END, 1, 'inOut']]),
-    squint: T([[F0, 1], [F0 + 0.12, 0.3, 'out'], [1.24, 0.3], [1.29, 1.25, 'out'], [1.42, 1.1], [1.5, 0.3, 'out'], [SLAP + 0.02, 0.3], [SLAP + 0.1, 1, 'out']]),
+    lean: T([[0.56, 0.12], [0.66, -0.1, 'out'], [RUMBLE, -0.06], [RUMBLE + 0.05, 0.34, 'out'], [POP - 0.02, 0.3], [POP + 0.06, -0.05, 'out'], [F0 + 0.1, 0, 'inOut'], [SLAP, 0], [SLAP + 0.08, 0.12, 'out'], [SLAP + 0.2, 0, 'inOut'], [SHAKE + 0.24, 0], [SHAKE + 0.34, -0.14, 'out'], [END, 0, 'inOut']]),
+    sq: T([[ARRIVE, 1], [0.66, 1.1, 'out'], [RUMBLE, 1.04], [POP, 0.96], [POP + 0.06, 0.66, 'out'], [UP + 0.08, 0.86, 'out'], [F1, 0.82], [SLAP, 0.86], [SLAP + 0.04, 0.6, 'out'], [SLAP + 0.16, 1.14, 'out'], [SLAP + 0.3, 0.92, 'inOut'], [SHAKE, 0.96, 'inOut'], [SHAKE + 0.24, 0.96], [SHAKE + 0.34, 1.16, 'out'], [END, 1, 'inOut']]),
+    eye: T([[ARRIVE, 1], [0.66, 1.5, 'out'], [RUMBLE, 1.3], [RUMBLE + 0.04, 2.2, 'out'], [POP + 0.1, 2.0], [F0 + 0.12, 0.25, 'out'], [1.24, 0.25], [1.29, 2.2, 'out'], [1.42, 1.9], [1.5, 0.25, 'out'], [SLAP + 0.02, 0.25], [SLAP + 0.08, 1.2, 'out'], [SHAKE, 0.7, 'inOut'], [SHAKE + 0.24, 1.0], [SHAKE + 0.32, 2.2, 'out'], [END, 1, 'inOut']]),
+    squint: T([[F0, 1], [F0 + 0.12, 0.3, 'out'], [1.24, 0.3], [1.29, 1.25, 'out'], [1.42, 1.1], [1.5, 0.3, 'out'], [SLAP + 0.02, 0.3], [SLAP + 0.1, 0.6, 'out'], [SHAKE, 0.6], [SHAKE + 0.06, 0.3, 'out'], [SHAKE + 0.24, 0.3], [SHAKE + 0.32, 1.2, 'out'], [END, 1, 'inOut']]),
     // upside down: a puzzled look one way, then the other
     look: T([[1.27, 0], [1.33, 0.45, 'out'], [1.4, 0.45], [1.46, -0.35, 'inOut'], [1.54, 0, 'inOut']]),
     // after the clack: shakes herself off
-    shake: T([[SLAP + 0.34, 0], [SLAP + 0.38, 1, 'out'], [SLAP + 0.58, 1], [SLAP + 0.64, 0, 'out']]),
+    shake: T([[SHAKE, 0], [SHAKE + 0.03, 1, 'out'], [SHAKE + 0.18, 1], [SHAKE + 0.24, 0, 'out']]),
+    // dizzy: the body keeps circling after the tile stops
+    dizzy: T([[DIZZY, 0], [DIZZY + 0.06, 0.2, 'out'], [SHAKE - 0.02, 0.04, 'inOut'], [SHAKE, 0]]),
   };
 
   // a gentle push in for the gesture, home again by the end
@@ -170,7 +178,7 @@ export default async function play(lab) {
   const camAt = fp.clone().setY(0.55);
   const camRelease = lab.camera((home) => {
     const k = camK(lab.t - t0);
-    return { target: home.target.clone().lerp(camAt, 0.4 * k), dist: home.dist * (1 - 0.2 * k) };
+    return { target: home.target.clone().lerp(camAt, 0.4 * k), dist: home.dist * (1 - 0.2 * k), el: home.el - 0.12 * k };
   });
 
   lab.playCard('a', ['m2']);
@@ -191,7 +199,7 @@ export default async function play(lab) {
     if (t >= SLAP && !slapped) {
       slapped = true;
       lab.shake(0.05, 0.3);
-      lab.ring(fp.clone().setY(0.02), '#ffffff', 0.7, 0.02, 0.3);
+      lab.ring(fp.clone().setY(0.02), '#ffffff', 0.5, 0.02, 0.25);
       lab.ring(fp.clone().setY(0.03), color, 0.5, 0.03, 0.55);
       arena.setTaken([{ color, cp: 1 }]); // in the game: the room's real taken list
       if (col) col.halo.visible = true;
@@ -201,21 +209,24 @@ export default async function play(lab) {
     tile.position.set(fp.x, -HALF + lift + rumble(t), fp.z);
     tile.rotation.set(0, 0, -psi);
     // the edges catch the light while it is out of the slab
-    edgeMat.opacity = flipping ? 0.35 + 0.5 * clamp01(lift) : 0;
+    edgeMat.opacity = flipping ? 0.2 + 0.35 * clamp01(lift) : 0;
 
     // ---- Maya, stuck to the tile's face ----
     const shake = M.shake(t);
-    const jiggle = shake * Math.sin((t - SLAP - 0.34) * TAU * 7) * 0.22;
+    const jiggle = shake * Math.sin((t - SHAKE) * TAU * 9) * 0.3;
+    const dz = M.dizzy(t);
+    const da = (t - DIZZY) * TAU * 2.6;
     maya.p.set({
       x: M.x(t) + (t >= F0 && t < SLAP ? HALF * Math.sin(psi) : 0),
       y: flag.y,
       lift: t >= POP && t < SLAP ? lift - HALF + HALF * Math.cos(psi) + rumble(t) : rumble(t),
       pitch: t >= F0 && t < SLAP ? psi : 0,
-      rot: east + M.look(t) + jiggle * 0.5,
+      rot: east + M.look(t) + jiggle,
       trail: t < ARRIVE + 0.05,
     });
     maya.lean = M.lean(t);
-    maya.tip = jiggle;
+    maya.tip = jiggle * 0.6 + dz * Math.cos(da);
+    maya.lean += dz * Math.sin(da);
     maya.sq = M.sq(t);
     maya.eye = M.eye(t);
     maya.squint = M.squint(t);
@@ -225,7 +236,8 @@ export default async function play(lab) {
       const tl = t - a.lag;
       const hop = tl > POP && tl < POP + 0.2 ? Math.sin(((tl - POP) / 0.2) * Math.PI) * 0.1 : 0;
       const back = T([[POP, 0], [POP + 0.06, -0.32, 'out'], [F1, -0.2, 'inOut'], [SLAP, -0.18], [SLAP + 0.05, 0.1, 'out'], [END, 0, 'inOut']])(tl);
-      a.p.set({ x: a.home.x, y: a.home.y, rot: a.home.rot, lift: hop, trail: false });
+      const recoil = T([[POP, 0], [POP + 0.1, 0.2, 'out'], [F1, 0.12, 'inOut'], [SLAP, 0.12], [SLAP + 0.05, 0.18, 'out'], [END - 0.05, 0, 'inOut']])(tl);
+      a.p.set({ x: a.home.x + a.away.x * recoil, y: a.home.y + a.away.y * recoil, rot: a.home.rot, lift: hop, trail: false });
       a.lean = back;
       a.sq = T([[POP, 1], [POP + 0.04, 1.18, 'out'], [POP + 0.24, 1, 'inOut'], [SLAP, 1], [SLAP + 0.04, 0.82, 'out'], [SLAP + 0.3, 1, 'inOut']])(tl);
       a.eye = T([[POP, 1], [POP + 0.04, 2.2, 'out'], [F1, 1.6, 'inOut'], [SLAP, 1.6], [SLAP + 0.02, 0.2, 'out'], [SLAP + 0.12, 0.2], [SLAP + 0.25, 1, 'out']])(tl);

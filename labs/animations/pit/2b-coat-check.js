@@ -54,10 +54,10 @@ export default async function play(lab) {
     snap: 1.02, // the leash snaps (her body is over the hole)
     dropStart: 1.08,
     gone: 1.34,
-    peer: 1.3, // the stain peers after her
-    shiver: 1.66,
-    bolt: 1.84, // runs off along the seams
-    end: 3.2,
+    peer: 1.26, // the stain peers after her
+    shiver: 1.56,
+    bolt: 1.74, // runs off along the seams
+    end: 3.1,
   };
 
   // ---------- the stain: a copy of her ring, pointer, glow pool and eye, plus a Pebble of red light ----------
@@ -163,7 +163,7 @@ export default async function play(lab) {
       const l = Math.hypot(dx, dz) || 1;
       dx /= l;
       dz /= l;
-      const w = 0.016 + 0.014 * (i / (th.N - 1));
+      const w = 0.02 + 0.016 * (i / (th.N - 1));
       th.pos.set([p.x - dz * w, 0.011, p.z + dx * w, p.x + dz * w, 0.011, p.z - dx * w], i * 6);
       const k = tau > 0.01 ? (0.3 + 0.7 * (i / (th.N - 1)) ** 2) * 2.2 * fade : 0;
       th.col.set([RED.r * k, RED.g * k, RED.b * k, RED.r * k, RED.g * k, RED.b * k], i * 6);
@@ -202,7 +202,7 @@ export default async function play(lab) {
   const theoBodyPitch = [[T.snap + 0.1, 0], [T.snap + 0.4, 0.14, ease.inOut], [T.shiver, 0.14], [T.shiver + 0.1, -0.12, ease.out], [underTheo - 0.1, -0.05], [underTheo, -0.25, ease.out], [passTheo + 0.1, 0.05], [T.end, 0]];
   const theoLift = [[underTheo - 0.1, 0], [underTheo - 0.02, 0.34, ease.out], [passTheo, 0.36], [passTheo + 0.1, 0, ease.in]];
   const theoSy = [[underTheo - 0.14, 1], [underTheo - 0.1, 0.86, ease.out], [underTheo - 0.02, 1.16, ease.out], [passTheo, 1.05], [passTheo + 0.1, 1], [passTheo + 0.15, 0.84, ease.out], [passTheo + 0.32, 1, ease.out]];
-  const theoShiver = passTheo + 0.4; // he shivers too, the same little shiver
+  const theoShiver = passTheo + 0.3; // he shivers too, the same little shiver
 
   // ---------- run ----------
   const t0 = lab.t;
@@ -226,7 +226,7 @@ export default async function play(lab) {
     // stretch toward the body while the leash holds; jelly after the snap
     const pull = now < T.snap ? Math.max(0, x - cx) : 0;
     const jelly = now > T.snap ? Math.sin((now - T.snap) * 34) * Math.exp(-(now - T.snap) * 7) * 0.22 : 0;
-    const sh = shiver(now, T.shiver) * 0.1;
+    const sh = shiver(now, T.shiver) * 0.17;
     const dr = key(now, drainCoat);
     // local z is "forward" (she faces east): stretch forward, squash sideways
     inner.scale.set(S * (1 - 0.16 * pull + jelly * 0.6 + sh) * (0.35 + 0.65 * dr), S, S * (1 + 0.42 * pull - jelly + sh) * (0.35 + 0.65 * dr));

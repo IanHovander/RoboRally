@@ -132,7 +132,7 @@ export default async function play(lab) {
   // the arcs: peek out from under her as she parks, sit at a low glow, stutter after the thump, cough
   const stutter = [1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0];
   const arcLight = (t) => {
-    const show = track([[0, 0], [ARRIVE - 0.12, 0, 'linear'], [ARRIVE + 0.08, 1, 'out']])(t);
+    const show = track([[0, 0], [ARRIVE - 0.12, 0, 'linear'], [ARRIVE + 0.08, 1, 'out'], [END - 0.18, 1, 'linear'], [END, 0, 'inOut']])(t); // tuck back under her at the end
     let k = 0.7 + Math.sin(t * 5) * 0.1; // the battery's usual low glow
     if (!early && t >= HIT + 0.02 && t < COUGH - 0.1) {
       const i = Math.floor((t - HIT - 0.02) * 30);
@@ -146,7 +146,7 @@ export default async function play(lab) {
     return { show, k };
   };
   const arcR = (t) => {
-    const r = track([[0, 0.3], [ARRIVE - 0.12, 0.3, 'linear'], [ARRIVE + 0.1, 0.62, 'out']])(t);
+    const r = track([[0, 0.3], [ARRIVE - 0.12, 0.3, 'linear'], [ARRIVE + 0.1, 0.62, 'out'], [END - 0.18, 0.62, 'linear'], [END, 0.42, 'inOut']])(t);
     const cough = t >= GULP && t < GULP + 0.2 ? Math.sin(((t - GULP) / 0.2) * Math.PI) * -0.08 : 0; // it draws in
     const thump = !early && t >= HIT && t < HIT + 0.22 ? Math.sin(((t - HIT) / 0.22) * Math.PI) * 0.07 : 0;
     return r + cough + thump;

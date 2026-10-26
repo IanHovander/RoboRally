@@ -71,9 +71,9 @@ export default async function play(lab) {
   const tF = facing(2);
   const tpitch = track([
     [C.rr + 0.16, 0], [C.rr + 0.26, -0.13, E.out], [C.rr + 0.6, 0, E.inOut],
-    [C.ut + 0.7, 0], [C.ut + 0.8, 0.2, E.out], [C.ut + 0.9, 0, E.inOut], [C.ut + 1.0, 0.2, E.out], [C.ut + 1.12, 0, E.inOut],
+    [C.ut + 0.68, 0], [C.ut + 0.76, 0.2, E.out], [C.ut + 0.84, 0, E.inOut], [C.ut + 0.92, 0.2, E.out], [C.ut + 1.0, 0, E.inOut],
   ], E.inOut);
-  const trot = track([[0.2, tF], [0.7, tF - 0.4, E.inOut], [C.rr + 0.4, tF - 0.5], [C.bk + 0.6, tF - 0.75, E.inOut], [C.ut + 1.15, tF - 0.75], [C.ut + 1.3, tF, E.inOut]], E.inOut);
+  const trot = track([[0.2, tF], [0.7, tF - 0.4, E.inOut], [C.rr + 0.4, tF - 0.5], [C.bk + 0.6, tF - 0.75, E.inOut], [C.ut + 1.0, tF - 0.75], [C.ut + 1.18, tF, E.inOut]], E.inOut);
 
   // ----- the ribbon -----
   // points in spaces { x, y, t (born), b (brightness), w (width) }; drawn as a thin additive strip
@@ -81,7 +81,7 @@ export default async function play(lab) {
   let pathAtFlick = -1; // where the curl hangs off
   const flickT = C.rr + 0.12;
   const curlG = track([[flickT, 0], [C.rr + 0.36, 1, back(2.4)]], E.inOut);
-  const curlA = track([[flickT, -1.5], [C.rr + 0.42, -0.25, back(1.6)]], E.inOut); // flung round from behind her
+  const curlA = track([[flickT, -1.3], [C.rr + 0.42, 0.3, back(1.8)]], E.inOut); // flung round from behind her
   const pullK = (T) => span(T, C.bk + 0.08, C.bk + 0.5);
   const wrapA = track([[C.ut + 0.08, 0], [C.ut + 0.46, TAU, E.inOut]], E.inOut);
   const bowG = track([[C.ut + 0.44, 0], [C.ut + 0.66, 1, back(2.6)]], E.inOut);
@@ -115,7 +115,7 @@ export default async function play(lab) {
         // the curl: flicked out where she turned, dragged along and pulled out as she backs away
         const k = pullK(T);
         const g = curlG(T) * (1 - E.inOut(k)) ** 1.2;
-        if (g > 0.01) petal(pts, hx, hy, curlA(T) - k * 0.6, 0.78 * g, 1.5, 18, t0 + flickT);
+        if (g > 0.01) petal(pts, hx, hy, curlA(T) - k * 0.9, 1.0 * g, 1.6, 22, t0 + flickT);
       }
       return pts;
     }
@@ -131,8 +131,8 @@ export default async function play(lab) {
     const g = bowG(T);
     if (g > 0.01) {
       const born = t0 + C.ut + 0.5;
-      petal(pts, 3, sY, PI - 0.5, 0.38 * g, 1.35, 14, born);
-      petal(pts, 3, sY, 0.5, 0.38 * g, 1.35, 14, born);
+      petal(pts, 3, sY, PI - 0.5, 0.44 * g, 1.4, 16, born);
+      petal(pts, 3, sY, 0.5, 0.44 * g, 1.4, 16, born);
       pts.push({ x: 3 - 0.06 * g, y: sY + 0.14 * g, t: born + 0.1 }, { x: 3 - 0.12 * g, y: sY + 0.3 * g, t: born + 0.1 });
     }
     return pts;
@@ -181,8 +181,8 @@ export default async function play(lab) {
       if (shiverOn) {
         const u = sFromHead[i] - front;
         const env = Math.exp(-((u / 0.45) ** 2)) * (1 - span(T, shiverT + 0.4, shiverT + 0.7));
-        disp = Math.sin(u * 16) * 0.05 * env;
-        fade *= 1 + 1.6 * env;
+        disp = Math.sin(u * 14) * 0.08 * env;
+        fade *= 1 + 2.4 * env;
       }
       const w = 0.1 + 0.04 * Math.max(0, 1 - age);
       const cx = p.x - dz * disp;

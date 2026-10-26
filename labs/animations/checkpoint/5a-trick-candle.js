@@ -4,7 +4,7 @@ export const meta = {
   idea:
     'As Maya settles on flag 1 its column of light squeezes down into a little candle flame hovering in front of her nose. She takes a huge breath (she swells, leans back, and the flame is sucked toward her), then puffs so hard she skids backwards from her own blast. The flame bends right over, fights its way half upright, and goes out: flag 1 is a dark spot with a curl of smoke made of light. A spark. Another. Then, like a trick birthday candle, it relights with a whoomp, the column springs back to full height with a wobble, Maya jumps, and her red ring lands at its foot.',
   notes:
-    'Sound: a rising glass inhale, a soft breathy puff with a tiny skid, a flutter, then silence for the dark beat (the room goes quiet with it), two crackles, and a warm whoomp that rings like a struck glass as the column springs up. Porting: the column is redrawn as a bendable strip with the column\'s own texture and colour so the hand-back to the game\'s column is exact; the halo under it goes dark with it. "Make a wish!" is something the room can say along with.',
+    'Sound: a rising glass inhale, a soft breathy puff with a tiny skid, a flutter, then silence for the dark beat (the room goes quiet with it), two crackles, and a warm whoomp that rings like a struck glass as the column springs up. Porting: the column is redrawn as a bendable strip with the column\'s own texture and colour so the hand-back to the game\'s column is exact; the halo under it goes dark with it. The camera leans in for the candle (it is small from the sofa) and the whoomp blows it back home before the moment ends; her played card fades meanwhile, as in the game\'s focus mode. "Make a wish!" is something the room can say along with.',
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -215,7 +215,7 @@ export default async function play(lab) {
     maya.set(pose);
     maya.each = (m) => m.eyeMat.color.setRGB(3.2 * eye, 3.1 * eye, 2.9 * eye);
     // while the camera leans in, her played card steps aside (as the game's own focus mode does)
-    const closeK = ease.inOut(seg(t, 0.5, 0.9)) * (1 - ease.out3(seg(t, WHOOMP + 0.02, END - 0.1)));
+    const closeK = ease.inOut(seg(t, 0.5, 0.9)) * (1 - ease.out(seg(t, WHOOMP + 0.02, END - 0.1)));
     if (me.card) me.card.material.opacity *= 1 - closeK;
 
     // ---------- the column / flame ----------
@@ -353,7 +353,7 @@ export default async function play(lab) {
     camRelease = lab.camera((home) => {
       const t = lab.t - t0;
       // ...and the whoomp's blast shoves it back out: fast, then easing home
-      const k = ease.inOut(seg(t, 0.42, 1.0)) * (1 - ease.out3(seg(t, WHOOMP + 0.02, END - 0.04)));
+      const k = ease.inOut(seg(t, 0.42, 1.0)) * (1 - ease.out(seg(t, WHOOMP + 0.02, END - 0.04)));
       return { target: home.target.clone().lerp(new THREE.Vector3(F.x + 0.2, 0.4, F.z), 0.6 * k), dist: home.dist * (1 - 0.3 * k) };
     });
   });

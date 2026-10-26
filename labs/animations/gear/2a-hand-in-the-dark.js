@@ -2,9 +2,9 @@
 export const meta = {
   title: 'A hand in the dark',
   idea:
-    "A shadow of missing light slides onto the glass from the nearest edge, huge and soft because the hand making it is far above the TV. Maya looks up. The shadow shrinks and sharpens into a hand as it comes down, the grid and her glow going out under it; finger and thumb snap shut on her and squeeze her thin, lift her a hair off the glass so she dangles, give her a heavy quarter twist (she swings a beat behind it), and plonk her down. The fingers spring open, the hand rises and slides away, the light comes back, and Maya shakes herself off like a dog.",
+    "A shadow of missing light slides onto the glass from our side of the screen: a huge soft blur with its fingers spread, because the hand making it is high up, somewhere between the sofa and the TV. Maya looks up. As it comes down it shrinks and sharpens into a real hand, the grid and her glow going out under it, the fingers gathering into a pinch; thumb and finger snap shut on her and squeeze her thin, lift her a hair off the glass so she dangles, give her a heavy quarter twist at the wrist (she swings a beat behind it), and plonk her down. The fingers spring open, the hand rises and slides away, the light comes back, and Maya shakes herself off like a dog.",
   notes:
-    'Weight: the giant is slow and deliberate, Maya is light and floppy: she squashes in the pinch, her feet leave the glass, her body lags behind the twist and swings past it, the set-down is a thunk with a squash, and the un-pinch jiggles her back into shape. The shadow is drawn as missing light, only on the glass, and grows soft and pale as the hand rises (a real penumbra). Sound: a low glassy hum as the dark comes in, a soft rubbery squeak on the pinch, a heavy "tok" on the set-down, the light returning as a shimmer. Red gears: the twist goes the other way. Comes from whichever board edge is nearest.',
+    'Weight: the giant is slow and deliberate, Maya is light and floppy: she squashes in the pinch, her feet leave the glass, her body lags behind the twist and swings past it, the set-down is a thunk with a squash, and the un-pinch jiggles her back into shape. The shadow is drawn as missing light, only on the glass, and grows soft and pale as the hand rises (a real penumbra). It comes from the nearest edge on our side of the board (south, east or west, never from behind her, so her body never hides the hand), angled away from other robots: it reads as one of us leaning into the TV to turn our own piece, the ghost of the cardboard game. Sound: a low glassy hum as the dark comes in, a soft rubbery squeak on the pinch, a heavy "tok" on the set-down, the light returning as a shimmer. Red gears: the twist goes the other way.',
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -15,7 +15,23 @@ const smooth = (k) => k * k * (3 - 2 * k);
 // the hand, from above, reaching in from the top of the canvas; the pinch point is at (256, PY)
 const CW = 512;
 const PY = 330;
-function drawHand(g, gap, blur) {
+// fingers of a left hand, palm down, reaching down the canvas: [base, knuckle, tip, width], spread open...
+const OPEN = [
+  [[176, 176], [128, 226], [104, 272], 46], // thumb
+  [[214, 236], [196, 304], [186, 366], 38], // index
+  [[252, 246], [254, 322], [256, 390], 40], // middle
+  [[288, 238], [308, 306], [322, 362], 37], // ring
+  [[320, 218], [352, 262], [374, 302], 32], // little
+];
+// ...and closed to a pinch round the pinch point (gap = fingertips from it), the other three curled under
+const pinch = (gap) => [
+  [[184, 194], [146 - gap * 0.25, 272], [256 - gap, PY - 8], 46],
+  [[222, 238], [300 + gap * 0.15, 288], [256 + gap, PY + 6], 38],
+  [[256, 246], [292, 268], [304, 252], 40],
+  [[290, 236], [322, 252], [328, 234], 37],
+  [[320, 216], [346, 230], [350, 214], 32],
+];
+function drawHand(g, gap, blur, close, twist) {
   g.clearRect(0, 0, CW, CW);
   g.filter = blur > 0.5 ? `blur(${blur.toFixed(1)}px)` : 'none';
   g.fillStyle = '#000';
@@ -30,20 +46,25 @@ function drawHand(g, gap, blur) {
     else g.lineTo(pts[1][0], pts[1][1]);
     g.stroke();
   };
-  // forearm and palm
-  limb([[236, -80], [246, 140]], 128);
+  // the hand turns about the pinch point (the twist); the forearm bends to follow its wrist
+  const c = Math.cos(twist);
+  const sn = Math.sin(twist);
+  const wrist = [256 + (248 - 256) * c - (140 - PY) * sn, PY + (248 - 256) * sn + (140 - PY) * c];
+  limb([[236, -160], wrist], 132);
+  g.save();
+  g.translate(256, PY);
+  g.rotate(twist);
+  g.translate(-256, -PY);
   g.beginPath();
-  g.ellipse(258, 178, 98, 84, 0.08, 0, Math.PI * 2);
+  g.ellipse(256, 182, 100, 86, 0.06, 0, Math.PI * 2);
   g.fill();
-  // curled fingers: a row of knuckles behind the index
-  for (const [x, y, r] of [[346, 236, 31], [372, 206, 28], [380, 172, 24]]) {
-    g.beginPath();
-    g.arc(x, y, r, 0, Math.PI * 2);
-    g.fill();
-  }
-  // thumb (west) and index finger (east) closing round the pinch point
-  limb([[188, 196], [150 - gap * 0.25, 276], [256 - gap, PY - 8]], 46);
-  limb([[312, 232], [336 + gap * 0.2, 300], [256 + gap, PY + 6]], 40);
+  const shut = pinch(gap);
+  OPEN.forEach((f, i) => {
+    const q = shut[i];
+    const m = (a, b) => [a[0] + (b[0] - a[0]) * close, a[1] + (b[1] - a[1]) * close];
+    limb([m(f[0], q[0]), m(f[1], q[1]), m(f[2], q[2])], f[3] + (q[3] - f[3]) * close);
+  });
+  g.restore();
   g.filter = 'none';
 }
 
@@ -62,16 +83,27 @@ export default async function play(lab) {
   const lo = lab.pos(-0.5, -0.5);
   const hi = lab.pos(cols - 0.5, rows - 0.5);
 
-  // the nearest board edge: the hand comes in (and leaves) that way
+  // it reaches in from our side of the screen: the nearest edge that isn't behind her (so her body never hides
+  // the hand), a little diagonally, leaning away from any other robot
   const edges = [
-    { d: 0, dist: A.y + 0.5 },
     { d: 1, dist: cols - 0.5 - A.x },
     { d: 2, dist: rows - 0.5 - A.y },
     { d: 3, dist: A.x + 0.5 },
   ].sort((p, q) => p.dist - q.dist);
   const edge = edges[0];
-  const yaw0 = facing(edge.d);
-  const out = new THREE.Vector3(-Math.sin(yaw0), 0, -Math.cos(yaw0)); // toward the edge
+  const others = Object.entries(sc.bots).filter(([k]) => k !== 'a').map(([, r]) => lab.pos(r.x, r.y));
+  const clearance = (yaw) => {
+    const u = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    let best = 9;
+    for (const o of others) {
+      const v = o.clone().sub(C);
+      const along = v.dot(u);
+      if (along > 0) best = Math.min(best, Math.abs(v.x * u.z - v.z * u.x));
+    }
+    return best;
+  };
+  const yaw0 = [0.35, -0.35].map((o) => facing(edge.d) + o).sort((p, q) => clearance(q) - clearance(p))[0];
+  const out = new THREE.Vector3(-Math.sin(yaw0), 0, -Math.cos(yaw0)); // back toward the edge
 
   // ----- the shadow: a canvas hand, black, drawn only on the glass -----
   const cv = document.createElement('canvas');
@@ -109,18 +141,19 @@ export default async function play(lab) {
   const T_GRAB = 0.62; // down and pinched
   const T_LIFT = 0.72;
   const T_TW0 = 0.74; // twist (with a tiny wind-up first)
-  const T_TW1 = 1.06;
-  const T_DOWN = 1.14; // set down
-  const T_OPEN = 1.22; // fingers spring open
-  const T_GONE = 1.6; // risen and slid off the edge
-  const T_END = 1.66;
-  const far = edge.dist + 2.2; // where the shadow starts, beyond the edge
+  const T_TW1 = 1.1;
+  const T_DOWN = 1.17; // set down
+  const T_OPEN = 1.25; // fingers spring open
+  const T_GONE = 1.62; // risen and slid off the edge
+  const T_END = 1.7;
+  const far = edge.dist / Math.cos(0.35) + 1.7; // where the shadow starts, beyond the edge
 
   // the twist angle (0..1 of a quarter, with a wind-up and a heavy overshoot)
   const twistK = (t) => {
     if (t < T_TW0) return -0.06 * smooth(seg(t, T_LIFT, T_TW0));
     const k = seg(t, T_TW0, T_TW1);
-    return -0.06 + 1.06 * ease.outBack(k);
+    if (k < 0.72) return -0.06 + 1.14 * ease.inOut(k / 0.72);
+    return 1.08 - 0.08 * ease.inOut((k - 0.72) / 0.28);
   };
 
   const gearFrom = gear ? gear.extra : 0;
@@ -168,11 +201,14 @@ export default async function play(lab) {
       const blur = 1.2 + 34 * h * h + 6 * h;
       const size = 1 + 1.5 * h;
       const dark = t < T_OPEN ? (0.6 + 0.32 * (1 - h)) * seg(t, 0, 0.12) : (0.92 - 0.5 * h) * (1 - seg(t, T_GONE - 0.12, T_GONE));
-      drawHand(g, gap, blur);
+      // the fingers: spread wide while it's high, gathering into a pinch as it comes down, springing open to let go
+      const close = t < T_OPEN ? ease.inOut(seg(t, T_IN - 0.16, T_GRAB - 0.03)) : 1 - ease.out(seg(t, T_OPEN, T_OPEN + 0.14));
+      // (the fingers roll her: the hand itself turns a bit over half as far, so the arm barely swings)
+      drawHand(g, gap, blur, close, spin * (Math.PI / 2) * tw * 0.6);
       tex.needsUpdate = true;
       mat.uniforms.opacity.value = Math.max(0, dark);
       hand.position.set(C.x + out.x * along, 0.016, C.z + out.z * along);
-      hand.rotation.y = yaw0 - spin * (Math.PI / 2) * tw;
+      hand.rotation.y = yaw0;
       hand.scale.setScalar(size);
       // the gear's arrow turns under her as she's twisted
       if (gear) gear.extra = gearFrom - spin * (Math.PI / 2) * clamp01(t < T_OPEN ? tw : 1);

@@ -125,15 +125,15 @@ export default async function play(lab) {
     // brakes: leaning back hard, squashed, chattering as she skids
     const b = seg(T, ...BRAKE);
     const hold = smooth(seg(b, 0, 0.2)) * (1 - smooth(seg(T, EDGE, EDGE + 0.06)));
-    o.pitch = lerp(o.pitch, -0.34, hold);
-    o.sy -= 0.14 * hold;
-    o.sx += 0.08 * hold;
+    o.pitch = lerp(o.pitch, -0.42, hold);
+    o.sy -= 0.16 * hold;
+    o.sx += 0.09 * hold;
     o.roll += 0.035 * Math.sin(T * 95) * hold * (1 - smooth(seg(b, 0.7, 1)));
     // stopped, nose over the rim: she windmills, see-sawing over the edge
     const w = seg(T, ...TEETER);
     if (w > 0) {
       const env = bump(w) ** 0.5;
-      o.roll += 0.28 * Math.sin(w * Math.PI * 4) * env;
+      o.roll += 0.36 * Math.sin(w * Math.PI * 4) * env;
       o.pitch = lerp(o.pitch, 0.18 * Math.sin(w * Math.PI * 3 + 0.5), env);
       o.x += 0.05 * smooth(w);
       o.eyeW = 2.3;
@@ -260,7 +260,7 @@ export default async function play(lab) {
       // the card lives in the tilted fx layer: put it back in board terms (over the rim once she's past it)
       const at = lab.pos(Math.min(look.x, 6.5), 1);
       c.position.set(at.x, c.position.y - maya.pose.lift + Math.max(0, look.ownLift), at.z);
-      const gone = smooth(seg(T, LETGO, GONE));
+      const gone = smooth(seg(T, LETGO - 0.05, LETGO + 0.14));
       c.material.opacity *= 1 - gone;
       c.visible = gone < 0.99;
     }

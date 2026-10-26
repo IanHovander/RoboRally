@@ -64,7 +64,7 @@ export default async function play(lab) {
   // ----- Maya's headlight: a glare at her eye and its gleam stretched along the glass toward us -----
   const warm = new THREE.Color('#fff2dc');
   const eyeMesh = maya.model.body.children.find((o) => o.material === maya.model.eyeMat);
-  const glareMat = new THREE.SpriteMaterial({ map: glowTexture(THREE), color: warm.clone().multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+  const glareMat = new THREE.SpriteMaterial({ map: glowTexture(THREE), color: warm.clone().multiplyScalar(2.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const glare = new THREE.Sprite(glareMat);
   glare.renderOrder = 10;
   lab.add(glare);
@@ -74,18 +74,23 @@ export default async function play(lab) {
   gleam.renderOrder = 3;
   lab.add(gleam);
   const eyeW = new THREE.Vector3();
+  // her eye flares toward high beams as she comes at the lens (the game sets its colour each frame)
+  const H = { beam: 0 };
+  maya.each = (m) => m.eyeMat.color.setRGB(3.2, 3.1, 2.9).multiplyScalar(1 + 2.2 * H.beam);
 
   // ----- the camera rig -----
   const lowFor = (tx) => ({
     // glass level just beside Theo (south-east of him), looking back west along the row
-    target: new THREE.Vector3(X(tx) - 1.35, 0.16, row - 0.05),
-    az: 1.2,
-    el: 0.085,
-    dist: 1.95,
-    fov: 44,
+    // over his shoulder: the lens sits a little east and south of him, just above his ridge, so his glass back
+    // fills the bottom of the picture and Maya comes at us head-on, straight down the row
+    target: new THREE.Vector3(X(tx) - 1.8, 0.1, row - 0.05),
+    az: 1.388,
+    el: 0.267,
+    dist: 2.846,
+    fov: 38,
     roll: 0,
   });
-  const rigX = spring(260, 17); // the rig's lag behind Theo when he's shoved (spaces)
+  const rigX = spring(110, 8); // the rig's lag behind Theo when he's shoved (spaces)
   const rigRoll = spring(210, 9); // it tips over from the knock and rocks back
   const rigNod = spring(260, 12);
   const C = { blend: 0, bobY: 0, extraDist: 0, tx: 3, rig: 3, roll: 0, nod: 0 };
@@ -111,6 +116,12 @@ export default async function play(lab) {
   const M0 = 0.26; // she sets off while the camera is still falling
   const TOTAL = F(2.42);
   const glint = theo.model.paint.emissiveIntensity;
+  // we're looking over his shoulder: his ridge light dims a little so it doesn't glare in the foreground
+  theo.each = (m) => {
+    m.eyeMat.color.setRGB(3.2, 3.1, 2.9).multiplyScalar(1 - 0.75 * C.blend);
+    // his name tag would hang right in front of the lens: it steps aside while we're down here
+    if (theo.bot.tag) theo.bot.tag.material.opacity = 1 - smooth(0.1, 0.4, C.blend);
+  };
   let kicked = false;
   let tPrev = 0;
   await lab.tween(TOTAL, (e, k) => {
@@ -151,9 +162,9 @@ export default async function play(lab) {
     // --- the rig is tied to Theo by a spring: it lags the shove, overshoots, tips and rocks ---
     if (t >= TC && !kicked) {
       kicked = true;
-      rigRoll.v -= 3.4; // knocked over to the left
-      rigNod.v += 1.2;
-      lab.shake(0.025, 0.2);
+      rigRoll.v -= 4.6; // knocked over to the left
+      rigNod.v += 1.6;
+      lab.shake(0.03, 0.2);
     }
     // the rig is a heavy mass on a spring tied to Theo: it lags the shove, then overshoots
     rigX.x = C.rig - tx;
@@ -167,16 +178,26 @@ export default async function play(lab) {
     eyeMesh.getWorldPosition(eyeW);
     const cam = lab.camera3.position;
     const near = clamp01((3.2 - eyeW.distanceTo(cam)) / 2.4) * smooth(0.3, 0.5, C.blend);
-    glare.position.copy(eyeW).add(new THREE.Vector3(0.06, 0, 0));
-    glareMat.opacity = near * (1 - smooth(TC, TC + 0.5, t) * 0.7);
-    glare.scale.setScalar(0.25 + 0.75 * near);
-    const g0 = lab.pos(mx + 0.35, 2);
-    gleam.position.set(g0.x + 0.45, 0.009, g0.z + 0.04);
-    gleam.scale.set(1.1, 0.14, 1);
-    gleamMat.opacity = smooth(0.25, 0.5, C.blend) * (0.35 + 0.65 * near) * (1 - smooth(TC + 0.1, TC + 0.6, t));
+    const beam = near * (1 - 0.75 * smooth(TC, TC + 0.4, t));
+    H.beam = beam;
+    glare.position.copy(eyeW);
+    glareMat.opacity = Math.min(1, 1.3 * beam);
+    glare.scale.setScalar(0.3 + 1.5 * beam * beam);
+    // the gleam lies on the glass between her eye and us, stretched toward the lens
+    const gx = cam.x - eyeW.x;
+    const gz = cam.z - eyeW.z;
+    const gl = Math.hypot(gx, gz) || 1;
+    const len = 0.5 + 0.9 * beam;
+    gleam.position.set(eyeW.x + (gx / gl) * (0.2 + len / 2), 0.009, eyeW.z + (gz / gl) * (0.2 + len / 2));
+    gleam.rotation.set(-Math.PI / 2, 0, Math.atan2(-gz, gx));
+    gleam.scale.set(len, 0.1 + 0.08 * beam, 1);
+    gleamMat.opacity = smooth(0.25, 0.5, C.blend) * (0.3 + 0.7 * beam) * (1 - smooth(TC + 0.1, TC + 0.6, t));
   }, ease.linear);
 
   releaseCam();
+  maya.each = null;
+  theo.each = null;
+  if (theo.bot.tag) theo.bot.tag.material.opacity = 1;
   glare.visible = false;
   gleam.visible = false;
   theo.model.paint.emissiveIntensity = glint;

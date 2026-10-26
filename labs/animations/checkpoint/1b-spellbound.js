@@ -5,7 +5,7 @@
 export const meta = {
   title: 'Spellbound',
   idea:
-    "A hoop of Maya's red light drops down flag 1's column and lands on its edge around her, spinning down like Euler's disk. She is hypnotised: her body circles with the wobble, lower and faster, until a glassy click lays it flat. A stunned blink, then the hoop cinches to the size of her taken ring, squeezing her tall like a ring on a finger, and she pops back down proud. Bystanders sway along in sympathy.",
+    "A hoop of Maya's red light drops down flag 1's column and lands on its edge around her, spinning down like Euler's disk. She is hypnotised: her head swings to follow the glint round and her body circles with the wobble, lower and faster, until a glassy click lays it flat. A stunned blink, then the hoop cinches to the size of her taken ring, squeezing her tall like a ring on a finger, and she pops back down proud. Bystanders sway along in sympathy.",
   notes:
     'Sound: a glassy "tink" as the hoop lands, then the whirr rising in pitch and speed (the drumroll), a dry glass click, silence for the blink, a soft squeak for the cinch and a warm chime as she pops. ' +
     "Generic: the hoop settles at the height of the next taken ring, so on a flag others already hold it lands on top of their rings (a tally). Every other robot sways along with the wobble, smaller and a little late, and blinks at the click. " +
@@ -145,7 +145,7 @@ export default async function play(lab) {
     eye: T([[0.62, 1], [0.68, 1.8, 'out'], [LAND, 1.6], [LAND + 0.03, 0.25, 'out'], [LAND + 0.14, 1.1, 'out'], [CLICK - 0.3, 1.25], [CLICK, 1.5], [CLICK + 0.03, 0.15, 'out'], [CLICK + 0.09, 0.15], [CLICK + 0.14, 1.2, 'out'], [HAND, 2.2, 'in'], [HAND + 0.2, 1.4, 'out'], [END, 1, 'inOut']]),
     squint: T([[CINCH, 1], [HAND, 0.5, 'in'], [HAND + 0.1, 1.15, 'out'], [END, 1, 'inOut']]),
     // how hard she follows the wobble with her body
-    follow: T([[S0 + 0.05, 0], [S0 + 0.35, 0.24, 'inOut'], [CLICK, 0.32, 'inOut']]),
+    follow: T([[S0 + 0.05, 0], [S0 + 0.35, 0.26, 'inOut'], [CLICK, 0.32, 'inOut']]),
     // after the click: the head goes round once more on its own (dizzy), then she straightens
     dizzy: T([[CLICK, 1], [CLICK + 0.16, 0.0, 'out']]),
     proud: T([[HAND + 0.1, 0], [HAND + 0.25, -0.09, 'out'], [END, 0, 'inOut']]),
@@ -213,7 +213,7 @@ export default async function play(lab) {
       // it brightens as it speeds up (the drumroll), flashes white at the click, then settles to the ring's light
       const s = spinS(t);
       const k = clamp01((t - CINCH) / (HAND - CINCH));
-      hoopMat.color.set(color).lerp(new THREE.Color('#fff'), 0.25 + flash * 0.6).multiplyScalar((1.9 + 0.9 * s * (t < CLICK ? 1 : 0) + 3 * flash) * (1 - 0.2 * k));
+      hoopMat.color.set(color).lerp(new THREE.Color('#fff'), 0.25 + flash * 0.6).multiplyScalar((1.6 + 0.6 * s * (t < CLICK ? 1 : 0) + 3 * flash) * (1 - 0.15 * k));
       hoopMat.opacity = vis;
     }
     // the glint where the hoop touches the glass, and the light it spills
@@ -225,12 +225,12 @@ export default async function play(lab) {
       glint.scale.setScalar(g);
       glint.material.opacity = 0.9;
       pool.scale.setScalar(R0 * 2.2);
-      pool.material.opacity = 0.08 + 0.22 * s;
+      pool.material.opacity = 0.05 + 0.12 * s;
     } else if (t >= CLICK) {
       glint.material.opacity = 0;
       const k = clamp01((t - CLICK) / (HAND - CLICK + 0.2));
       pool.scale.setScalar((R0 + (RT - R0) * clamp01((t - CINCH) / (HAND - CINCH))) * 2.2);
-      pool.material.opacity = 0.3 * (1 - k);
+      pool.material.opacity = 0.17 * (1 - k);
     }
     if (t >= CLICK && flashAt < 0) {
       flashAt = t;
@@ -259,15 +259,18 @@ export default async function play(lab) {
     if (t < CLICK) lastLean = { ang: leanAng, amt: leanAmt };
     const look = M.look(t);
     // a small turn of the head toward the glint while she follows it
-    const side = leanAmt > 0 ? Math.sin(leanAng - east - Math.PI) : 0;
-    maya.p.set({ x: M.x(t), y: flag.y, rot: east + 0.3 * side * (leanAmt / 0.2) * (t < CLICK ? 1 : M.dizzy(t)), lift: M.lift(t) });
+    // her head swings to follow the glint round, like watching a spinning coin: faster and faster
+    const rel = leanAng - east - Math.PI;
+    const side = leanAmt > 0 ? Math.sin(rel) : 0;
+    const followOn = Math.min(1, leanAmt / 0.24);
+    maya.p.set({ x: M.x(t), y: flag.y, rot: east + 0.75 * side * followOn, lift: M.lift(t) });
     maya.leanToward(leanAng, leanAmt);
     // the drive: rocks back as she sets off, forward as she brakes
     const drive = t < 0.6 ? (t < 0.3 ? -0.1 : 0.14) * Math.sin(((t % 0.3) / 0.3) * Math.PI) : 0;
     maya.lean += look + M.proud(t) + drive;
     maya.sq = M.sq(t);
     maya.wide = M.wide(t);
-    maya.eye = M.eye(t);
+    maya.eye = M.eye(t) + (t < CLICK ? 0.8 * followOn * Math.max(0, Math.cos(rel)) ** 2 : 0); // the glint in her eye
     maya.squint = M.squint(t);
 
     // ---- bystanders sway along, smaller and late, and blink at the click ----

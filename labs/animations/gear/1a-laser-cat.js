@@ -27,6 +27,29 @@ function glowTex(THREE) {
   return t;
 }
 
+// a ring of light on the glass that spreads and fades (lab.ring shows its first frame at full size, so a local one)
+function ringFx(lab, at, color, from, to, dur, k = 1.8) {
+  const { THREE } = lab;
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(0.94, 1, 96),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.copy(at);
+  m.scale.setScalar(from);
+  lab.add(m);
+  const t0 = lab.t;
+  const stop = lab.every(() => {
+    const e = Math.min(1, (lab.t - t0) / dur);
+    m.scale.setScalar(from + (to - from) * (1 - (1 - e) ** 2));
+    m.material.opacity = (1 - e) ** 1.5;
+    if (e >= 1) {
+      m.visible = false;
+      stop();
+    }
+  });
+}
+
 export default async function play(lab) {
   const { THREE, ease, facing } = lab;
   const sc = lab.scenario;
@@ -75,32 +98,32 @@ export default async function play(lab) {
   // squirts out from under her, toward us, then zips round the far side to sit under her nose
   key(0.0, 180 * spin, 0.25);
   key(0.12, 180 * spin, 0.74, ease.out);
-  key(0.32, 360 * spin, 0.74, ease.inOut);
+  key(0.32, 360 * spin, 0.84, ease.inOut);
   // the stalk, with seeded feints
   let t = 0.54;
   const r1 = lab.rand();
   const r2 = lab.rand();
   const r3 = lab.rand();
   const first = 18 + r1 * 14; // first dash
-  key(t, 360 * spin, 0.74);
+  key(t, 360 * spin, 0.84);
   t += 0.06;
-  key(t, (360 + first) * spin, 0.74);
+  key(t, (360 + first) * spin, 0.84);
   t += 0.08 + r2 * 0.05;
-  key(t, (360 + first) * spin, 0.74);
+  key(t, (360 + first) * spin, 0.84);
   if (r3 < 0.5) {
     // a flick back: she falls for it
     t += 0.05;
-    key(t, (360 + first - 9) * spin, 0.74);
+    key(t, (360 + first - 9) * spin, 0.84);
     t += 0.09;
-    key(t, (360 + first - 9) * spin, 0.74);
+    key(t, (360 + first - 9) * spin, 0.84);
   } else {
     // a false start: a twitch forward and straight back
     t += 0.04;
-    key(t, (360 + first + 6) * spin, 0.74);
+    key(t, (360 + first + 6) * spin, 0.84);
     t += 0.05;
-    key(t, (360 + first) * spin, 0.74);
+    key(t, (360 + first) * spin, 0.84);
     t += 0.06;
-    key(t, (360 + first) * spin, 0.74);
+    key(t, (360 + first) * spin, 0.84);
   }
   t += 0.07;
   key(t, (360 + 58 + r1 * 8) * spin, 0.76);
@@ -132,6 +155,7 @@ export default async function play(lab) {
   const startle = 0.34;
   const tag = lab.bot('a').tag;
   const tagWorld = new THREE.Vector3(C.x, 0.86 * 1.3, C.z);
+  const tagScale0 = tag ? tag.scale.clone() : null;
   // the gear: its arrow's light leaves with the dot, and relights (with its quarter turn) when she lands
   const gearFrom = gear ? gear.extra : 0;
   let gearScale = 1;
@@ -179,7 +203,8 @@ export default async function play(lab) {
       // Maya's head: aims at the dot (with a reaction lag) once she has noticed it
       const seen = tt >= startle;
       const lagged = dotAt(Math.max(0, tt - 0.05));
-      const want = seen ? degToH(lagged.a) : rot0;
+      // (the dot has already been round her once: she only chases where it is now, she doesn't unwind)
+      const want = seen ? degToH(lagged.a - 360 * spin) : rot0;
       const N = 8;
       for (let s = 0; s < N; s++) {
         const w = 46;
@@ -255,7 +280,7 @@ export default async function play(lab) {
           if (gear) gear.kick = { t0: lab.arena.time, from: gearFrom, to: gearFrom - spin * (Math.PI / 2) };
           if (gear) gear.pulse = lab.arena.time;
           const where = at(rot1, 0.62);
-          lab.ring(where, mint, 0.16, 0.02, 0.3);
+          ringFx(lab, where.clone().setY(0.02), mint, 0.12, 0.46, 0.32);
           lab.particles(where.clone().setY(0.04), [mint, '#ffffff'], 12, { speed: 1.0, up: 1.1, gravity: 7, size: 0.04, dur: 0.45 });
         }
       }
@@ -272,19 +297,23 @@ export default async function play(lab) {
       const focus = seg(tt, startle, startle + 0.1) * (1 - seg(tt, tLand, tLand + 0.1));
       const k = 1 + 0.8 * focus;
       m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
-      const drink = tt >= tLand ? Math.exp(-(tt - tLand) * 10) : 0;
-      m.ringMat.color.copy(red).lerp(new THREE.Color(mint), drink).multiplyScalar(1.6 + 2 * drink);
+      const drink = tt >= tLand ? Math.exp(-(tt - tLand) * 6) * seg(tt, tLand, tLand + 0.05) : 0;
+      m.ringMat.color.copy(red).lerp(new THREE.Color(mint), drink).multiplyScalar(1.6 + 1.1 * drink);
       // her name stays put while she jumps about
       if (tag) {
         maya.group.updateMatrixWorld(true);
         tag.position.copy(maya.group.worldToLocal(tagWorld.clone()));
+        tag.scale.set(tagScale0.x / maya.pose.sx, tagScale0.y / maya.pose.sy, 1);
       }
     };
   });
 
   maya.each = null;
   stopGear();
-  if (tag) tag.position.set(0, 0.86, 0);
+  if (tag) {
+    tag.position.set(0, 0.86, 0);
+    tag.scale.copy(tagScale0);
+  }
   maya.model.ringMat.color.copy(red).multiplyScalar(1.6);
   maya.release({ x: after.x, y: after.y, d: after.d });
 }

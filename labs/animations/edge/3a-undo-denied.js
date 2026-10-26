@@ -207,6 +207,30 @@ export default async function play(lab) {
   scrape.position.copy(corner);
   lab.add(scrape);
 
+  // echoes for the rewind: faint copies of her a moment further along the tape, so the motion visibly runs backward
+  const echoes = [0, 1, 2].map(() => {
+    const e = maya.model.body.clone(true);
+    const mat = new THREE.MeshBasicMaterial({ color: RED.clone().multiplyScalar(1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    e.traverse((o) => {
+      if (o.isMesh) o.material = mat;
+    });
+    e.userData.mat = mat;
+    e.matrixAutoUpdate = false;
+    e.visible = false;
+    lab.add(e);
+    return e;
+  });
+  const dummy = new THREE.Object3D();
+  dummy.rotation.order = 'YXZ';
+  const poseMatrix = (P) => {
+    const at = lab.pos(P.x, 1);
+    dummy.position.set(at.x, P.lift, at.z);
+    dummy.rotation.set(-P.pitch, P.rot, -P.roll);
+    dummy.scale.set(1.3 * P.sx, 1.3 * P.sy, 1.3 * P.sz);
+    dummy.updateMatrix();
+    return dummy.matrix;
+  };
+
   lab.playCard('a', ['m3']);
   const t0 = lab.t;
   let tau = 0;
@@ -220,13 +244,13 @@ export default async function play(lab) {
     m.poolMat.opacity = 0.75 * mayaLight;
     m.paint.opacity = Math.min(1, mayaLight * 1.5);
     m.paint.emissiveIntensity = base * mayaLight;
+    const c = lab.bot('a').card;
+    if (c) c.material.opacity *= mayaLight;
   };
 
-  const dbg = [];
   lab.every(() => {
     const t = lab.t - t0;
     tau = tapeAt(t);
-    if (t > 2.85 && t < 3.1) { const g = lab.bot('a').group; dbg.push(`${t.toFixed(2)}:${tau.toFixed(2)} v${g.visible ? 1 : 0} x${g.position.x.toFixed(1)} y${g.position.y.toFixed(1)} g${gone ? 1 : 0} bv${lab.bot('a').visible ? 1 : 0}`); }
     const rewinding = t >= T_REW && t < T_PAUSE;
 
     // Maya
@@ -236,8 +260,20 @@ export default async function play(lab) {
       if (t >= T_PLAY && !P.visible) {
         gone = true;
         maya.release({ x: 7, y: 1, on: false });
+        // released mid-frame: the game already placed her this frame, so hide her by hand until it catches up
+        maya.group.visible = false;
+        const c = lab.bot('a').card;
+        if (c) c.visible = false;
       } else maya.set({ x: P.x, y: 1, lift: P.lift, rot: P.rot, pitch: P.pitch, roll: P.roll, sx: P.sx, sy: P.sy, sz: P.sz, visible: P.visible });
     }
+    // the rewind's echoes
+    const er = rewinding ? Math.sin(seg(t, T_REW, T_PAUSE) * PI) : 0;
+    echoes.forEach((e, j) => {
+      e.visible = er > 0.01;
+      e.userData.mat.opacity = 0.34 * er * (1 - 0.3 * j);
+      if (e.visible) e.matrix.copy(poseMatrix(mayaAt(Math.min(TAU_END, tau + 0.06 * (j + 1)))));
+    });
+
     // Ava lives on the same tape
     if (tau <= TAU_END) ava.set(avaAt(tau));
 
@@ -246,8 +282,7 @@ export default async function play(lab) {
     if (c && tau <= TAU_END) {
       c.userData.played = lab.t - tau;
       c.userData.born = lab.t - tau - 0.02;
-      const glow = 1 + (rewinding ? 0.12 * Math.sin(seg(t, T_REW, T_PAUSE) * PI) : 0);
-      c.material.color.setScalar(glow);
+
     }
 
     // the trail: laid, eaten back up, laid again, then it fades as it always does
@@ -289,9 +324,6 @@ export default async function play(lab) {
   });
 
   await lab.wait(T_END + 0.02);
-  lab.warnings.push(dbg.join(' '));
   if (!gone) maya.release({ x: 7, y: 1, on: false });
   ava.release({ x: 2, y: 3, d: 0 });
-  const c = lab.bot('a').card;
-  if (c) c.material.color.setScalar(1);
 }

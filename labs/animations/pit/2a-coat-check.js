@@ -218,6 +218,7 @@ export default async function play(lab) {
     m.paint.emissive.copy(red).lerp(new THREE.Color(0x1b2230), drain);
     m.paint.emissiveIntensity = lerp(0.16, 0.35, drain);
     m.eyeMat.color.copy(warm).multiplyScalar(eye);
+    if (eyeState) drawEye(eyeState);
     if (b.card) {
       b.card.position.y -= Math.min(0, maya.pose.lift);
       b.card.material.opacity *= cardFade;
@@ -238,6 +239,45 @@ export default async function play(lab) {
     mesh.position.copy(a).addScaledVector(d, 0.5);
     mesh.quaternion.setFromUnitVectors(up, d.normalize());
     mesh.scale.set(r, len, r);
+  };
+  // her eye light: pulled out of her, snaps, lies on the glass (runs after her pose is applied)
+  let eyeState = null;
+  const drawEye = ({ s, ccx, wob }) => {
+    eyeMesh.getWorldPosition(eyeW);
+    const dashAt = lab.pos(3 + 0.17, Y).setY(0.012);
+    dashAt.x = ccx + 0.17;
+    if (s >= T.snag[0] && s < T.snap) {
+      const k = seg(s, ...T.snag);
+      // it stretches from her face back to where her colour is held, thinning as it goes
+      const len = eyeW.distanceTo(dashAt);
+      placeStrand(strand, dashAt, eyeW, Math.max(0.009, 0.03 / Math.sqrt(1 + len * 4)));
+      strand.visible = k > 0.05;
+      strandMat.color.copy(warm).multiplyScalar(1.2 + 0.8 * k);
+      dash.visible = false;
+    } else if (s >= T.snap) {
+      const ks = s - T.snap;
+      // two halves fly apart: one snaps down into the stain, one zips back into her face and goes out
+      const back = clamp01(ks / 0.09);
+      const mid = dashAt.clone().lerp(eyeW, 0.5);
+      if (back < 1) {
+        placeStrand(strand, dashAt, mid.clone().lerp(dashAt, back), 0.008);
+        placeStrand(strand2, eyeW, mid.clone().lerp(eyeW, back), 0.008);
+      } else {
+        strand.visible = false;
+        strand2.visible = false;
+      }
+      dash.visible = true;
+      dash.position.copy(dashAt);
+      const dscale = 1 + 0.4 * Math.exp(-ks * 12) + 0.15 * wob;
+      dash.scale.setScalar(dscale);
+      const kt = seg(s, T.seep[0], T.threads[0] + 0.3);
+      strandMat.color.copy(warm).lerp(red.clone().multiplyScalar(2), clamp01((s - T.shiver[0]) / 0.3)).multiplyScalar(1 - kt);
+      strandMat.opacity = 1 - kt;
+    } else {
+      strand.visible = false;
+      dash.visible = false;
+    }
+
   };
   const stop = lab.every((dt, now) => {
     const s = now - t0;
@@ -265,9 +305,9 @@ export default async function play(lab) {
     } else if (s < T.snap) {
       // she strains on; her colour is held at the rim and squashes flat against it
       const k = seg(s, ...T.snag);
-      pose.x = lerp(SNAG, 3.5, 1 - (1 - k) ** 1.7);
-      cx = SNAG + 0.1 * ease.out(k);
-      press = 0.1 * ease.out(k); // the ring is shoved into the rim
+      pose.x = lerp(SNAG, 3.74, 1 - (1 - k) ** 1.7); // out over the hole, held up by her own light
+      cx = SNAG + 0.22 * ease.out(k);
+      press = 0.12 * ease.out(k); // the ring is shoved into the rim
       drain = k ** 0.8;
       pose.pitch = 0.16 * Math.sin(k * Math.PI * 0.5); // leaning into it
       pose.roll = 0.025 * Math.sin(s * 70) * k; // straining
@@ -283,8 +323,8 @@ export default async function play(lab) {
       pose.trail = false;
       const ks = s - T.snap;
       // the ring snaps back off the rim, jelly-wobbles, and becomes her stain
-      cx = lerp(SNAG + 0.1, 3, 1 - Math.exp(-ks * 14));
-      press = 0.1 * Math.exp(-ks * 20);
+      cx = lerp(SNAG + 0.22, 3, 1 - Math.exp(-ks * 14));
+      press = 0.12 * Math.exp(-ks * 20);
       morph = clamp01(ks / 0.3);
       morph = 1 - (1 - morph) ** 2;
       wob = Math.exp(-ks * 6) * Math.sin(ks * 34);
@@ -293,7 +333,7 @@ export default async function play(lab) {
       // the body: slingshot over the hole, a beat, then straight down
       if (s < T.lurch[1]) {
         const k = seg(s, ...T.lurch);
-        pose.x = lerp(3.5, 4.0, 1 - (1 - k) ** 2.4);
+        pose.x = lerp(3.74, 4.0, 1 - (1 - k) ** 2.4);
         pose.pitch = 0.16 + 0.22 * Math.sin(k * Math.PI);
         const sq = Math.exp(-ks * 22);
         pose.sx = pose.sz = 1 - 0.12 * sq;
@@ -363,41 +403,7 @@ export default async function play(lab) {
     fill.scale.set(fs, 1, 1 + 0.06 * -wob - sh * 0.4);
     fillMat.opacity = fillA;
 
-    // --- her eye light: pulled out of her, snaps, lies on the glass ---
-    eyeMesh.getWorldPosition(eyeW);
-    const dashAt = lab.pos(3 + 0.17, Y).setY(0.012);
-    dashAt.x = ccx + 0.17;
-    if (s >= T.snag[0] && s < T.snap) {
-      const k = seg(s, ...T.snag);
-      // it stretches from her face back to where her colour is held, thinning as it goes
-      const len = eyeW.distanceTo(dashAt);
-      placeStrand(strand, dashAt, eyeW, Math.max(0.006, 0.02 / Math.sqrt(1 + len * 6)));
-      strand.visible = k > 0.05;
-      strandMat.color.copy(warm).multiplyScalar(1 + 0.6 * k);
-      dash.visible = false;
-    } else if (s >= T.snap) {
-      const ks = s - T.snap;
-      // two halves fly apart: one snaps down into the stain, one zips back into her face and goes out
-      const back = clamp01(ks / 0.09);
-      const mid = dashAt.clone().lerp(eyeW, 0.5);
-      if (back < 1) {
-        placeStrand(strand, dashAt, mid.clone().lerp(dashAt, back), 0.008);
-        placeStrand(strand2, eyeW, mid.clone().lerp(eyeW, back), 0.008);
-      } else {
-        strand.visible = false;
-        strand2.visible = false;
-      }
-      dash.visible = true;
-      dash.position.copy(dashAt);
-      const dscale = 1 + 0.4 * Math.exp(-ks * 12) + 0.15 * wob;
-      dash.scale.setScalar(dscale);
-      const kt = seg(s, T.seep[0], T.threads[0] + 0.3);
-      strandMat.color.copy(warm).lerp(red.clone().multiplyScalar(2), clamp01((s - T.shiver[0]) / 0.3)).multiplyScalar(1 - kt);
-      strandMat.opacity = 1 - kt;
-    } else {
-      strand.visible = false;
-      dash.visible = false;
-    }
+    eyeState = { s, ccx, wob }; // drawn in maya.each, once her pose for this frame is applied
 
     // --- the grout and the threads ---
     const kg = seg(s, ...T.seep);

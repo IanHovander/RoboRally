@@ -114,6 +114,10 @@ export default async function play(lab) {
   const glintMat = new THREE.SpriteMaterial({ map: star, color: new THREE.Color('#ffffff').multiplyScalar(3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const glint = new THREE.Sprite(glintMat);
   lab.add(glint);
+  const bubbleMat = new THREE.SpriteMaterial({ map: star, color: new THREE.Color('#ffffff'), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const bubble = new THREE.Sprite(bubbleMat);
+  bubble.visible = false;
+  lab.add(bubble);
 
   // Theo's glass fills with light from inside
   const paint = theo.model.paint;
@@ -152,7 +156,8 @@ export default async function play(lab) {
 
   // ----- 3. the spill: out of his far side, across the glass, a little too far, and back -----
   const faceOff = 0.27; // his far face, from his centre
-  const target = X(4) - (X(3) + faceOff); // the fan's length when its edge sits on space 4
+  const edgeX = X(4) + faceOff; // its bright edge: on space 4, where his far face will be when he lands
+  const target = edgeX - (X(3) + faceOff);
   S.base = X(3) + faceOff;
   const SPILL = F(0.36);
   await lab.tween(SPILL, (e, k) => {
@@ -186,51 +191,65 @@ export default async function play(lab) {
     T.fill = 0.85 + 0.15 * Math.sin(t * 30);
   }, ease.linear);
 
-  // ----- 4. he rides his spectrum to its edge; near the end it reels in like a sprung tape -----
-  const RIDE = F(0.5);
+  // ----- 4. he rides his spectrum toward its edge; halfway there it reels into him like a sprung tape -----
+  const ridgeTop = lab.pos(4, 2);
+  let snapAt = null; // when the tape clacks home
+  const stopGlint = lab.every((dt, now) => {
+    if (snapAt == null) return;
+    const s = now - snapAt;
+    const g = Math.exp(-s / 0.08) * clamp01(s / 0.02);
+    glint.position.set(X(theo.pose.x), 0.62 + theo.pose.lift, ridgeTop.z + 0.02);
+    glintMat.opacity = Math.min(1, g * 1.4);
+    glint.scale.setScalar(0.25 + 0.65 * g);
+    glintMat.rotation = 0.6 * s;
+    T.ridge = g;
+  });
+  const RIDE = F(0.52);
   const x0m = maya.pose.x;
-  const base0 = S.base;
   await lab.tween(RIDE, (e, k) => {
     const t = k * RIDE;
-    // Theo: a quick launch, a glide, a soft stop exactly on 4
-    const u = 1 - (1 - k) ** 2.4;
+    // Theo: a quick launch and a long glide that ends exactly on 4
+    const u = 1 - (1 - k) ** 1.8;
     const tx = 3 + u;
-    theo.set({ x: tx, sx: 0.82 + 0.18 * ease.outElastic(clamp01(t / 0.3)), sy: 1.02 - 0.02 * clamp01(t / 0.2), roll: -0.12 * Math.sin(Math.min(1, k * 1.4) * Math.PI) });
+    // the clack of the tape arriving gives him a little extra kick forward
+    const kick = snapAt == null ? 0 : 0.1 * Math.sin(clamp01((lab.t - snapAt) / 0.12) * Math.PI);
+    theo.set({ x: tx, sx: 0.82 + 0.18 * ease.outElastic(clamp01(t / 0.3)), sy: 1.02 - 0.02 * clamp01(t / 0.2), roll: -0.12 * Math.sin(Math.min(1, k * 1.4) * Math.PI) - kick, pitch: 0 });
     maya.set({ x: x0m + (3 - x0m) * (1 - (1 - clamp01(t / 0.38)) ** 2), sz: 0.95 + 0.05 * clamp01(t / 0.15), pitch: 0.12 * Math.cos(t * 14) * Math.exp(-t * 6) });
-    // the spilled light stays where it lies while he glides over it; near the end it reels into him
-    // from behind like a sprung tape: its tail races east, faster and faster, into his centre
-    const reel = smooth(0.55, 1, k) ** 2.4;
-    S.base = base0 + (X(4) - base0) * reel;
-    S.len = Math.max(0, X(4) - S.base);
+    // the fan leaves his far face and ends on space 4, so it shortens as he slides along it; then it reels in:
+    // its bright edge races back to him faster and faster (zzzip) and clacks home before he stops
+    S.base = X(tx) + faceOff;
+    const reel = clamp01((k - 0.25) / 0.42) ** 2.6;
+    const end = edgeX + (S.base - edgeX) * reel;
+    S.len = Math.max(0, end - S.base);
+    S.glow = reel >= 1 ? 0 : 1;
     drawFan();
     inMat.opacity = 0.6 * (1 - clamp01(t / 0.15));
-    T.fill = 1 - 0.5 * k;
-    T.ridgeHue = reel > 0.05 ? reel * 2.2 : -1;
+    if (reel >= 1 && snapAt == null) snapAt = lab.t;
+    T.fill = snapAt == null ? 1 - 0.4 * k : 0.6;
+    T.ridgeHue = reel > 0.02 && reel < 1 ? reel * 2.4 : -1;
   }, ease.linear);
-  S.glow = 0;
-  drawFan();
   fan.visible = false;
   inFlare.visible = false;
   maya.set({ x: 3, sz: 1, pitch: 0 });
 
-  // ----- 5. clack: the glint, and a hiccup -----
+  // ----- 5. he stops; a gulp, a beat, and a hiccup with one last bubble of colour -----
   T.ridgeHue = -1;
-  const ridgeTop = lab.pos(4, 2);
-  glint.position.set(ridgeTop.x, 0.62, ridgeTop.z + 0.02);
-  const HIC = F(0.34);
+  const HIC = F(0.44);
   await lab.tween(HIC, (e, k) => {
     const t = k * HIC;
-    const g = Math.exp(-t / 0.07) * clamp01(t / 0.02);
-    glintMat.opacity = Math.min(1, g * 1.4);
-    glint.scale.setScalar(0.25 + 0.6 * g);
-    glintMat.rotation = 0.6 * t;
-    T.ridge = g;
-    T.fill = 0.5 * (1 - clamp01(t / 0.18)) + 0.9 * g;
-    // the hiccup: a little hop with a stretch, a squash on landing, settle
-    const hop = Math.max(0, Math.sin(clamp01((t - 0.03) / 0.16) * Math.PI));
-    const land = t > 0.19 ? Math.exp(-(t - 0.19) / 0.05) * Math.sin(clamp01((t - 0.19) / 0.15) * Math.PI) : 0;
-    theo.set({ x: 4, lift: 0.07 * hop, sy: 1 + 0.12 * hop - 0.1 * land, sx: 1 - 0.05 * hop + 0.07 * land, sz: 1 - 0.05 * hop + 0.07 * land, roll: 0.05 * Math.sin(t * 30) * Math.exp(-t / 0.1) });
+    T.fill = 0.6 * (1 - clamp01(t / 0.12));
+    const pre = t < 0.07 ? Math.sin((t / 0.07) * Math.PI) : 0; // gulp
+    const hop = Math.max(0, Math.sin(clamp01((t - 0.12) / 0.16) * Math.PI)); // hic!
+    const land = t > 0.28 ? Math.sin(clamp01((t - 0.28) / 0.14) * Math.PI) : 0;
+    const b = clamp01((t - 0.13) / 0.26);
+    bubble.visible = b > 0 && b < 1;
+    bubble.position.set(ridgeTop.x + 0.04 * Math.sin(b * 9), 0.62 + 0.15 * hop + 0.32 * ease.out(b), ridgeTop.z);
+    bubbleMat.color.copy(spectrum((b * 1.7) % 1, tmp)).multiplyScalar(2.6);
+    bubbleMat.opacity = Math.sin(b * Math.PI) ** 0.5;
+    bubble.scale.setScalar(0.1 + 0.08 * b + (b > 0.85 ? 0.25 * (b - 0.85) / 0.15 : 0));
+    theo.set({ x: 4, lift: 0.15 * hop, sy: 1 + 0.18 * hop - 0.14 * land - 0.1 * pre, sx: 1 - 0.07 * hop + 0.09 * land + 0.06 * pre, sz: 1 - 0.07 * hop + 0.09 * land + 0.06 * pre, roll: 0 });
   }, ease.linear);
+  stopGlint();
 
   T.fill = 0;
   T.ridge = 0;
@@ -238,6 +257,7 @@ export default async function play(lab) {
   paint.emissive.copy(baseEmissive);
   paint.emissiveIntensity = baseEI;
   glint.visible = false;
+  bubble.visible = false;
   theo.set({ lift: 0, sx: 1, sy: 1, sz: 1, roll: 0 });
   maya.release({ x: 3, y: 2, d: 1 });
   theo.release({ x: 4, y: 2, d: 2 });

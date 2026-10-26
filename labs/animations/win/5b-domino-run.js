@@ -118,7 +118,7 @@ export default async function play(lab) {
   const LASTHIT = starts[N - 1]; // the last pane is nudged...
   const TAP = LASTHIT + 0.62; // ...teeters... and taps Theo
   const SINK = TAP + 0.42;
-  const END = SINK + 0.85;
+  const END = SINK + 0.9;
 
   const panes = [];
   const capGeo = new THREE.BoxGeometry(W, 0.014, 0.04);
@@ -170,7 +170,7 @@ export default async function play(lab) {
       if (s < 0) continue;
       if (i === N - 1) {
         // the last one: nudged, teeters forward, back, forward... and tips gently onto Theo
-        out[i] = kf([[0, 0], [0.1, 0.22, ease.out], [0.24, 0.04, ease.inOut], [0.36, 0.3, ease.inOut], [0.46, 0.27], [TAP - LASTHIT, LEANTHEO, ease.in], [TAP - LASTHIT + 0.12, LEANTHEO - 0.05, ease.out], [TAP - LASTHIT + 0.3, LEANTHEO]], ease)(s);
+        out[i] = kf([[0, 0], [0.1, 0.34, ease.out], [0.24, 0.03, ease.inOut], [0.37, 0.46, ease.inOut], [0.47, 0.42], [TAP - LASTHIT, LEANTHEO, ease.in], [TAP - LASTHIT + 0.12, LEANTHEO - 0.05, ease.out], [TAP - LASTHIT + 0.3, LEANTHEO]], ease)(s);
         continue;
       }
       const fall = LEAN * ease.in(clamp01(s / (starts[i + 1] - starts[i]))); // gravity, until it meets the next one
@@ -235,7 +235,7 @@ export default async function play(lab) {
     panes.forEach((p, i) => {
       const r = clamp01((t - p.rise) / 0.2);
       const pre = clamp01((t - p.rise + 0.12) / 0.12); // the line lights first
-      const sink = clamp01((t - SINK - i * 0.018) / 0.32);
+      const sink = clamp01((t - SINK - i * 0.012) / 0.28);
       p.g.visible = r > 0 && sink < 1;
       p.g.scale.y = Math.max(0.001, ease.outBack(r) * (1 - ease.in(sink)));
       p.g.position.y = -0.04 * sink;
@@ -245,7 +245,7 @@ export default async function play(lab) {
       const flash = struck >= 0 ? Math.exp(-struck * 9) : 0;
       const fallen = clamp01((tl[i] - LEAN * 0.5) / (FLAT - LEAN * 0.5));
       const step = 1 + i / N; // a step higher every pane
-      tmp.copy(LIGHT).lerp(RED, 0.85 * fallen).multiplyScalar(1.25 + flash * 2.6 * step);
+      tmp.copy(LIGHT).lerp(RED, 0.85 * fallen).multiplyScalar(1.25 + flash * 1.7 * step);
       p.capMat.color.copy(tmp);
       p.glass.material.emissiveIntensity = 0.12 + 0.5 * flash;
       // the glint where it strikes the next pane (or Theo)
@@ -254,11 +254,11 @@ export default async function play(lab) {
       if (gk >= 0 && gk < 0.3) {
         const tip = new THREE.Vector3(0, H, 0).applyEuler(p.g.rotation).add(p.g.position);
         p.glint.position.copy(tip);
-        p.glint.material.opacity = (1 - gk / 0.3) ** 2 * (i === N - 1 ? 1.3 : 0.9);
-        p.glint.scale.setScalar((0.35 + 0.25 * step) * (i === N - 1 ? 0.8 : 1));
+        p.glint.material.opacity = (1 - gk / 0.3) ** 2 * (i === N - 1 ? 1.4 : 0.7);
+        p.glint.scale.setScalar((0.22 + 0.12 * step) * (i === N - 1 ? 0.75 : 1));
       } else p.glint.material.opacity = 0;
       // the line of light on the glass: before it rises, and after it sinks
-      const lineK = t < SINK ? pre * (1 - r) : sink * (1 - clamp01((t - SINK - i * 0.018 - 0.32) / 0.45));
+      const lineK = t < SINK ? pre * (1 - r) : sink * (1 - clamp01((t - SINK - i * 0.012 - 0.28) / 0.34));
       p.lineMat.opacity = lineK;
       p.lineMat.color.copy(LIGHT).lerp(RED, t < SINK ? 0 : 0.8).multiplyScalar(2);
       if (t >= SINK) {
@@ -314,11 +314,15 @@ export default async function play(lab) {
       col.flashColor = RED.clone();
       arena.clearCards();
     });
-    once('tap', t >= TAP, () => lab.ring(lab.pos(4.62, 3), lab.PALETTE.light, 0.35, 0.25, 0.4));
   });
 
   await lab.wait(END);
   stop();
+  for (const p of panes) {
+    p.g.visible = false;
+    p.line.visible = false;
+    p.glint.visible = false;
+  }
   maya.done(1);
   theo.done(3);
   jun.done(2);

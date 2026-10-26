@@ -139,6 +139,9 @@ export default async function play(lab) {
   const toMayaZ = C.z - lab.pos(B.x, B.y).z;
   const tr = theo.pose.rot;
   const awayRoll = Math.sign(-Math.cos(tr) * toMayaX + Math.sin(tr) * toMayaZ) || 1;
+  const toMayaL = Math.hypot(toMayaX, toMayaZ) || 1;
+  const awayX = toMayaX / toMayaL; // (in spaces: x right, y toward us)
+  const awayY = toMayaZ / toMayaL;
   const restore = () => {
     for (const m of [maya.model, theo.model]) {
       m.body.scale.set(1, 1, 1);
@@ -207,8 +210,15 @@ export default async function play(lab) {
     return { off, sc, blur, op, open, grip, tw };
   };
 
+  const stampRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.92, 1, 72),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(sc.bots.a.color).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  stampRing.rotation.x = -Math.PI / 2;
+  stampRing.position.set(C.x, 0.02, C.z);
+  stampRing.visible = false;
+  lab.add(stampRing);
   const t0 = lab.t;
-  let stamped = false;
   const stop = lab.every(() => {
     const s = lab.t - t0;
     const h = handAt(s);
@@ -266,10 +276,11 @@ export default async function play(lab) {
     const stamp = s > STAMP ? Math.exp(-stampK * 5) * Math.cos(stampK * 10) : 0; // ...hmph!
     const shakeK = seg(s, STAMP + 0.08, END - 0.02);
     const shake = shakeK > 0 ? Math.sin(shakeK * Math.PI * 5) * 0.12 * (1 - shakeK) : 0;
-    if (s >= STAMP && !stamped) {
-      stamped = true;
-      lab.ring(C, sc.bots.a.color, 0.75, 0.02, 0.4);
-    }
+    // the stamp sends one small ring of her colour across the glass
+    const rk = seg(s, STAMP, STAMP + 0.26);
+    stampRing.visible = s >= STAMP && rk < 1;
+    stampRing.scale.setScalar(0.5 + 0.38 * ease.out(rk));
+    stampRing.material.opacity = Math.pow(1 - rk, 1.5);
     maya.set({
       rot: lerp(rot0, rot1, twK), // her heading is the hand's
       lift: 0.07 * held + 0.05 * glare + 0.13 * puff,
@@ -284,8 +295,8 @@ export default async function play(lab) {
       const sx = 1 + 0.1 * cringe - 0.28 * squeeze + 0.12 * drop + 0.08 * puff + 0.14 * stamp;
       const sz = 1 + 0.1 * cringe - 0.06 * squeeze + 0.12 * drop + 0.08 * puff + 0.14 * stamp;
       m.body.scale.set(sx, sy, sz);
-      m.paint.color.copy(mPaint).multiplyScalar(0.02 + 0.98 * brightness * brightness);
-      m.paint.emissiveIntensity = mLook.emis * brightness;
+      m.paint.color.copy(mPaint).multiplyScalar(Math.pow(brightness, 2.5));
+      m.paint.emissiveIntensity = mLook.emis * brightness * brightness;
       m.paint.clearcoat = mLook.coat * brightness;
       m.paint.specularIntensity = mLook.spec * brightness;
       m.paint.envMapIntensity = mLook.env * (0.1 + 0.9 * brightness);
@@ -312,7 +323,9 @@ export default async function play(lab) {
     const tShiver = tCower * (s > 0.3 && s < LIFT ? Math.sin(s * 80) * 0.035 : 0);
     const tPitch = -0.24 * tLook;
     const tBright = 1 - 0.8 * tcov;
-    theo.set({ x: B.x, y: B.y });
+    // he backs away a little from the hand, and creeps back once it has gone
+    const back = ease.out(seg(s, 0.18, 0.4)) * (1 - ease.inOut(seg(s, GONE - 0.05, END - 0.08)));
+    theo.set({ x: B.x - awayX * 0.16 * back, y: B.y - awayY * 0.16 * back });
     theo.each = (m) => {
       m.body.rotation.x = -tPitch;
       m.body.rotation.z = -0.22 * tCower * awayRoll + tShiver;
@@ -330,6 +343,7 @@ export default async function play(lab) {
   maya.each = null;
   theo.each = null;
   plane.visible = false;
+  stampRing.visible = false;
   maya.release({ x: A.x, y: A.y, d: A.d });
   theo.release({ x: B.x, y: B.y, d: B.d });
 }

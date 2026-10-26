@@ -47,22 +47,54 @@ void main(){
   float g = hash(cell + floor(uT * 24.0) * vec2(1.7, 9.2));
   float grain = step(0.5, g);
   float shimmer = wave * (0.25 + 0.95 * grain);
-  // the figure it finds: a compass, the long petal on her new heading (uEastA)
+  // the figure it finds: a compass star, its long point on her new heading (uEastA)
+  float lw = 0.04 + 0.12 * uSink;
+  float k = uR / 1.6;
+  float d = 9.0;
+  float ax = 9.0;
+  for (int i = 0; i < 4; i++) {
+    float a = uEastA + float(i) * 1.5708;
+    float L = (i == 0 ? 1.45 : 0.95) * k;
+    vec2 tip = vec2(cos(a), sin(a)) * L;
+    vec2 in1 = vec2(cos(a + 0.7854), sin(a + 0.7854)) * 0.62 * k;
+    vec2 in2 = vec2(cos(a - 0.7854), sin(a - 0.7854)) * 0.62 * k;
+    vec2 pa = vP - in1; vec2 ba = tip - in1; d = min(d, length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)));
+    pa = vP - in2; ba = tip - in2; d = min(d, length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)));
+    ba = tip; ax = min(ax, length(vP - ba * clamp(dot(vP, ba) / dot(ba, ba), 0.0, 1.0)));
+  }
   float th = atan(vP.y, vP.x) - uEastA;
-  float c2 = abs(cos(2.0 * th));
   float longW = pow(max(0.0, cos(th)), 8.0);
-  float L = mix(0.86, 1.42, longW) * uR / 1.6;
-  float petal = L * pow(c2, 0.5);
-  float lw = 0.045 + 0.12 * uSink;
-  float outline = exp(-pow((r - petal) / lw, 2.0));
-  float ax = min(abs(r * sin(th)), abs(r * cos(th)));
-  float axis = exp(-pow(ax / (0.03 + 0.1 * uSink), 2.0)) * (1.0 - smoothstep(L * 0.92, L * 1.02, r * (abs(cos(th)) > abs(sin(th)) ? 1.0 : 1.0)));
-  float ringN = exp(-pow((r - 1.18 * uR / 1.6) / (0.03 + 0.1 * uSink), 2.0)) * 0.55;
+  float outline = exp(-pow(d / lw, 2.0));
+  float axis = exp(-pow(ax / (lw * 0.8), 2.0)) * 0.9;
+  float ringN = exp(-pow((r - 1.12 * k) / (0.025 + 0.1 * uSink), 2.0)) * 0.3;
   float g2 = 0.8 + 0.35 * step(0.45, hash(cell + vec2(3.1, 7.7)));
-  float compass = max(max(outline, axis * 0.9), ringN) * g2 * (1.0 + 0.6 * longW);
+  float compass = max(max(outline, axis), ringN) * g2 * (1.0 + 0.5 * longW);
   float v = mix(shimmer, compass, uSettle) * rim * hole * uInten;
   gl_FragColor = vec4(uColor, v);
 }`;
+
+// a ring of light on the glass that spreads and fades (lab.ring shows its first frame at full size, so a local one)
+function ringFx(lab, at, color, from, to, dur, k = 1.8) {
+  const { THREE } = lab;
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(0.94, 1, 96),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.copy(at);
+  m.scale.setScalar(from);
+  lab.add(m);
+  const t0 = lab.t;
+  const stop = lab.every(() => {
+    const e = Math.min(1, (lab.t - t0) / dur);
+    m.scale.setScalar(from + (to - from) * (1 - (1 - e) ** 2));
+    m.material.opacity = (1 - e) ** 1.5;
+    if (e >= 1) {
+      m.visible = false;
+      stop();
+    }
+  });
+}
 
 export default async function play(lab) {
   const { THREE, ease, facing } = lab;
@@ -92,7 +124,7 @@ export default async function play(lab) {
       uEastA: { value: (Math.PI / 2) * (1 - after.d) }, // angle of her new heading, anticlockwise from east
       uA: { value: new THREE.Vector4(2, 3, 1, 0) },
       uB: { value: new THREE.Vector4(3, 2, -1, 0) },
-      uColor: { value: warm.clone().multiplyScalar(2.2) },
+      uColor: { value: warm.clone().multiplyScalar(1.7) },
     },
     vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: FRAG,
@@ -167,16 +199,16 @@ export default async function play(lab) {
         const rr = 0.52;
         s.position.set(C.x - Math.sin(a) * rr, 0.03, C.z - Math.cos(a) * rr);
         s.material.opacity = beadOn * (i === 0 ? 1 : 0.55 * (1 - i / beads.length));
-        s.scale.setScalar(i === 0 ? 0.32 : 0.2);
+        s.scale.setScalar(i === 0 ? 0.42 : 0.28);
       });
 
       // ---- the glass: shimmer, lock, glow, sink ----
       const swell = smooth(seg(t, T_HUM, T_LOCK));
-      const settle = ease.out3(seg(t, T_LOCK, T_LOCK + 0.16));
+      const settle = ease.out3(seg(t, T_LOCK, T_LOCK + 0.22));
       const sink = smooth(seg(t, T_FADE, T_END));
       let inten = 0.25 + 0.75 * swell;
       if (t < T_HUM) inten = 0.25 * seg(t, 0.02, T_HUM);
-      if (t >= T_LOCK) inten = 1 + 0.6 * Math.exp(-(t - T_LOCK) * 7) + 0.05 * Math.sin((t - T_LOCK) * 14);
+      if (t >= T_LOCK) inten = 1 + 0.45 * Math.exp(-(t - T_LOCK) * 7) + 0.05 * Math.sin((t - T_LOCK) * 14);
       inten *= 1 - sink;
       let i = 0;
       while (i < modes.length - 1 && modes[i + 1].t <= t) i++;
@@ -193,7 +225,7 @@ export default async function play(lab) {
       disc.scale.setScalar(1 + 0.06 * sink);
       if (t >= T_LOCK && !flashed) {
         flashed = true;
-        lab.ring(C.clone().setY(0.02), lab.PALETTE.light, 1.1, 0.02, 0.45);
+        ringFx(lab, C.clone().setY(0.02), lab.PALETTE.light, 0.55, 1.75, 0.45, 1.4);
       }
 
       // ---- Maya: buzzing on the singing glass, then a compass needle let go ----

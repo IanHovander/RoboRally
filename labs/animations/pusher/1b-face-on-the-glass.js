@@ -305,7 +305,7 @@ export default async function play(lab) {
     if (T < PEEL) {
       const k = seg(T, 0.14, RUSH);
       aa.yaw = 0.95 * smooth(k); // she faces west, so turning left (+) looks at the camera
-      aa.pitch = -0.3 * smooth(k);
+      aa.pitch = 0.25 * smooth(k); // and up, to follow her toward the lens
       aa.sy = 1 + 0.1 * smooth(k);
       aa.eye = 1 + 1.4 * smooth(k);
     } else {
@@ -319,7 +319,7 @@ export default async function play(lab) {
       yaw = lerp(yaw, 0, smooth(seg(T, 1.78, END)));
       aa.yaw = yaw;
       const giggle = T > 1.64 && T < 1.84 ? Math.abs(Math.sin((T - 1.64) * 40)) * (1 - seg(T, 1.64, 1.84)) : 0;
-      aa.pitch = lerp(-0.3, 0, smooth(seg(T, 1.34, 1.46))) + 0.12 * giggle;
+      aa.pitch = lerp(0.25, 0, smooth(seg(T, 1.34, 1.46))) - 0.12 * giggle;
       aa.sy = lerp(1.1, 1, smooth(seg(T, 1.34, 1.46))) + 0.14 * Math.sin(seg(T, 1.48, 1.56) * Math.PI) - 0.05 * giggle;
       aa.eye = T < 1.64 ? 2.4 : lerp(2.4, 1, seg(T, 1.64, END));
     }

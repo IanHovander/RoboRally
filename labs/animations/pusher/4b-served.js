@@ -49,6 +49,25 @@ function actor(lab, key, shapeEye) {
   return p;
 }
 
+/** Drive the camera, keeping the game's own centring offset (scaled by `keep`) so handing back is seamless. */
+function driveCamera(lab, shot) {
+  const A = lab.arena;
+  const off = { sx: A.camCur?.sx ?? 0, sy: A.camCur?.sy ?? 0 };
+  let last = null;
+  return lab.camera((home, t) => {
+    const dt = last == null ? 0 : t - last;
+    last = t;
+    const r = shot(home, t);
+    const k = Math.min(0.9, dt * 4);
+    if (A.camCur) {
+      const keep = r.keep ?? 1;
+      A.camCur.sx = (off.sx * keep) / (1 - k);
+      A.camCur.sy = (off.sy * keep) / (1 - k);
+    }
+    return r;
+  });
+}
+
 export default async function play(lab) {
   const { THREE, facing, PALETTE } = lab;
   const A = lab.arena;
@@ -83,7 +102,28 @@ export default async function play(lab) {
   slot.position.set(cx, 0.012, WALL);
   lab.add(slot);
   // the whip's streak: a smear of light along the tray's path for a few frames
+  const streakTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 128;
+    const g = c.getContext('2d');
+    const lg = g.createLinearGradient(0, 0, 0, 128); // top of the texture is north, toward the wall
+    lg.addColorStop(0, 'rgba(255,255,255,1)');
+    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = lg;
+    g.fillRect(0, 0, 32, 128);
+    const sg = g.createLinearGradient(0, 0, 32, 0);
+    sg.addColorStop(0, 'rgba(0,0,0,1)');
+    sg.addColorStop(0.2, 'rgba(0,0,0,0)');
+    sg.addColorStop(0.8, 'rgba(0,0,0,0)');
+    sg.addColorStop(1, 'rgba(0,0,0,1)');
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = sg;
+    g.fillRect(0, 0, 32, 128);
+    return new THREE.CanvasTexture(c);
+  })();
   const streak = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glow(1.4));
+  streak.material.map = streakTex;
   streak.rotation.x = -Math.PI / 2;
   lab.add(streak);
 
@@ -119,7 +159,7 @@ export default async function play(lab) {
   const OUT = GLOW + 0.7; // 0.80 fully out
   const HOLD = OUT + 0.3; // 1.10 the whip starts
   const WHIP = HOLD + 0.07; // 1.17 slammed home
-  const DROP = WHIP + 0.08; // she notices the floor is gone
+  const DROP = WHIP + 0.12; // she notices the floor is gone
   const END = 1.92;
   const travel = (T) => (T < GLOW ? 0 : T < OUT ? smoother(seg(T, GLOW, OUT)) : T < HOLD ? 1 : 1 - seg(T, HOLD, WHIP) ** 1.5);
 
@@ -149,10 +189,11 @@ export default async function play(lab) {
     const sm = T > HOLD && T < WHIP + 0.1 ? (T < WHIP ? 1 : 1 - seg(T, WHIP, WHIP + 0.1)) : 0;
     streak.visible = sm > 0;
     if (sm > 0) {
-      const fz = WALL + 1 + d;
-      streak.scale.set(0.9, 2 - d * 0.9 + 0.1, 1);
-      streak.position.set(cx, 0.03, fz + (2 - fz + WALL) / 2 - (2 - d * 0.9 + 0.1) / 2 + 0.6);
-      streak.material.opacity = 0.35 * sm;
+      // over the stretch the tray has just vacated: from its front now to where its front was
+      const len = 1 - d + 0.15;
+      streak.scale.set(0.9, len, 1);
+      streak.position.set(cx, 0.03, WALL + 1 + d + len / 2);
+      streak.material.opacity = 0.5 * sm;
     }
 
     // ---- Maya: rides it, enjoys it, is presented; left hanging; drop, wobble, peek, peek, dignity
@@ -169,13 +210,13 @@ export default async function play(lab) {
     const present = smooth(seg(T, OUT - 0.06, OUT + 0.1)); // turns to us: ta-da
     const keepPose = T < DROP ? 1 : 1 - smooth(seg(T, DROP, DROP + 0.12));
     const pose = present * keepPose;
-    let yaw = -0.85 * pose;
-    let pitch = -0.28 * notice + 0.2 * enjoy * (1 - pose) + 0.3 * pose;
+    let yaw = -1.2 * pose;
+    let pitch = -0.28 * notice + 0.2 * enjoy * (1 - pose) + 0.36 * pose;
     let roll = -0.14 * acc;
-    let sy = 1 + 0.1 * surprised + 0.1 * pose;
-    let dy = 0.03 * pose;
-    let eyeH = 1 + 0.9 * surprised - 0.4 * enjoy * (1 - pose) + 0.2 * pose;
-    let eyeOn = 1 + 0.6 * surprised + 0.7 * pose;
+    let sy = 1 + 0.1 * surprised + 0.14 * pose;
+    let dy = 0.05 * pose;
+    let eyeH = 1 + 0.9 * surprised - 0.4 * enjoy * (1 - pose) + 0.3 * pose;
+    let eyeOn = 1 + 0.6 * surprised + 0.9 * pose;
     let sx = 1;
     let sz = 1;
     if (T >= DROP) {
@@ -211,13 +252,22 @@ export default async function play(lab) {
     aa.pitch = -0.18 * ooh + 0.16 * take + 0.1 * hop;
     aa.sy = 1 + 0.06 * ooh + 0.12 * hop - 0.1 * bump(T, 1.45, 1.5) - 0.08 * bump(T, 1.62, 1.66);
     aa.sx = aa.sz = 1 - 0.04 * hop;
-    aa.dy = 0.07 * hop;
+    aa.dy = 0.1 * hop;
     aa.eye = 1 + 0.9 * ooh + 1.0 * take + 0.6 * hop;
     aa.roll = 0;
   });
 
+  // a gentle lean in while she's served, home again as she recovers
+  const focus = A.pos(3.7, 2.0).add(new THREE.Vector3(0, 0.1, 0));
+  const releaseCam = driveCamera(lab, (home, t) => {
+    const T = t - t0;
+    const c = smooth(seg(T, 0.1, 0.8)) * (1 - smooth(seg(T, 1.5, END - 0.02)));
+    return { target: home.target.clone().lerp(focus, c), dist: home.dist * (1 - 0.22 * c), el: home.el - 0.05 * c, keep: 1 - c };
+  });
+
   await lab.wait(END);
   stop();
+  releaseCam();
   pusher.plate.visible = true;
   maya.finish({ x: 3, y: 2, d: 1 });
   ava.finish({ x: 5, y: 3, d: 3 });

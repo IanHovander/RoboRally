@@ -120,8 +120,8 @@ export default async function play(lab) {
   const GO = 0.98;
   const OUT = 0.3; // time to full stretch
   const TAUT = GO + OUT;
-  const NOPE = TAUT + 0.1;
-  const TWANG = TAUT + 0.26;
+  const NOPE = TAUT + 0.12;
+  const TWANG = TAUT + 0.34;
   const RING = TWANG + 0.5;
   const END = TWANG + 0.86;
 

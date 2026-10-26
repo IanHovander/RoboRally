@@ -111,16 +111,16 @@ export default async function play(lab) {
   const qZ = (a) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), a);
 
   // ---- the pile on the floor below: lost steps from earlier in the night, faintly glowing ----
+  // (on the floor a little way out from the slab's right side: the slab hides the floor right under its edges)
   const pileSpots = [
-    ['#4dabf7', 4.12, 0.05, 0.6],
-    ['#ffd43b', 4.38, 0.3, -0.9],
-    ['#51cf66', 4.05, 0.42, 2.2],
-    ['#cc5de8', 4.42, -0.12, 1.3],
-    ['#4dabf7', 4.26, 0.62, -2.5],
-    ['#ff4d6d', 4.6, 0.18, 0.2],
+    ['#4dabf7', 4.34, 0.74, 0.6],
+    ['#ffd43b', 4.66, 0.92, -0.9],
+    ['#51cf66', 4.42, 1.2, 2.2],
+    ['#cc5de8', 4.74, 0.58, 1.3],
+    ['#4dabf7', 4.62, 1.32, -2.5],
   ];
   const pile = pileSpots.map(([c, x, z, yaw]) => {
-    const ch = makeChevron(c, 1.15, 1.25);
+    const ch = makeChevron(c, 1.15, 1.45);
     ch.position.set(x, FLOOR, z);
     ch.quaternion.copy(qY(yaw)).multiply(QF);
     ch.userData.halo.material.opacity = 0.35;
@@ -135,10 +135,10 @@ export default async function play(lab) {
     ),
   );
   pool.rotation.x = -Math.PI / 2;
-  pool.position.set(4.25, FLOOR + 0.004, 0.25);
+  pool.position.set(4.52, FLOOR + 0.004, 0.95);
 
   // ---- the loose chevron ----
-  const loose = makeChevron(bot.color, 2.6, 1.25);
+  const loose = makeChevron(bot.color, 2.6, 1.5);
   loose.visible = false;
 
   // ---- small lights ----
@@ -167,7 +167,7 @@ export default async function play(lab) {
     m.visible = true;
     const k = u / 0.5;
     m.scale.setScalar(0.06 + size * ease.out(k));
-    m.material.opacity = 0.9 * (1 - k) ** 2;
+    m.material.opacity = 0.6 * (1 - k) ** 2;
   };
 
   // her card hangs over her on a soft spring: it lurches when she stops dead (that's what flings the chevron)
@@ -183,6 +183,7 @@ export default async function play(lab) {
       card.v.addScaledVector(acc, dt);
       card.p.addScaledVector(card.v, dt);
       bot.card.position.set(card.p.x, want.y, card.p.z);
+      card.y = want.y;
     }
     for (const l of lights) l.quaternion.copy(lab.camera3.quaternion);
   };
@@ -205,13 +206,16 @@ export default async function play(lab) {
   const seg = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
   const lerp = (a, b, k) => a + (b - a) * k;
   const finTop = lab.pos(3.5, 1).add(new THREE.Vector3(-0.02, 0.3, 0));
-  const S1 = new THREE.Vector3(1.2, 0.03, -0.4);
-  const S2 = new THREE.Vector3(2.3, 0.03, -0.26);
-  const E = new THREE.Vector3(3.44, 0.03, -0.16); // the slab's right edge is at x = 3.5
-  const L = new THREE.Vector3(3.98, FLOOR + 0.02, 0.0);
+  const S1 = new THREE.Vector3(1.38, 0.03, -0.32);
+  const S2 = new THREE.Vector3(2.5, 0.03, 0.04);
+  const E = new THREE.Vector3(3.43, 0.03, 0.5); // the slab's right edge is at x = 3.5
+  const L = new THREE.Vector3(4.5, FLOOR + 0.02, 0.94);
   let start = null; // where it left the card
   const camUp = new THREE.Vector3();
   const qStart = new THREE.Quaternion();
+  // the camera's eye follows it over the edge a little, down toward the pile, and lets go as it settles
+  let follow = 0;
+  const releaseCam = lab.camera((home) => ({ target: home.target.clone().add(new THREE.Vector3(0.7 * follow, -0.45 * follow, 0.25 * follow)) }));
   const hop = (a, b, k, h) => new THREE.Vector3(lerp(a.x, b.x, k), lerp(a.y, b.y, k) + 4 * h * k * (1 - k), lerp(a.z, b.z, k));
 
   await lab.tween(T.end, (_, kk) => {
@@ -242,7 +246,8 @@ export default async function play(lab) {
     if (loose.visible) {
       if (!start) {
         camUp.set(0, 1, 0).applyQuaternion(lab.camera3.quaternion);
-        start = bot.card.position.clone().addScaledVector(camUp, 0.117 * bot.card.scale.y);
+        // (the card as drawn this frame: the game puts it back over her old space before our spring moves it)
+        start = new THREE.Vector3(card.p.x, card.y, card.p.z).addScaledVector(camUp, 0.117 * bot.card.scale.y);
         qStart.copy(lab.camera3.quaternion);
       }
       const P = new THREE.Vector3();
@@ -290,7 +295,7 @@ export default async function play(lab) {
           // tips over and tumbles down through the dark, lazily, to the floor
           const k = seg(t, T.tip, T.land);
           const from = E.clone().add(new THREE.Vector3(0.06, -0.03, 0));
-          P.set(lerp(from.x, L.x, ease.out(k)) + 0.05 * Math.sin(k * 7), lerp(from.y, L.y, k * k), lerp(from.z, L.z, k));
+          P.set(lerp(from.x, L.x, ease.out(k)) + 0.05 * Math.sin(k * 7), lerp(from.y, L.y, k * k), lerp(from.z, L.z, ease.out(k)));
           const phi = 0.55 + (Math.PI * 2 - 0.55) * ease.inOut(k);
           q.copy(qZ(-phi)).multiply(flat);
           glowK = 1 + 0.3 * Math.sin(k * Math.PI);
@@ -308,7 +313,7 @@ export default async function play(lab) {
       loose.position.copy(P);
       loose.quaternion.copy(q);
       loose.userData.mat.color.copy(col).multiplyScalar(2.6 * glowK);
-      loose.userData.halo.material.opacity = Math.min(1, 0.6 * glowK);
+      loose.userData.halo.material.opacity = Math.min(1, 0.4 * glowK);
       loose.userData.halo.quaternion.copy(q.clone().invert().multiply(lab.camera3.quaternion));
       // tink on the fin
       const ub = t - T.bonk;
@@ -341,9 +346,11 @@ export default async function play(lab) {
     });
     pool.material.color.set('#f4efe4').multiplyScalar(0.18 + 0.2 * (ul > 0 ? Math.exp(-ul / 0.25) : 0));
 
+    follow = ease.inOut(seg(t, T.edge - 0.1, T.land - 0.05));
     maya.set(pose);
   }, ease.linear);
 
+  releaseCam();
   maya.each = null;
   showCard(3, true);
   maya.release({ x: 3, y: 1, d: 1 });

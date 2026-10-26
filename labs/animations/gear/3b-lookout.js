@@ -112,7 +112,7 @@ export default async function play(lab) {
       void main() {
         if (vL > uReach) discard;
         float f = abs(dot(normalize(vN), normalize(vV)));
-        float core = pow(f, 2.2);
+        float core = pow(f, 3.2);
         float along = pow(1.0 - vL, 1.6) * smoothstep(0.0, 0.06, vL) * smoothstep(uReach, uReach - 0.08, vL);
         float dust = 0.85 + 0.15 * sin(vP.x * 9.0 + uTime * 0.7) * sin(vP.y * 11.0 - uTime * 0.5) * sin(vP.z * 7.0);
         float a = core * along * dust * uOpacity;
@@ -157,11 +157,11 @@ export default async function play(lab) {
         float along = dot(r, uD);
         if (along <= 0.0) discard;
         float ang = acos(clamp(along / max(d, 1e-4), -1.0, 1.0));
-        float cone = smoothstep(${(HALF * 1.05).toFixed(3)}, ${(HALF * 0.35).toFixed(3)}, ang);
+        float cone = smoothstep(${(HALF * 1.15).toFixed(3)}, ${(HALF * 0.05).toFixed(3)}, ang);
         float fall = smoothstep(0.35, 0.95, d) * smoothstep(${LEN.toFixed(2)} * uReach, ${LEN.toFixed(2)} * uReach * 0.55, d);
         float edge = min(min(vW.x - uB.x, uB.z - vW.x), min(vW.y - uB.y, uB.w - vW.y));
-        float rim = 1.0 + 1.6 * smoothstep(0.12, 0.0, edge); // the light catches the board's edge
-        float a = cone * fall * rim * uOpacity * 0.55;
+        float rim = 1.0 + 1.4 * smoothstep(0.07, 0.0, edge); // the light catches the board's edge
+        float a = cone * cone * fall * rim * uOpacity * 0.3;
         gl_FragColor = vec4(uColor * a, 1.0);
       }`,
     transparent: true,
@@ -208,19 +208,12 @@ export default async function play(lab) {
     const c = document.createElement('canvas');
     c.width = c.height = 128;
     const g = c.getContext('2d');
-    g.shadowColor = '#fff';
-    g.shadowBlur = 18;
-    g.strokeStyle = 'rgba(255,255,255,.9)';
-    g.lineWidth = 5;
-    const r = 20;
+    // a soft warm square of light under the glass, no outline
+    g.filter = 'blur(9px)';
+    g.fillStyle = 'rgba(255,255,255,.75)';
     g.beginPath();
-    g.roundRect(18, 18, 92, 92, r);
-    g.stroke();
-    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 60);
-    gr.addColorStop(0, 'rgba(255,255,255,.35)');
-    gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr;
-    g.fillRect(18, 18, 92, 92);
+    g.roundRect(26, 26, 76, 76, 18);
+    g.fill();
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
@@ -228,7 +221,7 @@ export default async function play(lab) {
   const tiles = row.map((c) => {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ map: tileTex, color: warm.clone().multiplyScalar(1.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ map: tileTex, color: warm.clone().multiplyScalar(0.55), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     m.rotation.x = -Math.PI / 2;
     const p = lab.pos(c.x, c.y);
@@ -278,12 +271,24 @@ export default async function play(lab) {
   const NOD = REST + 0.12;
   const FOLD = REST + 0.42; // the beam folds back into her eye
   const END = FOLD + 0.2;
+  // she pans like someone searching with a torch: look... look... look... (a little past)... THERE
+  const far = rot1 + turnDir * over;
+  const stops = [
+    [PAN, PAN + 0.12, 0, 0.36],
+    [PAN + 0.17, PAN + 0.29, 0.36, 0.7],
+    [PAN + 0.34, PAST, 0.7, 1],
+  ];
   const headingAt = (s) => {
     if (s < PAN) return rot0;
-    if (s < PAST) return lerp(rot0, rot1 + turnDir * over, ease.inOut(seg(s, PAN, PAST)));
-    if (s < BACK) return rot1 + turnDir * over;
-    return lerp(rot1 + turnDir * over, rot1, ease.outBack(seg(s, BACK, REST)));
+    if (s < PAST) {
+      for (const [a, b, f0, f1] of stops) if (s <= b) return lerp(rot0, far, s < a ? f0 : lerp(f0, f1, ease.inOut(seg(s, a, b))));
+      return far;
+    }
+    if (s < BACK) return far;
+    return lerp(far, rot1, ease.outBack(seg(s, BACK, REST)));
   };
+  // a small peering dip of the head at each stop of the pan
+  const peerDip = (s) => stops.reduce((acc, [, b]) => acc + bump(seg(s, b - 0.02, b + 0.07)), 0);
 
   const eyeW = new THREE.Vector3();
   const t0 = lab.t;
@@ -305,16 +310,16 @@ export default async function play(lab) {
     const peer = ease.inOut(seg(s, PAN, PAN + 0.2)) * (1 - ease.inOut(seg(s, PAST, PAST + 0.06)));
     const take = bump(seg(s, PAST + 0.01, BACK + 0.02)); // stops dead: a little rise of surprise
     const snap = s > BACK ? Math.exp(-seg(s, BACK, BACK + 0.3) * 5) * Math.sin(seg(s, BACK, BACK + 0.3) * 14) : 0;
-    const nod = bump(seg(s, NOD, NOD + 0.14)) - 0.4 * bump(seg(s, NOD + 0.14, NOD + 0.24));
+    const nod = bump(seg(s, NOD, NOD + 0.1)) + 0.8 * bump(seg(s, NOD + 0.12, NOD + 0.22)); // yes, yes: that way
     const shutK = seg(s, FOLD + 0.1, FOLD + 0.2);
     const shut = shutK > 0 && shutK < 1 ? Math.sin(Math.PI * shutK) : 0;
-    maya.set({ rot: head, lift: 0.04 * tall + 0.05 * take });
-    const mPitch = 0.12 * peer - 0.2 * take + 0.2 * nod;
+    maya.set({ rot: head, lift: 0.04 * tall + 0.08 * take });
+    const mPitch = 0.1 * peer + 0.1 * peerDip(s) - 0.3 * take + 0.24 * nod;
     maya.each = (m) => {
       m.body.rotation.x = -mPitch;
       m.body.rotation.z = -turnDir * 0.1 * snap; // the body rocks with the snap back
       m.body.position.y += 0.2 * Math.abs(Math.sin(mPitch));
-      const sy = 1 + 0.1 * tall - 0.05 * peer + 0.1 * take;
+      const sy = 1 + 0.1 * tall - 0.05 * peer + 0.16 * take;
       const sxz = 1 / Math.sqrt(sy);
       m.body.scale.set(sxz, sy, sxz);
       // the eye: bright as a lamp while the beam is out, narrowed to peer, wide on the take, a blink to shut it
@@ -341,7 +346,7 @@ export default async function play(lab) {
     cone.scale.set(width * (1 - 0.6 * reachIn), width * (1 - 0.6 * reachIn), 1);
     const flicker = s > PAST && s < BACK ? 0.85 + 0.15 * Math.sin(s * 90) : 1;
     coneMat.uniforms.uReach.value = reach;
-    coneMat.uniforms.uOpacity.value = 0.55 * reachOut * flicker * (1 - 0.5 * reachIn);
+    coneMat.uniforms.uOpacity.value = 0.34 * reachOut * flicker * (1 - 0.5 * reachIn);
     coneMat.uniforms.uTime.value = s;
     const dir = new THREE.Vector2(-Math.sin(head), -Math.cos(head));
     spillMat.uniforms.uO.value.set(eyeW.x, eyeW.z);
@@ -369,8 +374,8 @@ export default async function play(lab) {
     // ----- Theo: the curious onlooker, leaning in down the lit row -----
     const jolt = s > BACK ? bump(seg(s, BACK, BACK + 0.12)) : 0;
     const lean = ease.inOut(seg(s, REST, REST + 0.2)) * (1 - ease.inOut(seg(s, FOLD, END)));
-    theo.set({ x: B.x, y: B.y, lift: 0.04 * jolt });
-    const tPitch = 0.16 * lean - 0.12 * jolt;
+    theo.set({ x: B.x, y: B.y, lift: 0.05 * jolt });
+    const tPitch = 0.28 * lean - 0.14 * jolt;
     theo.each = (m) => {
       m.body.rotation.x = -tPitch;
       m.body.position.y += 0.15 * Math.abs(Math.sin(tPitch));

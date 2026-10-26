@@ -79,7 +79,7 @@ export default async function play(lab) {
     const s = t - SNICKER;
     const env = s > 0 ? Math.max(0, 1 - s / 0.62) : 0;
     const shudder = Math.abs(Math.sin(s * Math.PI * 2 * 5.2)) * env;
-    Object.assign(J, { roll: junRoll(t), lean: junLean(t), open: junSquint(t) * (1 - 0.35 * shudder), glow: 1 + 0.7 * env + 0.5 * shudder, sy: 1 - 0.075 * shudder, hop: 0.03 * shudder });
+    Object.assign(J, { roll: junRoll(t), lean: junLean(t), open: junSquint(t) * (1 - 0.35 * shudder), glow: 1 + 0.7 * env + 0.5 * shudder, sy: 1 - 0.09 * shudder, hop: 0.05 * shudder });
     J.sx = J.sz = 1 + 0.03 * shudder;
   };
   const stop = lab.every(() => apply(Math.min(END, lab.t - t0)));

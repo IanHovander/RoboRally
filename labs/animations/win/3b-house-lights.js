@@ -228,13 +228,13 @@ export default async function play(lab) {
     const b = (u) => (u < 0 || u > 0.12 ? 1 : Math.abs(1 - u / 0.06));
     return Math.min(b(s - 0.06), b(s - 0.26));
   };
-  const theoAway = facing(3) + 0.55; // turns from the glare
-  const junAway = facing(2) - 0.5;
+  const theoAway = facing(3) + 1.1; // flinches round toward us, squinting
+  const junAway = facing(2) - 0.3;
   const theoToMaya = lookRot(facing(3), 5, 3, 4, 1);
   const junToMaya = lookRot(facing(2), 1, 0, 4, 1);
 
   // Maya's own halo: the bloom is off while the lights are on, so the one thing still shining needs its own glow
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(THREE), color: new THREE.Color(RED).multiplyScalar(1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(THREE), color: new THREE.Color(RED).multiplyScalar(1.15), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.setScalar(1.7);
   lab.add(halo);
 
@@ -268,8 +268,9 @@ export default async function play(lab) {
     maya.open = mOpen(t);
     const glow = mGlow(t);
     maya.eye = 1 + 1.7 * glow + (lights.on ? 0.4 : 0);
-    maya.emiss = 0.16 + (lights.on ? 0.55 : 0) + 0.85 * glow;
-    halo.material.opacity = (lights.on ? 0.55 + 0.45 * glow : 0.15 * glow) * (0.95 + 0.05 * Math.sin(t * 9));
+    maya.emiss = 0.16 + (lights.on ? 0.3 : 0) + 0.6 * glow;
+    halo.material.opacity = (lights.on ? 0.6 + 0.4 * glow : 0.15 * glow) * (0.95 + 0.05 * Math.sin(t * 9));
+    halo.scale.setScalar(1.6 + 0.7 * glow);
     const at = lab.pos(maya.x, maya.y);
     halo.position.set(at.x, maya.lift + 0.28, at.z);
 

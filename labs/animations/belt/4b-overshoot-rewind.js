@@ -43,7 +43,7 @@ export default async function play(lab) {
   const SPIN0 = 1.55; // where the belt starts (over-)turning her
 
   // ----- the overshoot, as functions of its own clock (0 .. FWD), so the rewind can play them backwards -----
-  const FWD = 0.75;
+  const FWD = 0.72;
   const sOf = (t) => {
     const k = Math.min(1, Math.max(0, (t - 0.08) / (FWD - 0.08)));
     return SEND * (0.42 * k + 0.58 * k * k); // eager: speeding up all the way, then a dead stop
@@ -53,6 +53,7 @@ export default async function play(lab) {
     const k = Math.min(1, Math.max(0, (s - SPIN0) / (SEND - SPIN0)));
     return -PI * EASE.inOut(k);
   };
+  const fYaw = track([[0, 0], [0.56, 0], [FWD, 0.7, 'out']]); // her gaze lags the spin, still on the corner
   const fRoll = track([[0, 0], [0.08, 0], [0.18, -0.22, 'out'], [0.45, -0.14], [0.56, 0.16, 'inOut'], [0.64, 0.05], [FWD, 0]]);
   const fLean = track([[0, 0], [0.56, 0], [0.64, 0.08], [FWD, -0.24, 'out']]);
   const fSy = track([[0, 1], [0.06, 0.9, 'out'], [0.16, 1.06, 'out'], [0.5, 1.03], [0.6, 0.96], [FWD, 1.14, 'out']]);
@@ -63,37 +64,40 @@ export default async function play(lab) {
   const jfLean = track([[0, 0], [0.55, 0], [FWD, -0.2, 'out']]);
   const jfOpen = track([[0, 1], [0.55, 1], [FWD, 1.9, 'out']]);
   const jfSy = track([[0, 1], [0.55, 1], [FWD, 1.1, 'out']]);
-  const herFwd = (t) => ({ yaw: 0, lean: fLean(t), roll: fRoll(t), sy: fSy(t), open: fOpen(t), glow: fGlow(t) });
+  const herFwd = (t) => ({ yaw: fYaw(t), lean: fLean(t), roll: fRoll(t), sy: fSy(t), open: fOpen(t), glow: fGlow(t) });
   const junFwd = (t) => ({ yaw: jfYaw(t), lean: jfLean(t), roll: 0, sy: jfSy(t), open: jfOpen(t), glow: 0.85 + 0.25 * jfOpen(t) });
 
   // ----- the rest of the moment -----
   const HOLD = FWD; // freeze-frame; she looks at us
-  const REW = 1.3; // the rewind
-  const REW_LEN = 0.24;
-  const PLAY = REW + REW_LEN + 0.08; // a beat for the tape to clunk, then the proper turn
-  const END = PLAY + 0.78;
+  const HOLD_LEN = 0.62;
+  const REW = HOLD + HOLD_LEN; // the rewind
+  const REW_LEN = 0.3;
+  const PLAY = REW + REW_LEN + 0.06; // a beat for the tape to clunk, then the proper turn
+  const END = PLAY + 0.72;
   // where the rewind stops: just before the bend, still facing north
   let tauBack = 0;
   for (let i = 0; i <= 200; i++) if (sOf((i / 200) * FWD) <= SPIN0) tauBack = (i / 200) * FWD;
   const back = pathAt(sOf(tauBack));
 
   // the deadpan look at the room (during the hold): blended over the frozen pose
-  const dOpen = track([[0, 2.6], [0.14, 2.6], [0.3, 0.42, 'inOut'], [0.36, 0.42], [0.41, 0.06, 'in'], [0.47, 0.42, 'out'], [0.55, 0.42]]);
-  const dSy = track([[0, 1.14], [0.14, 1.14], [0.32, 0.97, 'inOut']]);
-  const dLean = track([[0, -0.24], [0.14, -0.24], [0.32, 0.02, 'inOut']]);
-  const dRoll = track([[0, 0], [0.2, 0], [0.34, 0.09, 'inOut']]);
-  const dGlow = track([[0, 1.8], [0.14, 1.8], [0.32, 0.85, 'inOut']]);
-  const jdOpen = track([[0, 1.9], [0.2, 1.9], [0.36, 0.55, 'inOut']]);
-  const jdLean = track([[0, -0.2], [0.2, -0.2], [0.4, -0.05, 'inOut']]);
+  // she turns her face from the corner to the room, lids down, one slow blink
+  const dYaw = track([[0, 0.7], [0.14, 0.7], [0.38, 0, 'inOut']]);
+  const dOpen = track([[0, 2.6], [0.38, 2.4], [0.48, 0.42, 'inOut'], [0.52, 0.42], [0.56, 0.06, 'in'], [0.6, 0.42, 'out'], [HOLD_LEN, 0.42]]);
+  const dSy = track([[0, 1.14], [0.14, 1.14], [0.38, 0.97, 'inOut']]);
+  const dLean = track([[0, -0.24], [0.14, -0.24], [0.38, 0.02, 'inOut']]);
+  const dRoll = track([[0, 0], [0.38, 0], [0.5, 0.09, 'inOut']]);
+  const dGlow = track([[0, 1.8], [0.38, 1.6], [0.48, 0.85, 'inOut']]);
+  const jdOpen = track([[0, 1.9], [0.3, 1.9], [0.5, 0.55, 'inOut']]);
+  const jdLean = track([[0, -0.2], [0.3, -0.2], [0.5, -0.05, 'inOut']]);
 
   // the proper ending: in to the centre, a prim quarter-turn, a soft settle and a satisfied nod
-  const pX = track([[0, back.x], [0.26, 3, 'out']]);
-  const pRot = track([[0, 0], [0.16, 0], [0.46, -PI / 2, 'inOut']]);
-  const pSy = track([[0, 1], [0.12, 1.04], [0.46, 1.03], [0.54, 0.92, 'out'], [0.64, 1.0, 'inOut'], [0.78, 1.0]]);
-  const pLean = track([[0, 0], [0.56, 0], [0.64, 0.16, 'out'], [0.72, 0, 'inOut']]);
-  const pOpen = track([[0, 1.1], [0.46, 1.0], [0.6, 0.55, 'inOut'], [0.78, 0.7]]);
-  const pWarm = track([[0, 0], [0.5, 0], [0.64, 1], [0.78, 0.8]]);
-  const jpLean = track([[0, 0], [0.6, 0], [0.68, 0.1, 'out'], [0.76, 0, 'inOut']]);
+  const pX = track([[0, back.x], [0.24, 3, 'out']]);
+  const pRot = track([[0, 0], [0.14, 0], [0.42, -PI / 2, 'inOut']]);
+  const pSy = track([[0, 1], [0.12, 1.04], [0.42, 1.03], [0.5, 0.92, 'out'], [0.6, 1.0, 'inOut'], [0.72, 1.0]]);
+  const pLean = track([[0, 0], [0.52, 0], [0.6, 0.16, 'out'], [0.68, 0, 'inOut']]);
+  const pOpen = track([[0, 1.1], [0.42, 1.0], [0.56, 0.55, 'inOut'], [0.72, 0.7]]);
+  const pWarm = track([[0, 0], [0.46, 0], [0.6, 1], [0.72, 0.8]]);
+  const jpLean = track([[0, 0], [0.56, 0], [0.64, 0.1, 'out'], [0.72, 0, 'inOut']]);
 
   // the camera leans in for the look, and snaps back with the rewind
   const camK = track([[0, 0], [HOLD + 0.05, 0], [HOLD + 0.45, 1, 'inOut'], [REW, 1], [REW + REW_LEN, 0, 'inOut']]);
@@ -134,7 +138,7 @@ export default async function play(lab) {
       const u = t - HOLD;
       const p = pathAt(SEND);
       maya.set({ x: p.x, y: p.y, rot: -PI });
-      her = { yaw: 0, lean: dLean(u), roll: dRoll(u), sy: dSy(u), open: dOpen(u), glow: dGlow(u) };
+      her = { yaw: dYaw(u), lean: dLean(u), roll: dRoll(u), sy: dSy(u), open: dOpen(u), glow: dGlow(u) };
       junB = { ...junFwd(FWD), open: jdOpen(u), lean: jdLean(u) };
     } else if (t < PLAY) {
       if (phase !== 'rew') {
@@ -148,14 +152,15 @@ export default async function play(lab) {
       maya.set({ x: p.x, y: p.y, rot: rotOf(tau) });
       // snap from the deadpan back into the tape's pose, then play it backwards
       const snap = Math.min(1, (t - REW) / 0.05);
-      const dead = { yaw: 0, lean: dLean(0.55), roll: dRoll(0.55), sy: dSy(0.55), open: dOpen(0.55), glow: dGlow(0.55) };
+      const dead = { yaw: dYaw(HOLD_LEN), lean: dLean(HOLD_LEN), roll: dRoll(HOLD_LEN), sy: dSy(HOLD_LEN), open: dOpen(HOLD_LEN), glow: dGlow(HOLD_LEN) };
       her = blend(dead, herFwd(tau), snap);
-      junB = blend({ ...junFwd(FWD), open: jdOpen(0.55), lean: jdLean(0.55) }, junFwd(tau), snap);
+      junB = blend({ ...junFwd(FWD), open: jdOpen(HOLD_LEN), lean: jdLean(HOLD_LEN) }, junFwd(tau), snap);
       // reel the trail in: drop what was laid after this point of the tape; the rest pulls taut and bright
       const tr = maya.bot.trail;
       const cut = t0 + tau;
-      while (tr.length && tr[tr.length - 1].t > cut) tr.pop();
-      for (const q of tr) q.t = Math.max(q.t, lab.t - 0.5);
+      for (const q of tr) q.laid ??= q.t;
+      while (tr.length && tr[tr.length - 1].laid > cut) tr.pop();
+      for (const q of tr) q.t = Math.max(q.laid, lab.t - 0.5);
       if (k >= 1) belts.forEach((b) => (b.speed = 0));
     } else {
       if (phase !== 'play') {
@@ -169,7 +174,8 @@ export default async function play(lab) {
       maya.set({ x: pX(u), y: 1, rot: pRot(u) });
       her = { yaw: 0, lean: pLean(u), roll: 0, sy: pSy(u), open: pOpen(u), glow: 1.05, warm: pWarm(u) };
       const j0 = junFwd(tauBack);
-      junB = { ...j0, yaw: j0.yaw - 0.1 * Math.min(1, u / 0.3), lean: jpLean(u) };
+      const ease0 = EASE.inOut(Math.min(1, u / 0.7));
+      junB = { ...j0, yaw: j0.yaw * (1 - ease0), open: j0.open + (1 - j0.open) * ease0, glow: j0.glow + (1 - j0.glow) * ease0, lean: jpLean(u) };
     }
     setBody(M, { warm: 0, ...her });
     jun.set({ rot: junRot });
@@ -185,6 +191,19 @@ export default async function play(lab) {
   jun.release({ x: 5, y: 2, d: 3 });
   M.reset();
   J.reset();
+
+  // the game carries on: her satisfied squint eases back to her usual look
+  const tail = lab.t;
+  const last = { open: pOpen(END - PLAY), warm: pWarm(END - PLAY) };
+  const stopTail = lab.every(() => {
+    const k = EASE.inOut(Math.min(1, (lab.t - tail) / 0.35));
+    Object.assign(M, { yaw: 0, lean: 0, roll: 0, sx: 1, sy: 1, sz: 1, open: last.open + (1 - last.open) * k, glow: 1.05 - 0.05 * k, warm: last.warm * (1 - k) });
+    M.applyTo(lab.bot('a').model);
+    if (k >= 1) {
+      M.reset();
+      stopTail();
+    }
+  });
 }
 
 // ---------- helpers (self-contained) ----------

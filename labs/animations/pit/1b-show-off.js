@@ -45,14 +45,14 @@ export default async function play(lab) {
     lip: 0.9, // leaves the lip
     land: 1.36, // slams down on (5,1)
     pose: 1.5, // ta-da
-    creep: 1.86, // the hole creeps back a hair
-    whip: 1.98, // ...then whips east
-    drop: 2.13, // the floor is gone: she sinks, still posing
-    gone: 2.42,
-    home0: 2.5, // the hole tiptoes home
-    home1: 2.92,
-    ting: 2.96,
-    end: 3.28,
+    creep: 1.84, // the hole creeps back a hair
+    whip: 1.96, // ...then slides east under her, like a rug
+    drop: 2.15, // the floor is gone: she sinks, still posing
+    gone: 2.44,
+    home0: 2.52, // the hole tiptoes home
+    home1: 2.94,
+    ting: 2.98,
+    end: 3.3,
   };
 
   // ---------- the ramp of light ----------
@@ -141,7 +141,22 @@ export default async function play(lab) {
   })();
   const star = lab.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, color: hdr(lab.PALETTE.light, 2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
   star.position.copy(lab.pos(4.44, 0.56)).setY(0.05);
-  const holeX = [[T.creep, 4], [T.whip, 3.93, ease.out], [T.whip + 0.22, 5.04, ease.inOut3], [T.whip + 0.32, 5, ease.inOut], [T.home0, 5], [T.home0 + 0.08, 5.03, ease.out], [T.home1, 4, ease.inOut]];
+  const holeX = [[T.creep, 4], [T.whip, 3.92, ease.out], [T.whip + 0.32, 5.04, ease.inOut3], [T.whip + 0.4, 5, ease.inOut], [T.home0, 5], [T.home0 + 0.08, 5.03, ease.out], [T.home1, 4, ease.inOut]];
+  // the hole's rim catches the light while it moves, so you can follow it even under her
+  const rimTex = (() => {
+    const c = canvas(128, 128);
+    const g = c.getContext('2d');
+    g.strokeStyle = '#fff';
+    g.lineWidth = 3;
+    g.shadowColor = '#fff';
+    g.shadowBlur = 6;
+    g.strokeRect(5, 5, 118, 118);
+    return texOf(c);
+  })();
+  const rimMat = new THREE.MeshBasicMaterial({ map: rimTex, color: hdr(lab.PALETTE.light, 1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const rim = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), rimMat));
+  rim.rotation.x = -Math.PI / 2;
+  rim.renderOrder = 3;
 
   // ---------- Maya ----------
   const flightK = (t) => clamp((t - T.lip) / (T.land - T.lip));
@@ -179,9 +194,9 @@ export default async function play(lab) {
   const bodyPitch = [[0, 0], [T.ooh, 0], [T.ooh + 0.07, -0.22, ease.out], [T.charge, -0.08], [T.charge + 0.1, 0.2, ease.out], [T.rampFoot, 0.16], [T.rampFoot + 0.05, 0],
     [T.land, 0], [T.land + 0.05, 0.3, ease.out], [T.pose, -0.05, ease.inOut], [T.pose + 0.16, -0.26, ease.outBack], [T.drop + 0.2, -0.26]];
   const stretch = [[0, 1], [T.ooh, 1], [T.ooh + 0.07, 1.13, ease.out], [T.charge, 1], [T.charge + 0.1, 0.84, ease.out], [T.rampFoot, 0.86], [T.lip, 1.16, ease.out], [T.lip + 0.2, 1, ease.inOut],
-    [T.land, 1], [T.land + 0.06, 0.6, ease.out], [T.land + 0.18, 1.14, ease.out], [T.pose, 1, ease.inOut], [T.pose + 0.16, 1.14, ease.outBack], [T.drop, 1.12], [T.gone, 1.26, ease.in]];
+    [T.land, 1], [T.land + 0.06, 0.6, ease.out], [T.land + 0.13, 1.1, ease.out], [T.pose + 0.02, 1, ease.inOut], [T.pose + 0.16, 1.14, ease.outBack], [T.drop, 1.12], [T.gone, 1.26, ease.in]];
   const roll = [[T.lip + 0.08, 0], [T.land - 0.08, -Math.PI * 2, ease.inOut]];
-  const turn = [[T.pose, 0], [T.pose + 0.18, -0.62, ease.outBack]]; // toward the sofa: ta-da
+  const turn = [[T.pose, 0], [T.pose + 0.2, -0.95, ease.outBack]]; // toward the sofa: ta-da
   const shimmy = (t) => (t > T.pose + 0.16 && t < T.creep ? Math.sin((t - T.pose) * 40) * 0.07 * (1 - (t - T.pose - 0.16) / (T.creep - T.pose - 0.16)) : 0);
   const eyeK = [[0, 1], [T.ooh, 1], [T.ooh + 0.05, 2.4, ease.out], [T.charge + 0.2, 1.3], [T.land, 1.3], [T.pose + 0.1, 2.3, ease.out], [T.drop, 2.3]];
 
@@ -221,10 +236,16 @@ export default async function play(lab) {
       patch.visible = true;
       hole.visible = true;
       hole.position.copy(lab.pos(key(now, holeX), 1)).setY(0.003);
+      rim.position.copy(hole.position).setY(0.012);
+      const moving = Math.max(clamp(1 - Math.abs(now - (T.whip + 0.16)) / 0.3), clamp(1 - Math.abs(now - (T.home0 + 0.2)) / 0.3));
+      rimMat.opacity = 0.55 * moving;
     } else {
       patch.visible = false;
       hole.visible = false;
+      rim.position.copy(lab.pos(4, 1)).setY(0.012);
+      rimMat.opacity = 0;
     }
+    rimMat.opacity += 0.8 * clamp(1 - Math.abs(now - T.ting - 0.08) / 0.12);
     const tk = (now - T.ting) / 0.3;
     star.material.opacity = tk > 0 && tk < 1 ? Math.sin(tk * Math.PI) : 0;
     star.scale.setScalar(0.05 + 0.4 * Math.sin(clamp(tk) * Math.PI));
@@ -244,9 +265,12 @@ export default async function play(lab) {
     }
     if (now > T.drop && !trailCut) trailCut = true;
     const s = key(now, stretch);
+    const r = key(now, roll);
+    const C = 0.23; // roll about her middle, not her base
     maya.set({
       x: mayaX(now),
-      lift: mayaLift(now),
+      y: 1 - C * Math.sin(r),
+      lift: mayaLift(now) + C * (1 - Math.cos(r)),
       pitch: mayaPitch(now),
       roll: key(now, roll),
       rot: facing(1) + key(now, turn),
@@ -287,6 +311,7 @@ export default async function play(lab) {
   lab.cleanup(() => {
     rampTex.dispose();
     starTex.dispose();
+    rimTex.dispose();
     patchMat.dispose();
   });
 

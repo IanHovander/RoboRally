@@ -184,7 +184,8 @@ export default async function play(lab) {
   const LIFT_BOT = dropLift(0.5);
   const xBot = 6.55 + 0.95 * (1 - Math.exp(-4.5 * 0.5));
   const pitchBot = Math.min(1.45, Math.atan2(-LIFT_BOT + 0.05, xBot - 3 - 3.5));
-  const XTOP = 7.1; // the top of the rebound: in the air, nose a hand's width from the rim
+  const XTOP = 7.32; // the top of the rebound: in the air, her nose a hand's width from the rim
+  const LTOP = 0.1; // a touch above the glass: level with the rim, almost home
 
   function mayaPose(t) {
     const P = { x: 4, y: 1, lift: 0, rot: facing(1), pitch: 0, roll: 0, sx: 1, sy: 1, sz: 1, visible: true, light: 1 };
@@ -214,7 +215,7 @@ export default async function play(lab) {
     } else if (t < T_TOP) {
       const k = (t - T_BOT) / (T_TOP - T_BOT);
       P.x = lerp(xBot, XTOP, ease.out(k));
-      P.lift = LIFT_BOT * (1 - k) ** 2.1 + 0.05 * k;
+      P.lift = LIFT_BOT * (1 - k) ** 2.1 + LTOP * k;
       // yanked up tail-first, then she flips upright and spins round toward home
       const flip = ease.inOut(seg(k, 0.4, 0.92));
       P.pitch = lerp(pitchBot + 0.25 * Math.sin(k * 9) * (1 - k), -0.2, flip);
@@ -223,7 +224,7 @@ export default async function play(lab) {
     } else if (t < T_DROP) {
       const k = (t - T_TOP) / (T_DROP - T_TOP);
       P.x = lerp(XTOP, XTOP - 0.03, k);
-      P.lift = 0.05 + 0.012 * Math.sin(k * PI);
+      P.lift = LTOP + 0.015 * Math.sin(k * PI);
       P.rot = facing(1) + PI;
       // the wobble of the flip settles into a lean toward home: nose over the glass
       P.pitch = lerp(-0.2, 0.24, ease.out(k)) + 0.08 * Math.sin(k * 15) * (1 - k);
@@ -233,12 +234,12 @@ export default async function play(lab) {
       P.rot = facing(1) + PI;
       if (t < T_CATCH) {
         const dt = t - T_DROP;
-        P.lift = 0.062 - 0.5 * G * dt * dt;
+        P.lift = LTOP + 0.012 - 0.5 * G * dt * dt;
         P.pitch = 0.24 - 0.5 * ease.out(dt / (T_CATCH - T_DROP));
       } else {
         // caught! a tiny bounce on the cord, and it holds... for a moment
         const k = (t - T_CATCH) / (T_SNAP - T_CATCH);
-        const low = 0.062 - 0.5 * G * (T_CATCH - T_DROP) ** 2;
+        const low = LTOP + 0.012 - 0.5 * G * (T_CATCH - T_DROP) ** 2;
         P.lift = low + 0.04 * Math.sin(Math.min(1, k * 1.6) * PI) * (1 - k * 0.5) + 0.03 * k;
         P.pitch = -0.26 + 0.1 * Math.sin(k * 10) * (1 - k);
         P.sy = 1 - 0.1 * bump(k, 0.08, 0.15);
@@ -246,7 +247,7 @@ export default async function play(lab) {
     } else {
       // gone: she drops clean, toppling backward, and her light goes out
       const dt = t - T_SNAP;
-      const low = 0.062 - 0.5 * G * (T_CATCH - T_DROP) ** 2 + 0.03;
+      const low = LTOP + 0.012 - 0.5 * G * (T_CATCH - T_DROP) ** 2 + 0.03;
       P.x = XTOP - 0.03 + 0.15 * dt;
       P.rot = facing(1) + PI;
       P.lift = low - 0.5 * G * dt * dt;
@@ -279,7 +280,7 @@ export default async function play(lab) {
   };
 
   // the cord's shape while it is whole
-  const L0 = 0.45;
+  const L0 = 0.68;
   function cord(t, P, anchor) {
     const pts = [];
     if (t < T_EDGE) {
@@ -296,7 +297,9 @@ export default async function play(lab) {
     }
     const Rp = new THREE.Vector3(RIM + 0.012, 0.03, ZM);
     const span = Rp.distanceTo(anchor);
-    const tension = clamp01((span - L0) / 0.75);
+    // over the top of the rebound the cord goes slack and droops: nothing is holding her up
+    const hang = seg(t, T_TOP - 0.16, T_TOP) * (1 - seg(t, T_DROP + 0.06, T_CATCH));
+    const tension = clamp01((span - L0) / 0.75) * (1 - hang);
     // the glass part, peeling back from the rim as it takes the weight
     const peel = 0.12 + 0.5 * Math.min(1, (t - T_EDGE) / 0.5) ** 0.7;
     const px = RIM - peel;
@@ -323,7 +326,7 @@ export default async function play(lab) {
       pts.push({ x, y: 0.008 + 0.022 * u * u, z: ZM, w, r: RED.r * k, g: RED.g * k, b: RED.b * k, flat: 1 - u });
     }
     // the hanging part: a slack cord sags, a taut one is straight and twangs after the yank
-    const slack = Math.max(0, L0 + 0.12 - span);
+    const slack = Math.max(0, L0 + 0.15 - span) + 0.2 * hang;
     const mid = Rp.clone().lerp(anchor, 0.5);
     mid.y -= slack * 1.6;
     const dir = anchor.clone().sub(Rp).normalize();
@@ -382,7 +385,7 @@ export default async function play(lab) {
   });
 
   // camera: drop a little lower and lean toward the rim so the fall below the glass reads
-  const aim = new THREE.Vector3(2.75, -0.6, -0.4);
+  const aim = new THREE.Vector3(3.15, -0.6, -0.4);
   const releaseCam = lab.camera((home) => {
     const t = lab.t - t0;
     const k = ease.inOut(seg(t, 0.45, 1.15));
@@ -415,6 +418,10 @@ export default async function play(lab) {
       if (!P.visible) {
         mayaGone = true;
         maya.release({ x: 7, y: 1, on: false });
+        // released mid-frame: the game already placed her this frame, so hide her by hand until it catches up
+        maya.group.visible = false;
+        const c = card();
+        if (c) c.visible = false;
       }
     }
     const anchor = harness(P);
@@ -526,7 +533,7 @@ export default async function play(lab) {
         roll: 0.07 * Math.sin(k * 26) * (1 - k),
       });
     }
-    if (t > T_SLAP - 0.06) releaseCam();
+    if (t > T_SNAP + 0.1) releaseCam();
   });
 
   await lab.wait(T_END);

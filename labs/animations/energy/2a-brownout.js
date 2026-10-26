@@ -249,7 +249,8 @@ export default async function play(lab) {
     ezra.set({ x: 5, y: 3, rot: lab.facing(0), sy: ez.sy, sx: es, sz: es, lift: hop });
     ezra.each = (m) => {
       tilt(m, ez.pitch, ez.roll);
-      m.eyeMat.color.setRGB(3.2 * fe, 3.1 * fe, 2.9 * fe);
+      const eye = Math.max(0.04, fe) ** 2.4; // a light at half power looks far dimmer than half
+      m.eyeMat.color.setRGB(3.2 * eye, 3.1 * eye, 2.9 * eye);
       m.ringMat.opacity = 0.9 * Math.min(1, fe);
       m.poolMat.opacity = 0.75 * Math.min(1, fe);
       m.paint.emissiveIntensity = 0.16 * fe;

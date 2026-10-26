@@ -39,22 +39,24 @@ function timeline(lab) {
 }
 
 /** One chevron of light (the card's glyph), drawn on a 128px canvas: 4px per glyph unit, centred. */
-function chevronTexture(THREE) {
+function chevronTexture(THREE, soft) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d');
   g.strokeStyle = '#fff';
-  g.lineWidth = 15;
+  g.lineWidth = soft ? 15 : 17; // crisp, and a hair wider than the card's ink so it covers it
   g.lineCap = 'round';
   g.lineJoin = 'round';
-  g.shadowColor = '#fff';
-  g.shadowBlur = 14;
   g.beginPath();
   g.moveTo(64 - 36, 64 + 18);
   g.lineTo(64, 64 - 18);
   g.lineTo(64 + 36, 64 + 18);
-  g.stroke();
-  g.shadowBlur = 0;
+  if (soft) {
+    g.shadowColor = '#fff';
+    g.shadowBlur = 14;
+    g.stroke();
+    g.shadowBlur = 0;
+  }
   g.stroke();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -93,19 +95,22 @@ export default async function play(lab) {
   const H = lab.scenario.grid.length;
 
   const red = new THREE.Color(bot.color);
-  const warm = new THREE.Color(1, 0.93, 0.8);
-  const chevTex = chevronTexture(THREE);
+  const amber = new THREE.Color(lab.PALETTE.energy); // a lit chevron: warm light, gold against the cream card
+  const chevTex = chevronTexture(THREE, true);
+  const cardTex = chevronTexture(THREE, false);
   const poolTex = poolTexture(THREE);
 
   // ----- the pile under the board: every step the walls ate tonight -----
   const FLOOR = -1.585;
-  const pileAt = new THREE.Vector3(W / 2 + 0.85, FLOOR, -H / 2 - 1.0); // past the far right corner, in the board's spill
+  // on the floor beyond the far edge, where the big screen always shows it (the dark band above the board)
+  const pileAt = new THREE.Vector3(lab.pos(ex + 0.5, ey).x + 2.5, FLOOR, -H / 2 - 2.6);
   const pile = new THREE.Group();
   lab.add(pile);
   const pool = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: poolTex, color: new THREE.Color(0.5, 0.48, 0.55), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
   pool.rotation.x = -Math.PI / 2;
   pool.position.copy(pileAt).add(new THREE.Vector3(0, 0.002, 0));
   pile.add(pool);
+  const PILE = 1.4; // pieces on the floor are drawn a little larger: they're far away
   const PIECE = 0.46; // world size of a chevron's 128px square (matches the card's glyph when the card is at full size)
   const flatChevron = (color, k) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(PIECE, PIECE), new THREE.MeshBasicMaterial({ map: chevTex, color: new THREE.Color(color).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -124,7 +129,8 @@ export default async function play(lab) {
     const m = flatChevron(c, 1.4);
     m.rotation.order = 'YXZ';
     m.rotation.set(-Math.PI / 2, yaw, 0);
-    m.position.set(pileAt.x + dx, FLOOR + 0.004, pileAt.z + dz);
+    m.position.set(pileAt.x + dx * 1.3, FLOOR + 0.004, pileAt.z + dz * 1.3);
+    m.scale.setScalar(PILE);
     pile.add(m);
   }
 
@@ -134,7 +140,7 @@ export default async function play(lab) {
   const UNIT = 2.34 / 210; // card heights per glyph unit
   const rows = planned === 3 ? [-5.5, 2.5, 10.5] : planned === 2 ? [-1.5, 7.5] : [1.5]; // bottom (first step) to top
   const lit = rows.map((up) => {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: chevTex, color: warm.clone().multiplyScalar(2.3), transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cardTex, color: amber.clone().multiplyScalar(1.2), transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
     s.renderOrder = 31;
     lab.add(s);
     return { s, up, on: 0, wob: 0, free: false };
@@ -165,7 +171,11 @@ export default async function play(lab) {
   };
 
   // the flying one: a flat chevron that starts facing the camera, exactly over the card's
-  const flyer = flatChevron(warm, 2.3);
+  const flyer = flatChevron(amber, 1.3);
+  // the light it throws on the floor as it falls toward it
+  const landGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: poolTex, color: red.clone().multiplyScalar(1.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  landGlow.rotation.x = -Math.PI / 2;
+  lab.add(landGlow);
   flyer.material.depthTest = true;
   flyer.visible = false;
   lab.add(flyer);
@@ -199,9 +209,9 @@ export default async function play(lab) {
   const T_GO = 0.08;
   const T_HIT = 0.5;
   const T_WOB = 0.56; // the third chevron lights anyway, and wobbles
-  const T_POP = 0.78; // pops off
-  const T_BONK = 0.9; // bonks the fin
-  const T_LAND = 1.86; // lands far below
+  const T_POP = 0.74; // pops off
+  const T_BONK = 0.86; // bonks the fin
+  const T_LAND = 1.88; // lands far below
   const T_END = 2.4;
 
   lab.playCard('a', [cardId]);
@@ -241,35 +251,42 @@ export default async function play(lab) {
       flyer.position.copy(from).lerp(finTop, ease.in(k)).add(hop);
       spin.setFromAxisAngle(zAxis, c.wob * (1 - k) - 1.2 * ease.in(k));
       flyer.quaternion.copy(qCam).multiply(spin);
-      flyer.scale.setScalar(lerp(sizeK, 0.8, k));
+      flyer.scale.setScalar(lerp(sizeK, 1, k));
     }, ease.linear);
     // bonk
     if (capMat && cap0) {
       span(T_BONK, T_BONK + 0.25, (e, k) => capMat.color.copy(cap0).multiplyScalar(1 + 2.5 * (1 - k) ** 2), ease.linear);
     }
-    // the lazy arc: up and away over the far right corner of the slab, then a long fall in the dark.
+    // the lazy arc: up and away over the far edge of the slab, then a long fall in the dark.
     // It turns her colour as it goes and tumbles slowly until it lies flat on the floor.
     const land = pileAt.clone().add(new THREE.Vector3(-0.05, 0.006, 0.08));
     const qFlat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0.9, 0, 'YXZ'));
     const dur = T_LAND - T_BONK;
-    const peak = 0.95; // how far above the fin it rises
+    const peak = 0.5; // how far above the fin it rises
     const g = ((Math.sqrt(2 * peak) + Math.sqrt(2 * (peak + finTop.y - land.y))) / dur) ** 2;
     const vy = Math.sqrt(2 * g * peak);
+    const yAt = (t) => finTop.y + vy * t - 0.5 * g * t * t;
+    landGlow.position.copy(land).setY(FLOOR + 0.008);
     await span(T_BONK, T_LAND, (e, k) => {
       const t = k * dur;
       const across = ease.out(k) * 0.35 + k * 0.65; // a touch of drag: quick off the fin, floating at the top
-      flyer.position.set(lerp(finTop.x, land.x, across), finTop.y + vy * t - 0.5 * g * t * t, lerp(finTop.z, land.z, across));
-      flyer.material.color.copy(warm).lerp(red, ease.out(clamp01(k * 1.6))).multiplyScalar(lerp(2.3, 1.7, k));
+      // it falls like a feather at the very end: the last bit eases onto the floor
+      const soft = clamp01((k - 0.86) / 0.14);
+      const y = soft > 0 ? lerp(yAt(0.86 * dur), land.y, ease.out(soft)) : yAt(t);
+      flyer.position.set(lerp(finTop.x, land.x, across), y, lerp(finTop.z, land.z, across));
+      flyer.material.color.copy(amber).lerp(red, ease.out(clamp01(k * 1.6))).multiplyScalar(lerp(1.3, 1.8, k));
       spin.setFromAxisAngle(zAxis, -1.2 - 2.6 * k + 0.4 * Math.sin(k * TAU * 1.5));
       flyer.quaternion.copy(qCam).multiply(spin).slerp(qFlat, ease.inOut(clamp01((k - 0.3) / 0.7)));
-      flyer.scale.setScalar(lerp(0.8, 1, k));
+      flyer.scale.setScalar(lerp(1, PILE, k));
+      landGlow.material.opacity = 0.9 * clamp01(-y / (finTop.y - land.y)) ** 2;
     }, ease.linear);
     flyer.position.copy(land);
     flyer.quaternion.copy(qFlat);
     // the soft landing: a little puff of her colour, the pool brightens, and it settles to a faint glow
     lab.ring(land.clone().setY(FLOOR + 0.01), bot.color, 0.7, FLOOR + 0.01, 0.6);
     await span(T_LAND, T_END, (e, k) => {
-      flyer.material.color.copy(red).multiplyScalar(lerp(1.7, 1.4, e) + 1.2 * (1 - k) ** 3);
+      flyer.material.color.copy(red).multiplyScalar(lerp(1.8, 1.4, e) + 1.2 * (1 - k) ** 3);
+      landGlow.material.opacity = lerp(0.9, 0.3, e);
       pool.material.opacity = 0.55 + 0.4 * (1 - k) ** 2;
     }, ease.out);
   })();

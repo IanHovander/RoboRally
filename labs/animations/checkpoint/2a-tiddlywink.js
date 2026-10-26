@@ -4,7 +4,7 @@ export const meta = {
   idea:
     'Maya brakes hard onto flag 1 and her momentum presses the tile\'s far edge down, like a thumb on a tiddlywink. The glass tile pops out of the slab (a square of darkness left behind), sails up and turns over once with Maya stuck to it: at the top she hangs upside down under the smoked glass, stretched by gravity, like her own reflection. It comes down fast and slaps back into its hole with a clack: a square ripple runs out through the glass, puffs of light squirt from the seams, Maya squashes flat, bounces, wobbles, and stands facing east with her red ring stamped at the column\'s foot.',
   notes:
-    'Sound: a glass creak as the tile dips, a hollow "pok" as it pops out, a soft whoosh through the turn (lowest at the top), then a flat glassy clack with a short ring, a little "boing" as she bounces. Physics: the tile is ballistic (slow at the top, fast at the ends) and turns a little slower at the top too, so the upside-down beat reads; the turn goes the way she was driving. Porting: one tile mesh over the checkpoint\'s square, a dark square under it while it is out, and the halo hidden; the column never moves.',
+    'Sound: a glass creak as the tile dips, a hollow "pok" as it pops out, a soft whoosh through the turn (lowest at the top), then a flat glassy clack with a short ring, a little "boing" as she bounces. Physics: the tile is ballistic (slow at the top, fast at the ends) and turns a little slower at the top too, so the upside-down beat reads; the turn goes the way she was driving. Porting: one tile mesh over the checkpoint\'s square, a dark square under it while it is out, and the halo hidden; the column never moves. The camera leans in a little and looks up to follow the tile, and is home before the moment ends; her played card fades while she is airborne, as in the game\'s focus mode.',
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -53,7 +53,7 @@ export default async function play(lab) {
     g.lineWidth = 4;
     g.strokeRect(2, 2, n - 4, n - 4);
   });
-  const faceMat = new THREE.MeshStandardMaterial({ map: glassTex, emissive: 0xffffff, emissiveMap: edgeTex, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.84 });
+  const faceMat = new THREE.MeshStandardMaterial({ map: glassTex, emissive: 0xffffff, emissiveMap: edgeTex, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.6, depthWrite: false });
   const sideMat = new THREE.MeshStandardMaterial({ color: 0x10141a, roughness: 0.25, emissive: 0x8c9ab0, emissiveIntensity: 1.1 });
   const tile = lab.add(new THREE.Mesh(new THREE.BoxGeometry(S, TH, S), [sideMat, sideMat, faceMat, faceMat, sideMat, sideMat]));
   tile.visible = false;
@@ -138,13 +138,13 @@ export default async function play(lab) {
     if (t >= DIP && t < POP) {
       const k = seg(t, DIP, POP);
       yc -= 0.03 * Math.sin((Math.PI / 2) * k);
-      th = 0.09 * ease.in(k);
+      th = 0.14 * ease.in(k);
     } else if (t >= POP && t < SLAP) {
       const a = t - POP;
       const k = a / FLIGHT;
       yc = -TH / 2 - 0.03 + v0 * a - 0.5 * g * a * a + 0.03 * k;
       // turns a little slower at the top, so the upside-down beat reads
-      th = 0.09 + (TAU - 0.09) * (k + 0.075 * Math.sin(TAU * k));
+      th = 0.14 + (TAU - 0.14) * (k + 0.075 * Math.sin(TAU * k));
       out = 1;
     } else if (t >= SLAP) {
       // the slap: punches a hair too deep, springs back, rattles flat
@@ -157,7 +157,8 @@ export default async function play(lab) {
     tile.visible = flying;
     tile.position.set(F.x, yc, F.z);
     tile.rotation.set(0, 0, -th);
-    hole.material.opacity = t >= POP && t < SLAP + 0.02 ? Math.min(1, (yc + TH / 2) / 0.12) * 0.95 : 0;
+    // the seams open as it tips (the light goes out around it), then the whole square is dark while it is out
+    hole.material.opacity = t >= DIP && t < POP ? 0.9 * seg(t, DIP, DIP + 0.06) : t >= POP && t < SLAP + 0.02 ? 0.95 : 0;
     col.halo.visible = !(t >= POP && t < SLAP);
 
     // ---------- Maya, stuck to it ----------
@@ -182,13 +183,13 @@ export default async function play(lab) {
       } else if (t >= SLAP) {
         // splat, bounce, wobble
         const a = t - SLAP;
-        const squash = Math.exp(-a * 12) * Math.cos(a * 26);
-        const hop = a > 0.06 && a < 0.32 ? Math.sin(Math.PI * seg(a, 0.06, 0.32)) : 0;
-        pose.sy = 1 - 0.32 * squash;
-        pose.sx = pose.sz = 1 + 0.22 * squash;
+        const squash = Math.exp(-a * 10) * Math.cos(a * 24);
+        const hop = a > 0.07 && a < 0.36 ? Math.sin(Math.PI * seg(a, 0.07, 0.36)) : 0;
+        pose.sy = 1 - 0.42 * squash;
+        pose.sx = pose.sz = 1 + 0.3 * squash;
         pose.pitch = th - TAU;
-        pose.lift += 0.13 * hop;
-        pose.roll = 0.14 * Math.exp(-a * 5) * Math.sin(a * 17);
+        pose.lift += 0.2 * hop;
+        pose.roll = 0.2 * Math.exp(-a * 5) * Math.sin(a * 17);
         pose.rot = EAST + 0.12 * Math.exp(-a * 5) * Math.sin(a * 13 + 0.5);
         const settle = seg(t, END - 0.15, END);
         pose.lift *= 1 - settle;
@@ -205,8 +206,12 @@ export default async function play(lab) {
     if (t >= SLAP && !shook) {
       shook = true;
       lab.shake(0.03, 0.22);
-      col.flash = now;
-      col.flashColor = RED.clone();
+    }
+    // the claim: a short flush of her colour up the column (it stands as it was)
+    if (t >= SLAP) {
+      const f = Math.max(0, 1 - (t - SLAP) / 0.7) ** 1.5;
+      col.mat.color.lerp(RED, 0.7 * f).multiplyScalar(1 + 1.4 * f);
+      col.col.scale.x = 1 + 0.3 * f;
     }
     const rk = seg(t, SLAP, SLAP + 0.5);
     ripple.material.opacity = rk > 0 && rk < 1 ? (1 - rk) ** 1.6 : 0;
@@ -235,8 +240,19 @@ export default async function play(lab) {
     }
   });
 
+  // the camera leans in and looks up a little to follow the tile, and is home before the moment ends
+  let camRelease = null;
+  lab.at(DIP - 0.12, () => {
+    camRelease = lab.camera((home) => {
+      const t = lab.t - t0;
+      const k = ease.inOut(seg(t, DIP - 0.1, POP + 0.3)) * (1 - ease.inOut(seg(t, SLAP + 0.12, END - 0.04)));
+      return { target: home.target.clone().lerp(new THREE.Vector3(F.x, 0.55, F.z), 0.5 * k), dist: home.dist * (1 - 0.2 * k) };
+    });
+  });
+
   await lab.wait(END);
   stop();
+  camRelease?.();
   tile.visible = false;
   hole.visible = false;
   ripple.visible = false;

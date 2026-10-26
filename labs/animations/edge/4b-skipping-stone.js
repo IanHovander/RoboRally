@@ -200,14 +200,14 @@ export default async function play(lab) {
       o.roll = 0.1 * Math.sin(up * Math.PI * 3) * (1 - up); // a pleased little wiggle
       // looks down at the "water"...
       const ld = smooth(seg(T, ...LOOKDOWN));
-      o.pitch = 0.42 * ld;
+      o.pitch = 0.2 * ld; // (a deeper nod mirrors the key light off her flat top straight into the camera)
       o.eyeW = lerp(o.eyeW, 0.85, ld);
       o.eye = lerp(o.eye, 1.5, ld);
       // ...and sinks, eye last, with a small tilt and a final blink of light as it goes under
       const s = seg(T, ...SINK);
       o.lift -= 0.62 * ease.in(s);
-      o.roll += 0.18 * smooth(s);
-      o.pitch += 0.15 * smooth(s);
+      o.roll += 0.3 * smooth(s);
+      o.pitch += 0.04 * smooth(s);
       o.eye *= 1 - smooth(seg(T, UNDER - 0.04, UNDER + 0.04));
       o.visible = T < SINK[1];
     }

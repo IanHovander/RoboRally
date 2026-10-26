@@ -4,8 +4,9 @@ export const meta = {
   idea:
     'A ramp of light twangs up out of the glass like a diving board; Maya bends it with her weight, launches, ' +
     'clears the hole and lands nose-then-tail with a squash and a flare of her ring. The black square takes a ' +
-    'tiny sneaky wind-up, yanks itself one space east under her like a rug, and she topples backwards through it. ' +
-    'Then the hole strolls home to (4,1), glints innocently, and the ramp folds back into the glass.',
+    'tiny sneaky wind-up and yanks itself one space east under her like a rug; she rocks back on her heels. ' +
+    'She hangs over nothing for a beat, looks down, eye wide... and drops. Then the hole strolls home to (4,1), ' +
+    'glints innocently, and the ramp folds back into the glass.',
   notes:
     'Sound: a rising glass "twang" as the ramp springs up, a wobbling "boing" as it flexes, a two-note clink ' +
     '(nose, tail) on the landing, a soft bright chime for the ring flare, then a quick glassy zip for the rug pull ' +
@@ -32,10 +33,11 @@ const T = {
   holeWind: [1.86, 1.96], // the hole's sneaky wind-up (west)
   yank: [1.96, 2.16], // the rug pull (east)
   drop: 2.1, // her support is gone
-  home: [2.5, 2.92], // the hole strolls back
-  glint: [2.9, 3.2],
-  rampDown: [2.95, 3.2],
-  end: 3.24,
+  hang: 0.15, // over nothing, she hasn't noticed yet... then she has
+  home: [2.64, 3.04], // the hole strolls back
+  glint: [3.02, 3.32],
+  rampDown: [3.07, 3.32],
+  end: 3.36,
 };
 
 const HINGE = 2.82; // where the ramp is hinged on (3,1)
@@ -165,13 +167,14 @@ export default async function play(lab) {
 
   // ---------- Maya's light, each frame ----------
   let flare = 0; // her ring's flare of triumph, 0..1
+  let look = 0; // her eye, wide, when she sees what's under her
   let cardFade = 1;
   maya.each = (model) => {
-    model.ringMat.color.copy(red).multiplyScalar(1.6 + 3.2 * flare);
+    model.ringMat.color.copy(red).multiplyScalar(1.6 + 2.0 * flare);
     model.ringMat.opacity = Math.min(1, 0.9 + flare);
     if (ring) ring.scale.setScalar(1 + 0.32 * flare);
-    model.poolMat.opacity = 0.75 + 0.6 * flare;
-    model.eyeMat.color.setRGB(3.2 + 2 * flare, 3.1 + 2 * flare, 2.9 + 2 * flare);
+    model.poolMat.opacity = 0.75 + 0.35 * flare;
+    model.eyeMat.color.setRGB(3.2 + 2 * flare + 3 * look, 3.1 + 2 * flare + 3 * look, 2.9 + 2 * flare + 3 * look);
     if (b.card) {
       b.card.position.y -= Math.min(0, maya.pose.lift); // the card doesn't dive in after her
       b.card.material.opacity *= cardFade;
@@ -272,7 +275,12 @@ export default async function play(lab) {
       pose.pitch += -0.5 * ease.in(under);
       pose.x -= 0.05 * under;
       if (fall) {
-        const k = now - fall;
+        // the hang: hovering over the hole, she looks down at it (eye wide), and only then drops
+        const kh = clamp01((now - fall) / T.hang);
+        pose.pitch += 0.42 * Math.sin(kh * Math.PI * 0.5) - 0.42 * clamp01((now - fall - T.hang) / 0.08);
+        pose.roll = 0.03 * Math.sin((now - fall) * 60) * kh;
+        look = kh < 1 ? Math.sin(kh * Math.PI * 0.5) : Math.max(0, 1 - (now - fall - T.hang) / 0.1);
+        const k = Math.max(0, now - fall - T.hang);
         pose.lift = -0.5 * 15 * k * k;
         pose.sy = 1 + Math.min(0.28, k * 1.6); // stretched by the drop
         pose.sx = pose.sz = 1 - Math.min(0.12, k * 0.7);

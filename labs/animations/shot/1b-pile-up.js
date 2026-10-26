@@ -237,14 +237,14 @@ export default async function play(lab) {
   const A0 = T_ARRIVE;
   const mRoll = K([[0, 0], [A0, 0], [A0 + 0.05, 0.18, 'out'], [A0 + 0.3, 0, 'outElastic'], [T_SLURP - 0.12, 0], [T_SLURP - 0.02, -0.2, 'out'], [S1, -0.12], [S1 + 0.1, 0.04, 'out'], [S1 + 0.3, 0, 'inOut']]);
   const mYaw = K([[0, 0], [A0 + 0.1, 0], [A0 + 0.18, 0.55, 'out'], [A0 + 0.28, 0.55], [A0 + 0.36, 0, 'inOut'], [A0 + 0.46, 0], [A0 + 0.56, 0.95, 'outBack'], [S1 + 0.04, 0.95], [S1 + 0.22, 0, 'inOut']]);
-  const mPitch = K([[0, 0], [A0 + 0.46, 0], [A0 + 0.56, -0.16, 'out'], [T_SLURP - 0.04, -0.12], [T_SLURP + 0.04, 0.14, 'out'], [S1, 0.1], [S1 + 0.12, -0.05, 'out'], [S1 + 0.4, 0, 'inOut']]);
+  const mPitch = K([[0, 0], [A0 + 0.46, 0], [A0 + 0.56, -0.16, 'out'], [T_SLURP - 0.04, -0.12], [T_SLURP + 0.04, 0.03, 'out'], [S1, 0.02], [S1 + 0.12, -0.06, 'out'], [S1 + 0.4, 0, 'inOut']]);
   const mSx = K([[0, 1], [A0, 1], [A0 + 0.05, 0.9, 'out'], [A0 + 0.3, 1, 'outElastic'], [T_SLURP, 1], [T_SLURP + 0.08, 0.9, 'out'], [S1, 0.9], [S1 + 0.07, 1.28, 'outBack'], [S1 + 0.22, 1.25], [S1 + 0.3, 0.92, 'inOut'], [T_HIC - 0.02, 1.02, 'out'], [T_HIC + 0.05, 0.94, 'out'], [T_HIC + 0.3, 1, 'outElastic']]);
   const mSy = K([[0, 1], [T_SLURP, 1], [T_SLURP + 0.08, 1.1, 'out'], [S1, 1.1], [S1 + 0.07, 0.86, 'outBack'], [S1 + 0.22, 0.88], [S1 + 0.3, 1.1, 'inOut'], [T_HIC - 0.02, 0.96, 'out'], [T_HIC + 0.05, 1.12, 'out'], [T_HIC + 0.3, 1, 'outElastic']]);
   const mUp = K([[0, 0], [T_HIC - 0.02, 0], [T_HIC + 0.06, 0.09, 'out'], [T_HIC + 0.17, 0, 'in']]);
   const mEyeS = K([[0, 1], [A0 + 0.46, 1], [A0 + 0.56, 1.7, 'outBack'], [T_SLURP, 1.7], [T_SLURP + 0.05, 0.5, 'out'], [S1 + 0.05, 0.5], [S1 + 0.15, 1.1, 'out'], [T_HIC - 0.02, 1.1], [T_HIC + 0.03, 1.5, 'out'], [T_HIC + 0.3, 1, 'out']]);
   const mEye = K([[0, 1], [T_HIC - 0.05, 1], [T_HIC - 0.02, 0.08, 'out'], [T_HIC + 0.02, 4.4, 'out'], [T_HIC + 0.32, 1, 'out']]);
   const mTint = K([[0, 0], [T_HIC - 0.02, 0], [T_HIC + 0.02, 1, 'out'], [T_HIC + 0.34, 0, 'in']]);
-  const mGlow = K([[0, 0], [S1 - 0.02, 0], [S1 + 0.05, 0.22, 'out'], [S1 + 0.25, 0, 'out'], [T_HIC, 0], [T_HIC + 0.04, 0.16, 'out'], [T_HIC + 0.25, 0, 'out']]);
+  const mGlow = K([[0, 0], [S1 - 0.02, 0], [S1 + 0.05, 0.1, 'out'], [S1 + 0.22, 0, 'out']]);
   maya.st.tint = BLUE;
   maya.st.glowColor = new THREE.Color(BLUE);
 

@@ -57,7 +57,7 @@ export default async function play(lab) {
   const behind = Math.atan2(-4.2, 1.2); // the stretch of audience right behind Maya, as seen from the camera
   const angDist = (a, b) => Math.abs(((((a - b + Math.PI) % TAU) + TAU) % TAU) - Math.PI);
 
-  const WAVE = 1.6; // one lap
+  const WAVE = 1.5; // one lap
   const eyes = spots.map(([x, z], i) => {
     const kind = kinds[Math.floor(lab.rand() * kinds.length)];
     const warm = new THREE.Color(lab.PALETTE.light).lerp(new THREE.Color(0xffe2b8), lab.rand() * 0.5);
@@ -71,11 +71,11 @@ export default async function play(lab) {
     lab.add(ring);
     const theta = Math.atan2(z, x);
     const swell = Math.exp(-(angDist(theta, behind) ** 2) / 0.3);
-    const hop = 0.1 + 0.42 * swell + lab.range(0, 0.04);
+    const hop = 0.2 + 0.55 * swell + lab.range(0, 0.05);
     const v = Math.sqrt(2 * G * hop);
     return {
       sp, ring, x, z, h, kind, swell,
-      w: (kind === 'visor' ? 0.34 : kind === 'dot' ? 0.16 : 0.26) * lab.range(0.85, 1.1),
+      w: (kind === 'visor' ? 0.46 : kind === 'dot' ? 0.24 : 0.36) * lab.range(0.85, 1.1),
       hop, v, flight: (2 * v) / G,
       open: 0, // set later: when it opens
       hit: (((Math.PI / 2 - theta) % TAU) + TAU) % TAU / TAU * WAVE, // when the wave reaches it, after the wave starts
@@ -142,15 +142,15 @@ export default async function play(lab) {
         }
         e.sp.position.x = e.x + dx;
       }
-      const glow = 1 + e.swell * 0.9 * (u > -0.1 && u < e.flight + 0.2 && !isLate ? 1 : 0);
+      const glow = 1 + (0.5 + e.swell * 1.0) * (u > -0.1 && u < e.flight + 0.15 && !isLate ? Math.sin(Math.PI * Math.max(0, Math.min(1, (u + 0.1) / (e.flight + 0.25)))) : 0);
       e.sp.position.y = FLOOR + e.h + y;
-      e.sp.scale.set(e.w * (1 - stretch * 0.25), Math.max(0.0001, e.w * 0.36 * Math.max(0, o) * (1 + stretch)), 1);
+      e.sp.scale.set(e.w * (1 - stretch * 0.25), Math.max(0.0001, e.w * 0.42 * Math.max(0, o) * (1 + stretch)), 1);
       e.sp.material.opacity = Math.min(1, Math.max(0, o) * 1.2);
       e.sp.material.color.set(lab.PALETTE.light).multiplyScalar(2.2 * glow);
       // its ring on the floor: faint while the eye is open, a pulse when it lands
       const rr = 0.2 + 0.1 * landPulse + y * 0.15;
       e.ring.scale.set(rr, rr, rr);
-      e.ring.material.opacity = Math.min(1, Math.max(0, o)) * (0.22 + 0.5 * landPulse) * (1 - Math.min(0.8, y * 1.2));
+      e.ring.material.opacity = Math.min(1, Math.max(0, o)) * (0.09 + 0.45 * landPulse) * (1 - Math.min(0.8, y * 1.2));
     }
   });
 
@@ -192,9 +192,10 @@ export default async function play(lab) {
   });
   lab.tween(0.9, (e) => (back = e), ease.inOut);
   arena.setDim(0.35);
-  await lab.wait(0.15);
+  await lab.wait(0.12);
   T0 = lab.t;
-  await lab.wait(0.88);
+  order.forEach((idx, j) => (eyes[idx].open = 0.03 + (j / eyes.length) * 0.7 + lab.range(-0.02, 0.02)));
+  await lab.wait(0.8);
 
   // ---------- the wave ----------
   TW = lab.t;

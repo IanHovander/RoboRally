@@ -113,7 +113,7 @@ export default async function play(lab) {
   };
 
   // ---------------- the close fall: placed along rays from the camera, in screen space ----------------
-  const D = 4.4; // distance from the camera (the board is ~10.8 away): she's two and a half times her size
+  const D = 4.7; // distance from the camera (the board is ~10.8 away): she's two and a half times her size
   const cam = lab.camera3;
   const ray = (nx, ny) => {
     cam.updateMatrixWorld();
@@ -128,7 +128,7 @@ export default async function play(lab) {
     if (k < F.drop) return 0.28 + 0.02 * Math.sin(seg(k, F.stop, F.drop) * Math.PI); // the hang
     return lerp(0.28, -1.6, ease.in(seg(k, F.drop, 1)));
   };
-  const NX = 0.5;
+  const NX = 0.42;
   // the turn that points her face at the camera from where she hangs (the short way round from facing east)
   const hangAt = ray(NX, 0.3);
   let camFacing = Math.atan2(-(cam.position.x - hangAt.x), -(cam.position.z - hangAt.z));

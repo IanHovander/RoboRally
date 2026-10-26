@@ -106,10 +106,10 @@ export default async function play(lab) {
     m.body.traverse((o) => o.isMesh && o.material === m.eyeMat && out.push(o));
     return out;
   };
-  const squinters = [theo, jun].map((p) => ({ p, eyes: eyesOf(p.model), rest: { x: p.pose.x, y: p.pose.y } }));
+  const squinters = [theo, jun].map((p) => ({ p, eyes: eyesOf(p.model), q: 1, c: 0, lit: 1, dist: lab.pos(p.pose.x, p.pose.y).distanceTo(lab.pos(4, 1)) }));
   for (const s of squinters) {
     s.p.each = (m) => {
-      const q = st.squint;
+      const q = s.q;
       for (const e of s.eyes) {
         if (e.geometry.type === 'CylinderGeometry') e.scale.set(q, 1, q);
         else if (e.geometry.type === 'CapsuleGeometry') e.scale.set(q, 1, 1);
@@ -117,22 +117,24 @@ export default async function play(lab) {
       }
       const washed = 1 - 0.85 * st.L;
       m.eyeMat.color.multiplyScalar(washed * (0.55 + 0.45 * Math.min(1, q)) * (q > 1 ? 1 + (q - 1) * 1.5 : 1));
-      m.ringMat.opacity *= 1 - 0.9 * st.L;
-      m.poolMat.opacity *= (1 - 0.95 * st.L) * Math.max(0, st.glass);
+      m.ringMat.opacity *= (1 - 0.9 * st.L) * (0.35 + 0.65 * s.lit);
+      m.poolMat.opacity *= (1 - 0.95 * st.L) * s.lit;
       m.paint.emissiveIntensity *= 1 - st.L;
     };
   }
   maya.each = (m) => {
     const k = st.proud;
-    m.eyeMat.color.multiplyScalar(1 + 0.6 * k);
-    m.paint.emissiveIntensity = 0.16 + 0.75 * k;
+    m.eyeMat.color.multiplyScalar(1 + 0.8 * k);
+    m.paint.emissiveIntensity = 0.16 + 1.3 * k;
     m.poolMat.opacity = Math.min(1, m.poolMat.opacity * (1 + 0.6 * k));
     m.ringMat.opacity = 1;
   };
   // their bodies: a startled hop, then shrinking back from the glare
   lab.every(() => {
-    const c = st.cower;
-    for (const s of squinters) s.p.set({ lift: st.hop, sy: 1 - 0.14 * c + st.hop * 0.6, sx: 1 + 0.06 * c, sz: 1 + 0.06 * c, pitch: -0.18 * c });
+    for (const s of squinters) {
+      const c = s.c;
+      s.p.set({ lift: st.hop, sy: 1 - 0.14 * c + st.hop * 0.6, sx: 1 + 0.06 * c, sz: 1 + 0.06 * c, pitch: -0.18 * c });
+    }
   });
 
   // ---------- Move 2 with weight ----------
@@ -179,58 +181,97 @@ export default async function play(lab) {
   st.L = 1;
   lab.shake(0.02, 0.12);
   // full on: they squint and shrink back; Maya stands tall in her own light
-  lab.tween(0.18, (e) => (st.squint = 1 - 0.8 * e), ease.out);
-  lab.tween(0.3, (e) => (st.cower = e), ease.outBack);
+  lab.tween(0.18, (e) => squinters.forEach((s) => (s.q = 1 - 0.8 * e)), ease.out);
+  lab.tween(0.3, (e) => squinters.forEach((s) => (s.c = e)), ease.outBack);
   lab.tween(0.5, (e) => (st.proud = e), ease.out);
   lab.tween(0.4, (e) => maya.set({ sy: 1 + 0.07 * e, sx: 1 - 0.02 * e, sz: 1 - 0.02 * e }), ease.outBack);
   // the hum: tubes settle a hair brighter
   await lab.tween(1.05, (e, k) => (st.L = 0.94 + 0.06 * Math.min(1, k * 3) + 0.012 * Math.sin(k * 90)), ease.linear);
 
-  // ---------- click: dark, all of it (only slits and Maya), then the light pours back ----------
+  // ---------- click: dark, all of it (only the slits and Maya), then the light pours back ----------
+  // A cover over the glass hides its light outside a wobbling radius round Maya; the radius grows like poured
+  // liquid, a bright meniscus rides its edge, and a dimmer slosh rolls back to her from the edges.
+  const C = lab.pos(4, 1);
+  const vert = 'varying vec2 vP; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vP = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }';
+  const U = { uC: { value: new THREE.Vector2(C.x, C.z) }, uR: { value: 0 }, uOn: { value: 1 }, uT: { value: 0 }, uR2: { value: -1 }, uA1: { value: 0 }, uA2: { value: 0 }, uCol: { value: new THREE.Color(lab.PALETTE.light).multiplyScalar(2.2) } };
+  const edge = 'vec2 d = vP - uC; float dist = length(d); float ang = atan(d.y, d.x); float r = uR + 0.08 * sin(ang * 5.0 + uT * 7.0) + 0.04 * sin(ang * 11.0 - uT * 5.0);';
+  const coverMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: vert, transparent: true, depthWrite: false,
+    fragmentShader: `uniform vec2 uC; uniform float uR; uniform float uOn; uniform float uT; varying vec2 vP; void main(){ ${edge} gl_FragColor = vec4(0.0, 0.0, 0.0, smoothstep(r - 0.3, r + 0.04, dist) * uOn * 0.97); }` });
+  const bandMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: vert, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    fragmentShader: `uniform vec2 uC; uniform float uR; uniform float uT; uniform float uR2; uniform float uA1; uniform float uA2; uniform vec3 uCol; varying vec2 vP; void main(){ ${edge} float b1 = exp(-pow((dist - r + 0.06) / 0.11, 2.0)) * uA1; float r2 = uR2 + 0.06 * sin(ang * 4.0 - uT * 6.0); float b2 = uR2 > 0.0 ? exp(-pow((dist - r2) / 0.16, 2.0)) * uA2 : 0.0; gl_FragColor = vec4(uCol * (b1 + b2), 1.0); }` });
+  const cw = arena.course.w;
+  const ch = arena.course.h;
+  const cover = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), coverMat);
+  cover.rotation.x = -Math.PI / 2;
+  cover.position.y = 0.0025;
+  cover.renderOrder = -1;
+  const band = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), bandMat);
+  band.rotation.x = -Math.PI / 2;
+  band.position.y = 0.003;
+  band.renderOrder = -1;
+  lab.add(cover);
+  lab.add(band);
   st.L = 0;
   st.glass = 0;
-  await lab.wait(0.22);
-  const at = lab.pos(4, 1);
-  // the pour: a wave of light runs out from under Maya to the edges and sloshes back
-  const front = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(lab.PALETTE.light).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  front.rotation.x = -Math.PI / 2;
-  front.position.copy(at).setY(0.02);
-  lab.add(front);
-  const back = front.clone();
-  back.material = front.material.clone();
-  lab.add(back);
+  squinters.forEach((s) => (s.lit = 0));
+  const colDist = arena.columns.map((c) => Math.hypot(c.col.position.x - C.x, c.col.position.z - C.z));
+  let pourR = -1;
+  lab.every(() => {
+    // the columns come back as the light reaches them
+    if (pourR < 0) return;
+    arena.columns.forEach((c, i) => {
+      const k = Math.max(0, Math.min(1, (pourR - colDist[i] + 0.2) / 0.5));
+      if (c.n !== 2) c.mat.color.multiplyScalar(0.06 + 0.94 * k);
+    });
+  });
+  await lab.wait(0.24);
+  const MAXR = 5.4;
   const t0 = lab.t;
+  const popped = new Set();
   const stopPour = lab.every(() => {
     const u = lab.t - t0;
-    // the glass fills with an overshoot and a slosh, like liquid poured into a tray
-    st.glass = u < 0 ? 0 : 1 - Math.exp(-u * 4.2) * Math.cos(u * 11);
+    U.uT.value = u;
     const k1 = Math.min(1, u / 0.6);
-    const r1 = 0.3 + 5.4 * ease.out(k1);
-    front.scale.set(r1, r1, r1);
-    front.material.opacity = k1 < 1 ? (1 - k1) ** 0.8 * 0.9 : 0;
-    const k2 = Math.min(1, Math.max(0, (u - 0.45) / 0.6));
-    const r2 = 5.0 - 4.6 * ease.inOut(k2);
-    back.scale.set(r2, r2, r2);
-    back.material.opacity = k2 > 0 && k2 < 1 ? Math.sin(k2 * Math.PI) * 0.45 : 0;
+    pourR = MAXR * ease.out(k1);
+    U.uR.value = pourR;
+    U.uA1.value = k1 < 1 ? 0.85 * Math.min(1, u * 8) : Math.max(0, 0.85 - (u - 0.6) * 6);
+    U.uOn.value = k1 < 1 ? 1 : 0;
+    // the slosh back: a dimmer band rolls in from the edges to Maya
+    const k2 = Math.min(1, Math.max(0, (u - 0.5) / 0.65));
+    U.uR2.value = k2 > 0 && k2 < 1 ? 4.6 - 4.3 * ease.inOut(k2) : -1;
+    U.uA2.value = Math.sin(k2 * Math.PI) * 0.4;
+    // the glass fills with an overshoot, like liquid settling in a tray
+    st.glass = 1 + 0.35 * Math.exp(-u * 3.5) * Math.sin(u * 10);
+    // each robot's eyes pop open wide when the light reaches it, and it stands back up
+    for (const s of squinters) {
+      if (popped.has(s) || pourR < s.dist) continue;
+      popped.add(s);
+      lab.tween(0.5, (e, k) => (s.q = 0.2 + 0.8 * k + 0.6 * Math.sin(Math.PI * Math.min(1, k * 1.4)) * (1 - k)), ease.out);
+      lab.tween(0.55, (e) => (s.c = 1 - e), ease.outElastic);
+      lab.tween(0.3, (e) => (s.lit = e), ease.out);
+    }
   });
-  // eyes pop open wide, then settle; they stand back up
-  lab.tween(0.5, (e, k) => (st.squint = 0.2 + 0.8 * k + 0.55 * Math.sin(Math.PI * Math.min(1, k * 1.4)) * (1 - k)), ease.out);
-  lab.tween(0.55, (e) => (st.cower = 1 - e), ease.outElastic);
-  lab.tween(0.6, (e) => (st.proud = 1 - e), ease.inOut);
+  lab.tween(0.7, (e) => (st.proud = 1 - e), ease.inOut);
   lab.tween(0.5, (e) => maya.set({ sy: 1.07 - 0.07 * e, sx: 0.98 + 0.02 * e, sz: 0.98 + 0.02 * e }), ease.inOut);
-  // the slosh comes back to Maya: a little bump in her light, and the column stands red
-  lab.wait(1.0).then(() => {
+  // the slosh arrives back at Maya: a little bump in her light, and the column stands red
+  lab.wait(1.12).then(() => {
     if (col) {
       col.flash = lab.t - 0.3;
       col.flashColor = RED.clone();
     }
-    lab.ring(at, RED, 0.7, 0.03, 0.4);
+    lab.ring(C, RED, 0.7, 0.03, 0.4);
   });
-  await lab.wait(1.35);
+  await lab.wait(1.45);
   stopPour();
+  pourR = -1;
+  cover.visible = false;
+  band.visible = false;
   st.glass = 1;
-  st.squint = 1;
-  st.cower = 0;
+  squinters.forEach((s) => {
+    s.q = 1;
+    s.c = 0;
+    s.lit = 1;
+  });
   st.proud = 0;
   maya.each = null;
   for (const s of squinters) {

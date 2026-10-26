@@ -83,8 +83,8 @@ export default async function play(lab) {
   drawCard(g, 'sp', 30, 30, 240, 300);
   const cardTex = new THREE.CanvasTexture(cv);
   cardTex.colorSpace = THREE.SRGBColorSpace;
-  const CW = 0.3; // the card's width and height on the board (with the canvas margin)
-  const CH = 0.36;
+  const CW = 0.76; // the card's width and height on the board (with the canvas margin): as big as the game's own
+  const CH = 0.91; // card over a robot, so the ⚠ reads from the couch
   const card = new THREE.Group(); // local x along the row, local y the card's height, local z its face normal
   const faceMat = new THREE.MeshBasicMaterial({ map: cardTex, color: new THREE.Color(1.25, 1.25, 1.25), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const face = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), faceMat);
@@ -124,7 +124,8 @@ export default async function play(lab) {
   const qEdge = new THREE.Quaternion();
   const qFlip = new THREE.Quaternion();
   const toCam = new THREE.Vector3();
-  const faceAt = new THREE.Vector3(xf + CW / 2 + 0.02, 0.27, zb + 0.14); // where the card hangs, face-on, beside her
+  const faceAt = new THREE.Vector3(xf + CW / 2 - 0.04, 0.6, zb + 0.34); // where the card hangs, face-on, up beside her
+  const slotAt = new THREE.Vector3(mayaC.x + 0.08, 0.17, mayaC.z + 0.06); // where it ends: inside her
 
   // ----- timing -----
   const T_FLICK = 0.22; // the wrist flick: the card leaves
@@ -150,14 +151,17 @@ export default async function play(lab) {
   // Maya: jolt on the tink; reads the card, looks at us, reads it again (wide), shakes her head; it goes in anyway:
   // a squash and a glow, then a resigned slump
   const R = T_FACE;
-  const mYaw = K([[0, 0], [R, 0], [R + 0.1, 0.7, 'out'], [R + 0.2, 0.7], [R + 0.27, 0, 'inOut'], [R + 0.34, 0], [R + 0.4, 0.78, 'outBack'], [T_SLIDE - 0.02, 0.78], [T_IN + 0.1, 0.5, 'out'], [T_END - 0.08, 0, 'inOut']]);
-  const shake = (t) => win(t, R + 0.46, R + 0.5) * (1 - win(t, T_SLIDE - 0.06, T_SLIDE)) * Math.sin((t - R - 0.46) * 34) * 0.2;
-  const mRoll = K([[0, 0], [T_ARRIVE, 0], [T_ARRIVE + 0.04, 0.14, 'out'], [T_ARRIVE + 0.3, 0, 'outElastic']]);
-  const mPitch = K([[0, 0], [R + 0.34, 0], [R + 0.4, -0.14, 'out'], [T_SLIDE, -0.12], [T_IN, 0.04], [T_IN + 0.14, 0.2, 'inOut'], [T_END - 0.06, 0, 'inOut']]);
-  const mEyeS = K([[0, 1], [R, 1], [R + 0.1, 1.35, 'out'], [R + 0.34, 1.3], [R + 0.4, 1.75, 'outBack'], [T_SLIDE, 1.7], [T_IN, 0.6, 'out'], [T_IN + 0.3, 0.75], [T_END - 0.06, 1, 'inOut']]);
-  const mSx = K([[0, 1], [T_IN - 0.04, 1], [T_IN + 0.04, 1.14, 'out'], [T_IN + 0.4, 1, 'outElastic']]);
-  const mSy = K([[0, 1], [T_IN - 0.04, 1], [T_IN + 0.04, 0.86, 'out'], [T_IN + 0.22, 0.94, 'inOut'], [T_END - 0.06, 1, 'inOut']]);
-  const mGlow = K([[0, 0], [T_IN - 0.06, 0], [T_IN + 0.02, 0.9, 'out'], [T_IN + 0.3, 0, 'out']]);
+  const mYaw = K([[0, 0], [R, 0], [R + 0.1, 0.75, 'out'], [R + 0.2, 0.75], [R + 0.27, 0, 'inOut'], [R + 0.34, 0], [R + 0.4, 0.8, 'outBack'], [T_SLIDE - 0.02, 0.8], [T_IN + 0.1, 0.5, 'out'], [T_END - 0.08, 0, 'inOut']]);
+  // "no, no, no": a wide shake of the whole body
+  const shake = (t) => win(t, R + 0.46, R + 0.5) * (1 - win(t, T_SLIDE - 0.06, T_SLIDE)) * Math.sin((t - R - 0.46) * 32) * 0.34;
+  // she leans in to read it (toward it: her left), springs up on the double-take, slumps when it goes in
+  const mRoll = K([[0, 0], [T_ARRIVE, 0], [T_ARRIVE + 0.04, 0.16, 'out'], [T_ARRIVE + 0.3, 0, 'outElastic'], [R, 0], [R + 0.12, -0.24, 'inOut'], [R + 0.22, -0.24], [R + 0.28, 0, 'inOut']]);
+  const mPitch = K([[0, 0], [R, 0], [R + 0.12, 0.16, 'inOut'], [R + 0.22, 0.16], [R + 0.3, 0, 'inOut'], [R + 0.34, 0], [R + 0.4, -0.2, 'out'], [T_SLIDE, -0.14], [T_IN, 0.04], [T_IN + 0.14, 0.3, 'inOut'], [T_END - 0.3, 0.26], [T_END - 0.04, 0, 'inOut']]);
+  const mUp = K([[0, 0], [R + 0.34, 0], [R + 0.4, 0.08, 'out'], [R + 0.52, 0, 'in']]);
+  const mEyeS = K([[0, 1], [R, 1], [R + 0.1, 1.35, 'out'], [R + 0.34, 1.3], [R + 0.4, 1.8, 'outBack'], [T_SLIDE, 1.7], [T_IN, 0.6, 'out'], [T_IN + 0.3, 0.7], [T_END - 0.06, 1, 'inOut']]);
+  const mSx = K([[0, 1], [R + 0.34, 1], [R + 0.4, 0.9, 'out'], [R + 0.56, 1, 'outElastic'], [T_IN - 0.04, 1], [T_IN + 0.04, 1.16, 'out'], [T_IN + 0.4, 1.06, 'outElastic'], [T_END - 0.04, 1, 'inOut']]);
+  const mSy = K([[0, 1], [R + 0.34, 1], [R + 0.4, 1.14, 'out'], [R + 0.56, 1, 'outElastic'], [T_IN - 0.04, 1], [T_IN + 0.04, 0.8, 'out'], [T_IN + 0.22, 0.88, 'inOut'], [T_END - 0.3, 0.88], [T_END - 0.04, 1, 'inOut']]);
+  const mGlow = K([[0, 0], [T_IN - 0.06, 0], [T_IN + 0.02, 0.55, 'out'], [T_IN + 0.3, 0, 'out']]);
   maya.st.glowColor = new THREE.Color(SPAM);
 
   const T0 = lab.t;
@@ -168,7 +172,7 @@ export default async function play(lab) {
     // the actors
     Object.assign(theo.st, { yaw: tYaw(t), sy: tSy(t), sx: 2 - tSy(t), sz: 2 - tSy(t), pitch: tPitch(t), roll: tRoll(t), eye: tEye(t) });
     Object.assign(jun.st, { yaw: jYaw(t), pitch: jPitch(t), sy: jSy(t), sx: 1 + (1 - jSy(t)) * 0.5, sz: 1 + (1 - jSy(t)) * 0.5 });
-    Object.assign(maya.st, { yaw: mYaw(t) + shake(t), roll: mRoll(t), pitch: mPitch(t), eyeS: mEyeS(t), sx: mSx(t), sz: mSx(t), sy: mSy(t), glow: mGlow(t) });
+    Object.assign(maya.st, { yaw: mYaw(t) + shake(t), roll: mRoll(t), pitch: mPitch(t), up: mUp(t), eyeS: mEyeS(t), sx: mSx(t), sz: mSx(t), sy: mSy(t), glow: mGlow(t) });
 
     if (!fired && t >= T_FLICK) {
       fired = true;
@@ -198,12 +202,13 @@ export default async function play(lab) {
     const trail = muzzle.x + (xf + CW - muzzle.x) * lab.ease.inOut(win(t, T_GATHER, T_FLIP));
     // into the slot: it slides west into her side, shrinking to fit
     const sk = lab.ease.in(win(t, T_SLIDE, T_IN));
-    const len = Math.max(0.001, trail - lead);
-    const cx = (lead + trail) / 2 - (CW + 0.06) * sk;
-    // where it sits: on the beam line while it's a line, lifting and coming forward a touch as it turns
+    const shrink = 1 - 0.62 * sk;
+    const len = Math.max(0.001, trail - lead) * shrink;
+    // where it sits: on the beam line while it's a line, lifting and coming forward as it turns
     const lift = lab.ease.inOut(fk);
-    card.position.set(cx, yb + (faceAt.y - yb) * lift, zb + (faceAt.z - zb) * lift);
-    const h = CH * (1 - 0.3 * sk);
+    card.position.set((lead + trail) / 2, yb + (faceAt.y - yb) * lift, zb + (faceAt.z - zb) * lift);
+    card.position.lerp(slotAt, sk);
+    const h = CH * shrink;
     face.scale.set(len, h, 1);
     for (const [b, y] of [[top, h / 2], [bot, -h / 2], [sleeve, 0]]) {
       b.scale.set(1, len, 1);
@@ -214,11 +219,11 @@ export default async function play(lab) {
     edgeMat.opacity = lineK;
     sleeveMat.opacity = 0.45 * lineK * (1 + 0.6 * Math.exp(-Math.max(0, t - T_ARRIVE) / 0.08) * (t >= T_ARRIVE ? 1 : 0));
     const glint = Math.exp(-Math.max(0, t - T_FACE) / 0.12) * (t >= T_FACE ? 1 : 0);
-    faceMat.opacity = win(t, T_FLIP, T_FLIP + 0.12) * (1 - win(t, T_IN - 0.06, T_IN));
+    faceMat.opacity = win(t, T_FLIP, T_FLIP + 0.12) * (1 - win(sk, 0.5, 0.95)); // it's gone by the time it's inside her
     faceMat.color.setScalar(1.25 + 1.2 * glint);
     // the slot lights up as it goes in
-    slit.position.set(xf - 0.02, faceAt.y - 0.03, faceAt.z - 0.02);
-    slit.rotation.y = Math.PI / 2 - 0.35;
+    slit.position.set(xf - 0.03, 0.2, zb + 0.12);
+    slit.rotation.y = Math.PI / 2 - 0.5;
     slit.material.opacity = win(t, T_SLIDE - 0.02, T_SLIDE + 0.06);
 
     if (!hit && t >= T_IN - 0.04) {

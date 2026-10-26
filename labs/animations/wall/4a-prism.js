@@ -44,7 +44,7 @@ export default async function play(lab) {
   });
 
   // ---- light inside the fin: two quads on its faces whose top edge sloshes ----
-  const fillMat = new THREE.MeshBasicMaterial({ color: WARM.clone().multiplyScalar(1.6), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const fillMat = new THREE.MeshBasicMaterial({ color: WARM.clone().multiplyScalar(2.6), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const fills = [-1, 1].map((side) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
@@ -85,7 +85,7 @@ export default async function play(lab) {
     );
   const tink = glow('#ffffff', 0.34, 3);
   tink.position.copy(lab.pos(3.5, 1)).add(new THREE.Vector3(-0.03, 0.17, 0));
-  const drops = Array.from({ length: 5 }, () => glow('#fff1dc', 0.16, 3));
+  const drops = Array.from({ length: 5 }, () => glow('#fff1dc', 0.24, 3));
   const finFlare = glow('#fff1dc', 1.1, 1.4);
   finFlare.position.copy(lab.pos(3.5, 1)).add(new THREE.Vector3(0, 0.14, 0));
   const relight = glow('#fff1dc', 0.5, 2.4);
@@ -110,7 +110,7 @@ export default async function play(lab) {
   fan.renderOrder = 4;
   lab.add(fan);
   const O = lab.pos(3.5, 1).add(new THREE.Vector3(0.03, 0.012, 0)); // the far face of the fin
-  const hues = Array.from({ length: NA + 1 }, (_, j) => new THREE.Color().setHSL(0.0 + 0.78 * (j / NA), 1, 0.5)); // red (far) to violet (near us)
+  const hues = Array.from({ length: NA + 1 }, (_, j) => new THREE.Color().setHSL(0.0 + 0.78 * (j / NA), 0.9, 0.55).lerp(WARM, 0.12)); // red (far) to violet (near us)
   const c = new THREE.Color();
   /** reach R (spaces), half-angle A (rad), gain, white (0 colours, 1 recombined), wobble time */
   const setFan = (R, A, gain, white, tt) => {
@@ -120,17 +120,17 @@ export default async function play(lab) {
     for (let j = 0; j <= NA; j++) {
       const f = j / NA;
       const a = A * (2 * f - 1);
-      const edge = Math.sin(Math.PI * f) ** 0.8; // soft sides
+      const edge = Math.sin(Math.PI * f) ** 1.4; // soft sides
       for (let i = 0; i <= NR; i++) {
         const q = i / NR;
-        const rr = R * q * (1 + 0.035 * Math.sin(a * 11 + tt * 2.3) * q); // a liquid, slightly wavy front
+        const rr = R * q * (1 + 0.02 * Math.sin(a * 6 + tt * 2.3) * q); // a liquid, slightly wavy front
         pos.set([O.x + rr * Math.cos(a), O.y, O.z + rr * Math.sin(a)], (j * (NR + 1) + i) * 3);
         const sep = Math.min(1, (rr / 1.1) ** 0.8) * (1 - white); // white at the fin, colours part as they travel
         c.copy(WARM).lerp(hues[j], sep);
         const near = Math.min(1, q / 0.08); // fades in from the fin
-        const body = (1 - q ** 3) * (1 - 0.45 * q); // falls off with distance, soft at the front
-        const lip = 0.45 * Math.exp(-(((q - 0.93) / 0.07) ** 2)); // the liquid's bright lip
-        const k = gain * edge * near * (body + lip) * conc * 0.85;
+        const body = (1 - q ** 2.6) * (1 - 0.3 * q); // falls off with distance, soft at the front
+        const lip = 0.2 * Math.exp(-(((q - 0.9) / 0.08) ** 2)); // the spill's slightly brighter lip
+        const k = gain * edge * near * (body + lip) * conc * 0.62;
         col.set([c.r * k, c.g * k, c.b * k], (j * (NR + 1) + i) * 3);
       }
     }
@@ -181,7 +181,7 @@ export default async function play(lab) {
   const run = (k) => (k < A ? (k * k) / (2 * A) : A / 2 + (k - A)) / (1 - A / 2);
   const seg = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
   const RMAX = 2.95; // to the board's far edge
-  const AMAX = 0.6; // half-angle of the open fan
+  const AMAX = 0.5; // half-angle of the open fan (stays on the glass)
   const finTop = lab.pos(3.5, 1);
 
   await lab.tween(T.end, (_, kk) => {

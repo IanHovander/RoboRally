@@ -69,7 +69,7 @@ function makeFan(THREE, apex, board) {
       const ang = aim - half + 2 * half * open * u;
       const side = Math.min(u, 1 - u);
       const edge = smooth(side / 0.12); // soft angular edges
-      c.setHSL(0.83 * u, 1, 0.55); // red ... violet
+      c.setHSL(0.83 * u, 0.9, 0.58); // red ... violet
       const split = clamp01(open * 1.25); // folded shut, the colours add back up to white
       for (let j = 0; j < R; j++) {
         const v = j / (R - 1);
@@ -81,9 +81,9 @@ function makeFan(THREE, apex, board) {
         pos[k + 1] = 0.012;
         pos[k + 2] = z;
         // brightest a little way out, fading to nothing at the far end; white close to the fin
-        const along = smooth(v / 0.18) * (1 - smooth((v - 0.35) / 0.65)) * 0.85 + 0.15 * (1 - v);
+        const along = smooth(v / 0.12) * (1 - smooth((v - 0.45) / 0.55)) * 0.85 + 0.12 * (1 - v);
         const inside = smooth((board.x1 - x) / 0.35) * smooth((board.z1 - Math.abs(z - board.zc)) / 0.35);
-        const mixW = Math.max(1 - split, 1 - smooth(v / 0.45));
+        const mixW = Math.max(1 - split, 1 - smooth(v / 0.25));
         const w = power * along * inside * lerp(edge, 1, 1 - split) * (0.6 + 0.4 * split);
         col[k] = lerp(c.r, white.r, mixW) * w;
         col[k + 1] = lerp(c.g, white.g, mixW) * w;
@@ -127,7 +127,7 @@ export default async function play(lab) {
   // the fan, just past the fin
   const fanAt = apex.clone().add(new THREE.Vector3(0.03, 0, 0));
   const fan = lab.add(makeFan(THREE, fanAt, { x1: W / 2, z1: H / 2, zc: 0 }));
-  const F = { aim: 0, half: 0.5, open: 0, reach: 0, power: 0 };
+  const F = { aim: 0, half: 0.62, open: 0, reach: 0, power: 0 };
   fan.visible = false;
 
   // eyes and paint, driven by the acting
@@ -179,7 +179,7 @@ export default async function play(lab) {
     await span(T_FAN, T_FAN + 0.32, (e, k) => {
       F.reach = 2.8 * ease.out(clamp01(k * 1.4));
       F.open = ease.outBack(clamp01((k - 0.15) / 0.85));
-      F.power = 0.75 * clamp01(k * 2.5);
+      F.power = 0.6 * clamp01(k * 2.5);
       F.aim = aimOf();
       fan.userData.update(F);
     }, ease.linear);
@@ -193,14 +193,14 @@ export default async function play(lab) {
     await span(T_FOLD, T_OUT, (e) => {
       F.aim = aimOf(); // folding onto its north edge
       F.open = 1 - e;
-      F.power = 0.75 + 0.5 * e;
+      F.power = 0.6 + 0.6 * e;
       fan.userData.update(F);
     }, ease.inOut);
     // ...one white line, which goes out from the far end back into the fin
     await span(T_OUT, T_OUT + 0.14, (e) => {
       F.open = 0.0;
       F.reach = 2.8 * (1 - e);
-      F.power = 1.25 * (1 - e * 0.7);
+      F.power = 1.2 * (1 - e * 0.7);
       fan.userData.update(F);
     }, ease.in);
     fan.visible = false;
@@ -220,23 +220,23 @@ export default async function play(lab) {
     // the colour opens: she turns to look
     await span(T_FAN + 0.1, T_FAN + 0.34, (e) => ava.set({ rot: lerp(avaRot0, avaToMaya, e) }), ease.inOut);
     // the fan sweeps over her: she lights up, looks down at herself, and twirls with joy
-    const twirlA = T_SWEEP + 0.22;
+    const twirlA = T_SWEEP + 0.32;
     lab.every(() => {
       const d = Math.abs(wrap(avaAng - F.aim));
-      const lit = fan.visible ? smooth((F.half * F.open + 0.1 - d) / 0.25) * clamp01(F.power / 0.75) : 0;
+      const lit = fan.visible ? smooth((F.half * F.open + 0.1 - d) / 0.25) * clamp01(F.power / 0.6) : 0;
       avaFace.wash = lit * 0.9;
       avaFace.hue = 0.83 * clamp01((avaAng - (F.aim - F.half)) / (2 * F.half));
     });
-    await span(T_SWEEP + 0.04, twirlA, (e) => {
+    await span(T_SWEEP + 0.2, twirlA, (e) => {
       ava.set({ pitch: 0.28 * e, sy: 1 - 0.04 * e });
       avaFace.eye = 1 + 0.3 * e;
     }, ease.out);
-    await span(twirlA, twirlA + 0.42, (e, k) => {
+    await span(twirlA, twirlA + 0.38, (e, k) => {
       ava.set({ rot: avaToMaya + TAU * e, pitch: 0.28 * (1 - clamp01(k * 3)), lift: 0.09 * hump(k, 0, 1), sy: 1 + 0.08 * hump(k, 0, 1), roll: 0.12 * hump(k, 0.1, 0.9) });
       avaFace.eye = 1.3 + 0.3 * hump(k, 0, 1);
     }, ease.inOut);
     // back to the way she was facing
-    await span(T_FOLD + 0.06, T_END - 0.02, (e) => {
+    await span(Math.max(T_FOLD + 0.06, twirlA + 0.4), T_END - 0.02, (e) => {
       ava.set({ rot: lerp(avaToMaya + TAU, avaRot0 + TAU, e), lift: 0, sy: 1, roll: 0, pitch: 0 });
       avaFace.eye = 1.6 - 0.6 * e;
     }, ease.inOut);

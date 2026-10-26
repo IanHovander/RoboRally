@@ -4,7 +4,7 @@ export const meta = {
   idea:
     "Maya hits Theo hard enough that the whole picture freezes for two frames, and in that freeze the black room around the slab turns out to be full: tiers of tiny warm phone lights, like an arena seen across the dark, all jolting upward at once as the impact's shock rolls out through them. They hold their breath while Theo skids, and when he stops they all let it out together, sagging a little below where they were and fading to black. Then, a beat too late, one light at the back gasps on its own, notices nobody else is, and sinks away.",
   notes:
-    "Sound: a glass clink with a hit-stop, then a soft collective inhale (a breathy glass swell, many voices) that cuts off into silence while he slides, a falling exhale as they sink, then one tiny late 'oh!' chime. Physics: every light is a mass on its own spring (slightly different weight and stiffness each, so the crowd jiggles out of step like real people); the impact is an impulse that travels out from the point of contact at about 30 spaces/s, a held force keeps them up while the pushed robot moves, and letting it go makes them overshoot below rest (the exhale). The board's own light is never touched. Scaling: `drama` sets how many lights gasp (a share of the keenest seats). This single push on open floor is 0.42, a murmur of about a hundred; 1 robot further per chain adds 0.25, a shove toward a pit or off the board adds 0.4, and at 1 the whole arena (about 450 lights) gasps. The late gasper is always there, which is the running gag.",
+    "Sound: a glass clink with a hit-stop, then a soft collective inhale (a breathy glass swell, many voices) that cuts off into silence while he slides, a falling exhale as they sink, then one tiny late 'oh!' chime. Physics: every light is a mass on its own spring (slightly different weight and stiffness each, so the crowd jiggles out of step like real people); the impact is an impulse that travels out from the point of contact at about 70 spaces/s (a ripple, near seats first), a held force keeps them up while the pushed robot moves, and letting it go makes them overshoot below rest (the exhale). The board's own light is never touched. Scaling: `drama` sets how many lights gasp (a share of the keenest seats). This single push on open floor is 0.42, a murmur of about a hundred; 1 robot further per chain adds 0.25, a shove toward a pit or off the board adds 0.4, and at 1 the whole arena (about 450 lights) gasps. The late gasper is always there, which is the running gag.",
 };
 
 const clamp01 = (k) => Math.max(0, Math.min(1, k));
@@ -78,9 +78,9 @@ export default async function play(lab) {
       // round the corners off a little, and scatter people in their row
       const r = Math.hypot(x / ax, z / az);
       const k = 1 / Math.max(1, r * 0.93);
-      x = x * (0.93 + 0.07 * k) + lab.range(-0.07, 0.07);
-      z = z * (0.93 + 0.07 * k) + lab.range(-0.07, 0.07);
-      const p = new THREE.Vector3(x, y + lab.range(-0.05, 0.09), z);
+      x = x * (0.93 + 0.07 * k) + (Math.abs(z) > az * 0.95 ? lab.range(-0.05, 0.05) : lab.range(-0.015, 0.015));
+      z = z * (0.93 + 0.07 * k) + (Math.abs(z) > az * 0.95 ? lab.range(-0.015, 0.015) : lab.range(-0.05, 0.05));
+      const p = new THREE.Vector3(x, y + lab.range(-0.03, 0.05), z);
       const v = p.clone().project(cam);
       if (Math.abs(v.x) > 0.98 || Math.abs(v.y) > 0.98 || v.z > 1) continue; // off the picture
       ray.origin.copy(cam.position);
@@ -94,7 +94,7 @@ export default async function play(lab) {
   }
   // the late one: a seat in the dark right above the board's far edge, in the middle
   let late = seats[0];
-  for (const s of seats) if (Math.hypot(s.sx - 0.06, s.sy - 0.8) < Math.hypot(late.sx - 0.06, late.sy - 0.8)) late = s;
+  for (const s of seats) if (Math.hypot(s.sx - 0.1, s.sy - 0.7) < Math.hypot(late.sx - 0.1, late.sy - 0.7)) late = s;
   // the crowd: the keenest share of the seats, as many as the drama says
   const want = Math.round(28 + drama * drama * 430);
   const crowd = seats.filter((s) => s !== late).sort((a, b) => b.keen - a.keen).slice(0, want);
@@ -133,7 +133,7 @@ export default async function play(lab) {
       z: lab.range(0.28, 0.42), // damping ratio
       kick: lab.range(6, 8.5) * (isLate ? 1.1 : 1), // how hard they jolt (world units / s)
       hold: lab.range(0.3, 0.45), // how high they hold their breath
-      delay: s.p.distanceTo(contact) / 30 + lab.range(0, 0.03),
+      delay: s.p.distanceTo(contact) / 70 + lab.range(0, 0.02),
       fadeAt: lab.range(0, 0.2),
       bright: lab.range(0.75, 1.4),
       sway: lab.range(0, Math.PI * 2),

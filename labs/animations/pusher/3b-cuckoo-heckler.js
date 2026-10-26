@@ -114,41 +114,39 @@ export default async function play(lab) {
   clock.add(spill);
 
   // ---- the bird: three strokes of warm light (body, beak, tail) and an eye, always facing the camera
-  const R = 0.019;
-  const BS = 1.9; // the bird's size
+  const R = 0.016;
+  const BS = 2.2; // the bird's size
   const stroke = (pts, mat) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, 0))), 32, R, 6), mat);
-  const lineMat = glow(1.7);
+  const lineMat = glow(1.35);
   const bird = new THREE.Group();
   const birdInner = new THREE.Group(); // bobs and leans about its feet
   bird.add(birdInner);
+  // stroke 1: the head, a ring of light
+  const headPts = [];
+  for (let i = 0; i < 16; i++) headPts.push(new THREE.Vector3(0.055 + 0.04 * Math.cos((i / 16) * Math.PI * 2), 0.07 + 0.04 * Math.sin((i / 16) * Math.PI * 2), 0));
+  const head = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(headPts, true), 40, R, 6, true), lineMat);
+  // stroke 2: the body, one sweep from the nape along the back to a cocked tail and round the belly to the chest
   const body = stroke(
     [
-      [-0.1, 0.03],
-      [-0.06, -0.035],
-      [0.0, -0.055],
-      [0.055, -0.03],
-      [0.08, 0.03],
-      [0.075, 0.085],
-      [0.04, 0.105],
-      [0.012, 0.085],
+      [0.028, 0.04],
+      [-0.03, 0.022],
+      [-0.1, 0.018],
+      [-0.2, 0.065],
+      [-0.145, -0.012],
+      [-0.075, -0.052],
+      [0.0, -0.058],
+      [0.05, -0.034],
+      [0.068, 0.012],
     ],
     lineMat,
   );
-  const tail = stroke(
-    [
-      [-0.1, 0.03],
-      [-0.14, 0.06],
-      [-0.175, 0.105],
-    ],
-    lineMat,
-  );
-  birdInner.add(body, tail);
+  birdInner.add(head, body);
   // the beak: one bent stroke whose two halves open on each call
   const beak = new THREE.Group();
-  beak.position.set(0.082, 0.072, 0);
+  beak.position.set(0.094, 0.072, 0);
   const half = () => {
     const g = new THREE.Group();
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.6, 0.07, 6).rotateZ(-Math.PI / 2).translate(0.035, 0, 0), lineMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.5, 0.068, 6).rotateZ(-Math.PI / 2).translate(0.034, 0, 0), lineMat);
     g.add(m);
     beak.add(g);
     return g;
@@ -158,14 +156,14 @@ export default async function play(lab) {
   birdInner.add(beak);
   const eyeMat = new THREE.MeshBasicMaterial({ color: warm(4.5) });
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.013, 10, 8), eyeMat);
-  eye.position.set(0.05, 0.075, 0.005);
+  eye.position.set(0.066, 0.08, 0.005);
   birdInner.add(eye);
   // its calls: arcs of light leaving the beak
   const calls = [];
   const callGeo = new THREE.RingGeometry(0.92, 1, 24, 1, -0.55, 1.1);
   const addCall = (big) => {
     for (let i = 0; i < (big ? 1 : 2); i++) {
-      const m = new THREE.Mesh(callGeo, glow(big ? 3 : 2.2, 0));
+      const m = new THREE.Mesh(callGeo, glow(big ? 3.2 : 2.6, 0));
       lab.add(m);
       calls.push({ m, t: lab.t + i * 0.05, big });
     }
@@ -209,7 +207,7 @@ export default async function play(lab) {
   const door = A.pos(3, 1).add(new THREE.Vector3(0, 0, 0)); // unused anchor (kept for clarity)
   void door;
   const doorPt = local(0, 0.02, 0.06);
-  const perch = local(0.24, 0.5, 0.06); // where the bird sits: up and to her right, leaning over her head
+  const perch = local(0.3, 0.92, 0.12); // where the bird sits: high above her, a little to her right, on a long stick
   const mayaAt = (y) => A.pos(3, y);
   const contact = (y) => mayaAt(y).add(new THREE.Vector3(0.02, 0.33, -0.2)); // the back of her head
   const tmpQ = new THREE.Quaternion();
@@ -248,10 +246,10 @@ export default async function play(lab) {
       const k = seg(T, tc - w * 0.45, tc + w * 0.55);
       if (k > 0 && k < 1) {
         const b = Math.sin(k * Math.PI);
-        lean -= 0.55 * b;
+        lean -= 0.75 * b;
         beakOpen = Math.max(beakOpen, b);
         birdSy = 1 + 0.12 * b;
-        at = at.clone().add(new THREE.Vector3(0, 0.03 * b, 0.05 * b));
+        at = at.clone().add(new THREE.Vector3(-0.03 * b, 0.02 * b, 0.07 * b));
       }
       if (T >= tc && fired <= i) {
         fired = i + 1;
@@ -261,19 +259,20 @@ export default async function play(lab) {
     // the wind-up and the peck
     if (T > WIND - 0.1 && T < BACK + 0.12) {
       const wind = smooth(seg(T, WIND - 0.1, WIND));
-      lean += 0.5 * wind; // leans back, beak up...
+      lean += 0.6 * wind; // rears back, beak up, rising on its stick...
       squint = wind;
+      at = at.clone().add(new THREE.Vector3(0.05 * wind, 0.1 * wind, 0));
       if (T >= WIND) {
         const k = seg(T, WIND, PECK);
-        const lunge = k * k; // ...and lunges, beak down at the back of her head
+        const lunge = k * k; // ...and dives, beak first, at the back of her head
         const yM = T < PECK ? 1 : 1 + out3(seg(T, PECK, PECK + SLIDE));
         const target = contact(Math.min(yM, 1.2));
-        lean = lerp(0.5, -1.25, out3(k));
+        lean = T < PECK ? lerp(0.6, -1.2, out3(k)) : -1.2 * (1 - outBack(seg(T, PECK + 0.05, PECK + 0.17), 2));
         beakOpen = T < PECK ? 0.3 : bump(T, PECK, PECK + 0.1);
         // put the beak tip on the target
         bird.updateMatrixWorld();
         tmpQ.copy(cam.quaternion);
-        const tip = new THREE.Vector3(0.155, 0.07, 0).applyAxisAngle(zAxis, lean);
+        const tip = new THREE.Vector3(0.162, 0.072, 0).applyAxisAngle(zAxis, lean);
         tip.x *= face;
         tip.multiplyScalar(BS).applyQuaternion(tmpQ);
         const strike = target.clone().sub(tip);
@@ -282,16 +281,18 @@ export default async function play(lab) {
         if (T >= PECK && fired < n) {
           fired = n;
           addCall(true);
-          lab.ring(A.pos(3, 1).add(new THREE.Vector3(0, 0.02, -0.3)), PALETTE.light, 0.25, 0.25, 0.3);
+          lab.ring(A.pos(3, 1), PALETTE.light, 0.32, 0.36, 0.3);
           lab.shake(0.025, 0.2);
         }
       }
     }
     // after: a little bow (a deep nod), then it ducks in
     if (T > BACK + 0.1) {
-      const bow = bump(T, BACK + 0.1, BACK + 0.24);
-      lean = -0.7 * bow;
-      squint = 0.6;
+      // a smug little fluff (and a short nod) before it ducks in
+      const fluff = bump(T, BACK + 0.08, BACK + 0.22);
+      lean = -0.3 * fluff;
+      birdSy = 1 + 0.18 * fluff;
+      squint = 0.7;
     }
     bird.position.copy(at);
     bird.quaternion.copy(cam.quaternion);
@@ -310,7 +311,7 @@ export default async function play(lab) {
       c.m.position.copy(bird.position).add(tip.applyQuaternion(cam.quaternion));
       c.m.quaternion.copy(cam.quaternion);
       c.m.rotateZ(face < 0 ? Math.PI : 0);
-      const r = (c.big ? 0.08 : 0.05) + (c.big ? 0.28 : 0.16) * out3(k);
+      const r = (c.big ? 0.1 : 0.07) + (c.big ? 0.45 : 0.28) * out3(k);
       c.m.scale.setScalar(r);
       c.m.material.opacity = (1 - k) ** 1.5;
     }
@@ -324,9 +325,9 @@ export default async function play(lab) {
     const tilt = n >= 2 ? smooth(seg(T, times[1] - 0.05, times[1] + 0.03)) * (1 - smooth(seg(T, times[1] + 0.12, times[1] + 0.2))) : 0;
     const annoyed = n >= 3 ? smooth(seg(T, times[2] - 0.04, times[2] + 0.04)) : 0;
     const ignore = n >= 4 ? smooth(seg(T, times[3] - 0.08, times[3])) : smooth(seg(T, WIND - 0.15, WIND));
-    let yaw = 1.0 * lookUp; // her left is north; the bird is north-east of her and high
+    let yaw = 0.75 * lookUp; // her left is north; the bird is north-east of her and high
     yaw = lerp(yaw, -0.45, ignore); // turns her back on it
-    let pitch = 0.45 * lookUp + 0.28 * ignore; // looks up / nose in the air
+    let pitch = 0.62 * lookUp + 0.28 * ignore; // looks up / nose in the air
     let roll = -0.22 * tilt;
     let eyeH = 1 + 0.6 * startle - 0.45 * annoyed * (1 - ignore) - 0.5 * ignore;
     let eyeOn = 1 + 0.6 * startle;
@@ -389,11 +390,11 @@ export default async function play(lab) {
     if (mayaBot.tag && T > 0.02 && T < SHUT + 0.05) mayaBot.tag.visible = false;
   };
   // a gentle lean in toward the clock for the show, and home again once she's been pecked
-  const focus = A.pos(3.4, 1.5).add(new THREE.Vector3(0, 0.3, 0));
+  const focus = A.pos(3.6, 1.5).add(new THREE.Vector3(0, 0.4, 0));
   const releaseCam = driveCamera(lab, (home, t) => {
     const T = t - t0;
-    const c = smooth(seg(T, 0.05, 0.45)) * (1 - smooth(seg(T, PECK + 0.15, END - 0.05)));
-    return { target: home.target.clone().lerp(focus, c), dist: home.dist * (1 - 0.26 * c), el: home.el - 0.1 * c, keep: 1 - c };
+    const c = smooth(seg(T, 0.05, 0.45)) * (1 - smooth(seg(T, PECK + 0.08, END - 0.02)));
+    return { target: home.target.clone().lerp(focus, 0.75 * c), dist: home.dist * (1 - 0.18 * c), el: home.el - 0.1 * c, keep: 1 - c };
   });
 
   await lab.wait(END);

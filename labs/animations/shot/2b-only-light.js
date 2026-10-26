@@ -162,6 +162,8 @@ export default async function play(lab) {
         // where this pixel "sees" Maya from: past the tear, her shadow has been yanked
         let mx = mayaC.x;
         let mz = mayaC.z;
+        // the rip itself: a gap of light right through her shadow
+        const inGap = tear.gap > 0 && px < tear.x && px > tear.x - 0.16 * tear.gap;
         if (px < tear.x && (tear.ang || tear.dz)) {
           // rotate the pixel back about the tear point instead of moving the shadow
           const rx = px - tear.x;
@@ -177,7 +179,7 @@ export default async function play(lab) {
           const dz = pz - L.z;
           const f = L.w / (1 + (dx * dx + dz * dz) * L.k);
           if (f < 0.004) continue;
-          if (blocks(px, pz, L.x, L.z, mx, mz, occ[0].r, occ[0].h)) continue;
+          if (!inGap && blocks(px, pz, L.x, L.z, mx, mz, occ[0].r, occ[0].h)) continue;
           if (blocks(px, pz, L.x, L.z, theoC.x, theoC.z, occ[1].r, occ[1].h)) continue;
           if (blocks(px, pz, L.x, L.z, junC.x, junC.z, occ[2].r, occ[2].h)) continue;
           I += f;
@@ -230,20 +232,16 @@ export default async function play(lab) {
   };
   const headSpark = spark(0.3);
   const muzzleSpark = spark(0.26);
-  // the beam lights the robots' near sides (key and fill are out)
-  const lampM = new THREE.PointLight(COLD, 0, 5, 1.2);
-  const lampH = new THREE.PointLight(COLD, 0, 5, 1.2);
-  const lampMid = new THREE.PointLight(COLD, 0, 5, 1.2);
-  lab.add(lampM);
+  // the impact lights Maya's flank (key and fill are out; everyone else is a silhouette against the lit glass)
+  const lampH = new THREE.PointLight(COLD, 0, 3, 1.4);
   lab.add(lampH);
-  lab.add(lampMid);
 
   // ----- timing -----
   const T_FIRE = 0.16;
   const SPEED = 9; // the head's speed: slow enough to watch the shadows swing
   const T_HIT = T_FIRE + (muzzle.x - xHit) / SPEED;
-  const T_OFF = 1.2; // the beam lets go; its light lingers and rises, and the shadows shrink home
-  const T_UP = 1.26; // the room's light starts back
+  const T_OFF = 1.16; // the beam lets go as the room's light comes back, and the shadows shrink home under everyone
+  const T_UP = 1.16; // the room's light starts back
   const T_END = 2.05;
 
   // ----- the acting -----
@@ -275,7 +273,7 @@ export default async function play(lab) {
     const dk = dark(t);
     setRoom(1 - dk);
     // every robot's ring and pool and own glow go dark; the eyes stay on, a little dimmer
-    for (const a of all) Object.assign(a.st, { ring: 1 - dk, pool: 1 - dk, emis: 1 - dk, tag: 1 - 0.75 * dk, eye: 1 - 0.35 * dk });
+    for (const a of all) Object.assign(a.st, { ring: 1 - dk, pool: 1 - dk, emis: 1 - 0.8 * dk, tag: 1 - 0.75 * dk, eye: 1 - 0.35 * dk });
     arena.topMat.emissiveIntensity *= 1 - 0.96 * dk;
 
     Object.assign(theo.st, { pitch: tPitch(t), sy: tSy(t), sx: 2 - tSy(t), sz: 2 - tSy(t), roll: tRoll(t) });
@@ -288,9 +286,9 @@ export default async function play(lab) {
       fired = true;
       arena.emit('laser', { board: false, hit: true, src: 'b' });
     }
-    const on = t >= T_FIRE ? 1 - win(t, T_OFF, T_OFF + 0.14) : 0;
-    const linger = t >= T_FIRE ? 1 - lab.ease.in(win(t, T_OFF, T_OFF + 0.55)) : 0;
-    yl = 0.13 + 2.2 * lab.ease.inOut(win(t, T_OFF, T_OFF + 0.5));
+    const on = t >= T_FIRE ? 1 - lab.ease.in(win(t, T_OFF, T_OFF + 0.4)) : 0;
+    const linger = t >= T_FIRE ? 1 - lab.ease.in(win(t, T_OFF, T_OFF + 0.5)) : 0;
+    yl = 0.13 + 1.6 * lab.ease.in(win(t, T_OFF, T_OFF + 0.42));
     const xHead = Math.max(xHit, muzzle.x - SPEED * Math.max(0, t - T_FIRE));
     const flare = t >= T_HIT ? Math.exp(-(t - T_HIT) / 0.12) : 0;
     const vis = on > 0.001;
@@ -312,10 +310,10 @@ export default async function play(lab) {
     lights.length = 0;
     if (linger > 0.001) {
       const len = muzzle.x - xHead;
-      lights.push({ x: muzzle.x - 0.02, z: zb, w: 0.6, k: 2.4 });
-      lights.push({ x: xHead + 0.02, z: zb, w: 0.6 + 0.9 * flare, k: 2.4 });
+      lights.push({ x: muzzle.x - 0.02, z: zb, w: 0.65, k: 1.7 });
+      lights.push({ x: xHead + 0.02, z: zb, w: 0.75 + 1.2 * flare, k: 1.0 });
       const n = Math.max(1, Math.round(len / 0.4));
-      for (let i = 0; i < n; i++) lights.push({ x: xHead + (len * (i + 0.5)) / n, z: zb, w: (1.1 / n) * Math.min(1, len), k: 1.3 });
+      for (let i = 0; i < n; i++) lights.push({ x: xHead + (len * (i + 0.5)) / n, z: zb, w: (1.1 / n) * Math.min(1, len), k: 1.6 });
     }
 
     // the hit lands on her shadow: it rips and swings, while she stands still
@@ -327,27 +325,23 @@ export default async function play(lab) {
     const h = t - T_HIT;
     if (h >= 0) {
       const jerk = h < 0.05 ? lab.ease.out(h / 0.05) : Math.exp(-(h - 0.05) / 0.14) * Math.cos((h - 0.05) * 26);
-      tear.ang = 0.32 * jerk;
-      tear.dz = 0.1 * jerk;
-      tear.gap = Math.max(0, 1 - h / 0.4);
+      tear.ang = 0.5 * jerk;
+      tear.dz = 0.2 * jerk;
+      tear.gap = h < 0.04 ? h / 0.04 : Math.max(0, 1 - (h - 0.04) / 0.45);
       seam.material.opacity = Math.max(0, 1 - h / 0.3) * on;
       seam.rotation.z = -tear.ang * 0.5;
     }
-    paint(linger * (0.55 + 0.3 * flare));
+    paint(linger * (0.5 + 0.25 * flare));
     washMat.opacity = 1;
 
-    lampM.position.set(muzzle.x - 0.1, yb + 0.1, zb);
-    lampH.position.set(xHead + 0.1, yb + 0.1, zb);
-    lampMid.position.set((muzzle.x + xHead) / 2, yb + 0.15, zb + 0.15);
-    lampM.intensity = 2.2 * on;
-    lampH.intensity = (2.2 + 4 * flare) * on;
-    lampMid.intensity = 2.5 * linger;
+    lampH.position.set(xHead + 0.12, yb + 0.05, zb + 0.05);
+    lampH.intensity = (1.6 + 4 * flare) * on;
   });
 
   await lab.wait(T_END);
   stop();
   setRoom(1);
-  for (const l of [lampM, lampH, lampMid]) l.intensity = 0;
+  lampH.intensity = 0;
   wash.visible = false;
   maya.done({ x: 1, y: 1, d: 2 });
   theo.done({ x: 5, y: 1, d: 3 });

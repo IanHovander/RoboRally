@@ -104,13 +104,19 @@ export default async function play(lab) {
   arena.emit('play', { id: 'a', cards: ['m2'] });
   arena.emit('move', { id: 'a', n: 2, dur: 0.6 });
 
-  const R = 0.62;
+  const R = 0.66;
   const well = makeWell(THREE, R);
   well.position.set(home.x, 0.007, home.z);
   well.visible = false;
   lab.add(well);
+  // the hole's lip: a thin edge of the glass's own light, as Lumen's pits have
+  const lip = new THREE.Mesh(new THREE.RingGeometry(R * 0.94, R, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8696b0).multiplyScalar(1.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  lip.rotation.x = -Math.PI / 2;
+  lip.position.set(home.x, 0.009, home.z);
+  lip.renderOrder = 4;
+  lab.add(lip);
   // where the drop lands: the near edge of the hole, a little left (in disc units: x right, y toward us)
-  const dropUV = new THREE.Vector2(-0.38, 0.86).normalize().multiplyScalar(0.93);
+  const dropUV = new THREE.Vector2(-0.8, 0.6).normalize().multiplyScalar(0.93); // clear of her card, which hangs over her
   well.material.uniforms.uDrop.value.set(dropUV.x, -dropUV.y); // plane's y is the board's -z
   const landAt = new THREE.Vector3(home.x + dropUV.x * R, 0, home.z + dropUV.y * R);
 
@@ -126,7 +132,8 @@ export default async function play(lab) {
   const cam = lab.camera3;
   cam.updateMatrixWorld();
   let H0 = 0.5;
-  for (; H0 < 12; H0 += 0.1) if (new THREE.Vector3(landAt.x, H0, landAt.z).project(cam).y > 1.08) break;
+  // where it forms: in the dark above the board, near the top of the picture
+  for (; H0 < 12; H0 += 0.05) if (new THREE.Vector3(landAt.x, H0, landAt.z).project(cam).y > 0.66) break;
   // the splash: a few droplets that jump and fall back
   const splash = Array.from({ length: 5 }, (_, i) => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: amber.clone().multiplyScalar(2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -156,12 +163,13 @@ export default async function play(lab) {
   const DRUNK = MOVE + 0.42;
   const LOOK = DRUNK + 0.02; // she looks down
   const SINK = LOOK + 0.14; // the floor's gone: she sinks a hair and freezes
-  const FALL = 0.26;
+  const FALL = 0.24;
+  const SWELL = 0.2; // the drop gathers and hangs before it lets go
   const PLINK = SINK + 0.3; // the drop lands
   const FILL = PLINK + 0.03;
   const BOB = PLINK + 0.12; // she bobs back up
   const END = PLINK + 0.5;
-  const G = (2 * H0) / (FALL * FALL);
+  const G = (2 * (H0 - 0.04)) / (FALL * FALL);
 
   const st = { pitch: 0, pv: 0, roll: 0, rv: 0, sy: 1, sv: 0, lift: 0, lv: 0 };
   const kicks = new Set();
@@ -200,16 +208,31 @@ export default async function play(lab) {
     U.uFill.value = T >= FILL ? 2.3 * (1 - (1 - seg(T, FILL, FILL + 0.34)) ** 2) : 0;
     U.uFront.value = T >= FILL ? 1 - seg(T, FILL + 0.15, FILL + 0.4) : 0;
     if (T >= FILL + 0.36) well.visible = false;
+    // the lip shows once the dark reaches it, and goes as the light floods back
+    lip.material.opacity = 0.8 * smooth(seg(uOpen, 0.8, 1.1)) * (1 - smooth(seg(T, FILL, FILL + 0.25)));
 
     // ---- the drop ----
     const tf = T - (PLINK - FALL);
-    if (tf >= 0 && T < PLINK) {
+    const ts = T - (PLINK - FALL - SWELL);
+    if (ts >= 0 && tf < 0) {
+      // it gathers out of the dark: swells, sags under its own weight, necks...
+      const r = ts / SWELL;
       drop.visible = true;
-      const h = H0 - 0.5 * G * tf * tf;
+      const grow = smooth(clamp01(r * 1.4));
+      const sag = r > 0.55 ? (r - 0.55) / 0.45 : 0;
+      drop.position.set(landAt.x, H0 - 0.04 * sag * sag, landAt.z);
+      dropCore.scale.set(0.15 * grow * (1 - 0.15 * sag), 0.15 * grow * (1 + 0.5 * sag), 1);
+      dropStreak.scale.set(0.05 * grow, 0.05 * grow * (1 + 1.2 * sag), 1);
+      dropCore.material.opacity = 0.4 + 0.6 * grow;
+    } else if (tf >= 0 && T < PLINK) {
+      // ...and lets go: a streak of its own speed
+      drop.visible = true;
+      const h = H0 - 0.04 - 0.5 * G * tf * tf;
       const v = G * tf;
       drop.position.set(landAt.x, Math.max(0.02, h), landAt.z);
-      dropCore.scale.setScalar(0.13);
-      dropStreak.scale.set(0.08, 0.08 + v * 0.03, 1);
+      dropCore.scale.set(0.11, 0.13, 1);
+      dropCore.material.opacity = 1;
+      dropStreak.scale.set(0.08, 0.08 + v * 0.035, 1);
     } else drop.visible = false;
     if (T >= PLINK)
       once('plink', () => {
@@ -250,7 +273,7 @@ export default async function play(lab) {
     // looks down; the floor's gone: a little drop and a freeze, a nervous shiver; bobs back up when it fills
     const wantPitch = 0.3 * smooth(seg(T, LOOK, LOOK + 0.1)) * (1 - smooth(seg(T, BOB, BOB + 0.12)));
     let wantLift = 0;
-    if (T >= SINK && T < BOB) wantLift = -0.075;
+    if (T >= SINK && T < BOB) wantLift = -0.1;
     if (T >= SINK) once('sink', () => (st.lv -= 0.6));
     if (T >= BOB)
       once('bob', () => {
@@ -268,7 +291,7 @@ export default async function play(lab) {
       st.lv += (500 * (wantLift - st.lift) - 22 * st.lv) * h;
       st.lift += st.lv * h;
     }
-    const shiver = T >= SINK + 0.06 && T < PLINK ? 0.035 * Math.sin(T * 95) * seg(T, SINK + 0.06, SINK + 0.12) : 0;
+    const shiver = T >= SINK + 0.06 && T < PLINK ? 0.05 * Math.sin(T * 95) * seg(T, SINK + 0.06, SINK + 0.12) : 0;
     const sw = 1 + 0.03 * Math.min(3, drunk) * (1 - seg(T, BOB, END)); // a little fuller for the drink
     const sxz = sw / Math.sqrt(st.sy);
     maya.set({ x, y: 1, rot: lab.facing(1), lift: T >= END - 0.04 ? 0 : st.lift, sy: st.sy, sx: sxz, sz: sxz });

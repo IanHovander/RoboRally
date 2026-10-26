@@ -284,7 +284,7 @@ export default async function play(lab) {
       } else {
         // teetering on the brink: rocks out over the hole, back, out, back... and stays
         const kt = s - T.teeter[0];
-        kx = rimX + 0.07 * Math.sin(kt * 17) * Math.exp(-kt * 5.5);
+        kx = rimX + 0.11 * Math.sin(kt * 11) * Math.exp(-kt * 3.2);
       }
       gathered = Math.max(gathered, kx + kR);
       const kf = seg(s, ...T.fade);

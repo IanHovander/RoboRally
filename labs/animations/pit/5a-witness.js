@@ -157,7 +157,7 @@ export default async function play(lab) {
     const kr = clamp01(kt / 0.85);
     ripple.visible = kt > 0 && kr < 1;
     if (ripple.visible) {
-      ripple.scale.setScalar(0.35 + 2.15 * ease.out(kr));
+      ripple.scale.setScalar(0.62 + 1.9 * ease.out(kr));
       rippleMat.opacity = 0.55 * (1 - kr) ** 1.4 * Math.min(1, kt / 0.05);
     }
     arena.topMat.emissiveIntensity = glass0 * (kt > 0 && kt < 0.5 ? 1 - 0.22 * Math.sin((kt / 0.5) * Math.PI) * Math.exp(-kt * 3) : 1);

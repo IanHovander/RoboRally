@@ -88,7 +88,7 @@ export default async function play(lab) {
   const R = 0.5; // her ring's radius on the glass
   const LIFE = 3.2; // the game's trail life
   const MAX = 260;
-  const FLING = 0.012; // the flick's speed per sub-step
+  const FLING = 0.015; // the flick's speed per sub-step
   const rope = []; // nodes from the knot (0) to the tail: { x, y, px, py, t }
   const st = { mode: 'payout', clock: 0, friction: 7, shiver: null, cinch: 0, knot: { x: 1, y: 2 }, center: { x: 1, y: 2 }, taut: 0, onTaut: null, bow: null };
 
@@ -107,9 +107,9 @@ export default async function play(lab) {
     const kx = cx;
     const ky = cy + R; // the knot
     const dense = [];
-    const a = 0.46; // how far each loop reaches sideways
-    const b = 0.2; // how fat the loops are
-    const c = 0.2; // the loops droop toward us
+    const a = 0.56; // how far each loop reaches sideways
+    const b = 0.26; // how fat the loops are
+    const c = 0.22; // the loops droop toward us
     for (let j = 0; j <= 400; j++) {
       const s = (j / 400) * TAU;
       const u = a * Math.sin(s);
@@ -129,11 +129,7 @@ export default async function play(lab) {
     }
     return out;
   }
-  globalThis.__probe = () => {
-    let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity, nan = 0;
-    for (const n of rope) { a = Math.min(a, n.x); b = Math.max(b, n.x); c = Math.min(c, n.y); d = Math.max(d, n.y); if (!Number.isFinite(n.x)) nan++; }
-    return `rope n=${rope.length} x[${a.toFixed(2)},${b.toFixed(2)}] y[${c.toFixed(2)},${d.toFixed(2)}] nan=${nan} oldest=${(st.clock - rope[rope.length - 1].t).toFixed(2)} taut=${st.taut.toFixed(3)} mode=${st.mode}`;
-  };
+
   let released = false;
   const final = { x: 3, y: 1, rot: facing(0) };
 
@@ -310,8 +306,8 @@ export default async function play(lab) {
       const wz = p.y + origin.z + dx * ripple;
       pos.set([wx - dy * w, 0.008, wz + dx * w, wx + dy * w, 0.008, wz - dx * w], i * 6);
       // the knot flares as the bow cinches
-      const nearKnot = Math.exp(-((p.x - st.knot.x) ** 2 + (p.y - st.knot.y) ** 2) / 0.03);
-      const k = fade * 1.8 * (1 + 2.2 * st.cinch * nearKnot);
+      const nearKnot = Math.exp(-((p.x - st.knot.x) ** 2 + (p.y - st.knot.y) ** 2) / 0.015);
+      const k = fade * 1.8 * (1 + 1.5 * st.cinch * nearKnot);
       col.set([color.r * k, color.g * k, color.b * k, color.r * k, color.g * k, color.b * k], i * 6);
     }
     geo.attributes.position.needsUpdate = true;

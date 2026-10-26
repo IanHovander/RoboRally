@@ -72,8 +72,8 @@ export default async function play(lab) {
   const H = 0.42; // pane height
   const TH = 0.03; // thickness
   const W = 0.5; // width
-  const GAP = 0.29; // pivot to pivot
-  const path = rounded(lab, [[4.52, 1], [5.75, 1], [5.75, 2.05], [2.5, 2.05], [2.5, 3], [4.8, 3]], 0.42);
+  const GAP = 0.32; // pivot to pivot
+  const path = rounded(lab, [[4.74, 1], [5.55, 1], [5.55, 1.95], [3.2, 1.95], [3.2, 3], [4.8, 3]], 0.4);
   const sAt = (s) => {
     let i = path.findIndex((q) => q.s >= s);
     if (i <= 0) i = Math.max(1, i < 0 ? path.length - 1 : 1);
@@ -107,7 +107,7 @@ export default async function play(lab) {
     slit.rotation.set(-Math.PI / 2, g.rotation.y, 0);
     slit.position.copy(p).setY(0.012).addScaledVector(t, -TH / 2);
     lab.add(slit);
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(W, 0.03), new THREE.MeshBasicMaterial({ color: LIGHT.clone().multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.04, GAP * 1.3), new THREE.MeshBasicMaterial({ color: LIGHT.clone().multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
     line.rotation.order = 'YXZ';
     line.rotation.set(-Math.PI / 2, g.rotation.y, 0);
     lab.add(line);
@@ -159,9 +159,12 @@ export default async function play(lab) {
       const us = t - P.sink;
       if (us >= 0) {
         y -= 0.22 * ease.in(Math.min(1, us / 0.22));
-        if (us < 0.02) P.line.position.copy(P.p).addScaledVector(P.t, H * Math.sin(P.theta) * 0.9).setY(0.011);
+        if (!P.placed) {
+          P.placed = true;
+          P.line.position.copy(P.p).addScaledVector(P.t, GAP / 2).setY(0.011);
+        }
         const v = us - 0.05;
-        P.line.material.opacity = v < 0 ? 0 : Math.min(1, v * 10) * Math.max(0, 1 - v / 0.5);
+        P.line.material.opacity = v < 0 ? 0 : Math.min(1, v * 14) * Math.max(0, 1 - v / 0.6) ** 1.3;
       }
       P.g.position.y = y;
       P.g.rotation.x = th + wob;
@@ -214,27 +217,32 @@ export default async function play(lab) {
   // ---------- the panes pop up, rippling out from Maya ----------
   const t0 = lab.t;
   panes.forEach((P, i) => (P.rise = t0 + i * 0.014));
-  await lab.wait(0.014 * n + 0.3);
+  await lab.wait(0.014 * n + 0.42);
 
   // ---------- boop #1: she leans in, taps it; it teeters... and rocks back ----------
-  const nose = (k) => maya.set({ x: 4 + 0.1 * k, pitch: 0.28 * k });
-  await lab.tween(0.12, (e) => maya.set({ x: 4 - 0.03 * e, pitch: -0.12 * e }), ease.out); // wind up
-  await lab.tween(0.1, (e) => nose(e), ease.in);
+  const nose = (k) => maya.set({ x: 4 + 0.3 * k, pitch: 0.3 * k });
+  // the camera leans in for the gag
+  let near = 0;
+  const focus = lab.pos(4.7, 1.35);
+  const releaseCam = lab.camera((home) => ({ target: home.target.clone().lerp(focus, 0.55 * near), dist: home.dist * (1 - 0.3 * near) }));
+  lab.tween(0.45, (e) => (near = e), ease.inOut);
+  await lab.tween(0.16, (e) => maya.set({ x: 4 - 0.04 * e, pitch: -0.14 * e }), ease.out); // wind up
+  await lab.tween(0.12, (e) => maya.set({ x: 3.96 + 0.34 * e, pitch: -0.14 + 0.44 * e }), ease.in);
   panes[0].ring = lab.t;
   lab.tween(0.5, (e, k) => {
     const u = k * 0.5;
     boop = 0.26 * Math.exp(-u * 4.5) * Math.sin(u * 10.5 + 0.05);
   }, ease.linear).then(() => (boop = 0));
-  await lab.tween(0.18, (e) => nose(1 - e), ease.out);
+  await lab.tween(0.22, (e) => nose(1 - e), ease.out);
   // she looks at it (a little tilt of the head), then boop #2: barely a touch
   await lab.tween(0.18, (e) => maya.set({ roll: 0.1 * Math.sin(Math.PI * e) }), ease.inOut);
-  await lab.tween(0.1, (e) => nose(0.75 * e), ease.in);
+  await lab.tween(0.12, (e) => nose(e), ease.in);
   panes[0].ring = lab.t;
   // the run goes: slow at first, then faster and faster
   let tau = lab.t;
   panes.forEach((P, i) => {
     P.tau = tau;
-    P.Tf = i === n - 1 ? 0.15 : 0.055 + 0.2 * Math.exp(-i / 2.2);
+    P.Tf = i === n - 1 ? 0.15 : 0.05 + 0.19 * Math.exp(-i / 2);
     if (i > 0) lab.at(tau - lab.t, () => {
       P.ring = lab.t;
       spark(panes[i - 1]);
@@ -242,7 +250,8 @@ export default async function play(lab) {
     tau += P.Tf;
   });
   theoTap = tau;
-  lab.tween(0.25, (e) => nose(0.75 * (1 - e)), ease.out);
+  lab.tween(0.3, (e) => nose(1 - e), ease.out);
+  lab.tween(0.7, (e) => (near = 1 - e), ease.inOut).then(releaseCam);
   await lab.wait(theoTap - lab.t);
 
   // ---------- tap: Theo rocks back on his square and settles, still facing west ----------
@@ -251,12 +260,12 @@ export default async function play(lab) {
     const u = k * 0.7;
     const w = Math.exp(-u * 6) * Math.sin(u * 19);
     theo.set({ pitch: -0.32 * w, x: 5 + 0.03 * w, sy: 1 - 0.1 * Math.exp(-u * 16) });
-    if (u > 0.3 && panes[0].sink === Infinity) panes.forEach((P, i) => (P.sink = lab.t + i * 0.012));
+    if (u > 0.3 && panes[0].sink === Infinity) panes.forEach((P, i) => (P.sink = lab.t + i * 0.018));
   }, ease.linear);
   theo.set({ pitch: 0, x: 5, sy: 1 });
 
   // ---------- the fallen run has sunk into the glass; its lines of light fade ----------
-  await lab.wait(Math.max(0, panes[n - 1].sink + 0.58 - lab.t));
+  await lab.wait(Math.max(0, panes[n - 1].sink + 0.66 - lab.t));
   for (const P of panes) {
     P.g.visible = false;
     P.line.visible = false;

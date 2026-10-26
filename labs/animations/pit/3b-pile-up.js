@@ -49,7 +49,7 @@ export default async function play(lab) {
     brake: 0.46, // slams on the brakes
     stop: 0.62,
     phew: 0.86,
-    sweep: 0.9, // the trail starts to gather itself up
+    sweep: 0.72, // the trail keeps coming: it starts to gather itself up (we see it before she does)
     glance: 1.18, // a glance back: nothing
     glanceBack: 1.32,
     take: 1.48, // the wide-eyed second take
@@ -67,7 +67,7 @@ export default async function play(lab) {
   const mayaX = [[0, 1], [0.28, 1.95, ease.in], [T.brake, 2.78, ease.linear], [T.stop, 3.1, ease.out], [T.stop + 0.14, 2.98, ease.inOut], [T.stop + 0.24, 3, ease.inOut],
     [T.hit, 3], [T.over, 4, (k) => 1 - (1 - k) ** 2.4]];
   const mayaLift = [[T.over - 0.06, 0], [T.gone, -1.15, ease.in]];
-  const rock = [[T.brake, 0], [T.stop, 0.42, ease.out], [T.stop + 0.12, -0.16, ease.inOut], [T.stop + 0.24, 0.08, ease.inOut], [T.stop + 0.34, 0, ease.inOut],
+  const rock = [[T.brake, 0], [T.stop, 0.55, ease.out], [T.stop + 0.13, -0.2, ease.inOut], [T.stop + 0.25, 0.1, ease.inOut], [T.stop + 0.34, -0.12, ease.inOut], [T.phew + 0.25, -0.12], [T.phew + 0.45, 0, ease.inOut],
     [T.hit, 0], [T.hit + 0.04, -0.3, ease.out], [T.over - 0.06, 0.35, ease.inOut]];
   const squash = [[T.phew, 1], [T.phew + 0.12, 0.86, ease.out], [T.phew + 0.3, 1.06, ease.inOut], [T.phew + 0.42, 1, ease.inOut],
     [T.hit, 1], [T.hit + 0.05, 0.78, ease.out], [T.hit + 0.18, 1.08, ease.out], [T.over, 1], [T.gone, 1.2, ease.in]];
@@ -81,21 +81,24 @@ export default async function play(lab) {
 
   // ---------- the knot ----------
   // the front of the knot sweeps up the path, speeding up, and arrives at her back exactly at the hit
-  const front = [[T.sweep, 0.95], [T.hit, BACK, (k) => 0.25 * k + 0.75 * k ** 2.2], [T.rest, 3.3, ease.out]];
+  const front = [[T.sweep, 0.95], [T.hit, BACK, (k) => 0.15 * k + 0.85 * k ** 2.6], [T.rest, 3.3, ease.out]];
   // the pile: each point stacks a little closer behind the one in front (an accordion)
   const stack = [0];
-  for (let r = 1; r < 200; r++) stack.push(stack[r - 1] + 0.03 * 0.95 ** r);
+  for (let r = 1; r < 200; r++) stack.push(stack[r - 1] + 0.042 * 0.94 ** r);
   let pts = null; // the trail's own points, with where they lay on the path
   const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, color: RED.clone().multiplyScalar(2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const glow = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glowMat));
   glow.rotation.x = -Math.PI / 2;
-  const popMat = new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(lab.PALETTE.light).multiplyScalar(1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const popMat = new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(lab.PALETTE.light).lerp(RED, 0.4).multiplyScalar(2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const pop = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), popMat));
+  // the knot has some body to it: a bunched heap of red light standing up off the glass
+  const heapMat = new THREE.SpriteMaterial({ map: glowTex, color: RED.clone().multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const heap = lab.add(new THREE.Sprite(heapMat));
   pop.rotation.x = -Math.PI / 2;
 
   // ---------- Theo ----------
   const aim = (x, y) => Math.atan2(-(x - 5), -(y - 3));
-  const theoPitch = [[T.brake, 0], [T.stop, 0.16, ease.out], [T.phew, 0.1], [T.phew + 0.2, -0.04, ease.inOut], [T.sweep + 0.2, 0], [T.take, -0.12, ease.inOut],
+  const theoPitch = [[T.brake, 0], [T.stop, 0.16, ease.out], [T.phew, 0.1], [T.phew + 0.2, -0.04, ease.inOut], [T.phew + 0.35, 0], [T.take, -0.12, ease.inOut],
     [T.hit, -0.12], [T.hit + 0.05, -0.28, ease.out], [T.gone, 0.06, ease.inOut], [T.gone + 0.3, 0.2, ease.inOut], [T.fade1, 0.14], [T.end, 0, ease.inOut]];
   const theoSy = [[T.phew + 0.05, 1], [T.phew + 0.2, 0.93, ease.out], [T.phew + 0.4, 1, ease.inOut], [T.hit, 1], [T.hit + 0.05, 0.86, ease.out], [T.hit + 0.25, 1, ease.out]];
   const theoLookW = [[T.sweep + 0.1, 0], [T.sweep + 0.35, 1, ease.inOut], [T.end - 0.25, 1], [T.end, 0, ease.inOut]];
@@ -144,7 +147,7 @@ export default async function play(lab) {
       }
       swept.sort((a, c) => c.x0 - a.x0);
       for (const q of swept) {
-        const fold = Math.sin(rank * 1.25 + now * 7) * 0.19 * Math.min(1, rank / 4);
+        const fold = Math.sin(rank * 1.5 + now * 8) * 0.3 * Math.min(1, rank / 3);
         q.p.x = F - stack[Math.min(rank, stack.length - 1)];
         q.p.z = z + fold;
         rank++;
@@ -153,14 +156,20 @@ export default async function play(lab) {
       const fadeK = key(now, [[T.fade0, 0], [T.fade1, 1, ease.in]]);
       for (const q of pts) q.p.t = t - 3.2 * Math.max(0.03, fadeK, swept.includes(q) ? 0.3 : 0);
       const n = swept.length;
-      const mass = clamp(n / 35);
+      const mass = Math.min(clamp((now - T.sweep) / 0.3), 0.35 + clamp(n / 30));
       glow.position.set(F - stack[Math.min(n, stack.length - 1)] * 0.45, 0.012, z);
-      glow.scale.setScalar(0.45 + 0.6 * mass);
-      glowMat.opacity = mass * 0.55 * (1 - fadeK) * (1 + 0.5 * Math.sin(clamp((now - T.rest) / 0.3) * Math.PI));
+      glow.scale.setScalar(0.5 + 0.8 * mass);
+      glowMat.opacity = mass * 0.6 * (1 - fadeK) * (1 + 0.5 * Math.sin(clamp((now - T.rest) / 0.3) * Math.PI));
+      const jostle = 1 + 0.12 * Math.sin(now * 31) * (now < T.hit ? 1 : 0.2);
+      const hw = (0.3 + 0.55 * mass) * jostle;
+      const hh = (0.14 + 0.42 * mass) / jostle;
+      heap.scale.set(hw, hh, 1);
+      heap.position.set(glow.position.x, hh * 0.32, z);
+      heapMat.opacity = Math.min(1, mass) * (1 - fadeK);
     }
-    const pk = (now - T.hit) / 0.22;
+    const pk = (now - T.hit) / 0.12;
     popMat.opacity = pk > 0 && pk < 1 ? 1 - pk : 0;
-    pop.scale.setScalar(0.4 + 0.9 * clamp(pk));
+    pop.scale.setScalar(0.35 + 0.35 * clamp(pk));
     pop.position.copy(lab.pos(BACK + 0.02, 1)).setY(0.15);
 
     // Theo watches the knot come, then the hole

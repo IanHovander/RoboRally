@@ -3,7 +3,7 @@ export const meta = {
   title: 'Dolphin',
   idea:
     'Move 2, one layer down. Maya takes a big breath (rises, puffs up, eye squeezed shut), holds it, and dives nose-first into the glass. ' +
-    'For two spaces she is only a red glow gliding under the surface, the grid above her wavering through the rippling glass, while Theo leans over the spot where she vanished, peering. ' +
+    'For two spaces she is only a red glow gliding under the surface, the warm point of her eye leading it, the grid above her wavering through the rippling glass, while Theo leans over the spot where she vanished, peering. ' +
     'She breaches with a joyful barrel roll, gasps (eye wide), lands on (3, 2) facing east and shakes herself dry in a spray of light. Theo jumps, then turns to the room: did you see that? The rest of the program plays as normal.',
   notes:
     'Sound: a soft inhale-like rising tone, a glassy "plip" on entry, a muffled low hum with slow bubbles while she is under, a bright splash and a chime on the breach, a tiny shake rattle. ' +
@@ -146,7 +146,7 @@ export default async function play(lab) {
         float k = uK * smoothstep(uR, uR * 0.25, r);
         vec2 n = d / max(r, 1e-3);
         float wave = sin(r * 15.0 - uT * 8.0);
-        vec2 off = n * wave * 0.06 * k + vec2(sin(vW.y * 7.0 + uT * 4.0), sin(vW.x * 7.0 - uT * 3.3)) * 0.04 * k;
+        vec2 off = n * wave * 0.1 * k + vec2(sin(vW.y * 6.0 + uT * 4.0), sin(vW.x * 6.0 - uT * 3.3)) * 0.07 * k;
         vec3 col = texture2D(uLight, boardUV(vW + off)).rgb * uEI * k;
         col += vec3(1.0, 0.95, 0.88) * pow(max(0.0, wave), 3.0) * 0.06 * k * smoothstep(0.1, 0.5, r);
         gl_FragColor = vec4(col, 1.0);
@@ -179,6 +179,13 @@ export default async function play(lab) {
   core.position.y = 0.011;
   core.renderOrder = 2;
   lab.add(core);
+  // her eye light, seen through the glass at the front of the glow
+  const eyeUMat = glowMat.clone();
+  eyeUMat.color = new THREE.Color(3, 2.8, 2.5);
+  const eyeU = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), eyeUMat);
+  eyeU.rotation.x = -PI / 2;
+  eyeU.renderOrder = 2;
+  lab.add(eyeU);
 
   const eye = maya.model.body.children.find((o) => o.isMesh && o.material === maya.model.eyeMat);
   const eyeScale0 = eye ? eye.scale.clone() : null;
@@ -223,8 +230,12 @@ export default async function play(lab) {
     coreMat.opacity = 0.75 * u * pulse;
     glow.position.set(at.x, 0.01, at.z);
     core.position.set(at.x, 0.011, at.z);
-    glow.scale.set(1.5, 0.9, 1);
-    core.scale.set(0.62, 0.34, 1);
+    const kick = 1 + 0.08 * Math.sin(T * TAU * 2.6); // swimming strokes
+    glow.scale.set(1.5 * kick, 0.9 / kick, 1);
+    core.scale.set(0.62 * kick, 0.34 / kick, 1);
+    eyeUMat.opacity = 0.8 * u * (0.8 + 0.2 * Math.sin(T * TAU * 5.2));
+    eyeU.position.set(at.x + 0.3, 0.012, at.z);
+    eyeU.scale.set(0.24, 0.16, 1);
     const lk = lensK(T);
     lens.visible = lk > 0.001;
     const lc = lab.pos(lensX(T), 2);
@@ -279,6 +290,7 @@ export default async function play(lab) {
   lens.visible = false;
   glowMat.opacity = 0;
   coreMat.opacity = 0;
+  eyeUMat.opacity = 0;
   maya.release({ x: 3, y: 1, d: 0 });
   theo.release({ x: 5, y: 0, d: 2 });
 }

@@ -105,8 +105,8 @@ export default async function play(lab) {
   function teeter(u) {
     const k = seg(u, T.brink - 0.04, T.teeterEnd);
     if (k <= 0) return 0;
-    const a = ease.out(seg(k, 0, 0.28)) * 0.46;
-    const b = ease.inOut(seg(k, 0.28, 0.5)) * -0.2;
+    const a = ease.out(seg(k, 0, 0.28)) * 0.58;
+    const b = ease.inOut(seg(k, 0.28, 0.5)) * -0.26;
     const c = ease.inOut(seg(k, 0.5, 0.72)) * 0.09;
     const shiver = k > 0.6 ? Math.sin(u * 95) * 0.012 * seg(k, 0.6, 0.7) : 0;
     return a + b + c + shiver;
@@ -250,7 +250,7 @@ export default async function play(lab) {
       // CLICK into place, then the arm slinks home under her look
       if (!clicked) {
         clicked = true;
-        lab.ring(lab.pos(3, 2), '#ffffff', 0.5, 0.02, 0.3);
+        lab.ring(lab.pos(3, 2), '#ffffff', 0.22, 0.02, 0.22);
         arena.emit?.('click');
         lab.shake(0.012, 0.12);
       }

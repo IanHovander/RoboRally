@@ -119,6 +119,17 @@ export default async function play(lab) {
   const qTilt = new THREE.Quaternion();
   const axis = new THREE.Vector3();
   const off = new THREE.Vector3();
+  // the name tags ride on the robots' groups: keep them steady over the spaces while the robots tip
+  const tags = [lab.bot('a')?.tag, lab.bot('b')?.tag];
+  const tagY = tags.map((t) => (t ? t.position.y : 0));
+  const unTag = () => tags.forEach((t, i) => t && t.position.set(0, tagY[i], 0));
+  lab.cleanup(unTag);
+  const tagW = new THREE.Vector3();
+  const steadyTag = (p, tag, at, y) => {
+    if (!tag) return;
+    p.group.updateMatrixWorld(true);
+    tag.position.copy(p.group.worldToLocal(tagW.set(at.x, y * 1.3, at.z)));
+  };
   /** stand robot `p` (centre `at`, heading `yaw`) tilted by `a` towards the contact angle `ph`, pivoting on its rim */
   const pose = (p, at, yaw, a, ph, lift = 0) => {
     const g = p.group;
@@ -155,7 +166,10 @@ export default async function play(lab) {
     const peek = ease.inOut(seg(s, PEEK, PEEK + 0.16));
     maya.set({ rot: head, x: gx, y: gy, lift: 0 });
     maya.each = (m) => {
-      if (s < DROP) pose(maya, C, head, a, phi);
+      if (s < DROP) {
+        pose(maya, C, head, a, phi);
+        steadyTag(maya, tags[0], C, tagY[0]);
+      } else if (tags[0]) tags[0].position.set(0, tagY[0], 0);
       const sy = 1 - 0.08 * sink - 0.1 * squash;
       const sxz = 1 + 0.04 * sink + 0.06 * squash;
       m.body.scale.set(sxz, sy, sxz);
@@ -180,14 +194,17 @@ export default async function play(lab) {
     });
 
     // ----- Theo -----
-    const join = ease.inOut(seg(s, 0.35, 0.75)); // starts swaying along as she speeds up
+    const join = ease.inOut(seg(s, 0.3, 0.7)); // starts swaying along as she speeds up
     const lag = 0.5;
     tPhi = phi - circ * lag;
-    const tA = 0.11 * join;
+    const tA = 0.2 * join;
     const tHead = theo.pose.rot;
     if (s < DROP) {
       theo.set({ x: B.x, y: B.y });
-      theo.each = () => pose(theo, T, tHead, tA, tPhi);
+      theo.each = () => {
+        pose(theo, T, tHead, tA, tPhi);
+        steadyTag(theo, tags[1], T, tagY[1]);
+      };
     } else {
       if (!frozen) frozen = { a: tA, ph: tPhi };
       // caught mid-lean: perfectly still... then quietly straightens up
@@ -195,6 +212,7 @@ export default async function play(lab) {
       const settle = s > SHEEP + 0.18 ? Math.exp(-seg(s, SHEEP + 0.18, END) * 6) * Math.sin(seg(s, SHEEP + 0.18, END) * 16) * 0.02 : 0;
       theo.each = (m) => {
         pose(theo, T, tHead, frozen.a * (1 - k), frozen.ph);
+        steadyTag(theo, tags[1], T, tagY[1]);
         m.body.scale.set(1, 1 - 0.05 * bump(seg(s, SHEEP + 0.1, SHEEP + 0.24)) + settle, 1);
         // he looks away: his eye dims a touch while he straightens, as if nothing happened
         m.eyeMat.color.multiplyScalar(1 - 0.5 * bump(seg(s, SHEEP - 0.04, END)));
@@ -205,6 +223,7 @@ export default async function play(lab) {
   await lab.wait(END);
   stop();
   restore();
+  unTag();
   maya.each = null;
   theo.each = null;
   bead.visible = false;

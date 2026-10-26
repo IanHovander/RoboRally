@@ -52,10 +52,11 @@ export default async function play(lab) {
   maya.set({ trail: false });
 
   // ----- timing (scene seconds) -----
-  const T_TIP = 0.16; // up on the rim
-  const T_DROP = 1.24; // slaps flat
-  const T_BLINK = 1.5;
-  const T_END = 1.62;
+  const T_KICK = 0.1; // the gear clicks: she sinks a hair...
+  const T_TIP = 0.24; // ...and pops up on the rim
+  const T_DROP = 1.28; // slaps flat
+  const T_BLINK = 1.52;
+  const T_END = 1.64;
   const theta0 = 0.34 + lab.range(-0.02, 0.03);
   const om0 = 1.5 + lab.range(0, 0.3); // wobble, turns per second, at the start...
   const om1 = 6.2; // ...and just before the slap
@@ -107,13 +108,18 @@ export default async function play(lab) {
       let sy = 1;
       let jx = 0;
 
-      if (t < T_TIP) {
-        // the kick: a little jolt sideways, then up on the rim with a catch (overshoot and settle)
-        const k = t / T_TIP;
+      if (t < T_KICK) {
+        // the gear clicks under her: she sinks a hair and twitches
+        const k = t / T_KICK;
+        sy = 1 - 0.07 * Math.sin((Math.PI / 2) * k);
+        sx = 1 + 0.035 * Math.sin((Math.PI / 2) * k);
+        jx = Math.sin(Math.PI * k) * 0.025 * spin;
+      } else if (t < T_TIP) {
+        // pops up onto the rim with a catch (overshoot and settle)
+        const k = (t - T_KICK) / (T_TIP - T_KICK);
         theta = theta0 * ease.outBack(k);
-        jx = Math.sin(Math.PI * seg(t, 0, 0.08)) * 0.03 * spin;
-        sy = 1 + 0.06 * Math.sin(Math.PI * k);
-        sx = 1 - 0.03 * Math.sin(Math.PI * k);
+        sy = 1 - 0.07 * (1 - k) + 0.06 * Math.sin(Math.PI * k);
+        sx = 1 + 0.035 * (1 - k) - 0.03 * Math.sin(Math.PI * k);
       } else if (t < T_DROP) {
         const tau = t - T_TIP;
         const k = tau / W;
@@ -183,7 +189,7 @@ export default async function play(lab) {
       // brighter and shorter-lived as the wobble speeds up (the whirr rising)
       const speedK = seg(t, T_TIP, T_DROP);
       const life = 0.32 - 0.16 * speedK;
-      const bright = 0.35 + 0.9 * speedK * speedK;
+      const bright = 0.3 + 0.7 * speedK * speedK;
       if (!dropped) {
         for (const d of dots) {
           if (!d.m.visible) continue;

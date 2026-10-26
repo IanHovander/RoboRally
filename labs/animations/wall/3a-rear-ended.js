@@ -149,6 +149,8 @@ export default async function play(lab) {
       const pts = [];
       const n = rope.length;
       let gathered = 0;
+      const inKnot = rope.filter((r) => r.s > sTip).length; // spread the knot's light over its points, so it stays a knot, not a flare
+      const knotK = Math.min(1, 3.5 / Math.max(1, inKnot));
       for (let i = 0; i < (t < T.slap ? n : 0); i++) {
         const r = rope[i];
         const age = Math.min(1, (now - r.t) / LIFE);
@@ -165,7 +167,7 @@ export default async function play(lab) {
             gathered++;
             s = sTip + (s - sTip) * 0.1;
             lat += 0.07 * Math.sin(i * 1.9) * Math.min(1, zk * 3);
-            b *= 0.32; // ten times denser, so a bit less each: the knot ends up a few times brighter than the line
+            b *= knotK;
           } else {
             // the line ahead of the tip snakes like a whip, more near the tip
             const near = Math.max(0, 1 - (sTip - s) / 0.7);
@@ -185,7 +187,8 @@ export default async function play(lab) {
           const f = j / (M - 1);
           const knot = { x: P0.x - BACK - 0.03 * Math.sin(j * 1.9), z: P0.z + 0.06 * Math.sin(j * 1.3) };
           const g = tangle(f, slump);
-          const b = Math.min(1, j / 4, (M - 1 - j) / 4) * (2.2 - 1.3 * ease.out(dropK)) * fade;
+          const dense = Math.max(0.03, Math.min(1, open)) ** 1.5; // still bunched up: the same light over a smaller patch
+          const b = Math.min(1, j / 4, (M - 1 - j) / 4) * (2.2 - 1.3 * ease.out(dropK)) * fade * dense;
           pts.push({ x: knot.x + (g.x - knot.x) * open, z: knot.z + (g.z - knot.z) * open, b, w: 0.15 - 0.04 * dropK });
         }
       }
@@ -195,7 +198,7 @@ export default async function play(lab) {
         const m = gathered / n;
         knotGlow.position.set(P0.x - sTip, 0.05, P0.z);
         knotGlow.scale.setScalar(0.45 + 1.3 * m);
-        knotGlow.material.opacity = Math.min(1, zk * 4) * (0.45 + 0.55 * m);
+        knotGlow.material.opacity = Math.min(1, zk * 4) * (0.4 + 0.4 * m);
       }
     }
 

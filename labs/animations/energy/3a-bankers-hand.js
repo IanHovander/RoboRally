@@ -100,6 +100,19 @@ export default async function play(lab) {
   arena.emit('play', { id: 'a', cards: ['m2'] });
   arena.emit('move', { id: 'a', n: 2, dur: 0.6 });
 
+  // a small ring of light on the glass (lab.ring starts too wide for a cube's clack)
+  const ripple = (at, color, r0, r1, dur, peak = 2.2) => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(peak), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.copy(at);
+    m.renderOrder = 5;
+    lab.add(m);
+    lab.tween(dur, (e, k) => {
+      m.scale.setScalar(r0 + (r1 - r0) * e);
+      m.material.opacity = (1 - k) ** 1.5;
+      if (k >= 1) m.visible = false;
+    }, lab.ease.out);
+  };
   const cube = makeCube(lab, glow);
   cube.root.visible = false;
   const half = cube.S / 2;
@@ -207,10 +220,10 @@ export default async function play(lab) {
         cube.ghosts.forEach((g) => (g.material.opacity = 0));
         cubePos = p;
         kickOnce('clack', () => {
-          lab.ring(new THREE.Vector3(L.x, 0, L.z), PALETTE.energy, 0.13, 0.012, 0.26);
+          ripple(new THREE.Vector3(L.x, 0.012, L.z), PALETTE.energy, 0.12, 0.34, 0.3);
           arena.emit('bump', { id: 'a' });
         });
-        if (T >= CLACK2) kickOnce('clack2', () => lab.ring(new THREE.Vector3(cube.root.position.x, 0, cube.root.position.z), PALETTE.light, 0.1, 0.012, 0.2));
+        if (T >= CLACK2) kickOnce('clack2', () => ripple(new THREE.Vector3(cube.root.position.x, 0.012, cube.root.position.z), PALETTE.light, 0.1, 0.24, 0.22, 1.6));
         if (T >= BUMP)
           kickOnce('bump', () => {
             st.rv -= 3.2; // she rocks back, away from us
@@ -223,12 +236,12 @@ export default async function play(lab) {
           bounce.from = NOSE.clone();
           bounce.v = new THREE.Vector3(0.9, 2.4, -0.25);
           bounce.w = new THREE.Vector3(0.3, 1, 0.6).normalize();
-          lab.ring(NOSE.clone().setY(0.42), PALETTE.light, 0.18, 0.42, 0.2);
+          ripple(NOSE.clone(), PALETTE.light, 0.04, 0.2, 0.18, 2.6);
           arena.emit('bump', { id: 'a' });
           st.pv -= 4.5; // she flinches: nose up
           st.sv -= 2;
         }
-        const plopAt = new THREE.Vector3(home.x + 0.62, half, home.z + 0.18);
+        const plopAt = new THREE.Vector3(home.x + 0.36, half, home.z + 0.36);
         if (T < PLOP) {
           const r = seg(T, LAND, PLOP);
           const p = bounce.from.clone().lerp(plopAt, r);
@@ -247,7 +260,7 @@ export default async function play(lab) {
           if (r >= 1) cube.root.visible = false;
           cubePos = p;
           kickOnce('plop', () => {
-            lab.ring(new THREE.Vector3(plopAt.x, 0, plopAt.z), PALETTE.energy, 0.36, 0.012, 0.35);
+            ripple(new THREE.Vector3(plopAt.x, 0.012, plopAt.z), PALETTE.energy, 0.1, 0.36, 0.34);
             arena.emit('bump', { id: 'a' });
           });
         }

@@ -87,7 +87,7 @@ export default async function play(lab) {
   const T_HIT = 0.19;
   const T_LAND = 0.56; // the sliver hits the screen
   const T_WIPE = 1.2; // the thumb comes in
-  const T_CLEAN = 1.56;
+  const T_CLEAN = 1.64;
   const T_END = 2.3;
 
   // ----- the shot: an ordinary beam -----
@@ -121,7 +121,7 @@ export default async function play(lab) {
   const W = box.width || 960;
   const H = box.height || 540;
   const S = { x: W * 0.46, y: H * 0.36 }; // a little above the middle, over the row of the shot
-  const SR = Math.min(W, H) * 0.24; // the smudge's size
+  const SR = Math.min(W, H) * 0.36; // the smudge's size: big, it's right on the glass
   // the 3D point just in front of the lens that lands on S
   const cam = lab.camera3;
   cam.updateMatrixWorld();
@@ -145,25 +145,34 @@ export default async function play(lab) {
     lab.overlay.append(d);
     return d;
   };
-  const smearWrap = el(`left:0;top:0;width:${W}px;height:${H}px;opacity:0;`);
+  const smearWrap = el(`left:0;top:0;width:${W}px;height:${H}px;opacity:0;mix-blend-mode:screen;`);
   const smear = document.createElement('div');
+  // a splat of light on glass: a soft body with a brighter rim (like a drop on a window), a hot spot where it hit,
+  // and streaks thrown up and to the right, away from where it came from
   smear.style.cssText = `position:absolute;left:${S.x - SR * 1.3}px;top:${S.y - SR}px;width:${SR * 2.6}px;height:${SR * 2}px;
     background:
-      radial-gradient(ellipse 30% 26% at 46% 48%, rgba(235,246,255,.95), rgba(160,205,255,.55) 45%, rgba(77,171,247,0) 100%),
-      radial-gradient(ellipse 50% 40% at 52% 52%, rgba(120,185,255,.55), rgba(77,171,247,.18) 55%, rgba(77,171,247,0) 100%),
-      radial-gradient(ellipse 18% 12% at 70% 64%, rgba(200,230,255,.6), rgba(77,171,247,0) 100%),
-      radial-gradient(ellipse 12% 10% at 26% 40%, rgba(200,230,255,.5), rgba(77,171,247,0) 100%);
-    filter: blur(${Math.round(SR * 0.09)}px); mix-blend-mode: screen; transform-origin: 46% 48%; border-radius: 50%;`;
+      radial-gradient(ellipse 9% 8% at 40% 56%, rgba(255,255,255,.95), rgba(200,230,255,.5) 60%, rgba(77,171,247,0) 100%),
+      radial-gradient(ellipse 30% 27% at 46% 52%, rgba(120,180,255,.34) 0%, rgba(130,190,255,.44) 64%, rgba(200,228,255,.62) 82%, rgba(77,171,247,0) 100%),
+      radial-gradient(ellipse 22% 9% at 70% 36%, rgba(170,215,255,.6), rgba(77,171,247,0) 100%),
+      radial-gradient(ellipse 15% 7% at 63% 26%, rgba(170,215,255,.5), rgba(77,171,247,0) 100%),
+      radial-gradient(ellipse 13% 11% at 27% 66%, rgba(150,200,255,.45), rgba(77,171,247,0) 100%),
+      radial-gradient(ellipse 48% 40% at 50% 50%, rgba(77,171,247,.28), rgba(77,171,247,0) 100%);
+    filter: blur(${Math.round(SR * 0.065)}px); transform-origin: 46% 52%;`;
   smearWrap.append(smear);
+  // the glass catches the room's light across the smudge: one soft highlight
+  const gloss = document.createElement('div');
+  gloss.style.cssText = `position:absolute;left:${S.x - SR * 0.55}px;top:${S.y - SR * 0.48}px;width:${SR * 0.8}px;height:${SR * 0.5}px;border-radius:50%;
+    border-top:${Math.max(2, Math.round(SR * 0.035))}px solid rgba(255,255,255,.55);transform:rotate(-14deg);filter:blur(2px);`;
+  smearWrap.append(gloss);
   // a faint lens blur of the picture behind the smudge (a smudge on glass softens what's behind it)
   const haze = el(`left:${S.x - SR * 0.9}px;top:${S.y - SR * 0.7}px;width:${SR * 1.8}px;height:${SR * 1.4}px;border-radius:50%;
     backdrop-filter: blur(3px); -webkit-mask-image: radial-gradient(closest-side, #000 40%, transparent); mask-image: radial-gradient(closest-side, #000 40%, transparent); opacity:0;`);
   // splash droplets when it lands
   const drops = [];
-  for (let i = 0; i < 5; i++) {
-    const a = -0.6 + i * 1.35 + (i % 2) * 0.4;
-    const r = SR * (0.12 + 0.05 * (i % 3));
-    drops.push({ a, d: SR * (0.95 + 0.25 * (i % 2)), node: el(`width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle, rgba(220,240,255,.9), rgba(77,171,247,0) 70%);filter:blur(2px);mix-blend-mode:screen;opacity:0;`), r });
+  for (let i = 0; i < 4; i++) {
+    const a = -0.95 + i * 0.32 + (i % 2) * 0.12; // thrown up and to the right
+    const r = SR * (0.2 - 0.03 * i);
+    drops.push({ a, d: SR * (0.85 + 0.17 * i), node: el(`width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle, rgba(225,242,255,.85) 0%, rgba(150,200,255,.5) 40%, rgba(77,171,247,0) 70%);filter:blur(${Math.max(1, Math.round(SR * 0.02))}px);mix-blend-mode:screen;opacity:0;`), r });
   }
   // the thumb: a soft, out-of-focus pad of darkness with a faint rim of the smudge's light
   const P = { x: W * 1.08, y: H * 1.32 }; // the wrist: off the bottom-right corner
@@ -173,13 +182,21 @@ export default async function play(lab) {
   const angS = (Math.atan2(dx, -dy) * 180) / Math.PI + 360; // CSS conic angle of the smudge's centre
   const A0 = angS + 26; // the stroke starts right of the smudge...
   const A1 = angS - 30; // ...and ends left of it
-  const TW = SR * 1.5;
-  const TH = SR * 1.05;
+  const TW = SR * 1.7;
+  const TH = SR * 1.15;
   const thumb = el(`left:0;top:0;width:${TW}px;height:${TH}px;border-radius:50% 50% 46% 54% / 60% 60% 40% 40%;
-    background: radial-gradient(ellipse at 50% 40%, rgba(10,12,16,.62), rgba(10,12,16,.4) 55%, rgba(10,12,16,0) 72%);
-    box-shadow: inset 0 0 ${SR * 0.12}px rgba(140,190,255,.14); filter: blur(${Math.round(SR * 0.1)}px); opacity:0;`);
+    background: radial-gradient(ellipse at 50% 40%, rgba(8,10,14,.8), rgba(8,10,14,.55) 52%, rgba(120,180,255,.22) 64%, rgba(10,12,16,0) 74%);
+    filter: blur(${Math.round(SR * 0.08)}px); opacity:0;`);
   // the streak the thumb drags behind it, fading
   const streakCss = el(`left:0;top:0;width:${W}px;height:${H}px;opacity:0;mix-blend-mode:screen;`);
+  // where the thumb lifts off it leaves a faint print of light: a whorl, gone in a moment
+  const aEnd = ((A1 + 6) * Math.PI) / 180;
+  const PW = SR * 0.95;
+  const PH = SR * 0.7;
+  const print = el(`left:${P.x + Math.sin(aEnd) * RAD - PW / 2}px;top:${P.y - Math.cos(aEnd) * RAD - PH / 2}px;width:${PW}px;height:${PH}px;border-radius:50%;
+    background: repeating-radial-gradient(ellipse 60% 48% at 46% 54%, rgba(150,200,255,.5) 0 1.5px, rgba(150,200,255,0) 2.5px 6px);
+    -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent); mask-image: radial-gradient(closest-side, #000 30%, transparent);
+    transform: rotate(${A1 - 360 + 20}deg); filter: blur(0.6px); mix-blend-mode: screen; opacity:0;`);
 
   // ----- the acting -----
   // Theo: fires; when it lands on the screen he looks round at us... then slowly away, whistling; follows the thumb
@@ -243,7 +260,7 @@ export default async function play(lab) {
       bez(e, sp);
       bez(Math.max(0, e - 0.08), sp2);
       sliver.position.copy(sp);
-      const s = 0.06 + (landScale - 0.06) * e * e;
+      const s = 0.05 + (landScale - 0.05) * e ** 4; // it grows hard as it arrives
       sliver.scale.setScalar(s);
       const len = sp.distanceTo(sp2);
       streak.position.copy(sp).add(sp2).multiplyScalar(0.5);
@@ -255,6 +272,7 @@ export default async function play(lab) {
     if (!landed && t >= T_LAND) {
       landed = true;
       lab.arena.emit('bump', { id: 'a' });
+      lab.shake(0.03, 0.16); // the screen itself takes the tap
     }
     const lk = t - T_LAND;
     if (lk >= 0) {
@@ -290,13 +308,14 @@ export default async function play(lab) {
       thumb.style.opacity = String(Math.min(1, wk * 6) * (1 - win(wk, 0.82, 1)));
       // a faint smear of light dragged along behind the thumb, fading
       const tail = 1 - win(t, T_CLEAN - 0.1, T_CLEAN + 0.25);
-      streakCss.style.opacity = String(Math.min(1, wk * 4) * tail * 0.55);
-      streakCss.style.background = `radial-gradient(circle at ${P.x}px ${P.y}px, transparent ${RAD - SR * 0.42}px, rgba(120,185,255,.35) ${RAD - SR * 0.05}px, rgba(120,185,255,.1) ${RAD + SR * 0.3}px, transparent ${RAD + SR * 0.5}px)`;
+      streakCss.style.opacity = String(Math.min(1, wk * 4) * tail * 0.85);
+      streakCss.style.background = `radial-gradient(circle at ${P.x}px ${P.y}px, transparent ${RAD - SR * 0.42}px, rgba(140,195,255,.5) ${RAD - SR * 0.05}px, rgba(120,185,255,.16) ${RAD + SR * 0.3}px, transparent ${RAD + SR * 0.5}px)`;
       const smask = `conic-gradient(from 0deg at ${P.x}px ${P.y}px, transparent 0deg, transparent ${ang + 2}deg, #000 ${ang + 10}deg, #000 ${Math.min(A0, ang + 34)}deg, transparent ${Math.min(A0 + 6, ang + 44)}deg)`;
       streakCss.style.webkitMaskImage = smask;
       streakCss.style.maskImage = smask;
       streakCss.style.filter = `blur(${Math.round(SR * 0.06)}px)`;
     }
+    print.style.opacity = String(0.85 * win(t, T_CLEAN - 0.12, T_CLEAN - 0.02) * (1 - win(t, T_CLEAN + 0.05, T_CLEAN + 0.45)));
     if (t >= T_CLEAN + 0.3) {
       smearWrap.style.opacity = '0';
       haze.style.opacity = '0';
@@ -307,7 +326,7 @@ export default async function play(lab) {
 
   await lab.wait(T_END);
   stop();
-  for (const n of [smearWrap, haze, thumb, streakCss, ...drops.map((d) => d.node)]) n.remove();
+  for (const n of [smearWrap, haze, thumb, streakCss, print, ...drops.map((d) => d.node)]) n.remove();
   sliver.visible = streak.visible = false;
   maya.done({ x: 1, y: 1, d: 2 });
   theo.done({ x: 5, y: 1, d: 3 });

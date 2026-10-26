@@ -63,8 +63,9 @@ export default async function play(lab) {
     return { target: at.clone(), az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist), dist };
   };
   const P = (x, y, h) => lab.pos(x, y).setY(h);
-  const LOW_EYE = P(3.92, 2.46, 0.17);
-  const LOW_AT = P(1.0, 2.12, 0.13);
+  // low and to his south-east, so he stands on the right third of the picture and the row runs away past him to Maya
+  const LOW_EYE = P(4.7, 3.35, 0.45);
+  const LOW_AT = P(2.05, 1.9, 0.12);
   const low = spherical(LOW_EYE, LOW_AT);
   const mix = (a, b, k) => ({
     target: a.target.clone().lerp(b.target, k),
@@ -113,9 +114,10 @@ export default async function play(lab) {
       // the lurch: shoved one space east with Theo, tipping as it goes
       const k = seg(T, CONTACT, SHOVED);
       const e = ease.out3(k);
-      const push = new THREE.Vector3(e, 0.03 * bump(k, 0, 0.3), 0);
+      // the camera is a body too: knocked a hair past Theo, a hop, then it settles beside him again
+      const push = new THREE.Vector3(e + 0.12 * bump(k, 0.3, 1), 0.06 * bump(k, 0, 0.25), 0);
       const c = spherical(LOW_EYE.clone().add(push), LOW_AT.clone().add(push).add(new THREE.Vector3(0, 0, -0.06 * bump(k, 0, 0.6))));
-      const roll = 0.16 * Math.sin(Math.PI * Math.min(1, k * 1.6)) * (1 - k * 0.3) - 0.05 * bump(k, 0.55, 1);
+      const roll = 0.2 * Math.sin(k * TAU * 1.25) * (1 - k) ** 1.2;
       holdOffset(0);
       shoveCam = { ...c, fov: 35 + 3 * e, roll };
       return shoveCam;
@@ -135,7 +137,7 @@ export default async function play(lab) {
   const mayaX = track([[0, 1], [BEAM1 - 0.06, 0.97, ease.inOut], [GO, 0.94, ease.inOut], [CONTACT, 2.4, (k) => k ** 1.7], [SHOVED, 3, ease.out3]]);
   const theoX = track([[CONTACT, 3], [SHOVED, 4, ease.out3]]);
   const south = facing(2);
-  const camDir = unwrapNear(toward(3, 2, 3.92, 2.46), south); // looking into the lens
+  const camDir = unwrapNear(toward(3, 2, 4.7, 3.35), south); // looking into the lens
   const atMaya = south - 0.85;
   const theoRot = track([
     [SEE, south],
@@ -197,21 +199,56 @@ export default async function play(lab) {
     const f2 = bump(T, BEAM2, BEAM2 + 0.08);
     const glare = seg(T, GO, GO + 0.1) * (1 - seg(T, SHOVED, SHOVED + 0.2));
     const flash = Math.max(f1, f2);
-    for (const e of mayaEyes) e.scale.set(1 + 0.9 * flash + 0.25 * glare, 1 + 0.4 * flash, 1 + 0.9 * flash);
-    const g = 1 + 3.2 * flash + 0.9 * glare + 0.4 * bump(T, SHOVED + 0.05, HOME);
+    for (const e of mayaEyes) e.scale.set(1 + 1.6 * flash + 0.5 * glare, 1 + 0.3 * flash, 1 + 1.6 * flash);
+    const g = 1 + 4 * flash + 1.2 * glare + 0.4 * bump(T, SHOVED + 0.05, HOME);
     m.eyeMat.color.setRGB(base[0] * g, base[1] * g, base[2] * g);
   };
   theo.each = (m) => {
     const T = lab.t - t0;
     const shut = seg(T, GO + 0.1, CONTACT - 0.04) * (1 - seg(T, CONTACT + 0.2, SHOVED));
     const flick = seg(T, SHOVED, HOME) < 1 && T > SHOVED ? 0.5 + 0.5 * Math.sin((T - SHOVED) * 40) : 1;
-    const g = (1 + 0.8 * bump(T, SEE, BEAM1)) * (1 - 0.75 * shut) * (T > SHOVED && T < SHOVED + 0.35 ? flick : 1);
+    const close = seg(T, 0.2, DIVE) * (1 - seg(T, SHOVED, SHOVED + 0.4));
+    const g = (1 - 0.75 * close) * (1 + 0.3 * bump(T, SEE, BEAM1)) * (1 - 0.75 * shut) * (T > SHOVED && T < SHOVED + 0.35 ? flick : 1);
     m.eyeMat.color.setRGB(base[0] * g, base[1] * g, base[2] * g);
   };
 
+  // her headlight, as the low camera sees it: a soft glow on her eye and a thin lens streak, swelling as she comes
+  const glowTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.18, 'rgba(255,255,255,0.6)');
+    gr.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(2.2, 2.0, 1.75), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const streak = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(1.6, 1.45, 1.25), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  lab.add(lamp);
+  lab.add(streak);
+  const lampStop = lab.every(() => {
+    const T = lab.t - t0;
+    const on = seg(T, DIVE - 0.12, DIVE) * (1 - seg(T, CONTACT - 0.02, CONTACT + 0.08));
+    const flash = Math.max(bump(T, BEAM1, BEAM1 + 0.08), bump(T, BEAM2, BEAM2 + 0.08));
+    const near = ease.in(seg(T, GO, CONTACT));
+    const at = lab.pos(maya.pose.x + 0.2, 2).setY(0.34 * maya.pose.sy + maya.pose.lift);
+    lamp.position.copy(at);
+    streak.position.copy(at);
+    lamp.material.opacity = on;
+    lamp.scale.setScalar(0.3 + 1.3 * flash + 0.5 * near);
+    streak.material.opacity = on * (0.25 + 0.75 * Math.max(flash, near));
+    streak.scale.set(0.6 + 3.2 * flash + 2.2 * near, 0.05 + 0.05 * flash, 1);
+  });
+
   lab.at(CONTACT, () => {
-    lab.shake(0.035, 0.28);
-    lab.ring(lab.pos(2.62, 2), '#fff1dc', 0.45, 0.16, 0.3);
+    lab.shake(0.03, 0.26);
+    lab.flash('#fff6e8', 0.22, 0.18);
   });
 
   lab.playCard('a', ['m2']);
@@ -220,6 +257,8 @@ export default async function play(lab) {
   await lab.wait(END - HOME);
   stop();
   dtWatch();
+  lampStop();
+  lamp.visible = streak.visible = false;
   maya.each = null;
   theo.each = null;
   for (const e of mayaEyes) e.scale.set(1, 1, 1);

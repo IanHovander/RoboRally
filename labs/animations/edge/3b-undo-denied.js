@@ -29,7 +29,7 @@ const smooth = (k) => k * k * (3 - 2 * k);
 const bump = (k) => Math.sin(Math.PI * clamp(k)); // 0 → 1 → 0
 
 export default async function play(lab) {
-  const { ease, facing } = lab;
+  const { THREE, ease, facing } = lab;
   const A = lab.arena;
   const maya = lab.puppet('a');
   const ava = lab.puppet('b');
@@ -38,6 +38,18 @@ export default async function play(lab) {
   ava.set({ trail: false });
   mb.trail = [];
   const mayaEye = maya.model.body.children.find((o) => o.material === maya.model.eyeMat);
+  const ring = maya.group.children.find((o) => o.material === maya.model.ringMat && o.geometry?.type === 'RingGeometry');
+  // echoes of her ring, only while the tape scrubs backward: the rewind leaves a smear of light
+  const ECHO = 6;
+  const echoes = [];
+  for (let i = 0; i < ECHO; i++) {
+    const m = new THREE.Mesh(ring.geometry, new THREE.MeshBasicMaterial({ color: new THREE.Color(mb.color).multiplyScalar(1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    m.matrixAutoUpdate = false;
+    m.renderOrder = 4;
+    lab.add(m);
+    echoes.push(m);
+  }
+  let echoTick = 0;
 
   // ---------------- the tape: the first take as a function of tape time τ ----------------
   const GO = 0.14; // she sets off
@@ -203,6 +215,19 @@ export default async function play(lab) {
 
   maya.each = (model) => {
     const look = maya.look;
+    // the rewind's smear: every other frame, the oldest echo jumps to where her ring is now
+    const scrub = mode(T) === 'rew' ? bump(seg(T, ...S.rew)) ** 0.5 : 0;
+    if (scrub > 0 && echoTick === 0) {
+      maya.group.updateMatrixWorld(true);
+      for (const e of echoes) e.matrix.copy(ring.matrixWorld);
+    }
+    if (scrub > 0 && echoTick++ % 2 === 0) {
+      maya.group.updateMatrixWorld(true);
+      const e = echoes.pop();
+      e.matrix.copy(ring.matrixWorld);
+      echoes.unshift(e);
+    }
+    echoes.forEach((e, i) => (e.material.opacity = 0.55 * scrub * (1 - i / ECHO) ** 1.3));
     model.eyeMat.color.setRGB(3.2 * look.eye, 3.1 * look.eye, 2.9 * look.eye);
     if (mayaEye) mayaEye.scale.set(look.eyeW, 1, look.eyeW);
     if (!look.visible) model.poolMat.opacity = 0;
@@ -220,7 +245,7 @@ export default async function play(lab) {
         c.position.y = 1.72 + 0.1 * cardGlow;
       }
       // while the tape is stopped, the card glows as if it had just been played: you can have it again
-      c.material.color.setScalar(1 + 0.3 * offer);
+      c.material.color.setScalar(1 + 0.04 * offer);
       const gone = mode(T) === 'replay' ? smooth(seg(τ, OUT - 0.25, OUT)) : 0;
       c.material.opacity = 1 - gone;
       c.visible = gone < 0.99;

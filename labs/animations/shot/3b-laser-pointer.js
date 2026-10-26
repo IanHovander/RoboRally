@@ -1,11 +1,11 @@
 // The laser pointer, acted. Theo glances slyly at Jun, then puts a jittery dot of light on the glass beside Maya.
 // Jun is a cat: his head snaps round, follows every twitch, he crouches with his rear up and wiggles... the dot goes
 // still (that's the cue), he pounces, and at that instant the dot hops up onto Maya. Jun hangs frozen in mid-air,
-// droops, drops, and slides home facing north as if nothing happened. Theo bobs with silent laughter.
+// slowly looks over his shoulder at us, blinks, drops, and slides home facing north as if nothing happened.
 export const meta = {
   title: 'The laser pointer (Jun the cat)',
   idea:
-    'Theo\'s shot lands first as a jittery dot of light on the glass beside Maya, on a thin line from his muzzle, and Theo makes it dance on purpose (a sly glance at Jun first). Jun is the cat: head snaps round, tracks every twitch, crouches rear-up and wiggles; the dot goes still, Jun pounces, and the dot hops up onto Maya: the hit. Jun hangs frozen in mid-air, droops, drops, and slides back to his space facing north as if nothing happened; Maya never moves, just gives Jun a look.',
+    'Theo\'s shot lands first as a jittery dot of light on the glass beside Maya, on a thin line from his muzzle, and Theo makes it dance on purpose (a sly glance at Jun first). Jun is the cat: head snaps round, tracks every twitch, crouches rear-up and wiggles; the dot goes still, Jun pounces, and the dot hops up onto Maya: the hit. Jun hangs frozen in mid-air, slowly looks over his shoulder at us (a guilty, dimmed eye), blinks, drops, and slides back to his space facing north as if nothing happened; Theo bobs with silent laughter, and Maya never moves, just gives Jun a flat look.',
   notes:
     'Sound: a tiny high "tick" when the dot appears, a faint glassy shimmer while it jitters, silence for the crouch (let the wiggle play), a soft "fff" for the pounce, the usual hit chime as the dot hops onto Maya, then one small glass "plink" when Jun lands, and nothing at all while he slides home. Porting: needs a bystander within two spaces of the target and on the shooter\'s side; otherwise play a plain hit. The dot sits on the target\'s side nearest the bystander.',
 };
@@ -111,10 +111,10 @@ export default async function play(lab) {
   const T_POUNCE = 1.1; // launch
   const T_HOP = 1.2; // the dot hops onto Maya
   const T_HIT = 1.29;
-  const T_DROP = 1.66; // the freeze ends
-  const T_LAND = 1.76;
-  const T_HOME = 2.26;
-  const T_END = 2.3;
+  const T_DROP = 1.8; // the freeze ends (after he has looked round at us)
+  const T_LAND = 1.89;
+  const T_HOME = 2.3;
+  const T_END = 2.34;
 
   // the dot's shaky hand: smooth wobble, a couple of teasing darts, then dead still before the pounce
   const dartX = K([[0, 0], [0.5, 0], [0.56, -0.2, 'out'], [0.68, -0.2], [0.76, 0.06, 'inOut'], [0.84, 0.16, 'out'], [0.96, 0.08, 'inOut']]);
@@ -146,11 +146,15 @@ export default async function play(lab) {
   // crouch: low, wide, front down (rear up); launch: stretch; freeze: hang in the stretch; land: squash
   const jSy = K([[0, 1], [T_CROUCH, 1], [T_CROUCH + 0.14, 0.7, 'out'], [T_POUNCE - 0.05, 0.66], [T_POUNCE, 0.6, 'in'], [T_POUNCE + 0.07, 1.26, 'out'], [T_HIT, 1.18], [T_HIT + 0.1, 1.1, 'out'], [T_DROP, 1.08], [T_LAND, 1.05, 'in'], [T_LAND + 0.05, 0.8, 'out'], [T_LAND + 0.3, 1, 'outElastic']]);
   const jPitch = K([[0, 0], [T_CROUCH, 0], [T_CROUCH + 0.14, 0.13, 'out'], [T_POUNCE, 0.16], [T_POUNCE + 0.07, -0.3, 'out'], [T_HIT, -0.22], [T_HIT + 0.12, 0.08, 'inOut'], [T_DROP, 0.22, 'inOut'], [T_LAND, 0.1], [T_LAND + 0.2, 0, 'inOut']]);
-  const jUp = K([[0, 0], [T_POUNCE, 0], [T_POUNCE + 0.13, 0.3, 'out'], [T_HIT, 0.32, 'out'], [T_DROP, 0.31], [T_LAND, 0, 'in']]);
+  const jUp = K([[0, 0], [T_POUNCE, 0], [T_POUNCE + 0.13, 0.4, 'out'], [T_HIT, 0.43, 'out'], [T_DROP, 0.42], [T_LAND, 0, 'in']]);
   const jTravel = K([[0, 0], [T_POUNCE, 0], [T_HIT, 1, 'out'], [T_LAND + 0.1, 1], [T_HOME, 0, 'inOut']]);
   // eye: locks (big and bright), then droops (dim, small) in the freeze, and comes back as he slides home
   const jEyeS = K([[0, 1], [T_LOCK, 1], [T_LOCK + 0.08, 1.55, 'outBack'], [T_HIT + 0.08, 1.55], [T_HIT + 0.2, 0.55, 'out'], [T_LAND + 0.3, 0.6], [T_HOME, 1, 'inOut']]);
   const jEye = K([[0, 1], [T_LOCK, 1], [T_LOCK + 0.08, 1.8, 'out'], [T_HIT + 0.08, 1.8], [T_HIT + 0.2, 0.45, 'out'], [T_LAND + 0.3, 0.5], [T_HOME, 1, 'inOut']]);
+  // frozen in mid-air, he slowly looks over his shoulder at us (Wile E. Coyote), blinks once, and only then drops
+  const jLook = K([[0, 0], [T_HIT + 0.1, 0], [T_HIT + 0.3, 2.3, 'inOut'], [T_LAND + 0.08, 2.3], [T_HOME - 0.04, 0, 'inOut']]);
+  const T_BLINK = T_HIT + 0.38;
+  const jBlink = (t) => (t > T_BLINK && t < T_BLINK + 0.07 ? 0.05 : 1);
 
   // Theo: a sly glance at Jun, then he aims (the dot's jitter is his body's), a flick for the hop, silent laughter
   const tYawBase = K([[0, 0], [0.1, 0.42, 'out'], [0.16, 0.42], [T_AIM, 0.12, 'inOut'], [T_HOP - 0.03, 0.12], [T_HOP + 0.03, -0.1, 'out'], [T_HIT + 0.2, 0, 'inOut']]);
@@ -188,13 +192,14 @@ export default async function play(lab) {
     // Jun: whole-body turn, head tracking the dot with a little lag, the crouch and the wiggle
     const j = jTravel(t);
     jun.p.set({ x: 3 + (pounceTo.x - junC.x) * j, y: 3 + (pounceTo.z - junC.z) * j, rot: jRot(t) });
-    const track = t > T_LOCK + 0.2 && t < T_POUNCE ? clamp01((angTo(junC, dotAt) - aimDot) * 1.6) : 0;
+    // his head follows every twitch of the dot (a cat's head tracking)
+    const follow = t > T_LOCK + 0.16 && t < T_POUNCE ? (angTo(junC, dotAt) - aimDot) * 1.4 * win(t, T_LOCK + 0.16, T_LOCK + 0.24) : 0;
     const wig = win(t, T_CROUCH + 0.12, T_CROUCH + 0.32) * (1 - win(t, T_POUNCE - 0.06, T_POUNCE));
     const wf = 9 + 10 * win(t, T_CROUCH + 0.1, T_POUNCE); // the wiggle speeds up
     const wPh = (t - T_CROUCH) * wf;
     const sy = jSy(t);
     Object.assign(jun.st, {
-      yaw: track * 0.5 + (angTo(junC, dotAt) - aimDot) * (t > T_LOCK + 0.2 && t < T_POUNCE ? 0.8 : 0) + wig * 0.16 * Math.sin(wPh),
+      yaw: follow + wig * 0.16 * Math.sin(wPh) + jLook(t),
       roll: wig * 0.12 * Math.sin(wPh + 0.6),
       pitch: jPitch(t),
       sy,
@@ -202,7 +207,7 @@ export default async function play(lab) {
       sz: 1 + (1 - sy) * 0.55,
       up: jUp(t),
       eyeS: jEyeS(t),
-      eye: jEye(t),
+      eye: jEye(t) * jBlink(t),
     });
     // in the freeze, a tiny embarrassed tremble
     if (t > T_HIT + 0.06 && t < T_DROP) jun.st.roll += 0.015 * Math.sin(t * 70);

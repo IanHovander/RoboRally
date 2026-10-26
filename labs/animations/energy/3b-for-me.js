@@ -100,8 +100,9 @@ export default async function play(lab) {
   const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
   const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
   const P0 = cam.position.clone().addScaledVector(fwd, 1.6).addScaledVector(camUp, -0.78).addScaledVector(camRight, -0.25);
-  const land = lab.pos(3, fumble ? 1.38 : 1.64).setY(SIZE / 2);
-  const P1 = P0.clone().lerp(land, 0.55).add(new THREE.Vector3(0, 0.9, 0));
+  const land = lab.pos(3, fumble ? 1.38 : 1.7).setY(SIZE / 2);
+  // an underhand lob: up from below the picture, over the board, down onto the glass in front of her
+  const P1 = land.clone().add(new THREE.Vector3(-0.2, 3.4, 0.5));
   const bez = (a, b, c, k) => a.clone().multiplyScalar((1 - k) ** 2).addScaledVector(b, 2 * k * (1 - k)).addScaledVector(c, k * k);
 
   // ----- her light -----
@@ -154,7 +155,7 @@ export default async function play(lab) {
     ezPitch = track([[0, 0], [MELT + 0.12, 0, 'linear'], [MELT + 0.22, 0.14, 'out'], [END - 0.2, 0.12, 'linear'], [END - 0.08, -0.08, 'inOut'], [END, 0, 'inOut']]);
     ezLift = (t) => (t > MELT + 0.24 && t < END - 0.22 ? Math.abs(Math.sin((t - MELT - 0.24) * 22)) * 0.025 : 0); // a hopeful little bounce
     // the cube: flight, clack and a small bounce, slide into her ring, melt into her
-    const slideTo = lab.pos(3, 1.3).setY(SIZE / 2);
+    const slideTo = lab.pos(3, 1.34).setY(SIZE / 2);
     const into = lab.pos(3, 1.1).setY(0.2);
     cubeAt = (t) => {
       if (t < TOSS) return null;
@@ -245,8 +246,8 @@ export default async function play(lab) {
       glassMat.emissiveIntensity = 0.55 + (c.melt ?? 0) * 2;
       // soft and big near the lens
       halo.position.copy(c.p);
-      halo.scale.setScalar(SIZE * c.s * (1.4 + c.soft * 2.4));
-      haloMat.opacity = c.soft * 0.8;
+      halo.scale.setScalar(SIZE * c.s * (1.3 + c.soft * 1.6));
+      haloMat.opacity = c.soft * 0.5;
       // its light and reflection on the glass, growing as it comes down
       const h = Math.max(0, c.p.y - SIZE / 2);
       pool.position.set(c.p.x, 0.007, c.p.z);

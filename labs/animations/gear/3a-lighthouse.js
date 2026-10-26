@@ -149,13 +149,15 @@ export default async function play(lab) {
     fragmentShader: `uniform vec3 color; uniform float front; uniform float back; uniform float inten; uniform float splash; uniform float len; varying vec2 vP;
       void main(){
         float x = vP.x; float y = vP.y;
-        if (x > front || x < back) discard;
-        float side = exp(-pow(abs(y) / 0.42, 6.0));
-        float lip = exp(-(front - x) * 9.0);
+        // a rounded tongue of light, like water running down a gutter (the middle runs ahead of the sides)
+        float fr = min(front - 0.22 * (y * y) / 0.2, len);
+        if (x > fr || x < back) discard;
+        float side = exp(-pow(abs(y) / 0.44, 4.0));
+        float lip = exp(-(fr - x) * 8.0);
         float gx = abs(fract(x) - 0.5); float grid = 1.0 - smoothstep(0.0, 0.04, min(gx, abs(abs(y) - 0.5)));
         float tail = smoothstep(back, back + 0.25, x);
         float wall = exp(-(len - x) * 6.0) * splash;
-        float a = side * tail * (0.42 + 0.9 * lip + 0.4 * grid + 1.6 * wall) * inten;
+        float a = side * tail * (0.36 + 0.9 * lip + 0.4 * grid + 1.6 * wall) * inten;
         gl_FragColor = vec4(color, a);
       }`,
   });
@@ -218,7 +220,7 @@ export default async function play(lab) {
       last = t;
 
       // the room dims a touch, and comes up as the beam snaps home
-      const dimK = 0.42 * smooth(seg(t, 0, 0.14)) * (1 - smooth(seg(t, T_RET, T_END)));
+      const dimK = 0.6 * smooth(seg(t, 0, 0.14)) * (1 - smooth(seg(t, T_RET, T_END)));
       arena.dim = arena.dimCur = dimK;
 
       // ---- Maya: wind-up, heave, tugged by the whip, knocked back by the snap ----
@@ -322,8 +324,8 @@ export default async function play(lab) {
         front = mix(runStart, runEnd, ease.in3(k) * 0.75 + ease.in(k) * 0.25);
         if (t >= T_HIT) {
           const s = t - T_HIT;
-          front = runEnd - 0.32 * Math.exp(-s * 9) * Math.sin(Math.min(Math.PI, s * 14)) * (s < 0.23 ? 1 : 0);
-          front = Math.min(runEnd, front);
+          // it piles up flat against the edge, sloshes back once, settles
+          front = runEnd + 0.25 * smooth(seg(s, 0, 0.08)) - 0.3 * Math.exp(-s * 9) * Math.sin(Math.min(Math.PI, s * 14)) * (s < 0.23 ? 1 : 0);
           splash = Math.exp(-s * 6);
           if (!hit) {
             hit = true;
@@ -345,7 +347,7 @@ export default async function play(lab) {
         if (t >= T_RET) {
           // sucked back up the beam
           const k2 = ease.in(seg(t, T_RET - 0.04, T_HOME));
-          front = mix(runEnd, runStart, k2);
+          front = mix(runEnd + 0.25, runStart, k2);
           backEdge = mix(runStart, runStart, k2);
         }
       }

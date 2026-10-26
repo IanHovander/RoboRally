@@ -124,7 +124,7 @@ export default async function play(lab) {
   const camPos = HOLE.clone().add(new THREE.Vector3(0, Math.sin(UNDER.el) * UNDER.dist, Math.cos(UNDER.el) * UNDER.dist));
   const fallK = (t) => clamp((t - T.cut) / (T.splat - T.cut));
   const START = HOLE.clone().setY(0.42); // she starts inside the hole, above the ceiling
-  const fallS = (k) => 0.9 * k ** 2.2; // accelerating straight at us
+  const fallS = (k) => 0.93 * k ** 2.2; // accelerating straight at us
   const eyeOpen = [[T.cut, 0.25], [T.take - 0.02, 0.2], [T.take + 0.04, 3.4, ease.outBack], [T.splat, 3]];
 
   // ---------- the smudge on the lens (the HUD layer) ----------
@@ -146,23 +146,30 @@ export default async function play(lab) {
       g.closePath();
     };
     g.save();
-    g.shadowColor = 'rgba(255,60,95,1)';
-    g.shadowBlur = 48;
-    const grad = g.createRadialGradient(256, 290, 10, 256, 280, 240);
-    grad.addColorStop(0, 'rgba(255,120,145,.9)');
-    grad.addColorStop(0.5, 'rgba(235,45,85,.62)');
-    grad.addColorStop(1, 'rgba(170,20,50,.5)');
+    g.shadowColor = 'rgba(255,50,90,1)';
+    g.shadowBlur = 60;
+    const grad = g.createRadialGradient(256, 300, 10, 256, 280, 250);
+    grad.addColorStop(0, 'rgba(255,95,125,.62)');
+    grad.addColorStop(0.6, 'rgba(240,45,85,.4)');
+    grad.addColorStop(1, 'rgba(190,25,60,.34)');
     g.fillStyle = grad;
     path();
     g.fill();
     g.restore();
-    // where she pressed hardest: a brighter core
-    const core = g.createRadialGradient(256, 300, 0, 256, 300, 140);
-    core.addColorStop(0, 'rgba(255,215,222,.5)');
-    core.addColorStop(1, 'rgba(255,215,222,0)');
+    // where she pressed hardest: a brighter contact patch
+    g.save();
+    g.translate(256, 300);
+    g.scale(0.72, 0.68);
+    g.translate(-256, -300);
+    const core = g.createRadialGradient(256, 300, 0, 256, 300, 200);
+    core.addColorStop(0, 'rgba(255,200,210,.6)');
+    core.addColorStop(1, 'rgba(255,120,145,.15)');
     g.fillStyle = core;
+    g.shadowColor = 'rgba(255,140,165,.8)';
+    g.shadowBlur = 30;
     path();
     g.fill();
+    g.restore();
     // her ring pressed into the glass
     g.strokeStyle = 'rgba(255,190,200,.95)';
     g.lineWidth = 7;
@@ -177,6 +184,14 @@ export default async function play(lab) {
     g.beginPath();
     g.roundRect(256 - 82, 270 - 0.13 * k - 12, 164, 24, 12);
     g.fill();
+    // ...and smeared sideways across the glass
+    const sm = g.createLinearGradient(256 - 200, 0, 256 + 200, 0);
+    sm.addColorStop(0, 'rgba(255,250,240,0)');
+    sm.addColorStop(0.5, 'rgba(255,250,240,.55)');
+    sm.addColorStop(1, 'rgba(255,250,240,0)');
+    g.fillStyle = sm;
+    g.shadowBlur = 0;
+    g.fillRect(256 - 200, 270 - 0.13 * k - 5, 400, 10);
     return c;
   })();
   const mk = (css) => {
@@ -185,13 +200,13 @@ export default async function play(lab) {
     ov.append(el);
     return el;
   };
-  const SZ = OH * 1.05;
+  const SZ = OH * 0.8;
   const dim = mk(`left:0;top:0;width:${OW}px;height:${OH}px;opacity:0;background:#000`); // her light covers the lens
   const smudge = mk(`left:${OW / 2 - SZ / 2}px;top:${OH / 2 - SZ / 2}px;width:${SZ}px;height:${SZ}px;opacity:0;mix-blend-mode:screen`);
   const img = smudgeCanvas;
   img.style.cssText = 'width:100%;height:100%;display:block';
   smudge.append(img);
-  const streak = mk(`left:${OW / 2 - SZ * 0.2}px;width:${SZ * 0.4}px;top:0;height:0;opacity:0;mix-blend-mode:screen;background:linear-gradient(rgba(255,77,109,0),rgba(255,90,120,.35));filter:blur(6px);border-radius:40%`);
+  const streak = mk(`left:${OW / 2 - SZ * 0.32}px;width:${SZ * 0.64}px;top:0;height:0;opacity:0;mix-blend-mode:screen;background:linear-gradient(rgba(255,77,109,0),rgba(255,90,120,.4));filter:blur(8px);border-radius:30%`);
   const flash = mk(`left:0;top:0;width:${OW}px;height:${OH}px;opacity:0;background:radial-gradient(circle at 50% 52%, rgba(255,240,240,.9), rgba(255,120,140,.25) 30%, rgba(0,0,0,0) 60%)`);
   const vignette = mk(`left:0;top:0;width:${OW}px;height:${OH}px;opacity:0;background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%)`);
   const black = mk(`left:0;top:0;width:${OW}px;height:${OH}px;opacity:0;background:#000`);
@@ -266,12 +281,13 @@ export default async function play(lab) {
       const hit = ease.outBack(clamp(s / 0.09), 2.2);
       const wob = Math.sin(s * 38) * 0.07 * Math.exp(-s * 9);
       const slide = ease.in(clamp((now - T.slide) / (T.back - T.slide)));
-      const sc = 0.55 + 0.6 * hit;
+      const sc = 0.92 + 0.22 * hit; // starts as big as she was, then spreads
       smudge.style.opacity = String(1 - 0.35 * slide);
-      smudge.style.transform = `translateY(${slide * OH * 0.42}px) scale(${sc * (1 + wob)}, ${sc * (1 - wob) * (1 + 0.16 * slide)})`;
+      // pressed flat: wider than she is tall, then dragged down the glass
+      smudge.style.transform = `translateY(${slide * OH * 0.38}px) scale(${sc * 1.22 * (1 + wob)}, ${sc * 0.9 * (1 - wob) * (1 + 0.14 * slide)})`;
       streak.style.opacity = String(clamp(slide * 3) * (1 - clamp((now - T.dark) / 0.3)));
-      streak.style.top = `${OH / 2 - SZ * 0.25}px`;
-      streak.style.height = `${slide * OH * 0.42 + 10}px`;
+      streak.style.top = `${OH / 2 - SZ * 0.36}px`;
+      streak.style.height = `${slide * OH * 0.38 + 10}px`;
       flash.style.opacity = String(clamp(1 - s / 0.18) * 0.9);
       dim.style.opacity = String(0.45 * clamp(s / 0.08));
       black.style.opacity = String(ease.in(clamp((now - T.dark) / (T.back - T.dark - 0.04))));

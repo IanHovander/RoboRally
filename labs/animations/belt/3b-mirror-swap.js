@@ -80,7 +80,8 @@ export default async function play(lab) {
 
   // looks: k = how much of a reflection it is (0 = solid Maya, 1 = an image in smoked glass)
   const realMats = { paint: maya.model.paint, eyeMat: maya.model.eyeMat, ringMat: maya.model.ringMat, poolMat: maya.model.poolMat };
-  const paintWas = { transparent: realMats.paint.transparent, opacity: realMats.paint.opacity };
+  const paintWas = { transparent: realMats.paint.transparent, opacity: realMats.paint.opacity, depthWrite: realMats.paint.depthWrite, color: realMats.paint.color.clone() };
+  const RED = paintWas.color.clone();
   const setClip = (mats, planes) => {
     for (const m of Object.values(mats)) {
       m.clippingPlanes = planes;
@@ -89,11 +90,12 @@ export default async function play(lab) {
   };
   lab.cleanup(() => {
     setClip(realMats, null);
-    Object.assign(realMats.paint, paintWas);
+    Object.assign(realMats.paint, { ...paintWas, color: realMats.paint.color.copy(paintWas.color) });
   });
   const look = (st, mats, k) => {
     mats.paint.transparent = k > 0.001;
-    mats.paint.opacity = 1 - 0.5 * k;
+    mats.paint.opacity = 1 - 0.62 * k;
+    mats.paint.color.copy(RED).multiplyScalar(1 - 0.4 * k);
     mats.paint.depthWrite = k < 0.5;
     st.dim = 1 - 0.45 * k;
     st.poolA = 1 - 0.75 * k;
@@ -131,35 +133,36 @@ export default async function play(lab) {
   // is her now; she glances back at the old her knocking inside the pane, which sinks; then she shuffles onto
   // the corner's centre and settles, smug.
   const t2 = (t) => t - TOUCH;
-  const outY = track([[0, 1.48], [0.66, 1.48], [0.92, 1.0, 'inOut']]);
-  const outHop = track([[0, 0], [0.68, 0], [0.78, 0.04, 'out'], [0.9, 0, 'in']]);
-  const outSy = track([[0, 1.0], [0.05, 1.1, 'out'], [0.2, 1.02], [0.6, 1.0], [0.68, 0.9, 'out'], [0.8, 1.04], [0.9, 0.9, 'in'], [0.98, 1.06, 'out'], [1.06, 1.04]]);
-  const outYaw = track([[0, 0], [0.2, 0], [0.32, 1.05, 'out'], [0.6, 1.0], [0.74, 0, 'inOut']]);
-  const outLean = track([[0, 0], [0.62, 0], [0.7, 0.1, 'out'], [0.9, 0.04], [0.98, -0.09, 'out'], [1.06, -0.07]]);
-  const outRoll = track([[0, 0], [0.2, 0], [0.32, -0.08], [0.6, -0.06], [0.74, 0]]);
-  const outOpen = track([[0, 1.6], [0.08, 2.4, 'out'], [0.3, 1.2], [0.45, 0.55, 'inOut'], [0.62, 0.55], [0.8, 0.9], [1.06, 0.7]]);
-  const outGlow = track([[0, 2.2], [0.2, 1.3], [0.45, 1.05], [0.98, 1.25], [1.06, 1.2]]);
-  const outK = track([[0, 0.6], [0.16, 0, 'out']]);
-  const outClip = 0.7; // when the pane is low enough to let her cross its line
-  // the old her, left behind the glass: realises, knocks twice, sinks with the pane
-  const inX = track([[0, 2.52], [0.2, 2.5], [0.25, 2.58, 'in'], [0.3, 2.5, 'out'], [0.36, 2.58, 'in'], [0.42, 2.5, 'out']]);
-  const inK = track([[0, 0], [0.22, 0.7, 'out']]);
-  const inOpen = track([[0, 2.0], [0.1, 2.7, 'out'], [0.5, 2.3]]);
-  const inYaw = track([[0, -0.15], [0.12, -0.6, 'out'], [0.45, -0.6], [0.6, -0.3]]);
-  const sink = track([[0, 0], [0.45, 0], [0.75, -0.95, 'in']]);
-  const knocks = (u) => Math.max(0, 1 - Math.abs(u - 0.25) / 0.06) + 0.7 * Math.max(0, 1 - Math.abs(u - 0.36) / 0.06);
+  const outY = track([[0, 1.48], [0.56, 1.48], [0.8, 1.0, 'inOut']]);
+  const outHop = track([[0, 0], [0.58, 0], [0.68, 0.04, 'out'], [0.78, 0, 'in']]);
+  const outSy = track([[0, 1.0], [0.04, 0.88, 'out'], [0.14, 1.1, 'out'], [0.26, 1.02], [0.5, 1.0], [0.58, 0.9, 'out'], [0.68, 1.04], [0.78, 0.9, 'in'], [0.86, 1.07, 'out'], [0.95, 1.04]]);
+  const outYaw = track([[0, 0], [0.14, 0], [0.24, 1.05, 'out'], [0.48, 1.0], [0.62, 0, 'inOut']]);
+  const outLean = track([[0, 0], [0.52, 0], [0.6, 0.1, 'out'], [0.78, 0.04], [0.86, -0.09, 'out'], [0.95, -0.07]]);
+  const outRoll = track([[0, 0], [0.14, 0], [0.24, -0.08], [0.48, -0.06], [0.62, 0]]);
+  const outOpen = track([[0, 1.6], [0.06, 2.4, 'out'], [0.24, 1.3], [0.38, 0.55, 'inOut'], [0.52, 0.55], [0.7, 0.9], [0.95, 0.7]]);
+  const outGlow = track([[0, 1.4], [0.06, 2.4, 'out'], [0.3, 1.2], [0.86, 1.3], [0.95, 1.25]]);
+  const outK = track([[0, 1], [0.04, 1], [0.16, 0, 'out']]);
+  const outClip = 0.62; // when the pane is low enough to let her cross its line
+  // the old her, left behind the glass: realises, turns to the new her, knocks once, sinks with the pane
+  const inX = track([[0, 2.52], [0.04, 2.47, 'out'], [0.24, 2.5], [0.3, 2.6, 'in'], [0.37, 2.5, 'out']]);
+  const inK = track([[0, 0], [0.04, 0], [0.18, 1, 'out']]);
+  const inOpen = track([[0, 2.0], [0.08, 2.7, 'out'], [0.5, 2.3]]);
+  const inYaw = track([[0, -0.15], [0.12, -0.7, 'out'], [0.5, -0.7]]);
+  const sink = track([[0, 0], [0.38, 0], [0.66, -0.95, 'in']]);
+  const knocks = (u) => Math.max(0, 1 - Math.abs(u - 0.3) / 0.07);
+  const flare = (u) => Math.max(0, 1 - u / 0.22) * Math.min(1, u / 0.02);
 
   // the pane
   const rise = track([[0, -H - 0.05], [0.12, -H - 0.05], [0.5, 0, 'out3']]);
   const slitA = track([[0, 0], [0.12, 1, 'out'], [0.5, 0.25], [TOUCH + 0.6, 0.25], [TOUCH + 0.7, 0]]);
 
   // Jun: double-takes between the two of them, startles at the swap, then peers at where the pane went
-  const jYaw = track([[0, 0], [0.1, 0], [0.25, -0.3, 'out'], [0.6, -0.3], [0.66, 0.02, 'out'], [0.74, -0.3, 'out'], [0.84, 0.06, 'out'], [1.0, 0.02], [1.15, -0.15], [TOUCH, -0.2], [TOUCH + 0.3, -0.2], [TOUCH + 0.4, -0.3], [TOUCH + 0.9, -0.3]]);
-  const jLean = track([[0, 0], [0.84, 0], [0.9, -0.1, 'out'], [1.1, 0.06], [TOUCH, 0.06], [TOUCH + 0.06, -0.16, 'out'], [TOUCH + 0.4, 0], [TOUCH + 0.75, 0.22]]);
+  const jYaw = track([[0, 0], [0.1, 0], [0.25, -0.3, 'out'], [0.6, -0.3], [0.66, 0.02, 'out'], [0.74, -0.3, 'out'], [0.84, 0.06, 'out'], [1.0, 0.02], [1.15, -0.15], [TOUCH, -0.2], [TOUCH + 0.3, -0.2], [TOUCH + 0.4, -0.3], [TOUCH + 0.95, -0.3]]);
+  const jLean = track([[0, 0], [0.84, 0], [0.9, -0.1, 'out'], [1.1, 0.06], [TOUCH, 0.06], [TOUCH + 0.06, -0.16, 'out'], [TOUCH + 0.35, 0], [TOUCH + 0.7, 0.22]]);
   const jOpen = track([[0, 1], [0.8, 1], [0.86, 1.8, 'out'], [1.2, 1.3], [TOUCH, 1.3], [TOUCH + 0.06, 2.0, 'out'], [TOUCH + 0.5, 1.4]]);
   const jSy = track([[0, 1], [0.8, 1], [0.86, 1.1, 'out'], [1.0, 1.0], [TOUCH, 1], [TOUCH + 0.06, 1.1, 'out'], [TOUCH + 0.3, 1.0]]);
 
-  const END = TOUCH + 1.06;
+  const END = TOUCH + 0.95;
   let swapped = false;
   let unclipped = false;
   setClip(realMats, [keepNW]);
@@ -224,14 +227,16 @@ export default async function play(lab) {
       // her knocks light up the glass from inside
       const kk = kn;
       knockMat.opacity = kk;
-      knock.scale.setScalar(1 + 1.6 * (1 - kk));
-      knock.position.set(0, 0.16, -0.012);
+      knock.scale.setScalar(1.4 + 2.2 * (1 - kk));
+      knock.position.set(-0.08, 0.3, -0.012);
       // the sweep of light at the touch
-      const sw = Math.min(1, u / 0.3);
+      const sw = Math.min(1, u / 0.22);
       sweep.position.x = -W / 2 + W * sw;
       sweepMat.opacity = Math.sin(Math.PI * sw) * 0.9;
     }
-    edgeMat.color.setScalar(1).multiply(new THREE.Color('#f4efe4')).multiplyScalar(2.4 + (t > TOUCH ? 3 * Math.max(0, 1 - t2(t) / 0.25) : 0));
+    const fl = t > TOUCH ? flare(t2(t)) : 0;
+    edgeMat.color.set('#f4efe4').multiplyScalar(2.4 + 3.5 * fl);
+    glassMat.emissiveIntensity = 0.05 + 0.5 * fl;
     jun.set({ rot: junRot });
     Object.assign(J, { yaw: jYaw(t), lean: jLean(t), open: jOpen(t), glow: 0.85 + 0.25 * jOpen(t), sy: jSy(t) });
     J.sx = J.sz = 1 / Math.sqrt(J.sy);
@@ -247,7 +252,7 @@ export default async function play(lab) {
   jun.release({ x: 5, y: 2, d: 3 });
   M.reset();
   setClip(realMats, null);
-  Object.assign(realMats.paint, paintWas);
+  Object.assign(realMats.paint, { ...paintWas, color: realMats.paint.color.copy(paintWas.color) });
 
   // the game carries on: Jun keeps peering at the spot where the glass went down, then lets it go
   const tail = lab.t;

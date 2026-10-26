@@ -61,13 +61,13 @@ export default async function play(lab) {
   {
     const g = cv.getContext('2d');
     const grad = g.createRadialGradient((W * PX) / 2, (H * PX) / 2, 0, (W * PX) / 2, (H * PX) / 2, W * PX * 0.62);
-    grad.addColorStop(0, 'rgb(98,94,90)');
-    grad.addColorStop(0.55, 'rgb(58,60,66)');
-    grad.addColorStop(1, 'rgb(22,25,32)');
+    grad.addColorStop(0, 'rgb(84,88,100)');
+    grad.addColorStop(0.5, 'rgb(46,51,63)');
+    grad.addColorStop(1, 'rgb(16,19,26)');
     g.fillStyle = grad;
     g.fillRect(0, 0, W * PX, H * PX);
     // the seams, seen through the glass
-    g.strokeStyle = 'rgba(8,10,14,.22)';
+    g.strokeStyle = 'rgba(0,0,0,.12)';
     g.lineWidth = 1.5;
     for (let x = 1; x < W; x++) {
       g.beginPath();
@@ -100,6 +100,10 @@ export default async function play(lab) {
         if (course.cells[y * W + x]?.k !== 'pit') continue;
         g.fillStyle = '#000';
         g.fillRect(x * PX + 2, y * PX + 2, PX - 4, PX - 4);
+        // the glass's cut edge catches the light
+        g.strokeStyle = 'rgba(255,238,215,.7)';
+        g.lineWidth = 3;
+        g.strokeRect(x * PX + 1, y * PX + 1, PX - 2, PX - 2);
       }
     }
   }
@@ -156,6 +160,7 @@ export default async function play(lab) {
     `<filter id="lensB" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.022"/></filter>` +
     `<filter id="lensG" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="0.07"/></filter></defs>` +
     `<path d="${pebblePath}" transform="scale(1.32)" fill="#ff4d6d" opacity="0.65" filter="url(#lensG)"/>` +
+    `<ellipse cx="0" cy="0.01" rx="0.47" ry="0.44" fill="none" stroke="#ff7590" stroke-width="0.022" opacity="0.9" filter="url(#lensB)"/>` +
     `<path d="${pebblePath}" transform="scale(1.18)" fill="url(#lensR)" filter="url(#lensB)"/>` +
     `<rect x="-0.11" y="-0.13" width="0.22" height="0.05" rx="0.025" fill="#fff8ec" filter="url(#lensB)"/>`;
   splat.append(svg);
@@ -264,7 +269,7 @@ export default async function play(lab) {
       const drop = ease.in3(kl) * 0.95 + 0.04 * kl;
       sy *= 1 + 0.18 * kl; // smeared longer as it slides
       sx *= 1 - 0.06 * kl;
-      const size = SH * 0.86;
+      const size = SH * 1.3;
       const cy = 0.5 * SH + drop * SH * 1.05;
       splat.style.opacity = String(1 - 0.35 * kl);
       splat.style.width = `${size}px`;

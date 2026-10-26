@@ -2,7 +2,7 @@
 export const meta = {
   title: 'Caught looking',
   idea:
-    'Rotate Right swings Maya round to face the room and she freezes mid-breath: her eye flares wide, she rocks back and stands up a hair taller, like someone who has just noticed the whole sofa watching. ' +
+    'Rotate Right swings Maya round to face the room; a beat later it registers and she freezes mid-breath: her eye flares wide, she rocks back and stands up a hair taller, like someone who has just noticed the whole sofa watching. ' +
     'Move Back becomes a two-step tiptoe retreat with her eye locked on us, her ring dimming as she tries to take up less room; then the U-Turn snaps her round to face north and she sways, whistling, as if nothing happened. ' +
     'Theo, who has faced the camera all along, slowly turns to watch her go, and when she snaps away he turns back and gives the room a long flat look.',
   notes:
@@ -49,16 +49,16 @@ export default async function play(lab) {
   const mrot = track([[0.92, facing(1)], [1.2, facing(2), E.out3], [3.24, facing(2)], [3.4, facing(2) - PI, outBack]], E.inOut);
   const mpitch = track([
     [0.1, 0], [0.24, -0.05, E.out], [0.62, 0], [0.8, 0.06, E.out], [0.98, 0, E.inOut], // drive: settle
-    [1.2, 0], [1.3, -0.21, E.out3], [1.94, -0.19], [2.2, -0.13], [3.2, -0.13], // the take, eye on the room
+    [1.3, 0], [1.4, -0.23, E.out3], [1.94, -0.19], [2.2, -0.13], [3.2, -0.13], // the take, eye on the room
     [3.3, 0, E.out], // snap
   ], E.inOut);
-  const msy = track([[1.2, 1], [1.28, 1.07, E.out3], [1.45, 1.04], [2.0, 1.04], [2.45, 0.95], [3.2, 0.95], [3.3, 1, E.out]], E.inOut);
-  const msx = track([[1.2, 1], [1.28, 0.95, E.out3], [1.45, 0.975], [2.0, 0.975], [2.45, 1.02], [3.2, 1.02], [3.3, 1, E.out]], E.inOut);
+  const msy = track([[1.3, 1], [1.37, 1.08, E.out3], [1.52, 1.04], [2.0, 1.04], [2.45, 0.95], [3.2, 0.95], [3.3, 1, E.out]], E.inOut);
+  const msx = track([[1.3, 1], [1.37, 0.95, E.out3], [1.52, 0.975], [2.0, 0.975], [2.45, 1.02], [3.2, 1.02], [3.3, 1, E.out]], E.inOut);
   const mlift = track([[3.26, 0], [3.4, 0.03, E.out], [3.58, 0, E.in]], E.inOut);
   // her eye: wide and bright on the take, narrowing a little as she sneaks off, normal on the snap
-  const eyeW = track([[1.2, 1], [1.25, 1.95, E.out3], [1.94, 1.8], [3.1, 1.5], [3.28, 1, E.out]], E.inOut);
-  const eyeH = track([[1.2, 1], [1.25, 1.8, E.out3], [1.94, 1.65], [3.1, 1.3], [3.28, 1, E.out]], E.inOut);
-  const eyeB = track([[1.19, 1], [1.24, 3.2, E.out], [1.6, 2.3], [3.1, 2.0], [3.28, 1, E.out]], E.inOut);
+  const eyeW = track([[1.3, 1], [1.35, 1.95, E.out3], [1.94, 1.8], [3.1, 1.5], [3.28, 1, E.out]], E.inOut);
+  const eyeH = track([[1.3, 1], [1.35, 1.8, E.out3], [1.94, 1.65], [3.1, 1.3], [3.28, 1, E.out]], E.inOut);
+  const eyeB = track([[1.29, 1], [1.34, 3.2, E.out], [1.6, 2.3], [3.1, 2.0], [3.28, 1, E.out]], E.inOut);
   // her presence: ring and pool dim while she tries to be small
   const glowK = track([[1.95, 1], [2.7, 0.42], [3.24, 0.42], [3.4, 1, E.out]], E.inOut);
   // whistling innocently after the snap
@@ -78,7 +78,7 @@ export default async function play(lab) {
   const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: maya.model.poolMat.map, color: new THREE.Color('#fff4e6').multiplyScalar(3.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
   flare.renderOrder = 25;
   lab.add(flare);
-  const flareK = (T) => (T < 1.2 ? 0 : Math.exp(-(T - 1.21) * 5.5) * span(T, 1.2, 1.23));
+  const flareK = (T) => (T < 1.3 ? 0 : Math.exp(-(T - 1.31) * 5.5) * span(T, 1.3, 1.33));
   const eyeAt = new THREE.Vector3();
   const toCam = new THREE.Vector3();
 
@@ -87,7 +87,7 @@ export default async function play(lab) {
 
   maya.each = (m, t) => {
     const T = t - t0;
-    m.body.position.y = T > 1.18 && T < 3.24 ? 0 : m.body.position.y; // frozen: no idle bob
+    m.body.position.y = T > 1.28 && T < 3.24 ? 0 : m.body.position.y; // frozen: no idle bob
     if (maya.bot.card && maya.bot.card.position.y < 1) maya.bot.card.visible = false; // a new card isn't placed until the next frame
     const b = eyeB(T);
     m.eyeMat.color.setRGB(3.2 * b, 3.1 * b, 2.9 * b);

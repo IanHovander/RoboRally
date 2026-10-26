@@ -216,7 +216,7 @@ export default async function play(lab) {
     settle: [3.0, 3.32],
   };
   const END = 3.34;
-  const HANG = { x: RIM + 0.5, lift: -0.32 }; // dangling just over the rim, her eye level with the glass
+  const HANG = { x: RIM + 0.7, lift: -0.38 }; // dangling just off the rim, her eye level with the glass
   const BOTTOM = { x: RIM + 1.0, lift: -1.8 };
   const CRACK_X = 3.55; // where the loose end lands, just past (4,1)
 
@@ -392,6 +392,7 @@ export default async function play(lab) {
     if (mayaEye) mayaEye.scale.set(look.eyeW, 1, look.eyeW);
     if (!look.visible) model.poolMat.opacity = 0;
     else model.poolMat.opacity *= clamp(1 + look.lift * 3); // her glow leaves the glass as she drops
+    model.ringMat.opacity *= lerp(1, 0.08, clamp((maya.pose.x - RIM - 0.1) * 3)); // off the glass, her ring has nothing to lie on
     // her card stays up over the rim where she left it; it goes out when the cord snaps
     if (mb.card) {
       const c = W(Math.min(maya.pose.x, RIM + 0.1));

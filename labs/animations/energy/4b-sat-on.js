@@ -86,9 +86,10 @@ export default async function play(lab) {
   const shape = new THREE.Shape(BOLT_PATH.map(([px, py]) => new THREE.Vector2((px - 20) / 28, (20 - py) / 28 + 0.5)));
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 2 });
   geo.translate(0, 0, -0.05);
-  const boltMat = new THREE.MeshBasicMaterial({ color: hdr(PALETTE.energy, 2.4), transparent: true, opacity: 1 });
+  const boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(3), transparent: true, opacity: 1 });
   const bolt = new THREE.Mesh(geo, boltMat);
-  const BOLT = 0.32;
+  const BOLT = 0.42;
+  const LEAN = 0.5; // it stands leaning back, face to the camera, looking up at her
   const boltRig = new THREE.Group(); // at the bolt's point, on the glass
   boltRig.add(bolt);
   boltRig.visible = false;
@@ -108,10 +109,10 @@ export default async function play(lab) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   })();
-  const spotMat = new THREE.MeshBasicMaterial({ map: glowTex, color: hdr(PALETTE.energy, 1.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const spotMat = new THREE.MeshBasicMaterial({ map: glowTex, color: hdr(PALETTE.energy, 0.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const spot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), spotMat);
   spot.rotation.x = -Math.PI / 2;
-  spot.scale.setScalar(0.6);
+  spot.scale.setScalar(0.5);
   lab.add(spot);
   // the fresh bolt, a glyph of light in the glass
   const freshTex = (() => {
@@ -205,7 +206,7 @@ export default async function play(lab) {
 
   // the bolt's own acting: [x, z] in spaces, lift, its tilt from lying in the glass to standing, squash, wiggle
   const P_UNDER = [3, 1.08];
-  const P_OUT = [3.06, 1.64];
+  const P_OUT = [3.08, 1.8];
   const backX = 2.86; // her back (she faces east)
   const boltPose = (t) => {
     if (t < SQUEEZE || t >= DIVE) return null;
@@ -218,19 +219,19 @@ export default async function play(lab) {
     if (t < STAND) {
       // sits up on its point with an overshoot
       const k = (t - POP) / (STAND - POP);
-      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: -Math.PI / 2 * (1 - E.outBack(k)), sx: 1, sy: 1, spin: 0 };
+      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: -Math.PI / 2 + (Math.PI / 2 + LEAN) * E.outBack(k), sx: 1, sy: 1, spin: 0 };
     }
     if (t < CROUCH) {
       // shakes itself off like a wet dog, then turns its face up to her
       const k = (t - SHAKE) / (CROUCH - SHAKE);
-      const w = k > 0 && k < 0.8 ? Math.sin(k * 0.8 * 7 * TAU) * (1 - k / 0.8) : 0;
+      const w = k > 0 && k < 0.8 ? Math.sin((k / 0.8) * 2.5 * TAU) * (1 - (k / 0.8) * 0.6) : 0;
       const look = k > 0.8 ? E.out((k - 0.8) / 0.2) : 0;
-      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: 0.16 * look, sx: 1 + Math.abs(w) * 0.15, sy: 1 - Math.abs(w) * 0.1, spin: w * 0.7, roll: w * 0.25 };
+      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: LEAN + 0.12 * look, sx: 1 + Math.abs(w) * 0.12, sy: 1 - Math.abs(w) * 0.08, spin: w * 0.75, roll: w * 0.3 };
     }
     if (t < HOP) {
       // crouch
       const k = E.out((t - CROUCH) / (HOP - CROUCH));
-      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: 0.16 - 0.3 * k, sx: 1 + 0.32 * k, sy: 1 - 0.38 * k, spin: 0 };
+      return { x: P_OUT[0], y: P_OUT[1], lift: 0, tilt: LEAN + 0.12 - 0.3 * k, sx: 1 + 0.32 * k, sy: 1 - 0.38 * k, spin: 0 };
     }
     if (t < LANDB) {
       // the hop: a little forward flip in an arc onto her back
@@ -239,13 +240,13 @@ export default async function play(lab) {
       const by = P_OUT[1] + (1.02 - P_OUT[1]) * k;
       const lift = 0.33 * k + Math.sin(k * Math.PI) * 0.55; // up and over, onto her back (0.33 high)
       const sq = k < 0.15 ? 1.25 - (k / 0.15) * 0.25 : 1;
-      return { x: bx, y: by, lift, tilt: -0.14 - E.inOut(k) * TAU, sx: 1 / Math.sqrt(sq), sy: sq, spin: 0 };
+      return { x: bx, y: by, lift, tilt: LEAN - 0.18 - E.inOut(k) * TAU, sx: 1 / Math.sqrt(sq), sy: sq, spin: 0 };
     }
     // on her back: squash, then dive in head first
     const k = (t - LANDB) / (DIVE - LANDB);
     const sq = k < 0.35 ? 1 - Math.sin((k / 0.35) * Math.PI) * 0.35 : 1;
     const dive = k > 0.35 ? E.in((k - 0.35) / 0.65) : 0;
-    return { x: backX + 0.06 * dive, y: 1.02, lift: 0.33 + Math.sin(dive * Math.PI) * 0.06 - dive * 0.12, tilt: -dive * Math.PI, sx: (1 / Math.sqrt(sq)) * (1 - dive * 0.9), sy: sq * (1 - dive * 0.9), spin: 0 };
+    return { x: backX + 0.06 * dive, y: 1.02, lift: 0.33 + Math.sin(dive * Math.PI) * 0.08 - dive * 0.12, tilt: (LEAN - 0.18) * (1 - dive) - dive * Math.PI, sx: (1 / Math.sqrt(sq)) * (1 - dive * 0.9), sy: sq * (1 - dive * 0.9), spin: 0 };
   };
 
   // ----- go -----
@@ -281,7 +282,7 @@ export default async function play(lab) {
       boltRig.rotation.set(b.tilt, b.spin ?? 0, b.roll ?? 0, 'YXZ');
       bolt.scale.set(BOLT * b.sx, BOLT * b.sy, BOLT * Math.min(b.sx, 1.2));
       spot.position.set(p.x, 0.007, p.z);
-      spotMat.opacity = Math.max(0, 0.7 - b.lift * 1.6);
+      spotMat.opacity = Math.max(0, 0.45 - b.lift * 1.2);
     } else spotMat.opacity = 0;
     // the fresh bolt: fades in at the edge of her ring, then slips under her into the glass
     const fk = (t - FRESH) / 0.2;

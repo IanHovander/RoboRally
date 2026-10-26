@@ -140,8 +140,8 @@ export default async function play(lab) {
   const glint = theo.model.paint.emissiveIntensity;
   let bonked = false;
   let clacked = false;
-  const hangY = 2.8;
-  const hangLift = 0.48;
+  const hangY = 3.05;
+  const hangLift = 0.56;
 
   await lab.tween(TOTAL, (e, k) => {
     const t = k * TOTAL;
@@ -168,8 +168,8 @@ export default async function play(lab) {
     let sy = 1;
     let sz = 1;
     // the take: he glances west at her, flinches, looks back
-    const look = smooth(0.04, 0.1, t) * (1 - smooth(0.2, 0.26, t));
-    rot += -0.65 * look;
+    const look = smooth(0.03, 0.08, t) * (1 - smooth(0.2, 0.25, t));
+    rot += (-Math.PI / 2) * look; // a full snap to face her: the double take
     lift += 0.04 * Math.sin(clamp01((t - 0.18) / 0.1) * Math.PI);
     // crouch
     const crouch = smooth(0.24, 0.36, t) * (1 - smooth(0.36, 0.4, t));
@@ -193,8 +193,7 @@ export default async function play(lab) {
       lift = hangLift + 0.02 * bob;
       sz = 1 + 0.22 * Math.exp(-s / 0.04); // his body keeps going a moment
       sy = 1 - 0.1 * Math.exp(-s / 0.04);
-      pitch = -0.25 + 0.1 * smooth(0, 0.08, s);
-      rot += 0.45 * smooth(0.03, 0.09, s); // he looks back at the leash: uh-oh
+      pitch = -0.25 + 0.55 * smooth(0.03, 0.08, s); // he looks down at the leash: uh-oh
     } else if (t >= 0.74 && t < 0.84) {
       // the yank: back down into line, accelerating
       const s = (t - 0.74) / 0.1;
@@ -204,8 +203,7 @@ export default async function play(lab) {
       sz = 1 + 0.3 * s; // stretched along the yank
       sy = 1 - 0.1 * s;
       sx = 1 - 0.1 * s;
-      pitch = 0.15 + 0.2 * s;
-      rot += 0.45 * (1 - s);
+      pitch = 0.3 + 0.1 * s;
     } else if (t >= 0.84 && t < TC) {
       // landed: flattened, then a breath of relief
       const s = (t - 0.84) / (TC - 0.84);
@@ -233,12 +231,12 @@ export default async function play(lab) {
     capMat.opacity = smooth(0.3, 0.36, t) * (1 - smooth(1.6, 1.95, t)) * (1 + (clacked ? 1.6 * Math.exp(-(t - TC - 0.3) / 0.1) : 0));
     cap.scale.set(1 + (clacked ? 0.5 * Math.exp(-(t - TC - 0.3) / 0.1) : 0), 1, 1);
     // plucked toward him while he hangs; let go on the yank
-    if (t >= 0.6 && t < 0.74) R.pluck = 0.24 * smooth(0, 0.05, t - 0.6) * (1 + 0.15 * Math.sin((t - 0.6) * 70) * Math.exp(-(t - 0.6) / 0.05));
-    else if (t >= 0.74 && t < 0.78) R.pluck = 0.24 * (1 - (t - 0.74) / 0.04);
+    if (t >= 0.6 && t < 0.74) R.pluck = 0.32 * smooth(0, 0.05, t - 0.6) * (1 + 0.15 * Math.sin((t - 0.6) * 70) * Math.exp(-(t - 0.6) / 0.05));
+    else if (t >= 0.74 && t < 0.78) R.pluck = 0.32 * (1 - (t - 0.74) / 0.04);
     else R.pluck = 0;
     if (t >= 0.78 && R.twangAt == null) {
       R.twangAt = lab.t;
-      R.twangAmp = 0.16;
+      R.twangAmp = 0.2;
     }
     if (t >= TC + 0.3 && !clacked) {
       clacked = true;

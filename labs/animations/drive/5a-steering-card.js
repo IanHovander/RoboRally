@@ -208,10 +208,10 @@ export default async function play(lab) {
   newCard(['bk']);
   await lab.wait(0.16);
   grip();
-  await lab.tween(0.09, (e) => (card.tip = 0.95 * e), ease.out);
+  await lab.tween(0.09, (e) => (card.tip = 1.1 * e), ease.out);
   await lab.wait(0.03);
   sus.vp += 3.5;
-  lab.at(0.2, () => lab.tween(0.16, (e) => (card.tip = 0.95 - 0.75 * e), ease.inOut));
+  lab.at(0.2, () => lab.tween(0.16, (e) => (card.tip = 1.1 - 0.9 * e), ease.inOut));
   await lab.tween(0.42, (e) => maya.set({ y: 2 - e }), launch(0.4));
   maya.set({ y: 1 });
   letGo();
@@ -234,7 +234,7 @@ export default async function play(lab) {
   // ...the other hand comes over: second shove
   await lab.tween(0.1, (e) => (card.steer = -Q - (Q + 0.2) * e), ease.out);
   await lab.tween(0.06, (e) => (card.steer = -2 * Q - 0.2 + 0.2 * e), ease.inOut);
-  await lab.wait(0.08);
+  await lab.wait(0.03);
   // let go: it unwinds on its own, fast, past square and back (boing)
   letGo();
   await lab.wait(0.42);

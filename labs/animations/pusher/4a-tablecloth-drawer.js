@@ -177,6 +177,25 @@ export default async function play(lab) {
     m.ringMat.color.set(maya.bot.color).multiplyScalar(1.6).lerp(hdr(LIGHT, 3), ding);
   };
 
+  // ---------- the camera leans in for the trick and is home before she stops rocking ----------
+  let camMix = 0;
+  const FOCUS = new THREE.Vector3(0, 0.1, -0.15);
+  // hold the game's centring offset as it was, so home really is home when we let go
+  const off0 = { sx: arena.camCur?.sx ?? 0, sy: arena.camCur?.sy ?? 0 };
+  const stopOff = lab.every(() => {
+    if (!arena.camCur) return;
+    const k = Math.min(0.9, arena.dt * 4);
+    arena.camCur.sx = (off0.sx * (1 - camMix)) / (1 - k);
+    arena.camCur.sy = (off0.sy * (1 - camMix)) / (1 - k);
+  });
+  const releaseCam = lab.camera((home) => ({
+    target: home.target.clone().lerp(FOCUS, camMix * 0.7),
+    dist: home.dist * (1 - 0.24 * camMix),
+    el: home.el + 0.06 * camMix,
+    az: 0,
+    fov: home.fov,
+  }));
+
   // ---------- run ----------
   const T0 = lab.t;
   let dinged = false;
@@ -244,7 +263,7 @@ export default async function play(lab) {
       lift = TOP * (1 - kd * kd);
       if (t >= T.land && !landed) {
         landed = true;
-        lab.ring(lab.pos(3, 2), LIGHT, 0.36, 0.015, 0.4);
+        lab.ring(lab.pos(3, 2), LIGHT, 0.1, 0.015, 0.24);
         lab.shake(0.008, 0.1);
       }
       // the yank drags her base north, so her top tips south (right), then she rocks it out
@@ -256,6 +275,7 @@ export default async function play(lab) {
       squash = t >= T.land ? 0.16 * Math.sin(dl * Math.PI * 2 * 5) * Math.exp(-dl * 9) : 0;
     }
 
+    camMix = ease.inOut(seg(t, 0.04, 0.72)) * (1 - ease.inOut(seg(t, T.whipEnd + 0.02, T.end - 0.03)));
     maya.set({ y, lift, roll, rot, trail: false });
     bodyK.sy = 1 - squash;
     bodyK.sx = 1 + squash * 0.5;
@@ -264,6 +284,9 @@ export default async function play(lab) {
 
   await lab.wait(T.end);
   stop();
+  camMix = 0;
+  stopOff();
+  releaseCam();
   for (const o of [tray, lip, divider, comp, slot, smear, ...rails, ...cups]) o.visible = false;
   ding = 0;
   plate.visible = true;

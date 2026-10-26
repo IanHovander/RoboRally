@@ -148,10 +148,12 @@ export default async function play(lab) {
   arena.emit('move', { id: 'a', n: 2, dur: 0.6 });
 
   // ---- the bolt, alive: root (where it stands, its yaw) > lean (stand up, teeter, dive) > squash > mesh ----
-  const BH = 0.3;
+  const BH = 0.4; // standing; lying in the glass it is the drawn icon's size (ICON)
+  const ICON = 0.238 / BH;
+  const BACK_LEAN = -0.36; // standing, it tips its face up a little toward the room (the camera is above)
   const kk = BH / 28;
   const shape = boltShape(THREE, BH);
-  const boltMat = new THREE.MeshBasicMaterial({ color: amber.clone().multiplyScalar(1.35) });
+  const boltMat = new THREE.MeshBasicMaterial({ color: amber.clone().multiplyScalar(1.05) }); // just under the bloom, so its zigzag stays crisp
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.022, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 2 });
   geo.translate(-2.5 * kk, 0, -0.011);
   const root = new THREE.Group();
@@ -165,7 +167,7 @@ export default async function play(lab) {
   halo.scale.setScalar(0.5);
   root.add(halo);
   // its own little pool of light on the glass
-  const pool = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ map: glow, color: amber.clone().multiplyScalar(0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.45), new THREE.MeshBasicMaterial({ map: glow, color: amber.clone().multiplyScalar(0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   pool.rotation.x = -Math.PI / 2;
   pool.renderOrder = 2;
   root.visible = false;
@@ -202,7 +204,7 @@ export default async function play(lab) {
   const END = DIVE + 0.3;
 
   const startZ = home.z + 0.119; // its point, where the drawn bolt's point is
-  const standAt = new THREE.Vector3(home.x - 0.06, 0, home.z + 0.8);
+  const standAt = new THREE.Vector3(home.x - 0.08, 0, home.z + 0.92);
   const back = new THREE.Vector3(home.x - 0.04, 0.36, home.z + 0.02);
 
   const st = { pitch: 0, pv: 0, roll: 0, rv: 0, turn: 0, tv: 0, sy: 1, sv: 0 };
@@ -231,6 +233,7 @@ export default async function play(lab) {
       let lz = 0;
       let sy = 1;
       let sxz = 1;
+      let size = T < STAND ? ICON : 1;
       const p = new THREE.Vector3(standAt.x, 0.004, startZ);
       if (T < STAND) {
         // squirted out: fast, then the glass's friction stops it; it skews as it goes
@@ -245,7 +248,8 @@ export default async function play(lab) {
         // stand up on its point with an overshoot, then teeter
         const r = seg(T, STAND, STAND + 0.13);
         const e = r < 1 ? 1 + 2.4 * (r - 1) ** 3 + 1.4 * (r - 1) ** 2 : 1; // outBack
-        lx = -Math.PI / 2 * (1 - e);
+        lx = -Math.PI / 2 * (1 - e) + BACK_LEAN * e;
+        size = ICON + (1 - ICON) * e; // it unfolds to its full height as it stands
         const ts = T - STAND - 0.1;
         if (ts > 0) lz = 0.2 * Math.exp(-ts * 5) * Math.sin(ts * 15);
         yaw = 0.08;
@@ -267,7 +271,7 @@ export default async function play(lab) {
           // crouch, leaning back away from where it's going
           const c = smooth(seg(T, CROUCH, HOP));
           sy = 1 - 0.38 * c;
-          lx = 0.22 * c;
+          lx = BACK_LEAN + 0.18 * c;
         }
         sxz = 1 / Math.sqrt(Math.max(0.3, sy));
       } else {
@@ -275,7 +279,7 @@ export default async function play(lab) {
         const r = seg(T, HOP, DIVE);
         p.lerpVectors(standAt, back, r);
         p.y = lerp(0, back.y, r) + 0.58 * 4 * r * (1 - r);
-        lx = lerp(0.22, -1.5, smooth(r));
+        lx = lerp(BACK_LEAN + 0.18, -1.5, smooth(r));
         const v = Math.abs(1 - 2 * r);
         sy = 1 + 0.4 * v * (r < 0.5 ? 1 : 0.6);
         sxz = 1 / Math.sqrt(sy);
@@ -291,13 +295,13 @@ export default async function play(lab) {
       root.position.copy(p);
       root.rotation.y = yaw;
       lean.rotation.set(lx, 0, lz);
-      squash.scale.set(Math.max(0.001, sxz), Math.max(0.001, sy), Math.max(0.001, sxz));
+      squash.scale.set(Math.max(0.001, sxz * size), Math.max(0.001, sy * size), Math.max(0.001, sxz * size));
       // the halo sits at its middle
-      const up = new THREE.Vector3(0, BH * 0.5 * sy, 0).applyEuler(lean.rotation);
+      const up = new THREE.Vector3(0, BH * 0.5 * sy * size, 0).applyEuler(lean.rotation);
       halo.position.copy(up);
       halo.scale.setScalar(0.5 * Math.min(1, sxz * 1.2));
       pool.position.set(p.x, 0.006, p.z - (T < HOP ? 0.05 : 0));
-      pool.material.opacity = 0.8 * Math.exp(-p.y * 3) * (T < DIVE ? 1 : 0);
+      pool.material.opacity = 0.6 * Math.exp(-p.y * 3) * (T < DIVE ? 1 : 0);
     } else {
       root.visible = false;
       pool.material.opacity = 0;
@@ -356,7 +360,7 @@ export default async function play(lab) {
       st.pitch += st.pv * h;
       st.rv += (200 * (0 - st.roll) - 9 * st.rv) * h;
       st.roll += st.rv * h;
-      st.tv += (140 * (wantTurn - st.turn) - 15 * st.tv) * h;
+      st.tv += (140 * (wantTurn - st.turn) - 21 * st.tv) * h;
       st.turn += st.tv * h;
       st.sv += (320 * (1 - st.sy) - 11 * st.sv) * h;
       st.sy += st.sv * h;
@@ -372,9 +376,9 @@ export default async function play(lab) {
         const warm = Math.exp(-Math.max(0, r - 0.2) * 4);
         const flare = 1 + 1.6 * Math.exp(-r * 9);
         m.eyeMat.color.setRGB(3.2, 3.1, 2.9).lerp(amber.clone().multiplyScalar(3.4 * flare), warm);
-        const fl = Math.exp(-r * 7);
+        const fl = Math.exp(-r * 9);
         m.paint.emissive.copy(red).lerp(amber, fl);
-        m.paint.emissiveIntensity = 0.16 + 0.5 * fl;
+        m.paint.emissiveIntensity = 0.16 + 0.4 * fl;
       }
     };
   });
