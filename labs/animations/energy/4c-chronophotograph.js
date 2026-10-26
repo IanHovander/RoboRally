@@ -145,10 +145,12 @@ export default async function play(lab) {
   const AMBER = new THREE.Color(PALETTE.energy).multiplyScalar(4.2);
   const ring0 = maya.model.ringMat.color.clone();
   const RING = new THREE.Color(PALETTE.energy).multiplyScalar(2.3);
-  const look = { warm: 0 };
+  const look = { warm: 0, card: 1 };
   maya.each = (m) => {
     m.eyeMat.color.copy(WHITE).lerp(AMBER, look.warm);
     m.ringMat.color.copy(ring0).lerp(RING, look.warm * 0.85);
+    const card = maya.bot.card;
+    if (card) card.material.opacity = Math.min(card.material.opacity, look.card);
   };
   const restore = () => maya.model.ringMat.color.copy(ring0);
   lab.cleanup(restore);
@@ -162,7 +164,7 @@ export default async function play(lab) {
   const HOP = 1.24; // hops (the apex hangs, like a replay)
   const DIVE = 1.72; // dives into her back
   const END = 2.28;
-  const FRONT = at.clone().add(new THREE.Vector3(0.32, 0, 0.78)); // the edge of her ring, on our side
+  const FRONT = at.clone().add(new THREE.Vector3(0.5, 0, 0.66)); // the edge of her ring, on our side
   const BACK = at.clone().add(new THREE.Vector3(-0.1, 0.3, -0.04)); // her back
 
   lab.playCard('a', ['m2']);
@@ -269,6 +271,8 @@ export default async function play(lab) {
     // she glances down at it as it stands and shakes, and up as it hops
     pose.pitch += 0.16 * ease.inOut(seg(T, STAND, SHAKE)) * (1 - ease.inOut(seg(T, HOP, HOP + 0.2)));
     maya.set(pose);
+    // the card above her steps back while the hop is printed in the air
+    look.card = 1 - 0.85 * ease.inOut(seg(T, CROUCH, HOP + 0.1)) * (1 - ease.inOut(seg(T, DIVE + 0.1, END - 0.04)));
     look.warm = ease.out(seg(T, DIVE + 0.02, DIVE + 0.12)) * (1 - ease.inOut(seg(T, DIVE + 0.3, END - 0.02)));
 
     // ---- the camera ----
