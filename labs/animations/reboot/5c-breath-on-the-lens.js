@@ -113,17 +113,17 @@ export default async function play(lab) {
   const shaft = [ax0, [lerp(ax0[0], ax1[0], 0.5), lerp(ax0[1], ax1[1], 0.5) + u * 0.03], ax1];
   const head1 = [[ax1[0] - u * 0.2, ax1[1] - u * 0.16], ax1];
   const head2 = [ax1, [ax1[0] - u * 0.19, ax1[1] + u * 0.15]];
-  const smear1 = [[B[0] - R * 0.7, B[1] + R * 0.75], [B[0] - R * 0.88, B[1] + R * 1.05], [B[0] - R * 0.78, B[1] + R * 1.2]];
-  const smear2 = [[ax1[0] - u * 0.05, ax1[1] + u * 0.24], [ax1[0] + u * 0.08, ax1[1] + u * 0.4]];
+  const smear1 = [[B[0] - R * 0.62, B[1] + R * 0.72], [B[0] - R * 0.9, B[1] + R * 1.0], [B[0] - R * 1.0, B[1] + R * 1.3], [B[0] - R * 0.86, B[1] + R * 1.45]];
+  const smear2 = [[ax1[0] - u * 0.06, ax1[1] + u * 0.2], [ax1[0] + u * 0.06, ax1[1] + u * 0.36], [ax1[0] + u * 0.2, ax1[1] + u * 0.44]];
   const W = Math.max(5, u * 0.14); // fingertip width
   const strokes = [
     { pts: circle, t0: DRAW0, t1: DRAW0 + 0.46, w: W },
-    { pts: smear1, t0: DRAW0 + 0.47, t1: DRAW0 + 0.56, w: W * 1.5, smear: true },
+    { pts: smear1, t0: DRAW0 + 0.47, t1: DRAW0 + 0.58, w: W * 1.8, smear: true },
     { pts: dot, t0: DRAW0 + 0.64, t1: DRAW0 + 0.74, w: W * 0.9 },
     { pts: shaft, t0: DRAW0 + 0.82, t1: DRAW0 + 0.98, w: W },
     { pts: head1, t0: DRAW0 + 1.0, t1: DRAW0 + 1.08, w: W },
     { pts: head2, t0: DRAW0 + 1.08, t1: DRAW0 + 1.16, w: W },
-    { pts: smear2, t0: DRAW0 + 1.18, t1: DRAW0 + 1.27, w: W * 1.5, smear: true },
+    { pts: smear2, t0: DRAW0 + 1.18, t1: DRAW0 + 1.29, w: W * 1.8, smear: true },
   ];
   // the part of a stroke drawn by time T (a finger: quick in the middle, slow at the ends)
   const partial = (s, T) => {

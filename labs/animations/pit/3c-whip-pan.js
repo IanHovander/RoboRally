@@ -91,6 +91,7 @@ export default async function play(lab) {
   // ---------- the trail piles up: it folds up off the glass like a rug being shoved ----------
   const pts = bot.trail;
   for (const p of pts) p.ox = p.x;
+  const oxs = pts.map((p) => p.x);
   const tailX = pts.length ? pts[0].x : W(1, 1).x;
   const rearX = W(3, 1).x - 0.45;
   const rimX = W(3.45, 1).x;
@@ -129,17 +130,14 @@ export default async function play(lab) {
     if (!piling) return;
     const now = lab.t;
     // the flat trail behind the front is eaten into the pile (aged out so the game drops it)
-    let swallowed = 0;
     for (const p of pts) {
-      if (p.ox <= K) {
-        p.t = now - 10;
-        swallowed++;
-      } else p.t = Math.max(p.t, now - 0.6); // the rest of the trail is lit up again, ominously
+      if (p.ox <= K) p.t = now - 10;
+      else p.t = Math.max(p.t, now - 0.6); // the rest of the trail is lit up again, ominously
     }
-    gathered = Math.max(gathered, swallowed);
-    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 2.2)));
-    const h = 0.16 + 0.12 * Math.min(1, m / FOLDS);
-    const w = 0.2;
+    gathered = oxs.filter((x) => x <= K).length;
+    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 1.8)));
+    const h = 0.2 + 0.14 * Math.min(1, m / FOLDS);
+    const w = 0.22;
     const step = 0.048;
     const c = RED.clone().multiplyScalar(1.9 * knotOn * (1 + 0.8 * knotPulse));
     for (let i = 0; i <= FOLDS; i++) {
