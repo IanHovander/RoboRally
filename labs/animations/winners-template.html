@@ -1,0 +1,194 @@
+<title>Lumen Animation Winners</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one dark room, a column of thirteen moments; each shows its winner beside its runner-up, with the
+     judges' reasons under the videos. Single dark look on purpose (it's Lumen). */
+  :root {
+    --void: #06080b;
+    --glass: #0d1117;
+    --glass-2: #121821;
+    --edge: #222b38;
+    --light: #f4efe4;
+    --dim: #a3abb8;
+    --faint: #6d7684;
+    --energy: #ffc56e;
+    --lens-a: #7fe3c3;
+    --lens-b: #ff8fa3;
+    --lens-c: #9cc8ff;
+    --display: "Roboto Flex", "Roboto", "Segoe UI", system-ui, sans-serif;
+    --body: "Roboto Flex", "Roboto", "Segoe UI", system-ui, sans-serif;
+    --mono: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--void);
+    color: var(--light);
+    font: 400 15px/1.55 var(--body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 34px; }
+  a { color: var(--lens-c); }
+  .eyebrow, .chip, .badge, nav a {
+    font-family: var(--display);
+    font-variation-settings: "wdth" 125, "opsz" 12;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .eyebrow { color: var(--faint); margin: 0; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; font-family: var(--display); }
+  h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 200; font-variation-settings: "wdth" 130, "opsz" 72; letter-spacing: 0.02em; line-height: 1.05; }
+  h2 { font-size: clamp(24px, 3.6vw, 34px); font-weight: 250; font-variation-settings: "wdth" 120, "opsz" 48; }
+  h3 { font-size: 18px; font-weight: 450; font-variation-settings: "wdth" 108, "opsz" 24; }
+  p { margin: 0; }
+  header.top { display: grid; gap: 12px; }
+  .lede { color: var(--dim); max-width: 70ch; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  nav a { color: var(--dim); text-decoration: none; border: 1px solid var(--edge); border-radius: 999px; padding: 7px 12px; }
+  nav a:hover { color: var(--light); border-color: var(--faint); }
+  .moment { display: grid; gap: 16px; padding-top: 26px; border-top: 1px solid var(--edge); scroll-margin-top: 16px; }
+  .moment > header { display: grid; gap: 6px; max-width: 80ch; }
+  .moment .what { color: var(--dim); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .pick { display: grid; gap: 10px; min-width: 0; }
+  .vid { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #000; border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+  .winner .vid { border-color: color-mix(in srgb, var(--energy) 55%, var(--edge)); box-shadow: 0 0 28px color-mix(in srgb, var(--energy) 18%, transparent); }
+  .vid video { width: 100%; height: 100%; display: block; object-fit: cover; cursor: zoom-in; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .badge { color: var(--void); background: var(--light); border-radius: 999px; padding: 3px 10px; }
+  .winner .badge { background: var(--energy); }
+  .chip { display: inline-flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; flex: none; }
+  .a { color: var(--lens-a); } .b { color: var(--lens-b); } .c { color: var(--lens-c); }
+  .score { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--faint); }
+  .pick > p.what { color: var(--dim); font-size: 14px; }
+  .said { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .said li { font-size: 14px; color: var(--dim); padding-left: 12px; border-left: 2px solid var(--edge); }
+  .said li b { color: var(--light); font-weight: 500; }
+  .port { font-size: 13px; color: var(--faint); }
+  .port b { color: var(--dim); font-weight: 500; }
+  .viewer { position: fixed; inset: 0; z-index: 20; background: rgba(3, 4, 6, 0.94); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .viewer[hidden] { display: none; }
+  .viewer .box { width: min(1100px, 100%); display: grid; gap: 10px; }
+  .viewer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; }
+  .viewer .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .viewer .bar .t { color: var(--dim); min-width: 0; }
+  .viewer button { background: var(--glass-2); color: var(--light); border: 1px solid var(--edge); border-radius: 999px; padding: 6px 14px; font: 500 13px var(--body); cursor: pointer; }
+  .viewer button[aria-pressed="true"] { background: var(--light); color: var(--void); }
+  button:focus-visible, .vid video:focus-visible, nav a:focus-visible { outline: 2px solid var(--lens-c); outline-offset: 2px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Robo Rally · Lumen look</p>
+    <h1>Animation Winners</h1>
+    <p class="lede" id="lede"></p>
+  </header>
+  <nav id="nav" aria-label="Moments"></nav>
+  <main id="list" style="display:grid;gap:34px"></main>
+</div>
+<div class="viewer" id="viewer" hidden>
+  <div class="box">
+    <video id="big" controls muted loop playsinline></video>
+    <div class="bar">
+      <span class="t" id="bigTitle"></span>
+      <span>
+        <button data-rate="1" aria-pressed="true">1×</button>
+        <button data-rate="0.5" aria-pressed="false">½×</button>
+        <button data-rate="0.25" aria-pressed="false">¼×</button>
+        <button id="close">Close</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const JUDGE = { room: 'The room', director: 'The director' };
+  const judged = DATA.moments.reduce((n, m) => n + m.count, 0);
+  document.getElementById('lede').innerHTML =
+    `For each of ${DATA.moments.length} moments, two judges watched every finished animation on their own (${judged} in all). One judged as a couch of friends on game night: what makes the room laugh or gasp, and what still works the 20th time. The other judged as the animation director who has to ship it: timing, clarity, fit with Lumen, and how cleanly it ports. Their scores out of 10 are added; the top two are below. Tap a video to watch it big and slowed down.` +
+    (DATA.gallery ? ` Every option is in the <a href="${esc(DATA.gallery)}" target="_blank" rel="noopener">full gallery</a>.` : '');
+  document.getElementById('nav').innerHTML = DATA.moments.map((m) => `<a href="#${m.id}">${esc(m.short)}</a>`).join('');
+
+  const card = (p) => {
+    if (!p) return '';
+    const said = ['room', 'director']
+      .map((j) => {
+        const r = p.reasons.find((x) => x.judge === j);
+        const text = r ? r.why : p.notes[j];
+        return text ? `<li><b>${JUDGE[j]}${r ? (r.as === 'winner' ? ' (their winner)' : ' (their runner-up)') : ''}:</b> ${esc(text)}</li>` : '';
+      })
+      .join('');
+    const port = p.reasons.find((x) => x.judge === 'director')?.port ?? p.reasons[0]?.port;
+    return `<article class="pick ${p.place === 'Winner' ? 'winner' : 'runner'}">
+      <div class="vid">${p.video ? `<video muted loop playsinline preload="none" ${p.poster ? `poster="${p.poster}"` : ''} data-src="${p.video}" data-title="${esc(p.title)}" tabindex="0" aria-label="${esc(p.title)}"></video>` : ''}</div>
+      <div class="row"><span class="badge">${p.place}</span><span class="chip ${p.lens}"><i class="dot"></i>${esc(DATA.lens[p.lens])}</span><span class="score">room ${p.overall.room ?? '–'} + director ${p.overall.director ?? '–'} = ${p.total}/20</span></div>
+      <h3>${esc(p.title)}</h3>
+      ${p.what ? `<p class="what">${esc(p.what)}</p>` : ''}
+      <ul class="said">${said}</ul>
+      ${port ? `<p class="port"><b>When porting:</b> ${esc(port)}</p>` : ''}
+    </article>`;
+  };
+  document.getElementById('list').innerHTML = DATA.moments
+    .map(
+      (m, i) => `<section class="moment" id="${m.id}">
+        <header>
+          <p class="eyebrow">Moment ${i + 1} of ${DATA.moments.length} · ${m.count} versions judged</p>
+          <h2>${esc(m.title)}</h2>
+          <p class="what">${esc(m.what)}</p>
+        </header>
+        <div class="pair">${card(m.winner)}${card(m.runner)}</div>
+      </section>`,
+    )
+    .join('');
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const v = e.target;
+        if (e.isIntersecting) {
+          if (!v.src) v.src = v.dataset.src;
+          v.play().catch(() => {});
+        } else v.pause();
+      }
+    },
+    { threshold: 0.35 },
+  );
+  const viewer = document.getElementById('viewer');
+  const big = document.getElementById('big');
+  const setRate = (r) => {
+    big.playbackRate = r;
+    for (const b of viewer.querySelectorAll('[data-rate]')) b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === r));
+  };
+  const open = (v) => {
+    big.src = v.dataset.src;
+    document.getElementById('bigTitle').textContent = v.dataset.title;
+    viewer.hidden = false;
+    setRate(1);
+    big.play().catch(() => {});
+  };
+  for (const v of document.querySelectorAll('video[data-src]')) {
+    io.observe(v);
+    v.addEventListener('click', () => open(v));
+    v.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(v)));
+  }
+  const close = () => {
+    big.pause();
+    viewer.hidden = true;
+  };
+  viewer.addEventListener('click', (e) => e.target === viewer && close());
+  document.getElementById('close').onclick = close;
+  for (const b of viewer.querySelectorAll('[data-rate]')) b.onclick = () => setRate(Number(b.dataset.rate));
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && !viewer.hidden && close());
+</script>
