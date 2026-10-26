@@ -213,7 +213,7 @@ export default async function play(lab) {
   await lab.wait(0.06);
   const from = new THREE.Vector3();
   await lab.tween(
-    0.12,
+    0.1,
     (e, k) => {
       // it rattles in its slot (drawn as the loose V over the card)
       from.copy(topChev);
@@ -231,7 +231,7 @@ export default async function play(lab) {
   const finHit = new THREE.Vector3(C.x - 0.08, 0.3, C.z);
   const p0 = chev.position.clone();
   await lab.tween(
-    0.2,
+    0.17,
     (e, k) => {
       chev.position.lerpVectors(p0, finHit, e);
       chev.position.y += Math.sin(k * Math.PI) * 0.12;
@@ -243,12 +243,12 @@ export default async function play(lab) {
   );
   // tink
   if (capMat) lab.tween(0.3, (e) => capMat.color.copy(capBase).multiplyScalar(1 + 1.8 * (1 - e)), ease.out);
-  lab.ring(new THREE.Vector3(C.x, 0.3, C.z), '#fff3e0', 0.18, 0.3, 0.3);
+  lab.ring(new THREE.Vector3(C.x, 0.3, C.z), '#fff3e0', 0.09, 0.3, 0.25);
 
   // ---------- 4. the lazy ricochet over the edge, and the fall into the dark (the camera follows) ----------
   const P1 = finHit.clone();
-  const T = 0.9;
-  const g = 8.2;
+  const T = 0.86;
+  const g = 8.8;
   const vy = (land.y + 0.03 - P1.y + 0.5 * g * T * T) / T;
   const cA = new THREE.Color('#ffd9a8');
   lab.tween(0.7, (e) => (cvw.k = e), ease.inOut);
@@ -272,7 +272,7 @@ export default async function play(lab) {
   chev.rotation.set(Math.PI / 2, Math.PI * 0.95, 0, 'YXZ');
   const mine = addResting('#ff4d6d', land.x, land.z, Math.PI * 0.95, 0.9);
   mine.v.visible = false;
-  lab.ring(new THREE.Vector3(land.x, FLOOR + 0.01, land.z), maya.bot.color, 0.22, FLOOR + 0.01, 0.45);
+  lab.ring(new THREE.Vector3(land.x, FLOOR + 0.01, land.z), maya.bot.color, 0.13, FLOOR + 0.01, 0.45);
   await lab.tween(
     0.12,
     (e, k) => {
@@ -281,7 +281,7 @@ export default async function play(lab) {
     },
     ease.out,
   );
-  await lab.wait(0.12);
+  await lab.wait(0.16);
 
   // ---------- 6. back up to the game ----------
   await lab.tween(0.36, (e) => (cvw.k = 1 - e), ease.inOut);

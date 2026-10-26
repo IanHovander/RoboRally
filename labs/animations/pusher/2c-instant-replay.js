@@ -128,7 +128,7 @@ export default async function play(lab) {
   }, ease.out);
   lab.ring(lab.pos(3, 0.62).setY(0), '#f4efe4', 0.45, 0.16, 0.3);
 
-  // ---- 0.10-0.55 out: far too far; the arm telescopes and carries her to the brink
+  // ---- 0.10-0.52 out: far too far; the arm telescopes and carries her to the brink
   const BRINK = 3.3;
   await lab.tween(0.42, (e, k) => {
     const y = 1 + (BRINK - 1) * e;
@@ -143,7 +143,7 @@ export default async function play(lab) {
   const nOut = tape.length;
   const yCross = Math.max(0, tape.findIndex((f) => f.y >= 2) - 1); // the last frame before she passed her space
 
-  // ---- 0.55-0.97 the teeter: over the dark drop; the room's light drains; the camera swings low to the edge
+  // ---- 0.52-0.85 the teeter: over the dark drop; the room's light drains; the camera swings low to the edge
   const brinkAt = lab.pos(3, BRINK);
   const c0 = { ...shot };
   await lab.tween(0.32, (e, k) => {
@@ -163,7 +163,7 @@ export default async function play(lab) {
     record();
   }, ease.linear);
 
-  // ---- 0.97-1.47 REWIND: the recording plays backwards (the teeter fast, the slide at speed) to the frame she passed her space
+  // ---- 0.92-1.56 REWIND: the recording plays backwards (the teeter fast), then she is reeled up her trail to her space
   bm.trail = bm.trail.slice(); // ours to trim
   maya.set({ trail: false });
   const last = tape.length - 1;
@@ -196,13 +196,13 @@ export default async function play(lab) {
   };
   // the tape lights up as it starts to spool: the trail is refreshed to full brightness
   for (const pt of bm.trail) pt.t = lab.t;
-  const bead = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: glowTex(THREE), color: new THREE.Color('#ffd9df').multiplyScalar(3.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const bead = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: glowTex(THREE), color: new THREE.Color('#ffd9df').multiplyScalar(3.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   bead.rotation.x = -Math.PI / 2;
   lab.add(bead);
   const trailAll = bm.trail.slice();
   // the tape itself: a bright strip of her light from her to the end being reeled in
-  const tapeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc2cc').multiplyScalar(2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 1), tapeMat);
+  const tapeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff9fb0').multiplyScalar(2.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 1), tapeMat);
   strip.rotation.x = -Math.PI / 2;
   lab.add(strip);
   // A: the teeter, backwards and fast
@@ -233,7 +233,7 @@ export default async function play(lab) {
   strip.visible = false;
   bm.trail = trailAll.filter((pt) => pt.z <= lab.pos(3, 2).z + 0.001);
 
-  // ---- 1.47 CLICK: into the ring
+  // ---- 1.56 CLICK: into the ring
   lab.ring(lab.pos(3, 2).setY(0), '#f4efe4', 0.7, 0.02, 0.45);
   lab.shake(0.015, 0.12);
   const extAt = armExt;

@@ -127,7 +127,8 @@ export default async function play(lab) {
     const w = cam.w;
     A.showNames = w < 0.15; // the name tags would balloon in the close shots
     const follow = Math.min(1, 0.85 * w + 0.3 * cam.punch);
-    const target = home.target.clone().lerp(focus, follow).add(new THREE.Vector3(0, 0, 0.3 * w));
+    // on the freeze, lead her: the void she's about to drop into sits in the frame ahead of her
+    const target = home.target.clone().lerp(focus, follow).add(new THREE.Vector3(0.75 * cam.punch, 0, 0.3 * w));
     return {
       target,
       el: home.el - 0.5 * w - 0.06 * cam.punch,
@@ -205,12 +206,14 @@ export default async function play(lab) {
   const SPIN = -Math.PI * 2 * 5;
   const spinRot = () => facing(1) + SPIN * (1 - (1 - spin.u) ** 2.2);
   const touch = (tx, ty, big) => {
-    ripple(tx, ty, { size: 1.25 * big, n: 3, peak: 1.3 });
+    ripple(tx, ty, { size: 1.3 * big, n: 2, gap: 0.16, peak: 1.3 });
     glint(tx, ty, big);
     lab.particles(W(tx, ty).setY(0.02), [RED, '#fff1dc'], 10, { speed: 0.9, up: 1.4, gravity: 5, size: 0.035, dur: 0.5 });
     lab.tween(0.1, (e, k) => maya.set({ sy: 1 - 0.28 * Math.sin(k * Math.PI), sx: 1 + 0.16 * Math.sin(k * Math.PI), sz: 1 + 0.16 * Math.sin(k * Math.PI) }), ease.linear);
   };
   touch(7.25, 1.0, 1.25);
+  // the first touch: one faint ring runs far out across the dark, showing it's a surface (still water)
+  ripple(7.25, 1.0, { size: 2.6, n: 1, dur: 1.6, peak: 0.4 });
   let from = { x: 7.25, y: 1.0 };
   const skipDur = touches.reduce((a, t) => a + t[3], 0);
   lab.tween(skipDur, (e, k) => (spin.u = k * 0.72), ease.linear);
@@ -250,9 +253,9 @@ export default async function play(lab) {
   await lab.tween(1.15, (e, k) => {
     const p = curve.getPointAt(e);
     maya.set({ x: p.x, y: p.z, lift: 0, rot: spinRot(), pitch: 0.04 * (1 - k), sx: 1, sy: 1, sz: 1 });
-    if (p.x > 6.55 && A.time - lastWake > 0.05) {
+    if (p.x > 6.55 && A.time - lastWake > 0.09) {
       lastWake = A.time;
-      ripple(p.x, p.z, { size: 0.32, n: 1, dur: 0.6, peak: 0.6 });
+      ripple(p.x, p.z, { size: 0.26, n: 1, dur: 0.5, peak: 0.5 });
     }
     if (p.x < 6.6 && p.x > 6.3 && !maya.landed) {
       maya.landed = true;
@@ -262,8 +265,7 @@ export default async function play(lab) {
 
   // ---------- 5. spin down like a stone wobbling to rest, then the column fills ----------
   flashCol(1);
-  lab.ring(W(4, 1), RED, 3.2, 0.02, 1.4);
-  lab.ring(W(4, 1), '#fff1dc', 1.6, 0.03, 0.9);
+  lab.ring(W(4, 1), RED, 2.4, 0.02, 1.2);
   A.emit('checkpoint', { id: 'a', n: 2 });
   await lab.tween(0.55, (e, k) => {
     // Euler's disk: the wobble gets faster and smaller until it stops dead

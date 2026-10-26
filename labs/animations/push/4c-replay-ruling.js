@@ -4,9 +4,9 @@
 export const meta = {
   title: 'Replay Ruling',
   idea:
-    "As Maya rolls in, Theo crouches and hops up and sideways toward the room. The picture freezes on him mid-air, like a disputed frame in a replay, and the camera punches in a touch. A thin rail of warm light draws itself under the glass along the row from Maya's nose to space 4, a short leash of light shoots from the rail up to Theo, and time snaps back: he is yanked down into the lane so hard he squashes, leaving his dodge hanging in the air as a fading ghost of light. Maya's nose arrives on that exact beat and shoves him one space east along the rail, still facing south. The rail fades as they settle.",
+    "As Maya rolls in, Theo crouches and hops up and sideways toward the room, his ring's shadow of light left on the glass. Click: the picture freezes on him mid-air like a disputed frame, drains of colour, and the camera swings round the frozen moment to the replay's other angle, where you can see he's out of his lane. A telestrator circle of warm light is drawn round the culprit, the rail of the rule draws itself under the glass from Maya's nose to space 4, and a leash of light hooks him. Time snaps back with all its colour: he is yanked down into line so hard he squashes, leaving his dodge hanging in the air as a fading ghost, and Maya's nose arrives on that exact beat and shoves him one space east along the rail, still facing south.",
   notes:
-    "Edgar Wright timing: rolling, crouch, hop, a dead stop, the line drawn at speed, then everything at once (the yank, the landing, the hit). The freeze lasts a third of a second and the punch-in is small, so it survives being seen several times a game; the ghost and the rail are made of light and are gone within a second. Variations, chosen per push: hop north, hop south (toward the room, as here), or a duck-and-roll; the ruling is always the same. Sound: a rising boing for the hop cut dead by the freeze (silence), a ruler-on-glass zip for the rail, a twang for the leash, then the clunk of the shove.",
+    "Staging: a sports replay ruling on a push. Edgar Wright timing: rolling, crouch, hop, a dead stop, the ruling drawn at speed, then everything at once (colour, the yank, the landing, the hit, the camera cut back to live). The freeze is about two thirds of a second and the swing is moderate, so it survives a running gag; the circle sits in the HUD layer above the drained picture so it keeps its warm colour, like a commentator's pen on the TV. Variations, chosen per push: hop north, hop south (as here), or a duck-and-roll; the ruling is always the same. Sound: a rising boing for the hop cut dead by a shutter click (silence), a quick marker squeak for the circle, a ruler-on-glass zip for the rail, a twang for the leash, then the clunk of the shove.",
 };
 
 export default async function play(lab) {
@@ -118,24 +118,29 @@ export default async function play(lab) {
   svg.setAttribute('height', '100%');
   svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 3px rgba(255,214,150,.95)) drop-shadow(0 0 9px rgba(255,190,120,.6))';
   const loop = document.createElementNS(NS, 'path');
-  // a slightly spiralling loop that overshoots its start, like a quick stroke of a pen
-  let dPath = '';
-  for (let i = 0; i <= 64; i++) {
-    const a0 = -0.6 + (i / 64) * (Math.PI * 2 + 0.75);
-    const r = 1 + 0.09 * (i / 64) - 0.04 * Math.sin((i / 64) * Math.PI);
-    dPath += `${i ? 'L' : 'M'}${(Math.cos(a0) * r).toFixed(4)} ${(Math.sin(a0) * r * 0.82).toFixed(4)}`;
-  }
-  loop.setAttribute('d', dPath);
   loop.setAttribute('fill', 'none');
   loop.setAttribute('stroke', '#fff1dc');
-  loop.setAttribute('vector-effect', 'non-scaling-stroke');
   loop.setAttribute('stroke-width', '3');
   loop.setAttribute('stroke-linecap', 'round');
-  loop.setAttribute('pathLength', '1');
-  loop.setAttribute('stroke-dasharray', '1 1');
-  loop.setAttribute('stroke-dashoffset', '1');
+  loop.setAttribute('stroke-linejoin', 'round');
   svg.append(loop);
   lab.overlay.append(svg);
+  // a slightly spiralling loop that overshoots its start, like a quick stroke of a pen, built in screen pixels
+  const loopPath = (cx, cy, rx, ry, draw) => {
+    const N = 64;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      const a0 = -0.6 + u * (Math.PI * 2 + 0.75);
+      const r = 1 + 0.09 * u - 0.04 * Math.sin(u * Math.PI);
+      pts.push([cx + Math.cos(a0) * r * rx, cy + Math.sin(a0) * r * ry]);
+    }
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    loop.setAttribute('d', pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(''));
+    loop.setAttribute('stroke-dasharray', `${len.toFixed(1)} ${(len + 10).toFixed(1)}`);
+    loop.setAttribute('stroke-dashoffset', String((len * (1 - draw)).toFixed(1)));
+  };
   const T = { draw: 0, alpha: 0 };
   const stopTele = lab.every(() => {
     const c = P(theo.pose.x, theo.pose.y).setY(theo.pose.lift + 0.24);
@@ -144,14 +149,13 @@ export default async function play(lab) {
     const up = lab.toScreen(c.clone().add(new THREE.Vector3(0, 0.5, 0)));
     const rx = Math.max(24, Math.hypot(side.x - sc.x, side.y - sc.y));
     const ry = Math.max(20, Math.hypot(up.x - sc.x, up.y - sc.y) * 1.25);
-    loop.setAttribute('transform', `translate(${sc.x} ${sc.y}) scale(${rx} ${ry / 0.82})`);
-    loop.setAttribute('stroke-dashoffset', String(1 - T.draw));
+    loopPath(sc.x, sc.y, rx, ry, T.draw);
     svg.style.opacity = String(T.alpha);
     // Maya's card would be cropped by the swing: it steps back while the camera is round
     const card = lab.bot('a').card;
     if (card) {
       card.material.transparent = true;
-      card.material.opacity = 1 - 0.85 * S.punch;
+      card.material.opacity = Math.max(0, 1 - 1.4 * S.punch);
     }
   });
 

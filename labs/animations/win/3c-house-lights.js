@@ -164,8 +164,8 @@ export default async function play(lab) {
       const z = cam.zoom;
       const wide = wideShot(home);
       // a medium shot: Maya in the middle, a squinting Theo at the edge of frame
-      const m = maya.group.position.clone().lerp(W(5, 3), 0.22).setY(0.15);
-      return { target: wide.target.clone().lerp(m, z), az: lerp(wide.az, 0.22, z), el: lerp(wide.el, 0.5, z), dist: lerp(wide.dist, home.dist * 0.56, z) };
+      const m = maya.group.position.clone().lerp(W(5, 3), 0.14).setY(0.12);
+      return { target: wide.target.clone().lerp(m, z), az: lerp(wide.az, 0.2, z), el: lerp(wide.el, 0.52, z), dist: lerp(wide.dist, home.dist * 0.74, z) };
     }
     return {};
   });
@@ -197,7 +197,7 @@ export default async function play(lab) {
     col2.flash = A.time;
     col2.flashColor = new THREE.Color(RED);
   }
-  lab.ring(W(4, 1), RED, 3, 0.02, 1.6);
+  lab.ring(W(4, 1), RED, 2, 0.02, 0.9);
   A.emit('checkpoint', { id: 'a', n: 2 });
   await lab.wait(0.2);
 
@@ -234,9 +234,9 @@ export default async function play(lab) {
 
   // ---------- 4. click: the iris closes on her ----------
   const H = 1;
-  await lab.tween(0.22, (e) => (ir.r = lerp(1.2 * H, 0.13, e)), ease.in);
+  await lab.tween(0.22, (e) => (ir.r = lerp(1.2 * H, 0.15, e)), ease.in);
   await lab.wait(0.3);
-  await lab.tween(0.09, (e) => (ir.r = 0.13 * (1 - e)), ease.in);
+  await lab.tween(0.09, (e) => (ir.r = 0.15 * (1 - e)), ease.in);
   ir.r = 0;
   // in the black: everything back to Lumen, the camera home, the rivals straight
   house.h = 0;

@@ -165,8 +165,14 @@ export default async function play(lab) {
     for (const gh of ghosts) gh.mat.dispose();
   });
 
-  // her card stays at its height over her while she's under (it says where she is)
+  // per frame, after her pose is placed: take any strobe exposure asked for, and keep her card at its height
+  // over her while she's under (it says where she is)
+  let wantGhost = 0;
   maya.each = () => {
+    if (wantGhost) {
+      ghost(wantGhost);
+      wantGhost = 0;
+    }
     const card = maya.bot.card;
     if (card) card.position.y -= Math.min(0, maya.pose.lift);
   };
@@ -185,7 +191,7 @@ export default async function play(lab) {
   let strobeNext = 0;
   const strobe = (every, gain) => {
     if (lab.t >= strobeNext) {
-      ghost(gain);
+      wantGhost = gain;
       strobeNext = lab.t + every;
     }
   };

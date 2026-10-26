@@ -104,7 +104,7 @@ export default async function play(lab) {
       const tl = Math.hypot(tx, tz) || 1;
       tx /= tl;
       tz /= tl;
-      const w = R.width * (0.35 + 0.65 * Math.min(1, u * 3)) * (1 - 0.5 * R.crumple);
+      const w = R.width * (0.35 + 0.65 * Math.min(1, u * 3)) * (1 - 0.62 * R.crumple);
       pos.set([cx[i] - tz * w, 0.009, cz[i] + tx * w, cx[i] + tz * w, 0.009, cz[i] - tx * w], i * 6);
       // newest light brightest, like Lumen's own trail; the flow shimmers forward inside it
       let k = R.gain * (0.3 + 0.7 * u ** 1.2);
@@ -201,7 +201,7 @@ export default async function play(lab) {
     (e, k) => {
       R.tail = tail0 + (2.02 - tail0) * e;
       const L = R.head - R.tail;
-      R.gain = Math.min(3.8, 2.6 / Math.max(0.3, L) ** 0.9);
+      R.gain = Math.min(2.8, 2.1 / Math.max(0.3, L) ** 0.9);
       R.width = 0.2 + 0.12 * k;
       R.wave = 0.22 * Math.sin(k * Math.PI);
       R.phase = k;
@@ -233,7 +233,7 @@ export default async function play(lab) {
 
   // ---------- 5. the spent light drops in a heap behind her; she glances back at it ----------
   lab.tween(0.28, (e) => (R.crumple = e), ease.out3);
-  lab.tween(0.5, (e) => (R.gain = 2.6 * (1 - 0.45 * e)), ease.out);
+  lab.tween(0.5, (e) => (R.gain = 1.7 * (1 - 0.4 * e)), ease.out);
   await lab.tween(
     0.26,
     (e) => maya.set({ rot: facing(1) - 0.8 * e, pitch: -0.04 * e }),

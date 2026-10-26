@@ -57,7 +57,7 @@ function drawBird(g, open) {
   g.lineJoin = 'round';
   g.strokeStyle = '#fff4e2';
   g.shadowColor = '#ffcf8a';
-  for (const [lw, blur] of [[16, 26], [9, 6]]) {
+  for (const [lw, blur] of [[22, 30], [13, 8]]) {
     g.lineWidth = lw;
     g.shadowBlur = blur;
     // 1: body, one sweep from the tail tip under the belly up to the chest
@@ -74,7 +74,6 @@ function drawBird(g, open) {
     // 3: beak, a hinge of two lines
     const a = open ? 0.42 : 0.07;
     g.beginPath();
-    g.moveTo(244 - 46 * Math.cos(a), 90 - 46 * Math.sin(a) * 0 - 2);
     g.moveTo(198, 90);
     g.lineTo(198 + 50 * Math.cos(-a), 90 + 50 * Math.sin(-a));
     g.moveTo(198, 94);
@@ -85,7 +84,7 @@ function drawBird(g, open) {
   g.shadowBlur = 8;
   g.fillStyle = '#ffffff';
   g.beginPath();
-  g.arc(176, 84, 7, 0, Math.PI * 2);
+  g.arc(176, 84, 9, 0, Math.PI * 2);
   g.fill();
 }
 
@@ -135,12 +134,13 @@ export default async function play(lab) {
   // ---------- the clock, drawn in light on top of the panel ----------
   const FACE_Z = -0.9;
   const clock = canvasTex(THREE, 256, 256, drawClock);
-  const clockMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), lightMat(clock.tex, 1.5));
+  const CLOCK = 0.95;
+  const clockMesh = new THREE.Mesh(new THREE.PlaneGeometry(CLOCK, CLOCK), lightMat(clock.tex, 1.5));
   clockMesh.material.blending = THREE.NormalBlending; // the dark doorway has to read as dark
-  clockMesh.position.set(0, 0.31 + 0.31, FACE_Z);
+  clockMesh.position.set(0, 0.24 + CLOCK / 2, FACE_Z);
   add(clockMesh);
-  // doorway in world terms (canvas 96..160 x 116..186 on a 256 texture over 0.62)
-  const S = 0.62 / 256;
+  // doorway in world terms (canvas 96..160 x 116..186 on a 256 texture over CLOCK)
+  const S = CLOCK / 256;
   const doorW = 64 * S;
   const doorH = 70 * S;
   const doorCX = (128 - 128) * S;
@@ -159,7 +159,7 @@ export default async function play(lab) {
   birdOpen.redraw(true);
   birdShut.redraw(false);
   const birdMat = lightMat(birdShut.tex, 1.7);
-  const bird = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), birdMat);
+  const bird = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), birdMat);
   const birdPivot = new THREE.Group(); // the bird turns about its chest
   birdPivot.add(bird);
   bird.position.set(-0.04, 0.02, 0);
@@ -180,19 +180,19 @@ export default async function play(lab) {
     stick.scale.y = Math.max(0.001, len);
     stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
   };
-  const OUT = new THREE.Vector3(-0.12, doorCY + 0.1, FACE_Z + 0.3); // where it sits, popped out
+  const OUT = new THREE.Vector3(-0.5, doorCY + 0.2, FACE_Z + 0.3); // where it sits, popped out: up and to the side, clear of Maya
   placeBird(doorAt.clone());
 
   // ---------- tallies of light in the air beside the clock ----------
   const tallyMat = () => new THREE.MeshBasicMaterial({ color: new THREE.Color(WARM).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const tallies = [0, 1, 2, 3].map((i) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.3), tallyMat());
-    m.position.set(0.48 + i * 0.1, 0.66, FACE_Z);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.4), tallyMat());
+    m.position.set(0.66 + i * 0.13, 0.8, FACE_Z);
     add(m);
     return m;
   });
-  const slash = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 1), tallyMat());
-  slash.position.set(0.63, 0.66, FACE_Z + 0.01);
+  const slash = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 1), tallyMat());
+  slash.position.set(0.855, 0.8, FACE_Z + 0.01);
   slash.rotation.z = -1.0;
   slash.scale.y = 0.001;
   add(slash);
@@ -208,7 +208,7 @@ export default async function play(lab) {
   const stopTag = lab.every(() => bm.tag && (bm.tag.material.opacity = maskTag));
   lab.cleanup(() => bm.tag && (bm.tag.material.opacity = 1));
 
-  const birdTarget = new THREE.Vector3(0, 0.36, -0.72);
+  const birdTarget = new THREE.Vector3(-0.2, 0.52, -0.72);
   maya.set({ x: 3, y: 1, rot: E });
   let flinch = 0; // Maya's cringe, building with the count
   let lean = 0;
@@ -226,7 +226,7 @@ export default async function play(lab) {
 
   // ---- the count: cuckoos at quickening intervals; each one is a cut
   const beats = [0.0, 0.28, 0.52, 0.72, 0.88]; // from now; the last is the lunge
-  const punch = [0.86, 0.75, 0.66, 0.58];
+  const punch = [0.8, 0.67, 0.57, 0.49];
   const t0 = lab.t;
   let shotFrom = { ...shot };
   let shotTo = { ...shot };
@@ -256,7 +256,8 @@ export default async function play(lab) {
     count = i + 1;
     // the cut: punch in a step, the room's light pulses, Maya flinches, a tally hangs in the air
     const f = punch[Math.min(i, punch.length - 1)];
-    camTo(home.dist * f, mix(home.ty, 0.32, 1 - f + 0.25), mix(home.tz, -0.62, (1 - f) * 2.2), home.el - 0.14 * (1 - f) * 2.4);
+    const w = Math.min(1, (1 - f) * 2.2);
+    camTo(home.dist * f, mix(home.ty, 0.5, w), mix(home.tz, -0.75, w), home.el - 0.12 * w);
     pulse = 0.8;
     open = true;
     flinch = 1;
@@ -289,7 +290,7 @@ export default async function play(lab) {
   // ---- the fifth: rear back, lunge, poke (and the slash through the tallies)
   open = true;
   pulse = 0.5;
-  camTo(home.dist * 0.6, 0.3, -0.62, home.el - 0.22);
+  camTo(home.dist * 0.42, 0.45, -0.72, home.el - 0.16);
   await lab.tween(0.09, (e) => {
     birdNow.copy(OUT).add(new THREE.Vector3(-0.05 * e, 0.06 * e, -0.06 * e));
     birdRot = 0.35 * e;
@@ -299,13 +300,13 @@ export default async function play(lab) {
   await lab.tween(0.07, (e) => {
     birdNow.lerpVectors(fromP, birdTarget, e);
     birdRot = mix(0.35, -0.95, e);
-    slash.scale.y = Math.max(0.001, 0.48 * e);
+    slash.scale.y = Math.max(0.001, 0.66 * e);
     slash.material.opacity = 1;
   }, ease.in);
   // hit-stop
   stopMaya();
   const stopBird2 = lab.every(() => placeBird(birdNow, birdRot));
-  lab.ring(lab.pos(3, 0.72).setY(0.25), '#ffe2b8', 0.4, 0.25, 0.3);
+  lab.ring(lab.pos(3, 1).setY(0.34), '#ffe2b8', 0.5, 0.34, 0.3);
   lab.shake(0.03, 0.15);
   maya.set({ sx: 0.72, sy: 1.05, roll: 0.25 });
   pulse = 1;

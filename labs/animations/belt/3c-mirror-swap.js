@@ -109,7 +109,7 @@ export default async function play(lab) {
     tx.colorSpace = THREE.SRGBColorSpace;
     return tx;
   })();
-  const catchMat = new THREE.MeshBasicMaterial({ map: catchTex, color: new THREE.Color('#cfe0ff').multiplyScalar(0.55), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const catchMat = new THREE.MeshBasicMaterial({ map: catchTex, color: new THREE.Color('#cfe0ff').multiplyScalar(1.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const catchLight = new THREE.Mesh(new THREE.PlaneGeometry(L, PH), catchMat);
   catchLight.position.set(0, PH / 2, 0.002);
   catchLight.renderOrder = 3;
@@ -206,7 +206,7 @@ export default async function play(lab) {
     if (tag && !swapped) tag.material.opacity = 1 - seg(inGlass, 0, 0.5);
 
     // the glass takes on her red while she's inside, and ripples where she touched
-    insideMat.opacity = 1.0 * seg(inGlass, 0.05, 0.7) * (1 - seg(t, OUT[0] + 0.05, OUT[1]));
+    insideMat.opacity = Math.max(0.4 * seg(realDx, -1.7, -0.62), seg(inGlass, 0.05, 0.7)) * (1 - seg(t, OUT[0] + 0.05, OUT[1]));
     const along = THREE.MathUtils.clamp(u.dot(new THREE.Vector3(realDx, 0, 0)), -L / 2 + 0.25, L / 2 - 0.25);
     inside.position.x = mix(along, 0, seg(t, IN[1] - 0.2, IN[1]));
     const rk = seg(t, TOUCH, TOUCH + 0.55);

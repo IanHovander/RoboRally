@@ -181,8 +181,10 @@ export default async function play(lab) {
 
   // 6. TWANG: time snaps back, she's yanked home tail-first, spinning round to face east
   lab.slowmo(1, 0.04);
-  realTween(0.14, (e) => (irisK = 1 - e), ease.in);
-  realTween(0.32, (e) => ((punch = 1 - e), (lead = 1 - e)), ease.inOut3);
+  // the camera cuts back out first (fast), so the yank plays in the wide shot
+  realTween(0.1, (e) => (irisK = 1 - e), ease.in);
+  realTween(0.16, (e) => ((punch = 1 - e), (lead = 1 - e)), ease.out3);
+  await lab.waitReal(0.08);
   const from = maya.pose.rot;
   const home = east + 2 * Math.PI; // one and a bit turns, ending east
   await lab.tween(

@@ -164,7 +164,7 @@ export default async function play(lab) {
   const heads = [];
   for (const [key, color] of [['a', RED], ['b', BLUE], ['c', GOLD]]) {
     for (const st of hist[key].strands) {
-      ribbon(st, color, 0.06, 1.25, 0.012); // a line of light, soft at its edges like Lumen's trail
+      ribbon(st, color, 0.06, 1.55, 0.012); // a line of light, soft at its edges like Lumen's trail
       const head = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(color).lerp(new THREE.Color('#fff'), 0.5).multiplyScalar(1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
       head.rotation.x = -Math.PI / 2;
       head.position.y = 0.02;
@@ -291,8 +291,8 @@ export default async function play(lab) {
   const glowRing = (p, color) => {
     p.each = (m) => {
       m.ringMat.opacity = 0.9 + flare.k * 0.1;
-      m.ringMat.color.set(color).multiplyScalar(1.6 + flare.k * 2.5);
-      m.poolMat.opacity = 0.45 + flare.k * 0.5;
+      m.ringMat.color.set(color).multiplyScalar(1.6 + flare.k * 1.4);
+      m.poolMat.opacity = 0.45 + flare.k * 0.3;
     };
   };
   glowRing(maya, RED);
