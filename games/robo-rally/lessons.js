@@ -86,16 +86,18 @@ export const LESSONS = [
   },
   {
     // damage is cards. L0 (the phone's robot) is shot in the back in register 1 (a SPAM card flies to
-    // the phone) and in register 3 (a Haywire jams slot 3). Next round the Haywire runs in slot 3.
+    // the phone) and in register 3 (a Haywire jams slot 3). Then L1 follows it, Move 1 twice, and hits it
+    // after each card (lasers fire every register, not just when a robot turns to face you). Next round
+    // L1 steps out of the way and the Haywire runs in slot 3.
     id: 'lesson-damage',
     phone: true,
     deck: true, // the phone shows its deck stack (where the SPAM lands)
     grid: empty(6, 3),
     robots: [[2, 1, 'E'], [0, 1, 'E']],
-    damage: ['sp', 'h01'],
+    damage: ['sp', 'h01', 'sp', 'sp'],
     rounds: [
-      [['m1', 'rl', 'rr', 'm1', 'm1'], ['m1', 'rr', 'rl', 'rr', 'm1']],
-      [['bk', 'ut', null, 'rl', 'm1'], ['rl', 'rl', 'rl', 'rl', 'rl']],
+      [['m1', 'rl', 'rr', 'm1', 'm1'], ['m1', 'rr', 'rl', 'm1', 'm1']],
+      [['bk', 'ut', null, 'rl', 'm1'], ['rr', 'm1', 'rl', 'rl', 'rl']],
     ],
     slowRounds: [2], // round 2: the fingertip fills the slots around the locked one
     stopAt: { round: 2, reg: 4, before: true }, // once the Haywire has run in slot 3

@@ -543,6 +543,91 @@ function columnTexture() {
   return columnTex;
 }
 
+/**
+ * Other looks for a checkpoint's light, to compare on a real screen: host.html?flag=lifted | tube | float
+ * (the default is the column, standing on the number).
+ *   lifted: the same column, starting above the number and fading in, so the glass and the number stay clear
+ *   tube:   a thin sleeve of light rising from the ring's edge; the number shows through the middle
+ *   float:  no column: the number itself hangs, glowing, above the ring (turned to the camera)
+ */
+const FLAG_STYLE = (() => {
+  try {
+    const v = new URLSearchParams(location.search).get('flag');
+    return ['lifted', 'tube', 'float'].includes(v) ? v : 'column';
+  } catch {
+    return 'column';
+  }
+})();
+
+/** columnTexture with its foot faded out (the lifted column). */
+let liftedTex = null;
+function liftedTexture() {
+  if (liftedTex) return liftedTex;
+  const W = 128;
+  const H = 256;
+  const c = canvas(W, H);
+  const g = c.getContext('2d');
+  const img = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    const up = 1 - y / H; // 0 at the foot
+    const v = Math.min(1, up / 0.3) ** 2 * Math.pow(1 - up, 1.4); // fades in over the bottom, out towards the top
+    for (let x = 0; x < W; x++) {
+      const dx = (x - W / 2) / (W / 2);
+      const k = Math.min(1, (Math.exp(-dx * dx * 60) + Math.exp(-dx * dx * 5) * 0.35) * v * 1.6);
+      const i = (y * W + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.round(k * 255);
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  liftedTex = tex(c);
+  liftedTex.userData.shared = true;
+  return liftedTex;
+}
+
+/** The sleeve of light: even all round, bright at the ring, gone by the top. */
+let sleeveTex = null;
+function sleeveTexture() {
+  if (sleeveTex) return sleeveTex;
+  const c = canvas(4, 256);
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 256, 0, 0);
+  grad.addColorStop(0, 'rgba(255,255,255,.45)');
+  grad.addColorStop(0.1, 'rgba(255,255,255,.22)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,.07)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, 4, 256);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 256);
+  sleeveTex = tex(c);
+  sleeveTex.userData.shared = true;
+  return sleeveTex;
+}
+
+/** A checkpoint's number, glowing, on black (drawn additively, so the black is clear). */
+function numberTexture(n) {
+  const c = canvas(256, 256);
+  const g = c.getContext('2d');
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, 256, 256);
+  const halo = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  halo.addColorStop(0, 'rgba(255,255,255,.22)');
+  halo.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = halo;
+  g.fillRect(0, 0, 256, 256);
+  g.font = `300 150px ${FONT}, sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.shadowColor = '#fff';
+  g.shadowBlur = 24;
+  g.fillStyle = '#fff';
+  g.fillText(String(n), 128, 138);
+  g.shadowBlur = 0;
+  g.fillText(String(n), 128, 138);
+  return tex(c);
+}
+
 /** The soft cross-section of a trail of light (bright in the middle). */
 let trailTex = null;
 function trailTexture() {
@@ -996,12 +1081,17 @@ export class Arena {
       this.pushers.set(`${q.x},${q.y}`, { plate, kick: null });
     }
 
-    // checkpoints: a slender column of light rising out of the glass
-    const colGeo = new THREE.PlaneGeometry(1.1, 4.2);
-    colGeo.translate(0, 2.1, 0);
+    // checkpoints: a slender column of light rising out of the glass (or another look: FLAG_STYLE)
+    const colGeo = {
+      column: () => new THREE.PlaneGeometry(1.1, 4.2).translate(0, 2.1, 0),
+      lifted: () => new THREE.PlaneGeometry(1.1, 3.8).translate(0, 0.75 + 1.9, 0),
+      tube: () => new THREE.CylinderGeometry(0.4, 0.4, 2.6, 48, 1, true).translate(0, 1.3 + 0.01, 0),
+      float: () => new THREE.PlaneGeometry(1.7, 1.7).translate(0, 1.5, 0),
+    }[FLAG_STYLE]();
+    const colMap = { column: columnTexture, lifted: liftedTexture, tube: sleeveTexture, float: null }[FLAG_STYLE];
     for (const cp of c.checkpoints) {
       const p = this.pos(cp.x, cp.y);
-      const mat = new THREE.MeshBasicMaterial({ map: columnTexture(), color: hdr(PALETTE.light, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const mat = new THREE.MeshBasicMaterial({ map: colMap ? colMap() : numberTexture(cp.n), color: hdr(PALETTE.light, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
       const col = new THREE.Mesh(colGeo, mat);
       col.position.set(p.x, 0, p.z);
       col.renderOrder = 5;

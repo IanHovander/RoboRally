@@ -52,6 +52,8 @@ check(LESSONS.map((l) => l.id).join() === 'lesson-program,lesson-board,lesson-da
   const dmg = fxOf(run, (f) => f.k === 'dmg' && f.id === 'L0');
   check(dmg.some((f) => f.round === 1 && f.reg === 0 && f.sp === 1 && f.hw === 0), 'lesson-damage gives L0 a SPAM card in register 1');
   check(dmg.some((f) => f.round === 1 && f.reg === 2 && f.hw === 1), 'lesson-damage gives L0 a Haywire in register 3');
+  check([3, 4].every((reg) => dmg.some((f) => f.round === 1 && f.reg === reg && f.src !== 'reboot')), 'lesson-damage: L1 follows L0 and hits it after each Move 1 (registers 4 and 5)');
+  check(!dmg.some((f) => f.round === 2), 'lesson-damage: no hits in round 2 (L1 steps aside)');
   const p2 = run.steps.filter((st) => st.kind === 'program')[1];
   check(p2?.locked[0][2] === 'h01', 'lesson-damage locks h01 in slot 3 for round 2');
   check(p2?.cards[0].join() === 'bk,ut,,rl,m1', 'lesson-damage: round 2 fills the slots around the locked one');
