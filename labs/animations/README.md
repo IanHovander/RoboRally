@@ -41,7 +41,9 @@ the module throws. **An entry is done when it renders with no warnings.**
 
 Only 3 renders run at once on this machine (others wait for a slot), so prefer `--preview` while iterating and
 do one final render per entry. A render can sit in the queue for several minutes when the machine is busy: give
-the command a long timeout (10 minutes), and render several files in one command when you can. Every video
+the command a long timeout (10 minutes), and render several files in one command when you can. To render in the
+background use the Bash tool's own background mode: a render detached with `&` or `nohup` stops itself, because it
+takes a render whose caller has gone for one that was abandoned. Every video
 starts with 0.6 s of calm and ends with 1 s of the game carrying on.
 
 ## Writing an animation

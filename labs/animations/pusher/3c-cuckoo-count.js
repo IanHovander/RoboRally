@@ -57,34 +57,36 @@ function drawBird(g, open) {
   g.lineJoin = 'round';
   g.strokeStyle = '#fff4e2';
   g.shadowColor = '#ffcf8a';
-  for (const [lw, blur] of [[22, 30], [13, 8]]) {
+  for (const [lw, blur] of [[24, 30], [14, 8]]) {
     g.lineWidth = lw;
     g.shadowBlur = blur;
-    // 1: body, one sweep from the tail tip under the belly up to the chest
+    // 1: body: the tail and back, then the round belly up to the chest
     g.beginPath();
-    g.moveTo(26, 92);
-    g.quadraticCurveTo(58, 104, 74, 128);
-    g.quadraticCurveTo(110, 196, 176, 160);
-    g.quadraticCurveTo(204, 140, 196, 112);
+    g.moveTo(22, 96);
+    g.lineTo(70, 122);
+    g.quadraticCurveTo(108, 112, 146, 122);
+    g.moveTo(70, 122);
+    g.quadraticCurveTo(82, 202, 156, 200);
+    g.quadraticCurveTo(208, 196, 206, 140);
     g.stroke();
     // 2: head, an open loop
     g.beginPath();
-    g.arc(170, 92, 30, Math.PI * 0.55, Math.PI * 2.12);
+    g.arc(176, 96, 34, Math.PI * 0.6, Math.PI * 2.1);
     g.stroke();
     // 3: beak, a hinge of two lines
-    const a = open ? 0.42 : 0.07;
+    const a = open ? 0.5 : 0.06;
     g.beginPath();
-    g.moveTo(198, 90);
-    g.lineTo(198 + 50 * Math.cos(-a), 90 + 50 * Math.sin(-a));
-    g.moveTo(198, 94);
-    g.lineTo(198 + 46 * Math.cos(a), 94 + 46 * Math.sin(a));
+    g.moveTo(206, 92);
+    g.lineTo(206 + 46 * Math.cos(-a), 92 + 46 * Math.sin(-a));
+    g.moveTo(206, 98);
+    g.lineTo(206 + 42 * Math.cos(a), 98 + 42 * Math.sin(a));
     g.stroke();
   }
   // eye
   g.shadowBlur = 8;
   g.fillStyle = '#ffffff';
   g.beginPath();
-  g.arc(176, 84, 9, 0, Math.PI * 2);
+  g.arc(184, 86, 10, 0, Math.PI * 2);
   g.fill();
 }
 
@@ -158,13 +160,15 @@ export default async function play(lab) {
   const birdShut = canvasTex(THREE, 256, 256, drawBird);
   birdOpen.redraw(true);
   birdShut.redraw(false);
-  const birdMat = lightMat(birdShut.tex, 1.7);
-  const bird = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), birdMat);
+  const birdMat = lightMat(birdShut.tex, 1.8);
+  birdMat.depthTest = false; // a drawing of light, always on top of what it pokes
+  const bird = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), birdMat);
+  bird.renderOrder = 12;
   const birdPivot = new THREE.Group(); // the bird turns about its chest
   birdPivot.add(bird);
-  bird.position.set(-0.04, 0.02, 0);
+  bird.position.set(-0.06, 0.03, 0);
   add(birdPivot);
-  const stickMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(WARM).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const stickMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(WARM).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 1, 8), stickMat);
   add(stick);
   const doorAt = new THREE.Vector3(doorCX, doorCY - 0.02, FACE_Z);
@@ -180,7 +184,7 @@ export default async function play(lab) {
     stick.scale.y = Math.max(0.001, len);
     stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
   };
-  const OUT = new THREE.Vector3(-0.5, doorCY + 0.2, FACE_Z + 0.3); // where it sits, popped out: up and to the side, clear of Maya
+  const OUT = new THREE.Vector3(-0.45, doorCY + 0.36, FACE_Z + 0.4); // where it sits, popped out: up, forward and to the side, clear of Maya and the clock
   placeBird(doorAt.clone());
 
   // ---------- tallies of light in the air beside the clock ----------
@@ -208,7 +212,7 @@ export default async function play(lab) {
   const stopTag = lab.every(() => bm.tag && (bm.tag.material.opacity = maskTag));
   lab.cleanup(() => bm.tag && (bm.tag.material.opacity = 1));
 
-  const birdTarget = new THREE.Vector3(-0.2, 0.52, -0.72);
+  const birdTarget = new THREE.Vector3(-0.27, 0.6, -0.72); // puts the beak's tip on Maya's back
   maya.set({ x: 3, y: 1, rot: E });
   let flinch = 0; // Maya's cringe, building with the count
   let lean = 0;
@@ -251,6 +255,7 @@ export default async function play(lab) {
     birdMat.opacity = Math.min(1, k * 3);
     stickMat.opacity = Math.min(1, k * 3);
     birdMat.map = open ? birdOpen.tex : birdShut.tex;
+    clockMesh.material.opacity = 1 - 0.5 * Math.min(1, k * 3); // the clock steps back: the bird is the show
   });
   const bob = async (i) => {
     count = i + 1;
@@ -339,7 +344,7 @@ export default async function play(lab) {
     birdMat.opacity = stickMat.opacity = 1 - span(k, 0.3, 0.38);
     hinge.rotation.y = -1.9 * (1 - ease.in(span(k, 0.36, 0.5)));
     const fade = 1 - span(k, 0.55, 1);
-    clockMesh.material.opacity = fade;
+    clockMesh.material.opacity = mix(0.5, 1, span(k, 0.3, 0.45)) * fade;
     doorMat.opacity = 0.5 * fade + 0.8 * (span(k, 0.5, 0.52) > 0 ? Math.max(0, 1 - (k - 0.5) * 8) : 0);
     for (const tm of tallies) tm.material.opacity = 1 - span(k, 0.2, 0.75);
     slash.material.opacity = 1 - span(k, 0.3, 0.85);

@@ -102,7 +102,14 @@ export default async function play(lab) {
     renderer.localClippingEnabled = clip0;
   });
   const red = new THREE.Color(MAYA_RED);
-  const look = { eye: 0, ring: 0, pool: 0, glint: 0 };
+  const look = { eye: 0, ring: 0, pool: 0, glint: 0, soft: 0 };
+  // in the close-up the key light's highlight on her clearcoat blows out: soften it while we're in close
+  const paint = maya.model.paint;
+  const gloss0 = { r: paint.roughness, cr: paint.clearcoatRoughness };
+  lab.cleanup(() => {
+    paint.roughness = gloss0.r;
+    paint.clearcoatRoughness = gloss0.cr;
+  });
   maya.each = (m) => {
     const e = look.eye;
     m.eyeMat.color.setRGB(3.2 * e, 3.1 * e, 2.9 * e);
@@ -110,6 +117,8 @@ export default async function play(lab) {
     m.poolMat.opacity = 0.75 * look.pool;
     m.paint.emissive.copy(red);
     m.paint.emissiveIntensity = 0.16 + look.glint;
+    m.paint.roughness = gloss0.r + 0.3 * look.soft;
+    m.paint.clearcoatRoughness = gloss0.cr + 0.4 * look.soft;
   };
 
   // ---------- droplets and spots ----------
@@ -280,6 +289,7 @@ export default async function play(lab) {
     if (frozen) cam.orbit = 0.62 * smooth(clamp((lab.real - freezeStart) / FREEZE_REAL));
     else if (T > FREEZE_AT) cam.orbit = orbitAtThaw;
     cam.home = smooth(seg(T, SHAKE1 + 0.1, END - 0.2));
+    look.soft = Math.min(1, cam.snap * (1 - cam.home) * 1.6);
     // name tags would be huge in the close-up: hide them while the camera is in close
     const close = cam.snap * (1 - cam.home) > 0.25;
     for (const key of ['a', 'b']) {
@@ -306,6 +316,8 @@ export default async function play(lab) {
   for (const d of drops) if (d.m) d.m.visible = false;
   for (const s of spots) s.m.visible = false;
   maya.each = null;
+  paint.roughness = gloss0.r;
+  paint.clearcoatRoughness = gloss0.cr;
   maya.release({ x: 3, y: 1, d: 1, on: true });
   theo.release({ x: 5, y: 2, d: 3 });
 }

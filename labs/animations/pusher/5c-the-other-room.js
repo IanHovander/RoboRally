@@ -159,6 +159,22 @@ export default async function play(lab) {
   haze.renderOrder = 5;
   add(haze);
 
+  // ---------- the floor far below catches what spills off the edge ----------
+  const floorMat = new THREE.MeshBasicMaterial({
+    map: tex(THREE, 64, 64, (g, w, h) => {
+      const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+      r.addColorStop(0, 'rgba(255,255,255,1)');
+      r.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = r;
+      g.fillRect(0, 0, w, h);
+    }),
+    color: new THREE.Color(WARM).multiplyScalar(0.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), floorMat);
+  floorGlow.rotation.x = -Math.PI / 2;
+  floorGlow.position.set(0, -1.585, APEX.z + LEN + 1.3);
+  add(floorGlow);
+
   // ---------- dust in the beam ----------
   const N = 70;
   const mote = [];
@@ -203,6 +219,8 @@ export default async function play(lab) {
     wedgeMat.opacity = 0.78 * light;
     wedge.scale.x = Math.tan(theta) / Math.tan(TMAX);
     hazeMat.opacity = 0.32 * light;
+    floorMat.opacity = 0.6 * light;
+    floorGlow.scale.set(1.2 + 3 * Math.tan(theta) * 2, 3.2, 1);
     const r = Math.tan(theta) * LEN;
     haze.scale.set(r, r * 0.55, LEN);
     spot.intensity = 9 * light;

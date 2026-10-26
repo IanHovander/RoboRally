@@ -110,3 +110,7 @@ no more **a** or **b** work beyond what is already finished. All 13 c animators 
   glint (clearcoat roughness 0.06) that the bloom blows up into a one-frame white flash over the whole picture.
   Clamp the bloom's input or roughen the clearcoat slightly when porting puppet poses with pitch.
 - A `--preview` render overwrites a final render's sheet and json, so make the final render the last one.
+- Known lab wrinkle: taking the camera with `lab.camera()` eases the game's picture-centring offset (`camCur.sx/sy`)
+  to 0, so the board slides a little when an animation takes the camera. Several cinematic entries hold the offset
+  themselves inside their camera function. Fix it in `lab.js` only after the running animators finish, or their
+  workaround will over-correct.

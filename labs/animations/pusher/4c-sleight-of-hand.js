@@ -2,12 +2,13 @@
 // along. A tray of smoked glass with bright edges and a little handle of light slides out of the wall with her on it,
 // carrying her one space south, and stops with a chime while the camera leans in like a magician's close-up. A
 // breath. Then the tray whips back into the wall so fast it leaves only a long-exposure streak of its edges, and the
-// picture freezes: Maya hangs a hair above the glass with nothing under her, like a cartoon who hasn't looked down.
-// Time starts again; she drops the last few millimetres, wobbles, and sits on her new space, still facing east.
+// picture freezes, drained of colour: Maya hangs a hair above the glass with nothing under her and slowly tips her
+// nose down to look, like a cartoon who has just noticed. Time starts again; she drops the last few millimetres,
+// wobbles, and sits on her new space, still facing east.
 export const meta = {
   title: 'Sleight of hand',
   idea: 'Light runs around the seams of Maya\'s tile: it was a drawer all along. A smoked-glass tray with a handle of light slides her one space south while the camera leans in like a close-up magic trick; it stops with a chime, holds a breath, then whips back into the wall so fast it leaves only a long-exposure streak, and the picture freezes with Maya hanging in the air over nothing. Time restarts; she drops, wobbles and sits there, still facing east.',
-  notes: 'Sound: a soft glass tick as the seams light, a smooth glass slide and a bright till-drawer chime at the stop, silence for the breath, a very fast glass "fwip" for the whip, total silence in the freeze, then a tiny glass tock as she lands and a wobble of small chimes. Port: the tray, rails and streak are a few meshes on the robot\'s space; the freeze is a short time-scale dip. 1.85 s.',
+  notes: 'Sound: a soft glass tick as the seams light, a smooth glass slide and a bright till-drawer chime at the stop, silence for the breath, a very fast glass "fwip" for the whip, total silence in the freeze, then a tiny glass tock as she lands and a wobble of small chimes. Port: the tray, rails and streak are a few meshes on the robot\'s space; the freeze is a short time-scale dip with a desaturating, vignetting layer over the picture (a CSS backdrop-filter in the HUD layer). 1.9 s.',
 };
 
 const mix = (a, b, e) => a + (b - a) * e;
@@ -249,6 +250,10 @@ export default async function play(lab) {
   slot.material.opacity = 1;
   lab.timeScale = 0.02;
   const frozen = lab.real;
+  // a freeze-frame: the picture drains of colour and the room closes in around her, for a quarter of a second
+  const still = document.createElement('div');
+  still.style.cssText = 'position:absolute;inset:0;pointer-events:none;backdrop-filter:saturate(0.3) brightness(1.08);-webkit-backdrop-filter:saturate(0.3) brightness(1.08);background:radial-gradient(ellipse 55% 60% at 50% 55%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)';
+  lab.overlay.append(still);
   let eyeK = 1;
   maya.each = (m) => m.eyeMat.color.setRGB(3.2 * eyeK, 3.1 * eyeK, 2.9 * eyeK);
   const look = lab.every(() => {
@@ -259,6 +264,7 @@ export default async function play(lab) {
   });
   await lab.waitReal(0.24);
   look();
+  still.remove();
   lab.timeScale = 1;
 
   // ---- she drops the last few millimetres, wobbles, sits; the camera eases home; the streak fades
