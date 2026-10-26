@@ -1,5 +1,5 @@
 // A tiny static server for the animation lab. It lays the repo out the way the game server does:
-// /games/* from games/, /labs/* from labs/, everything else from public/.
+// /games/* from games/, /labs/* from labs/, /looks/<name>/* from that look, everything else from public/.
 //   node labs/animations/serve.mjs [port]      then open http://localhost:<port>/labs/animations/
 import http from 'node:http';
 import fs from 'node:fs';
@@ -10,8 +10,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.md': 'text/plain; charset=utf-8' };
 
 function resolve(urlPath) {
-  const p = decodeURIComponent(urlPath.split('?')[0]);
-  const base = p.startsWith('/games/') ? ROOT : p.startsWith('/labs/') ? ROOT : path.join(ROOT, 'public');
+  let p = decodeURIComponent(urlPath.split('?')[0]);
+  let base = p.startsWith('/games/') || p.startsWith('/labs/') ? ROOT : path.join(ROOT, 'public');
+  // an alternative look: /looks/<name>/games/* from looks/<name>/games, the rest from looks/<name>/public
+  const look = p.match(/^\/looks\/([a-z0-9-]+)(\/.*)$/i);
+  if (look) {
+    base = path.join(ROOT, 'looks', look[1], look[2].startsWith('/games/') ? '' : 'public');
+    p = look[2];
+  }
   let file = path.join(base, p);
   if (!file.startsWith(ROOT)) return null;
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');

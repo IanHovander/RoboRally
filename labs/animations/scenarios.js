@@ -1,4 +1,4 @@
-// The moments the lab animates. Each one is a tiny board with robots in a "before" state, the beats the
+// The moments the lab animates, on the Lumen look's board (looks/three). Each one is a tiny board with robots in a "before" state, the beats the
 // real engine would send the big screen (engine.js `fx`), and the "after" state the game holds once the
 // moment is over. An animation can do anything it likes in between, as long as it ends on `after`.
 //
@@ -7,12 +7,13 @@
 // G+ / G- gear. walls: 'x,y:NESW'. pushers: [x, y, 'side', [registers]]. reboot: [x, y, 'dir'].
 // view: { zoom, shift: [x, z] } moves the lab's camera home (zoom > 1 is further away).
 
+// avatar picks the Lumen form (glyphs.js formOf: avatar % 6): Pebble, Orb, Prism, Capsule, Cube, Spire
 const ROBOTS = {
-  maya: { name: 'Maya', color: '#ff4d6d', avatar: 0 }, // Classic
-  theo: { name: 'Theo', color: '#4dabf7', avatar: 1 }, // Hulk
-  jun: { name: 'Jun', color: '#ffd43b', avatar: 10 }, // Tank
-  ava: { name: 'Ava', color: '#51cf66', avatar: 5 }, // Hover
-  ezra: { name: 'Ezra', color: '#cc5de8', avatar: 7 }, // Spider
+  maya: { name: 'Maya', color: '#ff4d6d', avatar: 0 }, // Pebble
+  theo: { name: 'Theo', color: '#4dabf7', avatar: 2 }, // Prism
+  jun: { name: 'Jun', color: '#ffd43b', avatar: 4 }, // Cube
+  ava: { name: 'Ava', color: '#51cf66', avatar: 3 }, // Capsule
+  ezra: { name: 'Ezra', color: '#cc5de8', avatar: 5 }, // Spire
 };
 const bot = (who, x, y, d, extra = {}) => ({ ...ROBOTS[who], x, y, d, ...extra });
 const FLOOR = (w) => Array(w).fill('..').join(' ');
@@ -37,7 +38,7 @@ export const SCENARIOS = {
     often: 'A few times a game. Big, funny, a little cruel.',
     budget: 3.5,
     grid: [FLOOR(7), FLOOR(7), FLOOR(7), FLOOR(7)],
-    view: { zoom: 1.3, shift: [1.2, 0] }, // room past the east edge to see where she goes
+    view: { zoom: 1.12, shift: [0.9, 0] }, // room past the east edge to see where she goes
     bots: { a: bot('maya', 4, 1, 1), b: bot('ava', 2, 3, 0) },
     after: { a: { on: false } },
     beats: [[{ k: 'play', id: 'a', cards: ['m3'] }, { k: 'move', id: 'a', path: [[4, 1], [5, 1], [6, 1], [7, 1]] }, { k: 'fall', id: 'a', x: 7, y: 1, edge: true }]],

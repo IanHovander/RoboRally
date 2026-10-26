@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Animation Lab Stage</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #07080b; color: #e9edf3; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+  @font-face { font-family: "Lumen"; src: url("/looks/three/fonts/roboto-var.woff") format("woff"); font-weight: 100 900; font-stretch: 75% 100%; }
+  html, body { margin: 0; height: 100%; background: #06080b; color: #e9edf3; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
   #wrap { position: absolute; inset: 0; display: grid; place-items: center; }
   #frame { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; overflow: hidden; }
   #view, #overlay { position: absolute; inset: 0; }
@@ -51,6 +52,7 @@
   document.getElementById('title').textContent = `${scenario} · ${state.meta.title ?? animPath}`;
   document.title = state.meta.title ?? 'Animation Lab Stage';
 
+  await Promise.all(['500 64px Lumen', '300 64px Lumen', '700 64px Lumen'].map((f) => document.fonts.load(f))); // the arena draws labels with it
   const lab = await createLab({ container: document.getElementById('view'), overlay: document.getElementById('overlay'), scenario, capture });
   window.__labRef = lab;
   const MAX = 15; // real seconds: anything longer is a runaway

@@ -1,15 +1,17 @@
-// The animation lab's stage: the game's real 3D arena (games/robo-rally/scene.js) on a tiny board, with the
-// real robots, plus a small API an animation uses to take over the moment. README.md explains it.
-import * as THREE from '/games/robo-rally/lib/three.module.min.js';
-import { Arena } from '/games/robo-rally/scene.js';
-import { PIECES, COURSES } from '/games/robo-rally/board.js';
+// The animation lab's stage: the Lumen look's real 3D arena (looks/three/games/robo-rally/scene.js) on a tiny
+// board, with the real robots, plus a small API an animation uses to take over the moment. README.md explains it.
+import * as THREE from '/looks/three/games/robo-rally/lib/three.module.min.js';
+import { Arena, PALETTE } from '/looks/three/games/robo-rally/scene.js';
+import { PIECES, COURSES } from '/looks/three/games/robo-rally/board.js';
 import { SCENARIOS, beatTime } from './scenarios.js';
 
 const TAU = Math.PI * 2;
-const BOT_SCALE = 1.18; // scene.js draws every robot at this size
+const BOT_SCALE = 1.3; // scene.js draws every robot at this size
 export const LEAD = 0.6; // seconds of calm before the moment starts
 export const TAIL = 1.0; // seconds of the game carrying on after it
-const FOV = 32;
+const FOV = 30;
+// the lab has no HUD, so the board gets the whole picture (the game keeps the bottom 40% for its HUD)
+const FRAME = { top: 0.12, bottom: 0.06, left: 0.05, right: 0.05 };
 
 export const ease = {
   linear: (k) => k,
@@ -45,10 +47,11 @@ function registerCourse(id, sc) {
 
 /** The real Arena, driven by the lab's clock instead of its own loop. */
 class LabArena extends Arena {
-  constructor(container) {
+  constructor(container, view) {
     super(container);
     this.running = false;
     cancelAnimationFrame(this.raf);
+    this.view = view ?? {};
     this.dt = 1 / 60;
     this.clock = { getDelta: () => this.dt };
     // previews skip drawing the frames nobody will look at
@@ -57,32 +60,29 @@ class LabArena extends Arena {
     this.composer.render = (dt) => this.skipRender || draw(dt);
     const plain = this.renderer.render.bind(this.renderer);
     this.renderer.render = (s, c) => this.skipRender || plain(s, c);
+    this.setFrame(FRAME);
   }
   adapt() {} // keep full quality: the lab is for looking closely
-  setCourse(id) {
-    super.setCourse(id);
-    // scene.js draws the floor in the transparent pass (transparent + alphaTest), so lasers and sparks on the
-    // far half of the board, sorted before it, get painted over. The cut-out works the same as opaque.
-    this.board.traverse((o) => {
-      if (o.material?.transparent && o.material.alphaTest > 0) {
-        o.material.transparent = false;
-        o.material.needsUpdate = true;
-      }
-    });
-  }
   fitCamera() {
     super.fitCamera();
     if (!this.camHome) return;
-    const view = this.lab?.scenario.view ?? this.view ?? {};
-    this.camHome.dist *= 0.94 * (view.zoom ?? 1); // a little closer than the game's framing, so the details read in a small video
+    const view = this.view ?? {};
+    this.camHome.dist *= 0.92 * (view.zoom ?? 1); // a bit closer than the game: there's no HUD to make room for
     if (view.shift) this.camHome.target.add(new THREE.Vector3(view.shift[0], 0, view.shift[1]));
     this.camCur = null;
-    super.placeCamera(0);
   }
-  placeCamera(t) {
-    if (!this.lab) return super.placeCamera(t);
+  animateBot(b, t, dt) {
+    if (!this.lab?._puppets.has(b.id)) return super.animateBot(b, t, dt);
+    // a puppet draws its own trail (lab._tick); keep the game from wiping it because the robot "jumped"
+    const trail = b.trail;
+    b.trail = [];
+    super.animateBot(b, t, dt);
+    b.trail = trail;
+  }
+  placeCamera(t, dt) {
+    if (!this.lab) return super.placeCamera(t, dt);
     this.lab._tick(); // after the robots and effects are placed, before the camera and the render
-    if (!this.lab._applyCamera(t)) super.placeCamera(t);
+    if (!this.lab._applyCamera(t, dt)) super.placeCamera(t, dt);
     this.lab._shakeCamera();
   }
 }
@@ -94,13 +94,13 @@ class LabArena extends Arena {
 export async function createLab({ container, overlay, scenario: id, capture = false }) {
   const sc = SCENARIOS[id];
   if (!sc) throw new Error(`no scenario "${id}" (have: ${Object.keys(SCENARIOS).join(', ')})`);
-  const arena = new LabArena(container);
-  arena.view = sc.view;
+  const arena = new LabArena(container, sc.view);
   const cid = registerCourse(id, sc);
 
   let seed = 20261026;
   const lab = {
     THREE,
+    PALETTE,
     ease,
     facing,
     arena,
@@ -115,6 +115,7 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
     timeScale: 1, // < 1 is slow motion for everything on screen (belts, effects, your own waits)
     real: 0, // real seconds since the stage started (what the video shows)
     warnings: [],
+    events: [], // what the game would have played a sound for (arena.emit), with times
     _timers: [],
     _realTimers: [],
     _hooks: new Set(),
@@ -196,16 +197,17 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
     },
 
     // ----- the board and robots -----
-    /** The arena's robot record: { group, model: { body, base, paint, trim, glow, eye, muzzle, spin }, x, y, rot, visible }. */
+    /** The arena's robot record: { group, model, x, y, rot, visible, trail, card, color, name, tag }. */
     bot(key) {
       return arena.bots.get(key);
     },
-    /** World position of the centre of space (x, y) on the floor. Fractions and off-board spaces work. */
+    /** World position of the centre of space (x, y) on the glass. Fractions and off-board spaces work. */
     pos(x, y) {
       return arena.pos(x, y);
     },
     /** Screen position (CSS px, for lab.overlay) of a world point. */
     toScreen(v) {
+      arena.camera.updateMatrixWorld();
       const p = v.clone().project(arena.camera);
       const r = container.getBoundingClientRect();
       return { x: ((p.x + 1) / 2) * r.width, y: ((1 - p.y) / 2) * r.height, behind: p.z > 1 };
@@ -214,7 +216,7 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       lab.group.add(obj);
       return obj;
     },
-    /** Run fn when this loop ends (restore lights, fog, anything shared you changed). */
+    /** Run fn when this loop ends (restore lights, the room, anything shared you changed). */
     cleanup(fn) {
       lab._cleanups.push(fn);
     },
@@ -223,10 +225,11 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
      * Take a robot over. Returns a puppet whose pose you set; it's applied every frame on top of the game's
      * own placement until you release it.
      *   pose: { x, y } (spaces, fractions ok), lift (world units up), rot (radians, facing(d) faces d),
-     *         pitch (lean forward +), roll (lean right +), sx, sy, sz (squash/stretch from the floor), visible
+     *         pitch (lean forward +), roll (lean right +), sx, sy, sz (squash/stretch from the glass), visible,
+     *         trail (true: leaves Lumen's light trail on the glass as it goes, like the game's moves)
      *   puppet.release(state) hands the robot back to the game resting at state { x, y, d, on }
      *   (default: where the pose is now). puppet.each = (model, t) => {...} runs after the pose each frame,
-     *   for parts: model.body, model.base, model.eye, model.glow (emissive), model.paint, model.spin.
+     *   for parts: model.body, model.paint, model.eyeMat, model.ringMat, model.poolMat, model.muzzle.
      */
     puppet(key) {
       const b = arena.bots.get(key);
@@ -234,7 +237,7 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       lab._puppets.get(key)?.release();
       b.anims = [];
       b.busyUntil = 0;
-      const pose = { x: b.x, y: b.y, lift: 0, rot: b.rot, pitch: 0, roll: 0, sx: 1, sy: 1, sz: 1, visible: b.visible };
+      const pose = { x: b.x, y: b.y, lift: 0, rot: b.rot, pitch: 0, roll: 0, sx: 1, sy: 1, sz: 1, visible: b.visible, trail: true };
       const puppet = {
         key,
         bot: b,
@@ -302,24 +305,27 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
     },
 
     // ----- the game's own effects (scene.js) -----
-    /** Play one beat the way the real game does (fx list as in scenarios.js). Resolves after the game's beat time. */
-    beat(fx) {
-      arena.playBeat({ fx }, lab._afterList());
-      return lab.wait(beatTime(fx));
+    /** Play one beat the way the real game does (as in scenarios.js). Resolves after the game's beat time. */
+    beat(beat) {
+      const b = Array.isArray(beat) ? { fx: beat } : beat;
+      arena.playBeat(b, lab._afterList());
+      return lab.wait(beatTime(b.fx));
     },
     /** The game's current animation for this scenario, beat by beat. */
     async baseline() {
-      for (const fx of sc.beats) await lab.beat(fx);
+      for (const b of sc.beats) await lab.beat(b);
       // a beat can outlast its slot (a fall runs into the next beat); let the robots finish
       while ([...arena.bots.values()].some((b) => b.busyUntil > arena.time)) await lab.wait(1 / 30);
     },
-    sparks: (at, color, n) => arena.sparks(at, color, n),
-    confetti: (at, colors, n) => arena.confetti(at, colors, n),
-    ring: (at, color, size) => arena.ring(at, color, size),
-    float: (at, text, color, delay, height) => arena.float(at, text, color, delay, height),
+    ring: (at, color, size, y, dur) => arena.ring(at, color, size, y, dur),
+    pillar: (at, color, height, dur) => arena.pillar(at, color, height, dur),
     particles: (at, colors, n, opts) => arena.particles(at, colors, n, opts),
+    shards: (at, color, n) => arena.shards(at, color, n),
+    motes: (at, color, n, dur) => arena.motes3(at, color, n, dur),
+    glitch: (key, color) => arena.glitch(arena.bots.get(key), color),
+    popGlyph: (key, name, color, text) => arena.popGlyph(arena.bots.get(key), name, color, text),
     beam: (f) => arena.beam(f, arena.bots.get(f.src)),
-    showCard: (key, types) => arena.showCard(arena.bots.get(key), types),
+    playCard: (key, types) => arena.playCard(arena.bots.get(key), types),
 
     // ----- internals -----
     _afterList() {
@@ -334,7 +340,9 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       for (const tm of due(lab._timers, arena.time)) tm.fn();
       for (const tm of due(lab._realTimers, lab.real)) tm.fn();
       for (const hook of [...lab._hooks]) hook();
+      const t = arena.time;
       for (const p of lab._puppets.values()) {
+        const b = p.bot;
         const g = p.group;
         const q = p.pose;
         g.visible = q.visible !== false;
@@ -343,10 +351,16 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
         g.rotation.set(q.pitch ? -q.pitch : 0, q.rot, q.roll ? -q.roll : 0);
         g.scale.set(BOT_SCALE * q.sx, BOT_SCALE * q.sy, BOT_SCALE * q.sz);
         p.model.body.rotation.x = 0;
-        p.each?.(p.model, arena.time);
+        if (b.card) b.card.position.set(at.x, b.card.position.y + q.lift, at.z);
+        if (q.trail && g.visible && q.lift > -0.15) {
+          const last = b.trail[b.trail.length - 1];
+          if (!last || Math.hypot(last.x - at.x, last.z - at.z) > 0.04) b.trail.push({ x: at.x, z: at.z, t });
+        }
+        arena.updateTrail(b, t);
+        p.each?.(p.model, t);
       }
     },
-    _applyCamera(t) {
+    _applyCamera(t, dt) {
       const home = arena.camHome;
       if (!home) return false;
       const cam = arena.camera;
@@ -359,7 +373,10 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       }
       const h = { target: home.target.clone(), az: 0, el: home.elev, dist: home.dist, fov: FOV };
       const c = { ...h, ...(lab._cam.fn(h, t) ?? {}) };
-      arena.camCur = { az: c.az, d: c.dist, el: c.el, tgt: c.target.clone() };
+      const prev = arena.camCur ?? { sx: 0, sy: 0 };
+      // ease the picture's centring offset away, so whatever you aim at is in the middle
+      const k = Math.min(1, dt * 4);
+      arena.camCur = { az: c.az, d: c.dist, el: c.el, tgt: c.target.clone(), sx: prev.sx * (1 - k), sy: prev.sy * (1 - k) };
       cam.position.set(c.target.x + Math.sin(c.az) * Math.cos(c.el) * c.dist, c.target.y + Math.sin(c.el) * c.dist, c.target.z + Math.cos(c.az) * Math.cos(c.el) * c.dist);
       cam.lookAt(c.target);
       if (c.roll) cam.rotateZ(c.roll);
@@ -367,6 +384,8 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
         cam.fov = c.fov;
         cam.updateProjectionMatrix();
       }
+      const { w: W, h: H } = arena.size;
+      cam.setViewOffset(W, H, (-arena.camCur.sx * W) / 2, (arena.camCur.sy * H) / 2, W, H);
       return true;
     },
     _shakeCamera() {
@@ -394,24 +413,23 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       lab._cam = null;
       lab._shake = null;
       lab.timeScale = 1;
+      lab.events = [];
       seed = 20261026;
       overlay.replaceChildren();
-      for (const e of arena.effects) e.end?.();
-      arena.effects = [];
-      for (const obj of [...arena.fxGroup.children]) arena.fxGroup.remove(obj);
       if (lab.group) arena.scene.remove(lab.group);
       lab.group = new THREE.Group();
       arena.scene.add(lab.group);
-      for (const b of arena.bots.values()) arena.scene.remove(b.group);
-      arena.bots.clear();
       arena.focusOn = null;
+      arena.dim = 0;
+      arena.dimCur = 0;
+      arena.camMode = 'race';
       arena.course = null;
-      arena.setCourse(cid);
+      arena.setCourse(cid); // also clears the robots, effects and cards
       const list = Object.entries(sc.bots).map(([key, r]) => ({ id: key, ...r }));
       arena.syncRobots(list.filter((r) => r.on !== false));
       for (const r of list) {
-        if (r.on !== false) continue; // starts off the board: build it hidden so an animation can bring it in
-        const b = arena.addBot(r);
+        if (r.on !== false) continue; // starts off the board: built hidden so an animation can bring it in
+        const b = arena.addBot(r, r.form);
         Object.assign(b, { x: r.x, y: r.y, rot: facing(r.d), visible: false });
       }
       for (const b of arena.bots.values()) b.pop = -10; // no pop-in: everyone is already on the board
@@ -434,9 +452,10 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
           if (gap > 0.12) lab.warnings.push(`${r.name} ends ${gap.toFixed(2)} spaces from (${want.x}, ${want.y}); the game will snap it there`);
           const turnGap = Math.abs(wrap(g.rotation.y - facing(want.d)));
           if (turnGap > 0.15) lab.warnings.push(`${r.name} ends turned ${Math.round((turnGap * 180) / Math.PI)}° away from its facing; the game will snap it`);
-          if (Math.abs(g.position.y) > 0.12 && !b.model.body.userData.hover) lab.warnings.push(`${r.name} ends ${g.position.y.toFixed(2)} above/below the floor`);
+          if (Math.abs(g.position.y) > 0.12) lab.warnings.push(`${r.name} ends ${g.position.y.toFixed(2)} above/below the glass`);
         }
       }
+      if (lab._cam) lab.warnings.push('the camera was still taken at the end (release it); it eases home now');
       for (const p of [...lab._puppets.values()]) p.release();
       lab._cam = null;
       lab.timeScale = 1;
@@ -448,15 +467,14 @@ export async function createLab({ container, overlay, scenario: id, capture = fa
       lab.real += dt;
       arena.dt = dt * lab.timeScale;
       arena.skipRender = !draw;
-      arena.frame();
+      arena.frameLoop();
     },
   };
   arena.lab = lab;
+  arena.on((kind, data) => lab.events.push({ t: +lab.real.toFixed(2), kind, ...data }));
 
   // scene.js uses setTimeout for a few delayed effects; run those on the scene clock so slow motion
   // and capture stay in step.
-  const realTimeout = window.setTimeout.bind(window);
-  window.__realSetTimeout = realTimeout;
   let timerId = 1;
   const pending = new Map();
   window.setTimeout = (fn, ms = 0, ...args) => {
