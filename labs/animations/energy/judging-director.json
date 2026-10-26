@@ -1,0 +1,79 @@
+{
+  "scores": [
+    {
+      "entry": "1a-thump",
+      "delight": 6, "surprise": 5, "clarity": 6, "lumen": 6, "craft": 6, "repeat": 6, "overall": 6,
+      "note": "The lift and slam read well and end on a good amber gulp and ring, but the joke's setup (the beat of nothing, the stuttering arcs) is hidden under her body, so the room sees a hop and a power-up. The cough is a full-body amber bloom that pops for two frames."
+    },
+    {
+      "entry": "1c-dead-air",
+      "delight": 5, "surprise": 6, "clarity": 5, "lumen": 5, "craft": 3, "repeat": 3, "overall": 4,
+      "note": "A snap-zoom in, a vignette that crushes Ezra and a snap back out is far too much camera for a moment that comes round several times a game. Her ring is clipped by a hard edge as she arrives, and the camera is still drifting home after the moment ends."
+    },
+    {
+      "entry": "2a-brownout",
+      "delight": 7, "surprise": 8, "clarity": 6, "lumen": 8, "craft": 7, "repeat": 7, "overall": 7,
+      "note": "The dip is smooth (a two-frame sag, a half-recovery, a second sag), and Ezra wilting on the same circuit, then jolting back late, reads at TV size. But Maya never turns amber, so the payoff rests on a HUD number rather than on her."
+    },
+    {
+      "entry": "2c-brownout",
+      "delight": 8, "surprise": 8, "clarity": 8, "lumen": 9, "craft": 6, "repeat": 6, "overall": 8,
+      "note": "The strongest picture on the list: for half a second she is the only lit thing in the room, her ring and pool going amber while the world drops near black, and then the power surges back. The drop is a one-frame cut, the board goes very deep (about a fifth of its light), her ring is clipped as she arrives, and the return overshoots into a bloom flare."
+    },
+    {
+      "entry": "3a-bankers-hand",
+      "delight": 7, "surprise": 7, "clarity": 5, "lumen": 6, "craft": 5, "repeat": 5, "overall": 5,
+      "note": "A cube lobbed from our side is a real surprise, but on screen it strikes her nose, bounces behind her, skids off to her right and melts at the edge of her ring, leaving a stray ring behind. That is too many beats in 1.35 s for one clear path."
+    },
+    {
+      "entry": "3b-for-me",
+      "delight": 8, "surprise": 7, "clarity": 6, "lumen": 5, "craft": 5, "repeat": 4, "overall": 6,
+      "note": "The best acting of the set (the double-take, Ezra's where's-mine), but the cube enters as a huge blooming block that floods the left of the frame with amber and then cuts through her silhouette. The double-take is too small to read at TV size and will wear thin by the fifth charge."
+    },
+    {
+      "entry": "3c-into-focus",
+      "delight": 7, "surprise": 7, "clarity": 7, "lumen": 7, "craft": 6, "repeat": 6, "overall": 6,
+      "note": "The cleanest cube: one lob, a crisp landing ring, a slide in and an amber swirl. The defocused square reads as a glow over the board rather than something on our side of the glass, the 3D cube is small, and the camera push and the ring clip on arrival come from the lab, not the game."
+    },
+    {
+      "entry": "4a-squeezed-out",
+      "delight": 6, "surprise": 6, "clarity": 5, "lumen": 7, "craft": 7, "repeat": 7, "overall": 6,
+      "note": "Tidy, glitch-free and charming up close, and the bolt is the board's own glyph. At real board size, though, the bolt and its shake are a speck, and the payoff is her body washing to peach."
+    },
+    {
+      "entry": "4b-sat-on",
+      "delight": 6, "surprise": 6, "clarity": 5, "lumen": 6, "craft": 6, "repeat": 6, "overall": 5,
+      "note": "The extruded bolt reads as a bright white bean, not a bolt, until it is on her back. The amber burst is strong, but the acting (her double-take, Ezra copying the shake) disappears at TV size."
+    },
+    {
+      "entry": "4c-chronophotograph",
+      "delight": 7, "surprise": 7, "clarity": 6, "lumen": 7, "craft": 5, "repeat": 4, "overall": 5,
+      "note": "The strobe fan is a striking image that echoes Lumen's light trails, but it reads as lightning climbing out of her into the HUD card rather than a hop onto her. It also needs a camera push on every charge, and her ring is clipped as she arrives."
+    },
+    {
+      "entry": "5a-the-well",
+      "delight": 6, "surprise": 6, "clarity": 5, "lumen": 9, "craft": 7, "repeat": 8, "overall": 6,
+      "note": "The most Lumen of the set and the calmest (about a second, no glitches). But the dark well is mostly hidden under her body and the drop is a hairline, so at TV size it is an amber ring that comes and goes."
+    },
+    {
+      "entry": "5b-dont-look-down",
+      "delight": 7, "surprise": 7, "clarity": 6, "lumen": 8, "craft": 6, "repeat": 5, "overall": 6,
+      "note": "The acting reads: she glows, the hole opens, she looks down and sinks, a drop plinks and she bobs back up. But it shows a pit where the battery is, a real misreading risk in a game where pits matter. Her red also goes to salmon, and it snaps back in about three frames at the end."
+    },
+    {
+      "entry": "5c-edgerton-drop",
+      "delight": 7, "surprise": 7, "clarity": 5, "lumen": 8, "craft": 5, "repeat": 3, "overall": 5,
+      "note": "Gorgeous in stills, but a camera tilt into the sky, a hidden card and slow motion belong to a finale, not to a small reward that comes several times a game. The splash crown is too small to read, and her ring is clipped as she arrives."
+    }
+  ],
+  "winner": {
+    "entry": "2c-brownout",
+    "why": "It is the only entry that reads at real board size with no fine detail: for half a second the whole room goes dark and Maya alone keeps her light, her ring and pool turning amber, so everyone sees who charged and that it was a charge. It is pure Lumen (light and its absence, nothing new drawn on the board) and moves no robot, so it never gets in the game's way. It also scales to the real case: when several robots charge on one register, every one of them stays lit in the dark.",
+    "port": "Ease the first sag over two or three frames instead of a one-frame cut (2a's start is right), cap the depth at roughly 30-40% of normal light rather than near black, and drop the bloom overshoot on the return so it never reads as a flash. Play it after the game's own move (the clip on her ring as she arrives comes from the lab's puppet move), and keep the camera still (drop the FOV breath). In scene.js, run topMat, spill, motes, key/hemi and the other robots' glows through one dimming factor and restore it in a finally. The HUD takes the same factor, but each charger's energy readout stays lit. Every robot that charges on the register keeps its light. Deepen the dip a little per charger, with a cap, and consider making it shallower after the first few charges of a game."
+  },
+  "runner_up": {
+    "entry": "2a-brownout",
+    "why": "The same idea with better manners: a two-frame sag, a half-recovery and a second sag that feel like real house lights, at a gentler depth that will last a whole game. Ezra wilting and jolting back a beat late reads at TV size and makes every other robot part of the joke. It loses to 2c only because Maya herself never shows the amber; its timing and Ezra's wilt belong in the port.",
+    "port": "Give Maya 2c's amber ring, pool and eye so the payoff is on her, not on a HUD number. The wilt must apply to every robot that is not charging and hand each one back exactly at its rest pose and facing. Keep the lean small so nobody misreads which way a robot faces. It touches the same things as 2c (topMat, spill, background, a HUD factor) and needs no camera move."
+  }
+}
