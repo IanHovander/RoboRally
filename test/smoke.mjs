@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 import { io } from 'socket.io-client';
 
-const PORT = 3199;
+const PORT = Number(process.env.TEST_PORT) || 3199; // TEST_PORT lets two test runs share a computer
 let URL = process.env.URL;
 let server = null;
 let failures = 0;

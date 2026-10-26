@@ -322,7 +322,7 @@ const at = (R) => `${R.x},${R.y},${'NESW'[R.d]}`;
 // 2. A real game through the server
 // ---------------------------------------------------------------------------------------------
 
-const PORT = 3197;
+const PORT = Number(process.env.TEST_PORT) + 1 || 3197; // (TEST_PORT: see smoke.mjs)
 const URL = `http://localhost:${PORT}`;
 const server = spawn(process.execPath, ['server/index.js', '--port', String(PORT)], { stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((ok) => server.stdout.on('data', (d) => String(d).includes('Press Ctrl+C') && ok()));
