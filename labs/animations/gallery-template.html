@@ -1,0 +1,297 @@
+<title>Lumen Animation Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one dark room. A strip of moments on top, then the chosen moment: its rules, today's animation,
+     and its five ideas, each shown three ways side by side. Single dark look on purpose (it's Lumen). */
+  :root {
+    --void: #06080b;
+    --glass: #0d1117;
+    --glass-2: #121821;
+    --edge: #222b38;
+    --light: #f4efe4;
+    --dim: #a3abb8;
+    --faint: #6d7684;
+    --energy: #ffc56e;
+    --lens-a: #7fe3c3;
+    --lens-b: #ff8fa3;
+    --lens-c: #9cc8ff;
+    --display: "Roboto Flex", "Roboto", "Segoe UI", system-ui, sans-serif;
+    --body: "Roboto Flex", "Roboto", "Segoe UI", system-ui, sans-serif;
+    --mono: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--void);
+    color: var(--light);
+    font: 400 15px/1.55 var(--body);
+    font-variation-settings: "wdth" 100, "opsz" 14;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 64px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 28px; }
+  a { color: var(--lens-c); }
+  .eyebrow, .label, .chip, nav button {
+    font-family: var(--display);
+    font-variation-settings: "wdth" 125, "opsz" 12;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .eyebrow { color: var(--faint); margin: 0; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; font-family: var(--display); }
+  h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 200; font-variation-settings: "wdth" 130, "opsz" 72; letter-spacing: 0.02em; line-height: 1.05; }
+  h2 { font-size: clamp(26px, 4vw, 38px); font-weight: 250; font-variation-settings: "wdth" 120, "opsz" 48; }
+  h3 { font-size: 20px; font-weight: 400; font-variation-settings: "wdth" 110, "opsz" 24; }
+  p { margin: 0; }
+  header.top { display: grid; gap: 12px; }
+  .lede { color: var(--dim); max-width: 68ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--dim); font-size: 13px; }
+  .legend span { display: inline-flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; flex: none; }
+  .a { color: var(--lens-a); } .b { color: var(--lens-b); } .c { color: var(--lens-c); }
+
+  nav.moments { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+  nav button {
+    flex: none; display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; color: var(--dim); border: 1px solid var(--edge); border-radius: 999px; padding: 8px 14px; cursor: pointer;
+  }
+  nav button:hover { color: var(--light); border-color: var(--faint); }
+  nav button[aria-current="true"] { color: var(--void); background: var(--light); border-color: var(--light); }
+  nav button .dot { width: 6px; height: 6px; }
+  nav button.pending { opacity: 0.55; }
+  nav button.pending .dot { color: var(--faint); box-shadow: none; }
+  nav button:focus-visible, .take video:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--lens-c); outline-offset: 2px; }
+
+  .intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 24px; align-items: start; }
+  .intro .text { display: grid; gap: 14px; min-width: 0; }
+  .what { font-size: 17px; max-width: 60ch; }
+  dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; color: var(--dim); font-size: 14px; }
+  dt { color: var(--faint); }
+  dd { margin: 0; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--faint); }
+
+  .vid { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #000; border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+  .vid video { width: 100%; height: 100%; display: block; object-fit: cover; cursor: zoom-in; }
+  .vid .missing { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 13px; padding: 12px; text-align: center; }
+  .baseline { display: grid; gap: 8px; }
+  .baseline .label { color: var(--faint); }
+
+  .ideas { display: grid; gap: 40px; }
+  .idea { display: grid; gap: 14px; padding-top: 22px; border-top: 1px solid var(--edge); }
+  .idea header { display: grid; gap: 6px; max-width: 80ch; }
+  .idea header .row { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .idea .twist { color: var(--dim); }
+  .idea .twist b { color: var(--energy); font-weight: 500; }
+  .takes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+  .take { display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .take .chip { display: inline-flex; gap: 8px; align-items: center; }
+  .take h4 { margin: 0; font: 500 15px/1.35 var(--body); }
+  .take p { color: var(--dim); font-size: 13.5px; }
+  .take .meta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .warn { color: var(--energy); font-size: 12px; }
+
+  details.all { border: 1px solid var(--edge); border-radius: 8px; background: var(--glass); }
+  details.all summary { cursor: pointer; padding: 14px 16px; font-family: var(--display); font-variation-settings: "wdth" 115; letter-spacing: 0.04em; }
+  details.all .inner { padding: 0 16px 18px; display: grid; gap: 16px; }
+  .banned { color: var(--faint); font-size: 13.5px; }
+  .banned b { color: var(--dim); font-weight: 500; }
+  ol.fifty { margin: 0; padding-left: 2.2em; display: grid; gap: 8px; color: var(--dim); font-size: 14px; max-width: 90ch; }
+  ol.fifty li.picked { color: var(--light); }
+  ol.fifty li.picked::marker { color: var(--energy); }
+  ol.fifty em { color: var(--faint); font-style: normal; }
+  .pending-note { color: var(--dim); padding: 28px; border: 1px dashed var(--edge); border-radius: 8px; }
+
+  .viewer { position: fixed; inset: 0; z-index: 20; background: rgba(3, 4, 6, 0.94); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .viewer .box { width: min(1100px, 100%); display: grid; gap: 10px; }
+  .viewer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; }
+  .viewer .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .viewer .bar .t { color: var(--dim); min-width: 0; }
+  .viewer button { background: var(--glass-2); color: var(--light); border: 1px solid var(--edge); border-radius: 999px; padding: 6px 14px; font: 500 13px var(--body); cursor: pointer; }
+  .viewer button[aria-pressed="true"] { background: var(--light); color: var(--void); }
+  @media (max-width: 760px) { .intro { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .dot { box-shadow: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Robo Rally · Lumen look</p>
+    <h1>Animation Lab</h1>
+    <p class="lede" id="lede"></p>
+    <div class="legend">
+      <span class="a"><i class="dot"></i><span>Animator A · weight &amp; physical comedy</span></span>
+      <span class="b"><i class="dot"></i><span>Animator B · character acting</span></span>
+      <span class="c"><i class="dot"></i><span>Animator C · cinematic &amp; light staging</span></span>
+    </div>
+  </header>
+  <nav class="moments" id="nav" aria-label="Moments"></nav>
+  <main id="moment"></main>
+</div>
+<div class="viewer" id="viewer" hidden>
+  <div class="box">
+    <video id="big" controls muted loop playsinline></video>
+    <div class="bar">
+      <span class="t" id="bigTitle"></span>
+      <span>
+        <button data-rate="1" aria-pressed="true">1×</button>
+        <button data-rate="0.5" aria-pressed="false">½×</button>
+        <button data-rate="0.25" aria-pressed="false">¼×</button>
+        <button id="close">Close</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const LENS = { a: 'Weight & physical comedy', b: 'Character acting', c: 'Cinematic & light staging' };
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const done = DATA.moments.filter((m) => m.status === 'ready').length;
+  const takes = DATA.moments.reduce((n, m) => n + m.picks.reduce((k, p) => k + p.takes.filter((t) => t.video).length, 0), 0);
+  document.getElementById('lede').textContent =
+    `${DATA.moments.length} moments from a game of Robo Rally. For each one an agent wrote 50 animation ideas with the obvious ones banned, a second agent picked the five most delightful, and three animators working separately each animated all five in their own style. ${done} of ${DATA.moments.length} moments are in, with ${takes} animations so far. Tap any video to watch it big and slowed down.`;
+
+  const nav = document.getElementById('nav');
+  const main = document.getElementById('moment');
+  function renderNav(current) {
+    nav.innerHTML = DATA.moments
+      .map((m) => `<button type="button" data-id="${m.id}" class="${m.status === 'ready' ? '' : 'pending'}" aria-current="${m.id === current}"><i class="dot"></i>${esc(m.short)}</button>`)
+      .join('');
+  }
+  const video = (src, poster, title) =>
+    src
+      ? `<div class="vid"><video muted loop playsinline preload="none" ${poster ? `poster="${poster}"` : ''} data-src="${src}" data-title="${esc(title)}" tabindex="0" aria-label="${esc(title)}"></video></div>`
+      : `<div class="vid"><div class="missing">Still being animated</div></div>`;
+
+  function renderMoment(id) {
+    const m = DATA.moments.find((x) => x.id === id) ?? DATA.moments[0];
+    renderNav(m.id);
+    const intro = `
+      <section class="intro">
+        <div class="text">
+          <p class="eyebrow">Moment</p>
+          <h2>${esc(m.title)}</h2>
+          <p class="what">${esc(m.what)}</p>
+          <dl>
+            <dt>Rule</dt><dd>${esc(m.rule)}</dd>
+            <dt>How often</dt><dd>${esc(m.often)}</dd>
+            <dt>Time budget</dt><dd>${m.budget} s for the moment</dd>
+          </dl>
+        </div>
+        <div class="baseline">
+          <p class="label">Today in Lumen</p>
+          ${video(m.baseline?.video, m.baseline?.poster, `${m.title}: today in Lumen`)}
+        </div>
+      </section>`;
+    if (m.status !== 'ready' && !m.picks.length) {
+      main.innerHTML = intro + `<p class="pending-note">This moment is still in the works: the ideas, the picks and the three animators' versions will appear here when they're done.</p>`;
+      wire();
+      return;
+    }
+    const picked = new Set(m.picks.map((p) => p.idea));
+    const ideas = m.picks
+      .map(
+        (p) => `
+      <article class="idea">
+        <header>
+          <div class="row"><p class="eyebrow">Pick ${p.n} · idea ${p.idea} of ${m.ideas.length || 50}</p></div>
+          <h3>${esc(p.title)}</h3>
+          <p>${esc(p.description)}</p>
+          <p class="twist"><b>Twist</b> ${esc(p.twist)}</p>
+        </header>
+        <div class="takes">
+          ${['a', 'b', 'c']
+            .map((k) => {
+              const t = p.takes.find((x) => x.lens === k) ?? {};
+              return `<div class="take">
+                ${video(t.video, t.poster, `${p.title} · ${LENS[k]}${t.title ? ': ' + t.title : ''}`)}
+                <span class="chip ${k}"><i class="dot"></i>${LENS[k]}</span>
+                <h4>${esc(t.title ?? '…')}</h4>
+                ${t.what ? `<p>${esc(t.what)}</p>` : ''}
+                <div class="meta">${t.moment ? `<span class="num">${t.moment.toFixed(2)} s</span>` : ''}${t.warnings?.length ? `<span class="warn">⚠ ${esc(t.warnings.join(' · '))}</span>` : ''}</div>
+              </div>`;
+            })
+            .join('')}
+        </div>
+      </article>`,
+      )
+      .join('');
+    const all = m.ideas.length
+      ? `<details class="all">
+          <summary>All ${m.ideas.length} ideas for this moment</summary>
+          <div class="inner">
+            ${m.banned.length ? `<p class="banned"><b>Banned as too obvious:</b> ${m.banned.map(esc).join(' · ')}</p>` : ''}
+            <ol class="fifty">${m.ideas.map((i) => `<li value="${i.n}" class="${picked.has(i.n) ? 'picked' : ''}"><strong>${esc(i.title)}</strong> ${esc(i.text)}${i.twist ? ` <em>Twist: ${esc(i.twist)}</em>` : ''}</li>`).join('')}</ol>
+          </div>
+        </details>`
+      : '';
+    main.innerHTML = intro + `<section class="ideas">${ideas}</section>` + all;
+    wire();
+  }
+
+  // videos load and play only while on screen
+  let io;
+  function wire() {
+    io?.disconnect();
+    io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const v = e.target;
+          if (e.isIntersecting) {
+            if (!v.src) v.src = v.dataset.src;
+            v.play().catch(() => {});
+          } else v.pause();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    for (const v of main.querySelectorAll('video[data-src]')) {
+      io.observe(v);
+      const open = () => openViewer(v.dataset.src, v.dataset.title);
+      v.addEventListener('click', open);
+      v.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open()));
+    }
+  }
+
+  const viewer = document.getElementById('viewer');
+  const big = document.getElementById('big');
+  function setRate(r) {
+    big.playbackRate = r;
+    for (const b of viewer.querySelectorAll('[data-rate]')) b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === r));
+  }
+  function openViewer(src, title) {
+    big.src = src;
+    document.getElementById('bigTitle').textContent = title;
+    viewer.hidden = false;
+    setRate(1);
+    big.play().catch(() => {});
+  }
+  function closeViewer() {
+    big.pause();
+    viewer.hidden = true;
+  }
+  viewer.addEventListener('click', (e) => e.target === viewer && closeViewer());
+  document.getElementById('close').onclick = closeViewer;
+  for (const b of viewer.querySelectorAll('[data-rate]')) b.onclick = () => setRate(Number(b.dataset.rate));
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && !viewer.hidden && closeViewer());
+
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-id]');
+    if (!b) return;
+    renderMoment(b.dataset.id);
+    try { history.replaceState(null, '', '#' + b.dataset.id); } catch {}
+    try { localStorage.setItem('moment', b.dataset.id); } catch {}
+  });
+  let start = location.hash.slice(1);
+  if (!DATA.moments.some((m) => m.id === start)) {
+    try { start = localStorage.getItem('moment'); } catch {}
+  }
+  if (!DATA.moments.some((m) => m.id === start)) start = (DATA.moments.find((m) => m.status === 'ready') ?? DATA.moments[0]).id;
+  renderMoment(start);
+</script>
