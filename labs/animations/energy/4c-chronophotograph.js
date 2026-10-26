@@ -160,8 +160,8 @@ export default async function play(lab) {
   const SHAKE = 0.94; // shakes itself off
   const CROUCH = 1.12; // crouches
   const HOP = 1.24; // hops (the apex hangs, like a replay)
-  const DIVE = 1.66; // dives into her back
-  const END = 2.24;
+  const DIVE = 1.72; // dives into her back
+  const END = 2.28;
   const FRONT = at.clone().add(new THREE.Vector3(0.32, 0, 0.78)); // the edge of her ring, on our side
   const BACK = at.clone().add(new THREE.Vector3(-0.1, 0.3, -0.04)); // her back
 
@@ -216,13 +216,13 @@ export default async function play(lab) {
       const u = k < 0.5 ? 0.5 * (2 * k) ** 0.55 : 1 - 0.5 * (2 - 2 * k) ** 0.55;
       hop = u;
       pos = FRONT.clone().lerp(BACK, u);
-      pos.y = mix(0, BACK.y, u) + Math.sin(u * Math.PI) * 0.55;
+      pos.y = mix(0, BACK.y, u) + Math.sin(u * Math.PI) * 0.85;
       const launch = 1 - seg(T, HOP, HOP + 0.08);
       sy = mix(1.3, 1, 1 - launch) * (1 + 0.15 * Math.sin(u * Math.PI));
       sx = 1 - 0.15 * Math.sin(u * Math.PI);
       tilt = -EL * 0.7 + mix(0, 0.9, ease.in(u)); // nose over into the dive
       wig = -0.25 * Math.sin(u * Math.PI);
-      lit = 3;
+      lit = 2.7;
       // the multiple exposure: a frozen copy at even steps along the arc
       const n = Math.floor(u * 8);
       if (n !== lastGhost && n >= 1 && n <= 7) {
@@ -254,7 +254,7 @@ export default async function play(lab) {
     mat.color.set(PALETTE.energy).multiplyScalar(lit);
     for (const g of ghosts) {
       const age = T - g.userData.born;
-      g.material.color.set(PALETTE.energy).multiplyScalar(1.7 * Math.max(0, 1 - age / 0.55) ** 1.3);
+      g.material.color.set(PALETTE.energy).multiplyScalar(1.3 * Math.max(0, 1 - age / 0.55) ** 1.3);
       g.visible = age < 0.55;
     }
 

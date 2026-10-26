@@ -269,12 +269,12 @@ export default async function play(lab) {
     lean = 0.05 * i;
     if (tallies[i]) tallies[i].material.opacity = 1;
     await lab.tween(0.07, (e) => {
-      birdNow.copy(OUT).add(new THREE.Vector3(0, 0.07 * e, 0.03 * e));
-      birdRot = 0.28 * e;
+      birdNow.copy(OUT).add(new THREE.Vector3(0.03 * e, 0.12 * e, 0.06 * e));
+      birdRot = 0.42 * e;
     }, ease.out);
     await lab.tween(0.08, (e) => {
-      birdNow.copy(OUT).add(new THREE.Vector3(0, 0.07 * (1 - e), 0.03 * (1 - e)));
-      birdRot = 0.28 * (1 - e);
+      birdNow.copy(OUT).add(new THREE.Vector3(0.03 * (1 - e), 0.12 * (1 - e), 0.06 * (1 - e)));
+      birdRot = 0.42 * (1 - e);
     }, ease.inOut);
     open = false;
   };

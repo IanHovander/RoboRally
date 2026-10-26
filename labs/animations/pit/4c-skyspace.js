@@ -21,6 +21,12 @@ export default async function play(lab) {
   ceiling.position.y = CEIL;
   ceiling.visible = false;
   lab.add(ceiling);
+  // above the hole: nothing at all (pure black, so the aperture reads as a hole into the void)
+  const voidPlane = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }));
+  voidPlane.rotation.x = Math.PI / 2;
+  voidPlane.position.y = 3;
+  voidPlane.visible = false;
+  lab.add(voidPlane);
   const fill = new THREE.PointLight(0xfff1e0, 0, 6, 1.4);
   lab.add(fill);
   let under = false;
@@ -36,7 +42,7 @@ export default async function play(lab) {
   const pit = W(4, 1, CEIL);
   const UNDER = { target: pit.clone(), az: 0, el: -1.48, dist: 2.25, fov: 52 };
   const camPos = new THREE.Vector3(pit.x + Math.sin(UNDER.az) * Math.cos(UNDER.el) * UNDER.dist, pit.y + Math.sin(UNDER.el) * UNDER.dist, pit.z + Math.cos(UNDER.az) * Math.cos(UNDER.el) * UNDER.dist);
-  fill.position.copy(camPos).add(new THREE.Vector3(0.4, 0.3, 0.2));
+  fill.position.copy(camPos).add(new THREE.Vector3(0.7, 0.5, 0.5));
 
   // ---------- the lens: a smudge of her light, and the dark ----------
   const dark = document.createElement('div');
@@ -77,19 +83,21 @@ export default async function play(lab) {
   under = true;
   arena.board.visible = false;
   ceiling.visible = true;
-  fill.intensity = 2.2;
+  voidPlane.visible = true;
+  fill.intensity = 0.8;
+  maya.bot.trail.length = 0;
   glowUp = 1;
   const releaseCam = lab.camera(() => ({ ...UNDER, target: UNDER.target.clone() }));
   maya.set({ x: 4, y: 1, lift: 0.5, pitch: 0.7, trail: false, visible: false });
 
   // the skyspace: a beat of stillness
-  await lab.wait(0.22);
+  await lab.wait(0.4);
 
   // she drops out of the square at us, turning her eye to face us, growing fast
   maya.set({ visible: true });
-  const start = W(4, 1, 0.25);
+  const start = W(4, 1, 1.4);
   const end = camPos.clone().add(new THREE.Vector3(0, 0.38, 0));
-  await lab.tween(0.4, (e, k) => {
+  await lab.tween(0.46, (e, k) => {
     const p = start.clone().lerp(end, e);
     // world -> spaces for the puppet (one space = one unit; offsets are the same)
     maya.set({ x: 4 + (p.x - start.x), y: 1 + (p.z - start.z), lift: p.y, pitch: 0.7 + (Math.PI - 0.55) * ease.out(k), roll: 0.25 * Math.sin(k * 3) });
@@ -98,28 +106,32 @@ export default async function play(lab) {
 
   // the lens: her light presses flat across the screen, slides a little, fades to dark
   maya.set({ visible: false });
-  wash.style.opacity = '1';
+  wash.style.opacity = '0.55';
   smudge.style.opacity = '1';
   await lab.tween(0.09, (e) => {
     smudge.style.transform = `scale(${0.7 + 0.45 * e}, ${0.7 + 0.36 * e}) rotate(${-6 + 4 * e}deg)`;
-    wash.style.opacity = String(1 - 0.5 * e);
+    wash.style.opacity = String(0.55 - 0.25 * e);
   }, ease.out);
   await lab.tween(0.55, (e, k) => {
     smudge.style.transform = `translateY(${7 * e}%) scale(${1.15 + 0.04 * e}, ${1.06 + 0.1 * e}) rotate(-2deg)`;
     smudge.style.opacity = String(1 - ease.in(k));
-    wash.style.opacity = String(0.5 * (1 - k));
+    wash.style.opacity = String(0.3 * (1 - k));
     dark.style.opacity = String(ease.inOut(Math.min(1, k * 1.3)));
   }, ease.out);
   dark.style.opacity = '1';
-  await lab.wait(0.1);
+  await lab.wait(0.04);
 
   // HARD CUT back: the calm board from the usual camera, the hole empty
   releaseCam();
   if (before) arena.camCur = before;
+  lab.camera3.fov = 30;
+  lab.camera3.updateProjectionMatrix();
+  maya.bot.trail.length = 0;
   under = false;
   stopUnder();
   arena.board.visible = true;
   ceiling.visible = false;
+  voidPlane.visible = false;
   fill.intensity = 0;
   maya.release({ on: false });
   await lab.wait(1 / 30); // let the board draw once before the dark lifts
@@ -148,9 +160,9 @@ function ceilingTex(THREE, course) {
   g.save();
   g.filter = 'blur(10px)';
   const grad = g.createRadialGradient(bx + bw / 2, by + bh / 2, 0, bx + bw / 2, by + bh / 2, bw * 0.62);
-  grad.addColorStop(0, 'rgba(244,239,228,.62)');
-  grad.addColorStop(0.6, 'rgba(214,208,198,.42)');
-  grad.addColorStop(1, 'rgba(150,150,150,.22)');
+  grad.addColorStop(0, 'rgba(250,244,232,.8)');
+  grad.addColorStop(0.45, 'rgba(226,218,204,.5)');
+  grad.addColorStop(1, 'rgba(120,124,132,.16)');
   g.fillStyle = grad;
   g.fillRect(bx + 4, by + 4, bw - 8, bh - 8);
   g.restore();
@@ -196,12 +208,13 @@ function smudgeSvg() {
   return `<svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" style="position:absolute;inset:0">
   <defs>
     <radialGradient id="lab4c-r" cx="50%" cy="48%" r="55%"><stop offset="0" stop-color="#ff8aa0" stop-opacity=".95"/><stop offset=".55" stop-color="#ff4d6d" stop-opacity=".8"/><stop offset="1" stop-color="#b0183a" stop-opacity=".55"/></radialGradient>
-    <filter id="lab4c-b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="lab4c-b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="lab4c-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
     <filter id="lab4c-e" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="9 5"/></filter>
   </defs>
-  <g transform="translate(500 520) scale(2.15 1.75) translate(-500 -500)">
-    <path d="${d}" fill="url(#lab4c-r)" filter="url(#lab4c-b)"/>
-    <path d="${d}" fill="none" stroke="#ffc0cc" stroke-opacity=".7" stroke-width="10" filter="url(#lab4c-b)"/>
+  <g transform="translate(500 520) scale(1.3 1.05) translate(-500 -500)">
+    <path d="${d}" fill="url(#lab4c-r)" fill-opacity=".75" filter="url(#lab4c-b)"/>
+    <path d="${d}" fill="none" stroke="#ffd0d8" stroke-opacity=".9" stroke-width="9" filter="url(#lab4c-s)"/>
     <rect x="430" y="${(500 - 0.155 * 1000).toFixed(0)}" width="140" height="26" rx="13" fill="#fff6ea" filter="url(#lab4c-e)"/>
     <rect x="455" y="${(500 - 0.148 * 1000).toFixed(0)}" width="90" height="10" rx="5" fill="#ffffff"/>
   </g>

@@ -79,7 +79,7 @@ export default async function play(lab) {
       // the whip: a sideways S travelling toward the head, growing as it goes
       if (R.wave) {
         const d = u - R.phase;
-        z += R.wave * Math.exp(-(d * d) / 0.02) * Math.sin(d * 28) * (0.4 + u);
+        z += R.wave * Math.exp(-(d * d) / 0.035) * Math.sin(d * 13) * (0.5 + u);
       }
       // the crumple: folds like a dropped ribbon, heaped on the space behind her
       if (R.crumple) {
