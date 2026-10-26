@@ -31,6 +31,28 @@ html.host body { overflow: hidden; }
   box-shadow: 0 0 3rem rgba(244, 239, 228, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 .join-qr img { display: block; width: min(15rem, 22vw); aspect-ratio: 1; image-rendering: pixelated; border-radius: 0.4rem; }
+/* only the QR shows; the address appears under it on hover, or when it's held down on a touch screen */
+.join-scan { position: relative; z-index: 2; align-self: stretch; display: flex; flex-direction: column; align-items: center; }
+.join-qr { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.join-reveal {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 1.1rem 0 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  border-radius: 0 0 1rem 1rem;
+  background: rgba(6, 8, 11, 0.92);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0s 0.2s;
+}
+.join-qr:hover + .join-reveal,
+.join-reveal:hover,
+.join-scan.reveal .join-reveal { opacity: 1; visibility: visible; transition: opacity 0.2s; }
 /* QR — or — the address (which, on the website, already has the room code in it) */
 .join-or {
   display: flex;
@@ -48,9 +70,10 @@ html.host body { overflow: hidden; }
 .join-or::after { content: ""; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--hair2)); }
 .join-or::after { background: linear-gradient(to left, transparent, var(--hair2)); }
 /* the same thin, tracked type as the wordmark; host.js sizes it to exactly the QR card's width */
-.join-link { width: 100%; font-size: 2.2rem; font-weight: 200; line-height: 1.22; letter-spacing: 0.06em; color: var(--light); text-align: center; }
+.join-link { display: block; width: 100%; text-decoration: none; cursor: pointer; font-size: 2.2rem; font-weight: 200; line-height: 1.22; letter-spacing: 0.06em; color: var(--light); text-align: center; }
 .join-link span { display: block; width: max-content; margin: 0 auto; padding-left: 0.06em; white-space: nowrap; } /* (balances the tracking after the last letter) */
 .join-link b { font-weight: inherit; }
+.join-link:hover { color: #fff; }
 .join-local { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: var(--dim); letter-spacing: 0.04em; }
 .join-local svg { width: 1.6rem; height: 1.6rem; color: var(--faint); }
 .join-local b { font-weight: 400; }

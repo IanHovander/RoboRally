@@ -147,6 +147,8 @@ function renderJoinLink(join) {
   const el = $('join-link');
   if (text !== shownAddress) {
     shownAddress = text;
+    if (join.url) el.href = join.url;
+    else el.removeAttribute('href');
     const cut = text.indexOf('/');
     let lines = cut > 0 ? [text.slice(0, cut), text.slice(cut)] : [text];
     if (lines[0].length > 24 && lines[0].indexOf('.') > 0) {
@@ -179,6 +181,26 @@ function fitJoinLink() {
 }
 addEventListener('resize', fitJoinLink);
 document.fonts?.ready.then(fitJoinLink);
+
+// Touch screens have no hover: holding the QR down shows the address; touching anywhere else hides it.
+{
+  const scan = $('join-scan');
+  let hold = null;
+  const cancel = () => clearTimeout(hold);
+  scan.querySelector('.join-qr').addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    cancel();
+    hold = setTimeout(() => {
+      scan.classList.add('reveal');
+      fitJoinLink();
+    }, 400);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) scan.addEventListener(type, cancel);
+  scan.addEventListener('contextmenu', (e) => e.target.closest('.join-qr') && e.preventDefault());
+  document.addEventListener('pointerdown', (e) => {
+    if (!scan.contains(e.target)) scan.classList.remove('reveal');
+  });
+}
 
 function renderLobby(room) {
   renderJoinLink(room.join);

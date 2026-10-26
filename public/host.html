@@ -17,10 +17,15 @@
     <div id="lesson-ui" class="lesson-ui"></div>
     <aside class="join">
       <div class="wordmark" aria-label="Robo Rally">Robo<b> </b>Rally</div>
-      <div class="join-qr"><img id="qr" alt="Scan to join on your phone"></div>
-      <div class="join-or" aria-hidden="true">or</div>
-      <!-- the address to type: on the website it already has the room code in it -->
-      <div id="join-link" class="join-link"></div>
+      <!-- just the QR; hovering it (or holding it down on a touch screen) shows the address, which opens in a new tab -->
+      <div id="join-scan" class="join-scan">
+        <div class="join-qr"><img id="qr" alt="Scan to join on your phone" draggable="false"></div>
+        <div class="join-reveal">
+          <div class="join-or" aria-hidden="true">or</div>
+          <!-- the address to type: on the website it already has the room code in it -->
+          <a id="join-link" class="join-link" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
       <div id="join-local" class="join-local" hidden title="On this Wi-Fi"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 16 a17 17 0 0 1 24 0 M12.5 20.5 a10.5 10.5 0 0 1 15 0 M17 25 a4 4 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="29.5" r="1.9" fill="currentColor"/></svg><b id="join-local-text"></b></div>
       <div id="players" class="lobby-players"></div>
       <div id="last-result" class="last-result" hidden></div>
