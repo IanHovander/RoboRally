@@ -294,7 +294,8 @@ export default async function play(lab) {
     const close = cam.snap * (1 - cam.home) > 0.25;
     for (const key of ['a', 'b']) {
       const tag = lab.bot(key).tag;
-      if (tag && close) tag.visible = false;
+      // (Maya's record still says "off the board" until release, so the game won't turn hers back on: we do)
+      if (tag) tag.visible = !close && arena.showNames;
     }
   });
 

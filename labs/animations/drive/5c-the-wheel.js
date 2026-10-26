@@ -75,6 +75,9 @@ export default async function play(lab) {
     cardMat.map = sp.material.map;
     cardMat.opacity = sp.material.opacity;
     card.position.copy(sp.position);
+    // a lever, not a sign: tipped forward it's pushed away (up the picture), tipped back it's pulled toward the room
+    const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    card.position.addScaledVector(camUp, 0.16 * tip);
     card.quaternion.copy(cam.quaternion);
     card.rotateX(-tip);
     card.rotateZ(wheel);
@@ -134,51 +137,51 @@ export default async function play(lab) {
   signal();
   await lab.tween(0.1, (e) => (tip = 0.95 * e), ease.out3);
   let gone = false;
-  await lab.tween(0.56, (e, k) => {
+  await lab.tween(0.52, (e, k) => {
     maya.set({ x: 1 + 2 * e, pitch: -0.08 * Math.sin(Math.min(1, k * 2) * Math.PI) + 0.06 * Math.max(0, Math.sin((k - 0.5) * 2 * Math.PI)) });
     if (k > 0.55 && !gone) {
       gone = true;
       letGo(0.45);
     }
   }, ease.inOut);
-  await lab.wait(0.12);
+  await lab.wait(0.06);
 
-  // ---- Rotate Right: the wheel ----
+  // ---- Rotate Right: the wheel, and she follows a split second later ----
   lab.playCard('a', ['rr']);
   await lab.wait(0.12);
   signal();
-  await lab.tween(0.11, (e) => (wheel = (-Math.PI / 2) * e), ease.out3);
-  await lab.tween(0.28, (e) => maya.set({ rot: facing(1) + (facing(2) - facing(1)) * e, roll: 0.08 * Math.sin(e * Math.PI) }), ease.out3);
-  letGo(0.45);
-  await lab.wait(0.14);
+  lab.tween(0.12, (e) => (wheel = (-Math.PI / 2) * e), ease.out3).then(() => letGo(0.45));
+  await lab.wait(0.07);
+  await lab.tween(0.3, (e) => maya.set({ rot: facing(1) + (facing(2) - facing(1)) * e, roll: 0.08 * Math.sin(e * Math.PI) }), ease.out3);
+  await lab.wait(0.06);
 
   // ---- Move Back: reverse ----
   lab.playCard('a', ['bk']);
   await lab.wait(0.12);
   signal();
   gone = false;
-  await lab.tween(0.1, (e) => (tip = -0.85 * e), ease.out3);
-  await lab.tween(0.36, (e, k) => {
+  lab.tween(0.1, (e) => (tip = -1.0 * e), ease.out3);
+  await lab.wait(0.06);
+  await lab.tween(0.34, (e, k) => {
     maya.set({ y: 2 - e, pitch: 0.06 * Math.sin(k * Math.PI) });
-    if (k > 0.6 && !gone) {
+    if (k > 0.5 && !gone) {
       gone = true;
       letGo(0.4);
     }
   }, ease.inOut);
-  await lab.wait(0.1);
+  await lab.wait(0.06);
 
-  // ---- U-Turn: hand over hand ----
+  // ---- U-Turn: hand over hand, then let go and it spins back square ----
   lab.playCard('a', ['ut']);
   await lab.wait(0.12);
   signal();
-  const spin = lab.tween(0.42, (e) => maya.set({ rot: facing(2) - Math.PI * e }), ease.inOut);
+  lab.wait(0.06).then(() => lab.tween(0.4, (e) => maya.set({ rot: facing(2) - Math.PI * e }), ease.inOut));
   await lab.tween(0.1, (e) => (wheel = (-Math.PI / 2) * e), ease.out3);
-  await lab.wait(0.04);
+  await lab.wait(0.03);
   await lab.tween(0.1, (e) => (wheel = -Math.PI / 2 - (Math.PI / 2) * e), ease.out3);
-  await spin;
-  // let go: it spins back through loose hands
-  await lab.tween(0.42, (e) => (wheel = -Math.PI * (1 - e)), (k) => ease.outBack(k, 1.4));
-  await lab.wait(0.04);
+  await lab.wait(0.05);
+  await lab.tween(0.38, (e) => (wheel = -Math.PI * (1 - e)), (k) => ease.outBack(k, 1.4));
+  await lab.wait(0.03);
 
   // hand the card back to the game's sprite (same place, same size, square again)
   wheel = 0;
