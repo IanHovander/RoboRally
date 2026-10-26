@@ -95,6 +95,26 @@ function resolveTarget(t) {
   return { scenario, name: path.basename(abs, '.js'), anim: `/labs/animations/${rel}` };
 }
 
+// A frozen page (an animation stuck in a loop) would otherwise hold its slot forever and stall everyone queued.
+const STEP_MS = Number(process.env.LAB_STEP_MS ?? 60 * 1000); // one frame, a screenshot, a page load
+const FILE_MS = 12 * 60 * 1000; // one whole animation
+let fileDeadline = Infinity;
+function guard(promise, what, ms = STEP_MS) {
+  const left = Math.max(1000, Math.min(ms, fileDeadline - Date.now()));
+  let timer;
+  const timeout = new Promise((_, fail) => (timer = setTimeout(() => fail(new Error(`stuck: ${what} took over ${Math.round(left / 1000)}s (the page froze or the animation never ends)`)), left)));
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+/** Kill this render's browser processes (a frozen page can't be closed politely). */
+function killBrowsers() {
+  for (const pid of fs.readdirSync('/proc').filter((d) => /^\d+$/.test(d))) {
+    try {
+      const ppid = Number(fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' ')[1]);
+      if (ppid === process.pid) process.kill(Number(pid), 'SIGKILL');
+    } catch {}
+  }
+}
+
 async function renderOne(browser, port, t) {
   const { scenario, name, anim } = resolveTarget(t);
   const dir = path.join(OUT, scenario);
@@ -107,9 +127,10 @@ async function renderOne(browser, port, t) {
   page.on('pageerror', (e) => errors.push(String(e.stack ?? e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   const url = `http://127.0.0.1:${port}/labs/animations/stage.html?capture=1&scenario=${scenario}&anim=${encodeURIComponent(anim)}`;
-  await page.goto(url);
+  fileDeadline = Date.now() + FILE_MS;
+  await guard(page.goto(url), 'loading the stage');
   await page.waitForFunction(() => window.__lab?.ready || window.__lab?.error, null, { timeout: 60000 }).catch(() => {});
-  const ready = await page.evaluate(() => !!window.__lab?.ready);
+  const ready = await guard(page.evaluate(() => !!window.__lab?.ready), 'starting the stage');
   if (!ready) {
     await page.close();
     const why = errors.join('\n') || 'the stage never became ready';
@@ -122,16 +143,16 @@ async function renderOne(browser, port, t) {
   const started = Date.now();
   for (;;) {
     const keep = !preview || n % sampleEvery === 0;
-    const done = await page.evaluate((draw) => window.__lab.step(draw), keep);
+    const done = await guard(page.evaluate((draw) => window.__lab.step(draw), keep), `frame ${n}`);
     if (keep) {
       const file = path.join(tmp, `f${String(n).padStart(5, '0')}.jpg`);
-      await page.screenshot({ path: file, type: 'jpeg', quality: preview ? 80 : 90 });
+      await guard(page.screenshot({ path: file, type: 'jpeg', quality: preview ? 80 : 90 }), `screenshot of frame ${n}`);
       if (n % sampleEvery === 0) sheetFrames.push({ file, t: n / FPS });
     }
     n++;
     if (done || n > FPS * 40) break;
   }
-  const info = await page.evaluate(() => ({ warnings: window.__lab.warnings, play: window.__lab.play, meta: window.__lab.meta, error: window.__lab.error }));
+  const info = await guard(page.evaluate(() => ({ warnings: window.__lab.warnings, play: window.__lab.play, meta: window.__lab.meta, error: window.__lab.error })), 'reading the result');
   await page.close();
 
   // contact sheet: the sampled frames in a grid with their timestamps
@@ -172,6 +193,16 @@ try {
       if (r.errors?.length) failed++;
     } catch (e) {
       failed++;
+      if (String(e.message).startsWith('stuck:')) {
+        console.log(`✗ ${t}: ${e.message}`);
+        try {
+          const { scenario, name } = resolveTarget(t);
+          fs.writeFileSync(path.join(OUT, scenario, `${name}.json`), JSON.stringify({ scenario, name, preview, errors: [e.message], warnings: [] }, null, 2));
+        } catch {}
+        release();
+        killBrowsers();
+        process.exit(1);
+      }
       console.log(`✗ ${t}: ${e.message}`);
     }
   }
