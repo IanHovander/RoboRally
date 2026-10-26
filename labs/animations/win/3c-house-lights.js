@@ -100,6 +100,7 @@ export default async function play(lab) {
   };
   const stopHouse = lab.every(apply);
   lab.cleanup(() => {
+    A.showNames = true;
     house.h = 0;
     apply();
     A.topMat.roughness = saved.topRough;
@@ -156,15 +157,15 @@ export default async function play(lab) {
 
   // ---------- the camera: home, a hard cut to the wide, a snap zoom, home again ----------
   const cam = { shot: 'home', zoom: 0 };
+  const wideShot = (home) => ({ target: home.target.clone().add(new THREE.Vector3(0.3, -0.6, 0.1)), az: 0.32, el: 0.3, dist: home.dist * 1.13 });
   const releaseCam = lab.camera((home) => {
-    if (cam.shot === 'wide') {
-      return { target: home.target.clone().add(new THREE.Vector3(0.4, -0.75, 0)), az: 0.36, el: 0.33, dist: home.dist * 1.42 };
-    }
+    if (cam.shot === 'wide') return wideShot(home);
     if (cam.shot === 'zoom') {
       const z = cam.zoom;
-      const wide = { target: home.target.clone().add(new THREE.Vector3(0.4, -0.75, 0)), az: 0.36, el: 0.33, dist: home.dist * 1.42 };
-      const m = maya.group.position.clone().setY(0.2);
-      return { target: wide.target.clone().lerp(m, z), az: lerp(wide.az, 0.18, z), el: lerp(wide.el, 0.42, z), dist: lerp(wide.dist, home.dist * 0.36, z) };
+      const wide = wideShot(home);
+      // a medium shot: Maya in the middle, a squinting Theo at the edge of frame
+      const m = maya.group.position.clone().lerp(W(5, 3), 0.22).setY(0.15);
+      return { target: wide.target.clone().lerp(m, z), az: lerp(wide.az, 0.22, z), el: lerp(wide.el, 0.5, z), dist: lerp(wide.dist, home.dist * 0.56, z) };
     }
     return {};
   });
@@ -219,22 +220,23 @@ export default async function play(lab) {
     theo.set({ pitch: -0.2 * e, rot: facing(3) + 0.35 * e });
     jun.set({ pitch: -0.2 * e, rot: facing(2) - 0.3 * e, sy: 1 - 0.06 * e });
   }, ease.outBack);
-  await lab.wait(0.6);
+  await lab.wait(0.5);
 
   // ---------- 3. snap zoom: the one thing still shining ----------
   cam.shot = 'zoom';
-  await lab.tween(0.16, (e) => (cam.zoom = e), ease.outBack);
-  await lab.wait(0.12);
+  A.showNames = false;
+  await lab.tween(0.14, (e) => (cam.zoom = e), ease.outBack);
+  await lab.wait(0.06);
   // a tiny proud bounce
   await lab.tween(0.3, (e, k) => maya.set({ lift: 0.09 * Math.sin(k * Math.PI), sy: 1 + 0.08 * Math.sin(k * Math.PI) - (k > 0.85 ? 0.1 * Math.sin(((k - 0.85) / 0.15) * Math.PI) : 0) }), ease.linear);
   maya.set({ lift: 0, sy: 1 });
-  await lab.wait(0.16);
+  await lab.wait(0.06);
 
   // ---------- 4. click: the iris closes on her ----------
   const H = 1;
-  await lab.tween(0.24, (e) => (ir.r = lerp(1.2 * H, 0.1, e)), ease.in);
-  await lab.wait(0.28);
-  await lab.tween(0.09, (e) => (ir.r = 0.1 * (1 - e)), ease.in);
+  await lab.tween(0.22, (e) => (ir.r = lerp(1.2 * H, 0.13, e)), ease.in);
+  await lab.wait(0.3);
+  await lab.tween(0.09, (e) => (ir.r = 0.13 * (1 - e)), ease.in);
   ir.r = 0;
   // in the black: everything back to Lumen, the camera home, the rivals straight
   house.h = 0;
@@ -242,6 +244,7 @@ export default async function play(lab) {
   theo.set({ pitch: 0, rot: facing(3) });
   jun.set({ pitch: 0, rot: facing(2), sy: 1 });
   cam.shot = 'home';
+  A.showNames = true;
   A.topMat.emissiveIntensity = 0;
   const flood = { k: 0 };
   const stopFlood = lab.every(() => {
@@ -252,8 +255,7 @@ export default async function play(lab) {
 
   // ---------- 5. the iris opens on the dark, the light floods back out of her ----------
   lab.pillar(W(4, 1), RED, 6, 0.6);
-  lab.ring(W(4, 1), RED, 7, 0.02, 1.4);
-  lab.ring(W(4, 1), '#fff1dc', 3.5, 0.03, 1.0);
+  lab.ring(W(4, 1), RED, 5, 0.02, 1.1);
   if (col2) {
     col2.flash = A.time;
     col2.flashColor = new THREE.Color(RED);

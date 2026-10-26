@@ -13,6 +13,7 @@ const RED = '#ff4d6d';
 export default async function play(lab) {
   const { THREE, ease, facing } = lab;
   const A = lab.arena;
+  lab.cleanup(() => (A.showNames = true));
   const maya = lab.puppet('a');
   const theo = lab.puppet('b');
   const W = (x, y) => lab.pos(x, y);
@@ -23,8 +24,8 @@ export default async function play(lab) {
 
   // ---------- water: rings of light where she touches the dark ----------
   const rings = [];
-  const ringGeo = new THREE.RingGeometry(0.955, 1, 96);
-  function ripple(x, y, { size = 0.8, n = 3, gap = 0.1, dur = 1.1, peak = 1 } = {}) {
+  const ringGeo = new THREE.RingGeometry(0.94, 1, 96);
+  function ripple(x, y, { size = 0.8, n = 3, gap = 0.12, dur = 1.2, peak = 1 } = {}) {
     for (let i = 0; i < n; i++) {
       const mat = new THREE.MeshBasicMaterial({ color: warm.clone().lerp(red, 0.25 + i * 0.25).multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
       const m = new THREE.Mesh(ringGeo, mat);
@@ -108,7 +109,9 @@ export default async function play(lab) {
     reflG.scale.set(g.scale.x, -g.scale.y, g.scale.z);
     refl.position.copy(maya.model.body.position);
     const off = clamp((q.x - 6.55) / 0.25) * clamp((9.5 - q.x) / 1);
-    for (const m of reflMats) m.opacity = 0.3 * off;
+    reflG.scale.y *= 0.8;
+    refl.position.x = 0.01 * Math.sin(A.time * 40);
+    for (const m of reflMats) m.opacity = 0.16 * off;
     reflG.visible = off > 0.01;
   };
 
@@ -120,13 +123,15 @@ export default async function play(lab) {
     const dt = Math.max(0, t - lastT);
     lastT = t;
     const q = maya.pose;
-    focus.lerp(W(q.x, q.y), 1 - Math.exp(-dt * 3.2));
+    focus.lerp(W(q.x, q.y), 1 - Math.exp(-dt * 6));
     const w = cam.w;
-    const target = home.target.clone().lerp(focus, 0.62 * w).add(new THREE.Vector3(0, 0, 0.35 * w));
+    A.showNames = w < 0.15; // the name tags would balloon in the close shots
+    const follow = Math.min(1, 0.85 * w + 0.3 * cam.punch);
+    const target = home.target.clone().lerp(focus, follow).add(new THREE.Vector3(0, 0, 0.3 * w));
     return {
       target,
       el: home.el - 0.5 * w - 0.06 * cam.punch,
-      dist: home.dist * (1 - 0.3 * w - 0.12 * cam.punch),
+      dist: home.dist * (1 - 0.28 * w - 0.12 * cam.punch),
       az: cam.az * w,
       fov: home.fov - 7 * cam.punch,
     };
@@ -200,7 +205,7 @@ export default async function play(lab) {
   const SPIN = -Math.PI * 2 * 5;
   const spinRot = () => facing(1) + SPIN * (1 - (1 - spin.u) ** 2.2);
   const touch = (tx, ty, big) => {
-    ripple(tx, ty, { size: 0.95 * big, n: 3, peak: 1 });
+    ripple(tx, ty, { size: 1.25 * big, n: 3, peak: 1.3 });
     glint(tx, ty, big);
     lab.particles(W(tx, ty).setY(0.02), [RED, '#fff1dc'], 10, { speed: 0.9, up: 1.4, gravity: 5, size: 0.035, dur: 0.5 });
     lab.tween(0.1, (e, k) => maya.set({ sy: 1 - 0.28 * Math.sin(k * Math.PI), sx: 1 + 0.16 * Math.sin(k * Math.PI), sz: 1 + 0.16 * Math.sin(k * Math.PI) }), ease.linear);
@@ -225,10 +230,10 @@ export default async function play(lab) {
   // a skim on the water (little rings in her wake), then the glass, curving into flag 2
   const pts = [
     [7.85, 3.3],
-    [7.1, 3.25],
-    [6.4, 2.85],
-    [5.55, 2.2],
-    [4.7, 1.45],
+    [7.1, 3.15],
+    [6.4, 2.6],
+    [5.5, 1.8],
+    [4.65, 1.25],
     [4.0, 1.0],
   ];
   const curve = new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, 0, y)), false, 'centripetal');
@@ -274,6 +279,7 @@ export default async function play(lab) {
 
   stopFx();
   maya.each = null;
+  A.showNames = true;
   releaseCam();
   maya.release({ x: 4, y: 1, d: 1 });
   theo.release({ x: 5, y: 3, d: 3 });

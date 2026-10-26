@@ -4,7 +4,7 @@
 // one beat she is the projector, throwing the card she just took onto the glass in front of her.
 export const meta = {
   title: 'Edge-on (slide show)',
-  idea: 'The beam crosses the row like any laser, because it is a long card of light seen exactly edge-on. At Maya it reels itself in to card size, the house lights dip like a cinema and, in slow motion, it turns to face the camera: a lit coral slide with a thin ⚠ (SPAM). It hangs for a breath, then slides into her side through a slot of light. Ka-chunk: her body glows once, her eye becomes a projector lens and throws the card she just took onto the glass in front of her, big and readable, while the lights come back up.',
+  idea: 'The beam crosses the row like any laser, because it is a long card of light seen exactly edge-on. At Maya it reels itself in to card size, the house lights dip like a cinema and, in slow motion, it turns to face the camera, a band of light sweeping across it as it squares up: a lit coral slide with a thin ⚠ (SPAM). It hangs for a breath, then slides into her side through a slot of light. Ka-chunk: her body glows once, her eye becomes a projector lens and throws the card she just took onto the glass in front of her, big and readable, while the lights come back up.',
   notes: 'Sound: the usual laser zip, then a soft "fwip" as it turns (a card flicked), a held glass tone for the hang, a clean mechanical "ka-chunk" of a slide changer, and a projector-fan whirr under the projection. The card plane is computed each frame to contain the camera, so it stays a perfect line until it turns; on a bigger board the same holds from any camera. The projected card shows which damage it was (SPAM coral, Haywire violet), so it can stay on every register.',
 };
 

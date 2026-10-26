@@ -21,7 +21,7 @@ export default async function play(lab) {
   lab.cleanup(() => express.forEach((b, i) => (b.speed = speed0[i])));
 
   // ---- the slot: her own silhouette (bots3d's Pebble outline, a little bigger than her footprint) ----
-  const S = 1.7;
+  const S = 1.78;
   const shape = new THREE.Shape();
   shape.moveTo(0, 0.29 * S);
   shape.bezierCurveTo(0.11 * S, 0.29 * S, 0.31 * S, -0.12 * S, 0.29 * S, -0.22 * S);
@@ -97,7 +97,7 @@ export default async function play(lab) {
     rim.tex.needsUpdate = true;
   };
   // the fill: her light rising from the rim inward
-  const fill = layer(THREE.AdditiveBlending, red.clone().lerp(new THREE.Color(1, 1, 1), 0.25).multiplyScalar(1.7), 1.7);
+  const fill = layer(THREE.AdditiveBlending, red.clone().lerp(new THREE.Color(1, 1, 1), 0.25).multiplyScalar(1.35), 1.7);
   fill.mesh.position.y = 0.003;
   slot.add(fill.mesh);
   const drawFill = (f) => {
@@ -135,13 +135,13 @@ export default async function play(lab) {
   const corner = lab.pos(3, 1);
 
   // ---- timeline (scene seconds; the slow motion stretches 0.86..1.02) ----
-  const EXP = [0.1, 0.42]; // express step
-  const ALL = [0.46, 0.86]; // all-belts step, most of the turn
-  const ALIGN = [0.86, 1.02]; // the last few degrees, in slow motion
-  const DROP = [1.02, 1.1];
-  const FILL = [1.12, 1.52];
-  const GONE = [1.5, 1.78];
-  const END = 1.92;
+  const EXP = [0.08, 0.38]; // express step
+  const ALL = [0.42, 0.78]; // all-belts step, half the turn
+  const ALIGN = [0.78, 0.98]; // the last 40 degrees, in slow motion
+  const DROP = [0.98, 1.04];
+  const FILL = [1.06, 1.42];
+  const GONE = [1.4, 1.64];
+  const END = 1.84;
 
   const t0 = lab.t;
   let squash = 0;
@@ -149,7 +149,7 @@ export default async function play(lab) {
     const t = lab.t - t0;
 
     // slow motion for the fit (eased in and out, by scene time)
-    lab.timeScale = 1 - 0.72 * seg(t, ALIGN[0] - 0.05, ALIGN[0] + 0.01) * (1 - seg(t, ALIGN[1] - 0.02, ALIGN[1] + 0.02));
+    lab.timeScale = 1 - 0.65 * seg(t, ALIGN[0] - 0.05, ALIGN[0] + 0.01) * (1 - seg(t, ALIGN[1] - 0.03, ALIGN[1] + 0.01));
 
     // the belts: a soft glow as they start
     const glow = Math.max(0, 1 - t / 0.6) * 0.6;
@@ -159,10 +159,10 @@ export default async function play(lab) {
     });
 
     // ---- the slot appears ----
-    drawRim(ease.inOut(seg(t, 0, 0.4)), 0);
+    drawRim(ease.inOut(seg(t, 0, 0.32)), 0);
     rim.mat.opacity = 1;
-    dark.mat.opacity = 0.93 * ease.out(seg(t, 0.12, 0.45));
-    dark.mesh.scale.setScalar(mix(0.7, 1, ease.outBack(seg(t, 0.12, 0.45))));
+    dark.mat.opacity = 0.93 * ease.out(seg(t, 0.08, 0.36));
+    dark.mesh.scale.setScalar(mix(0.7, 1, ease.outBack(seg(t, 0.08, 0.36))));
 
     // ---- Maya ----
     let x = 1;
@@ -173,11 +173,11 @@ export default async function play(lab) {
     } else {
       x = 2 + ease.inOut(seg(t, ALL[0], ALL[1]));
       // the corner turns her most of the way during the ride...
-      const a = ease.inOut(seg(t, ALL[0] + 0.08, ALL[1])) * 0.8;
-      // ...and the last few degrees line up with the notch in slow motion
-      const b = ease.inOut(seg(t, ALIGN[0], ALIGN[1] - 0.02)) * 0.2;
+      const a = ease.inOut(seg(t, ALL[0] + 0.06, ALL[1])) * 0.55;
+      // ...and the last 40 degrees line up with the notch in slow motion, with a tiny settle
+      const b = ease.outBack(seg(t, ALIGN[0], ALIGN[1] - 0.02), 2.2) * 0.45;
       rot = facing(0) + (facing(1) - facing(0)) * (a + b);
-      lift = 0.05 * ease.out(seg(t, ALL[1] - 0.2, ALL[1])) * (1 - seg(t, DROP[0], DROP[1]) ** 2);
+      lift = 0.1 * ease.out(seg(t, ALL[1] - 0.24, ALL[1])) * (1 - seg(t, DROP[0], DROP[1]) ** 2);
       // the drop: a hair into the slot
       lift -= 0.022 * ease.in(seg(t, DROP[0], DROP[1])) * (1 - ease.inOut(seg(t, GONE[0], END - 0.1)));
     }
@@ -191,7 +191,7 @@ export default async function play(lab) {
     const f = ease.out(seg(t, FILL[0], FILL[1]));
     drawFill(f);
     const gone = ease.inOut(seg(t, GONE[0], GONE[1]));
-    fill.mat.opacity = Math.min(1, f * 3) * (1 - gone) * 0.95;
+    fill.mat.opacity = Math.min(1, f * 3) * (1 - gone) * 0.9;
     rim.mat.opacity = 1 - ease.inOut(seg(t, FILL[0] + 0.15, GONE[1]));
     dark.mat.opacity *= 1 - ease.inOut(seg(t, FILL[0], FILL[1]));
 

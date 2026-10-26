@@ -49,12 +49,12 @@ export default async function play(lab) {
   iris.style.cssText = 'position:absolute;inset:0;pointer-events:none;opacity:0';
   const streak = document.createElement('div');
   streak.style.cssText =
-    'position:absolute;left:0;width:100%;height:3px;pointer-events:none;mix-blend-mode:screen;opacity:0;' +
+    'position:absolute;left:0;width:100%;height:2px;pointer-events:none;mix-blend-mode:screen;opacity:0;' +
     'background:linear-gradient(90deg,rgba(255,236,205,0) 0%,rgba(255,236,205,.35) 30%,rgba(255,250,240,1) 50%,rgba(255,236,205,.35) 70%,rgba(255,236,205,0) 100%);' +
     'filter:blur(0.6px)';
   const bloom = document.createElement('div');
   bloom.style.cssText =
-    'position:absolute;width:160px;height:160px;margin:-80px 0 0 -80px;border-radius:50%;pointer-events:none;mix-blend-mode:screen;opacity:0;' +
+    'position:absolute;border-radius:50%;pointer-events:none;mix-blend-mode:screen;opacity:0;' +
     'background:radial-gradient(circle,rgba(255,250,240,.9) 0%,rgba(255,236,205,.35) 18%,rgba(255,226,190,.08) 45%,rgba(255,226,190,0) 70%)';
   ov.append(iris, streak, bloom);
   const fx = { iris: 0, irisR: 1.6, flare: 0, eye: 1 };
@@ -90,12 +90,19 @@ export default async function play(lab) {
     const R = fx.irisR * r.height;
     iris.style.opacity = String(fx.iris);
     iris.style.background = `radial-gradient(circle at ${s.x}px ${s.y}px, rgba(0,0,0,0) ${R * 0.6}px, rgba(2,3,5,.6) ${R * 0.85}px, rgba(2,3,5,.9) ${R * 1.2}px)`;
-    streak.style.top = `${s.y - 1.5}px`;
+    // the streak is centred on her eye, 1.6 screens wide, and grows from it
+    const sw = r.width * 1.6;
+    const sh = Math.max(2, r.height * 0.005);
+    streak.style.width = `${sw}px`;
+    streak.style.height = `${sh}px`;
+    streak.style.left = `${s.x - sw / 2}px`;
+    streak.style.top = `${s.y - sh / 2}px`;
     streak.style.opacity = String(Math.min(1, f));
-    streak.style.transform = `scaleX(${0.25 + 0.75 * Math.min(1, f)})`;
-    streak.style.transformOrigin = `${s.x}px 50%`;
-    bloom.style.left = `${s.x}px`;
-    bloom.style.top = `${s.y}px`;
+    streak.style.transform = `scaleX(${0.2 + 0.8 * Math.min(1, f)})`;
+    const bw = r.height * 0.42;
+    bloom.style.width = bloom.style.height = `${bw}px`;
+    bloom.style.left = `${s.x - bw / 2}px`;
+    bloom.style.top = `${s.y - bw / 2}px`;
     bloom.style.opacity = String(Math.min(1, f * 0.9));
     bloom.style.transform = `scale(${0.5 + 0.6 * f})`;
   };

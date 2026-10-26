@@ -339,7 +339,7 @@ export default async function play(lab) {
   lab.tween(0.18, (e) => (U.uI.value = e), ease.out);
   await lab.tween(0.2, (e) => (U.uReach.value = 0.3 + e * (L - 0.3)), ease.out);
   // the sweep: she turns, the beam with her
-  await lab.tween(0.54, (e) => (turn = e), ease.inOut3);
+  await lab.tween(0.6, (e) => (turn = e), ease.inOut);
   // it comes to rest: pulls focus, and the row lights up tile by tile
   lab.tween(0.18, (e) => (focus = e), ease.out);
   cells.forEach((c) => lab.at(0.03 + c.i * 0.065, () => lab.tween(0.1, (e) => (c.k = e), ease.out)));

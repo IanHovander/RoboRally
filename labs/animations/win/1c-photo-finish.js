@@ -126,11 +126,14 @@ export default async function play(lab) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   })();
+  const trailMap = lab.bot('a').trailMesh?.material.map ?? glowTex;
   const ribbons = [];
   function ribbon(st, color, width, gain, y) {
     const n = st.length;
     const pos = new Float32Array(n * 6);
     const col = new Float32Array(n * 6);
+    const uv = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) uv.set([0.5, 0, 0.5, 1], i * 4);
     const idx = [];
     for (let i = 0; i < n; i++) {
       const q = st[Math.min(n - 1, i + 1)];
@@ -147,8 +150,9 @@ export default async function play(lab) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: trailMap, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     mesh.renderOrder = 3;
     mesh.frustumCulled = false;
     lab.add(mesh);
@@ -160,9 +164,8 @@ export default async function play(lab) {
   const heads = [];
   for (const [key, color] of [['a', RED], ['b', BLUE], ['c', GOLD]]) {
     for (const st of hist[key].strands) {
-      ribbon(st, color, 0.085, 0.085, 0.011); // soft halo
-      ribbon(st, color, 0.02, 1.05, 0.013); // the bright core
-      const head = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(color).lerp(new THREE.Color('#fff'), 0.5).multiplyScalar(2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
+      ribbon(st, color, 0.06, 1.25, 0.012); // a line of light, soft at its edges like Lumen's trail
+      const head = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(color).lerp(new THREE.Color('#fff'), 0.5).multiplyScalar(1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
       head.rotation.x = -Math.PI / 2;
       head.position.y = 0.02;
       head.renderOrder = 4;
@@ -195,7 +198,7 @@ export default async function play(lab) {
       for (let i = 0; i < st.length; i++) {
         const p = st[i];
         const rev = clamp((state.r - p.u) / 0.015 + 1);
-        const tip = Math.exp(-(((state.r - p.u) / 0.035) ** 2)) * (state.r < 1 ? 1.6 : 0);
+        const tip = Math.exp(-(((state.r - p.u) / 0.035) ** 2)) * (state.r < 1 ? 1.2 : 0);
         const fade = clamp((p.g - state.f) / 0.14);
         const k = gain * rev * fade * state.show * (1 + tip);
         col.set([c.r * k, c.g * k, c.b * k, c.r * k, c.g * k, c.b * k], i * 6);
@@ -228,10 +231,12 @@ export default async function play(lab) {
     if (o.isMesh && Array.isArray(o.material) && o.geometry.type === 'BoxGeometry') slabs.push(o.material[0]);
   });
   const edge0 = slabs[0]?.emissiveIntensity ?? 0.32;
+  const env0 = A.topMat.envMapIntensity;
   const setRoom = (k) => {
     // k: 0 the game's room, 1 the darkroom of the exposure
     room.k = k;
     A.dim = A.dimCur = 0.92 * k;
+    A.topMat.envMapIntensity = env0 * (1 - 0.88 * k);
     for (const m of new Set(slabs)) m.emissiveIntensity = edge0 + k * 1.1;
   };
   const room = { k: 0 };
@@ -241,6 +246,7 @@ export default async function play(lab) {
   });
   lab.cleanup(() => {
     A.dim = A.dimCur = 0;
+    A.topMat.envMapIntensity = env0;
     for (const m of new Set(slabs)) m.emissiveIntensity = edge0;
   });
 
@@ -276,7 +282,7 @@ export default async function play(lab) {
   }, ease.inOut);
 
   // ---------- 3. a shutter flash, and the whole race develops in half a second ----------
-  lab.flash('#ffffff', 0.18, 0.22);
+  lab.flash('#ffffff', 0.16, 0.14);
   state.show = 1;
   await lab.tween(0.55, (e) => (state.r = e), ease.inOut);
   state.r = 1.01;

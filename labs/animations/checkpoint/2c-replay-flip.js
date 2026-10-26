@@ -145,6 +145,11 @@ export default async function play(lab) {
 
   // 4. FREEZE: halfway round, Maya hangs upside down under the glass. The room irises in, the camera swings.
   lab.slowmo(0.015, 0.05);
+  // the shutter: a pale frame as time stops (on real time; lab.flash runs on the frozen scene clock)
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:absolute;inset:0;pointer-events:none;background:#f4efe4;opacity:.24';
+  lab.overlay.append(flash);
+  realTween(0.16, (e) => (flash.style.opacity = String(0.24 * (1 - e))), ease.out).then(() => flash.remove());
   realTween(0.16, (e) => (irisK = e), ease.out);
   await realTween(0.58, (e) => (arc = e), ease.inOut);
   await lab.waitReal(0.14); // hold the frozen frame

@@ -84,7 +84,7 @@ export default async function play(lab) {
     }
     // the replay's other angle: a bullet-time swing round the frozen frame, so his dodge toward the room is seen side-on
     const aim = P(3.1, 2.45).setY(0.25);
-    return { target: home.target.clone().lerp(aim, 0.45 * S.punch), az: 0.62 * S.punch, el: home.el - 0.2 * S.punch, dist: home.dist * (1 - 0.14 * S.punch) };
+    return { target: home.target.clone().lerp(aim, 0.45 * S.punch), az: 0.48 * S.punch, el: home.el - 0.15 * S.punch, dist: home.dist * (1 - 0.12 * S.punch) };
   });
   // real-time tweens (they keep running while the scene clock is frozen)
   const rt = (dur, fn, easing = ease.inOut) =>
@@ -108,21 +108,52 @@ export default async function play(lab) {
   const shutter = document.createElement('div');
   shutter.style.cssText = 'position:absolute;inset:0;pointer-events:none;background:#fff8ec;opacity:0';
   lab.overlay.append(shutter);
-  const replay = (k) => (drain.style.backdropFilter = `saturate(${1 - 0.72 * k}) brightness(${1 - 0.25 * k})`);
+  const replay = (k) => (drain.style.backdropFilter = `saturate(${1 - 0.66 * k}) brightness(${1 - 0.25 * k})`);
 
-  // ---- the telestrator arc: his illegal hop, drawn in his own light while the frame is frozen ----
-  let arcMesh = null;
-  const arcMat = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const drawArc = (to) => {
-    const from = P(3, 2).setY(0.03);
-    const mid = from.clone().lerp(to, 0.5);
-    mid.y = Math.max(from.y, to.y) + 0.32;
-    const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
-    arcMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.014, 6, false), arcMat);
-    arcMesh.geometry.setDrawRange(0, 0);
-    lab.add(arcMesh);
-  };
-  const arcShow = (k) => arcMesh && arcMesh.geometry.setDrawRange(0, Math.floor(40 * k) * 6 * 6);
+  // ---- the telestrator: a hand-drawn circle of warm light round the culprit, on the HUD layer above the drained
+  // frame (so it keeps its colour), tracking him on screen while the camera swings ----
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+  svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 3px rgba(255,214,150,.95)) drop-shadow(0 0 9px rgba(255,190,120,.6))';
+  const loop = document.createElementNS(NS, 'path');
+  // a slightly spiralling loop that overshoots its start, like a quick stroke of a pen
+  let dPath = '';
+  for (let i = 0; i <= 64; i++) {
+    const a0 = -0.6 + (i / 64) * (Math.PI * 2 + 0.75);
+    const r = 1 + 0.09 * (i / 64) - 0.04 * Math.sin((i / 64) * Math.PI);
+    dPath += `${i ? 'L' : 'M'}${(Math.cos(a0) * r).toFixed(4)} ${(Math.sin(a0) * r * 0.82).toFixed(4)}`;
+  }
+  loop.setAttribute('d', dPath);
+  loop.setAttribute('fill', 'none');
+  loop.setAttribute('stroke', '#fff1dc');
+  loop.setAttribute('vector-effect', 'non-scaling-stroke');
+  loop.setAttribute('stroke-width', '3');
+  loop.setAttribute('stroke-linecap', 'round');
+  loop.setAttribute('pathLength', '1');
+  loop.setAttribute('stroke-dasharray', '1 1');
+  loop.setAttribute('stroke-dashoffset', '1');
+  svg.append(loop);
+  lab.overlay.append(svg);
+  const T = { draw: 0, alpha: 0 };
+  const stopTele = lab.every(() => {
+    const c = P(theo.pose.x, theo.pose.y).setY(theo.pose.lift + 0.24);
+    const sc = lab.toScreen(c);
+    const side = lab.toScreen(c.clone().add(new THREE.Vector3(0.62, 0, 0)));
+    const up = lab.toScreen(c.clone().add(new THREE.Vector3(0, 0.5, 0)));
+    const rx = Math.max(24, Math.hypot(side.x - sc.x, side.y - sc.y));
+    const ry = Math.max(20, Math.hypot(up.x - sc.x, up.y - sc.y) * 1.25);
+    loop.setAttribute('transform', `translate(${sc.x} ${sc.y}) scale(${rx} ${ry / 0.82})`);
+    loop.setAttribute('stroke-dashoffset', String(1 - T.draw));
+    svg.style.opacity = String(T.alpha);
+    // Maya's card would be cropped by the swing: it steps back while the camera is round
+    const card = lab.bot('a').card;
+    if (card) {
+      card.material.transparent = true;
+      card.material.opacity = 1 - 0.85 * S.punch;
+    }
+  });
 
   // ---- the ghost: a copy of Theo's body made of light, left where he tried to go ----
   const makeGhost = () => {
@@ -162,9 +193,9 @@ export default async function play(lab) {
   rt(0.09, (e, k) => (shutter.style.opacity = String(0.2 * (1 - k))), ease.out);
   rt(0.12, (e) => replay(e), ease.out3);
   rt(0.34, (e) => (S.punch = e), ease.inOut);
-  drawArc(P(theo.pose.x, theo.pose.y).setY(theo.pose.lift + 0.2));
-  arcMat.opacity = 1;
-  await rt(0.14, (e) => arcShow(e), ease.out);
+  await lab.waitReal(0.07);
+  T.alpha = 1;
+  await rt(0.17, (e) => (T.draw = e), ease.inOut);
   rt(0.08, (e) => (S.railA = e), ease.out);
   await rt(0.17, (e) => (S.rail = e), ease.inOut);
   await lab.waitReal(0.03);
@@ -176,7 +207,7 @@ export default async function play(lab) {
   const ghost = makeGhost();
   lab.timeScale = 1;
   rt(0.16, (e) => replay(1 - e), ease.in);
-  rt(0.35, (e) => (arcMat.opacity = 1 - e), ease.out);
+  rt(0.12, (e) => (T.alpha = 1 - e), ease.out);
   // Maya's nose lands right on the beat of his landing
   const roll2 = lab.tween(0.14, (e) => maya.set({ x: 1.8 + 0.42 * e, pitch: 0.08 }), ease.linear);
   rt(0.26, (e) => (S.punch = 1 - e), ease.out3);
@@ -213,7 +244,9 @@ export default async function play(lab) {
   await railOff;
   stopDraw();
   for (const m of [rail, halo, cap, leash, foot, bead]) m.visible = false;
-  if (arcMesh) arcMesh.visible = false;
+  stopTele();
+  svg.remove();
+  if (lab.bot('a').card) lab.bot('a').card.material.opacity = 1;
   for (const el of [drain, shutter]) el.remove();
   releaseCam();
   maya.release({ x: 3, y: 2, d: 1 });

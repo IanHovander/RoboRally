@@ -1,12 +1,13 @@
 // Gear, idea 4 (coin on a table), animator c: cut like a film. Maya tips onto the rim of her ring of light and
 // wobbles like a settling coin; the point where her ring touches the glass is a spark that runs round her,
 // slow at first, then faster and faster, its long-exposure arc growing from a comet into a complete spinning
-// circle while the camera creeps in and sways with her. Her heading slips a quarter round inside it. Then she
-// drops flat: a smash cut. The arc is gone in one frame, the camera is back home, and nothing moves.
+// circle while the room darkens round her and the camera creeps in and sways with her. Her heading slips a
+// quarter round inside it. Then she drops flat: a smash cut. In one frame the arc is gone, the room is lit, the
+// camera is home, and nothing moves.
 export const meta = {
   title: 'Coin: smash cut to still',
   idea:
-    "Maya tips onto the rim of her ring of light and wobbles down like a coin on a table. The point where the ring touches the glass is a spark that runs round her faster and faster, its long-exposure arc growing from a little comet into a whole spinning circle (the rising whirr, made visible), while the camera creeps in and sways with her. Her heading slips a quarter round almost by accident. Then she drops flat and the film smash-cuts: the light is gone in one frame, the camera is home, the gear stops, and everything is completely still.",
+    "Maya tips onto the rim of her ring of light and wobbles down like a coin on a table. The point where the ring touches the glass is a spark that runs round her faster and faster, its long-exposure arc growing from a little comet into a whole spinning circle (the rising whirr, made visible), while the room closes in on her and the camera creeps in and sways with her. Her heading slips a quarter round almost by accident. Then she drops flat and the film smash-cuts: in one frame the light is gone, the room is lit again, the camera is home, the gear stops, and everything is completely still.",
   notes:
     'Sound: a glassy whirr that rises in pitch with the spark, then cut to dead silence on the drop (the cut is the punchline: no clack, no chime). Red gear: the spark runs anticlockwise. The wobble rides on the rim of the ring, so every form (Pebble, Orb, Prism, Capsule, Cube, Spire) tips the same way. Porting: the camera "cut" is just returning the camera to home in one frame; the arc is a sub-frame-sampled ribbon so it stays smooth at speed.',
 };

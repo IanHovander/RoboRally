@@ -226,7 +226,6 @@ export default async function play(lab) {
       onDoor(th, { pitch: 0.06 * (1 - k), sx: 1 });
       room.dim = Math.min(1, k * 4) * (k > 0.85 ? (1 - k) / 0.15 : 1);
       cv.k = Math.sin(Math.min(1, k * 1.1) * Math.PI * 0.5) * (k > 0.7 ? 1 - (k - 0.7) / 0.3 * 0.5 : 1);
-      cv.az = -0.02 * Math.sin(th);
       if (!frozen && th >= Math.PI) {
         // half way: she is on (4,1), the space she wanted. Freeze, and leave a ghost there.
         frozen = true;

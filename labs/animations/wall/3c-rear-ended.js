@@ -84,8 +84,10 @@ export default async function play(lab) {
       // the crumple: folds like a dropped ribbon, heaped on the space behind her
       if (R.crumple) {
         const c = R.crumple;
-        const hx = 2.1 + (u - 0.5) * 0.6;
-        const hz = Math.sin(u * Math.PI * 7) * 0.22 * (1 - Math.abs(u - 0.5)) + Math.sin(u * Math.PI * 3) * 0.05;
+        // loose loops, like a dropped ribbon
+        const a = u * Math.PI * 2 * 3.2;
+        const hx = 2.1 + (u - 0.5) * 0.66 - 0.15 * Math.sin(a);
+        const hz = 0.15 * Math.cos(a) - 0.15 + 0.03 * Math.sin(u * 9);
         x = x + (hx - x) * c;
         z = z + (hz - z) * c;
       }
@@ -102,7 +104,7 @@ export default async function play(lab) {
       const tl = Math.hypot(tx, tz) || 1;
       tx /= tl;
       tz /= tl;
-      const w = R.width * (0.35 + 0.65 * Math.min(1, u * 3)) * (1 - 0.45 * R.crumple);
+      const w = R.width * (0.35 + 0.65 * Math.min(1, u * 3)) * (1 - 0.5 * R.crumple);
       pos.set([cx[i] - tz * w, 0.009, cz[i] + tx * w, cx[i] + tz * w, 0.009, cz[i] - tx * w], i * 6);
       // newest light brightest, like Lumen's own trail; the flow shimmers forward inside it
       let k = R.gain * (0.3 + 0.7 * u ** 1.2);
@@ -113,10 +115,7 @@ export default async function play(lab) {
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;
   };
-  const dbg = document.createElement('div');
-  dbg.style.cssText='position:absolute;left:10px;top:40px;color:#0f0;font:22px monospace;z-index:9';
-  lab.overlay.append(dbg);
-  const ribbonHook = lab.every((dt, t) => { drawRibbon(t); const c = geo.attributes.color.array; dbg.textContent = `t ${R.tail.toFixed(2)} h ${R.head.toFixed(2)} g ${R.gain.toFixed(2)} w ${R.width.toFixed(2)} c0 ${c[0].toFixed(2)} c60 ${c[60*6].toFixed(2)} vis ${ribbon.visible} p ${geo.attributes.position.array[30*6].toFixed(2)}`; });
+  const ribbonHook = lab.every((dt, t) => drawRibbon(t));
 
   // ---------- the camera: a punch-in on the slap ----------
   const cv = { k: 0 };
@@ -141,7 +140,7 @@ export default async function play(lab) {
   const hemi0 = arena.hemi.intensity;
   const spill0 = arena.spill.material.opacity;
   const darkHook = lab.every(() => {
-    arena.topMat.emissiveIntensity *= 1 - 0.85 * dark.k;
+    arena.topMat.emissiveIntensity *= 1 - 0.93 * dark.k;
     arena.key.intensity = key0 * (1 - 0.92 * dark.k);
     arena.hemi.intensity = hemi0 * (1 - 0.92 * dark.k);
     arena.spill.material.opacity = spill0 * (1 - dark.k);
@@ -186,17 +185,24 @@ export default async function play(lab) {
 
   // ---------- 2. a heartbeat: the light in the trail is still pouring forward ----------
   R.flow = 0;
-  await lab.tween(0.22, (e) => (R.flow = e), ease.in);
+  await lab.tween(
+    0.22,
+    (e) => {
+      R.flow = e;
+      R.head = 3 - 0.5 * e; // its end shows at her back
+    },
+    ease.in,
+  );
 
   // ---------- 3. the tail lets go and whips up the line, squeezing into a hot slug ----------
   const tail0 = R.tail;
   await lab.tween(
     0.2,
     (e, k) => {
-      R.tail = tail0 + (2.25 - tail0) * e;
+      R.tail = tail0 + (2.02 - tail0) * e;
       const L = R.head - R.tail;
-      R.gain = Math.min(4.5, 3.2 / Math.max(0.3, L) ** 0.8);
-      R.width = 0.2 + 0.1 * k;
+      R.gain = Math.min(3.8, 2.6 / Math.max(0.3, L) ** 0.9);
+      R.width = 0.2 + 0.12 * k;
       R.wave = 0.22 * Math.sin(k * Math.PI);
       R.phase = k;
       R.flow = 1 - k;
@@ -219,14 +225,15 @@ export default async function play(lab) {
     0.16,
     (e, k) => {
       maya.set({ x: 3 + 0.05 * Math.sin(k * Math.PI), pitch: 0.2 * Math.sin(k * Math.PI), sy: 1 - 0.06 * Math.sin(k * Math.PI) });
-      R.head = 3 + 0.05 * Math.sin(k * Math.PI);
+      R.head = 2.5 + 0.16 * Math.sin(k * Math.PI);
+      R.tail = 2.02 + 0.1 * Math.sin(k * Math.PI);
     },
     ease.linear,
   );
 
   // ---------- 5. the spent light drops in a heap behind her; she glances back at it ----------
-  lab.tween(0.24, (e) => (R.crumple = e), ease.out3);
-  lab.tween(0.5, (e) => (R.gain = 4 * (1 - 0.5 * e)), ease.out);
+  lab.tween(0.28, (e) => (R.crumple = e), ease.out3);
+  lab.tween(0.5, (e) => (R.gain = 2.6 * (1 - 0.45 * e)), ease.out);
   await lab.tween(
     0.26,
     (e) => maya.set({ rot: facing(1) - 0.8 * e, pitch: -0.04 * e }),

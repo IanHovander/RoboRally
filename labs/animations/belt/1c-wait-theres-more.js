@@ -104,6 +104,7 @@ export default async function play(lab) {
   let lean = { p: 0, r: 0 };
   let irisAt = null;
   const eyeWorld = new THREE.Vector3();
+  let eyeScreen = null;
   const stop = lab.every(() => {
     const t = lab.t - t0;
 
@@ -161,9 +162,8 @@ export default async function play(lab) {
         // in the dark: a hole of light around her eye, streaking out of the spotlight
         let eyeAt = null;
         let eyeA = 0;
-        if (t > YANK && eye) {
-          eye.getWorldPosition(eyeWorld);
-          eyeAt = lab.toScreen(eyeWorld);
+        if (t > YANK && eyeScreen) {
+          eyeAt = eyeScreen;
           eyeA = seg(t, YANK, YANK + 0.04);
         }
         drawIris(irisAt, mix(full, closed, c), Math.min(1, c * 3), eyeAt, eyeA);
@@ -197,6 +197,12 @@ export default async function play(lab) {
 
   maya.each = (model) => {
     model.body.rotation.set(-lean.p, 0, -lean.r);
+    // where her eye is on screen (the pose is applied by now), for the hole in the dark
+    if (eye) {
+      model.group.updateMatrixWorld(true);
+      eye.getWorldPosition(eyeWorld);
+      eyeScreen = lab.toScreen(eyeWorld);
+    }
     // a content glow is warmer and dimmer; wide is whiter and brighter
     const warm = eyeK < 1 ? 1 - eyeK : 0;
     model.eyeMat.color.setRGB(3.2 * eyeK, 3.1 * eyeK * (1 - 0.18 * warm), 2.9 * eyeK * (1 - 0.4 * warm));

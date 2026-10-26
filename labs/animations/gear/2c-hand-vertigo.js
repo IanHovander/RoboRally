@@ -205,10 +205,10 @@ export default async function play(lab) {
     const sq = pinch;
     maya.set({
       rot: r0 - s * twist * (Math.PI / 2) + shv * 0.5,
-      pitch: -0.32 * look,
+      pitch: -0.22 * look,
       roll: shv,
-      sx: 1 - 0.12 * sq,
-      sz: 1 - 0.05 * sq,
+      sx: 1 - 0.09 * sq,
+      sz: 1 - 0.09 * sq,
       sy: 1 + 0.07 * sq - 0.04 * look,
     });
   });

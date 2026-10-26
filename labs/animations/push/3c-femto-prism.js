@@ -151,7 +151,7 @@ export default async function play(lab) {
     const card = lab.bot('a').card;
     if (card) {
       card.material.transparent = true;
-      card.material.opacity = 1 - 0.9 * S.cam;
+      card.material.opacity = Math.max(0, 1 - 1.6 * S.cam);
     }
   });
   theo.each = (m) => {

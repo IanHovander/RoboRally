@@ -29,14 +29,14 @@ export default async function play(lab) {
   // the flight, in scene seconds from the start of the moment
   const legs = [
     { t0: 0.16, t1: 0.5, x0: 9.4, x1: 6.1, l0: 0.42, l1: 0, h: 0.08 }, // in out of the dark, low and fast
-    { t0: 0.5, t1: 0.88, x0: 6.1, x1: 4.3, l0: 0, l1: 0, h: 0.45 }, // hop one
-    { t0: 0.88, t1: 1.16, x0: 4.3, x1: 3.5, l0: 0, l1: 0, h: 0.2 }, // hop two, shorter and slower
+    { t0: 0.5, t1: 0.9, x0: 6.1, x1: 4.15, l0: 0, l1: 0, h: 0.48 }, // hop one
+    { t0: 0.9, t1: 1.18, x0: 4.15, x1: 3.45, l0: 0, l1: 0, h: 0.2 }, // hop two, shorter and slower
   ];
-  const SLIDE = { t0: 1.16, t1: 1.5, x0: 3.5, x1: 3 };
+  const SLIDE = { t0: 1.18, t1: 1.52, x0: 3.45, x1: 3 };
   const TOUCHES = [
     { t: 0.5, x: 6.1, color: red, freeze: 0.12, big: 1.4 },
-    { t: 0.88, x: 4.3, color: grey, freeze: 0.08, big: 1.1 },
-    { t: 1.16, x: 3.5, color: grey, freeze: 0.08, big: 0.9 },
+    { t: 0.9, x: 4.15, color: grey, freeze: 0.08, big: 1.1 },
+    { t: 1.18, x: 3.45, color: grey, freeze: 0.08, big: 0.9 },
   ];
   const SPIN = Math.PI * 2 * 3; // three whole turns, unwinding to nose east at the stop
 
@@ -66,7 +66,7 @@ export default async function play(lab) {
 
   // ---------- the long-exposure arcs her eye paints ----------
   const pathPts = [];
-  const arcMat = new THREE.MeshBasicMaterial({ color: hdr(MAYA_RED, 1.2).lerp(hdr('#ffffff', 1.2), 0.35), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const arcMat = new THREE.MeshBasicMaterial({ color: hdr(MAYA_RED, 1.7).lerp(hdr('#ffffff', 1.7), 0.35), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const arc = new THREE.Mesh(new THREE.BufferGeometry(), arcMat);
   arc.frustumCulled = false;
   lab.add(arc);
@@ -157,12 +157,12 @@ export default async function play(lab) {
   };
 
   // ---------- the camera: water level, side-on, tracking her ----------
-  const cam = { low: 0, x: 5.3, punch: 0 };
+  const cam = { low: 0, x: 5.3, punch: 0, hold: 0 };
   const releaseCam = lab.camera((home) => {
     const k = cam.low;
     const tx = lab.pos(cam.x, ROW).x;
-    const target = home.target.clone().lerp(new THREE.Vector3(tx * 0.8, 0.15, lab.pos(0, ROW).z + 0.15), k);
-    return { target, el: lerp(home.el, 0.6, k), dist: home.dist * lerp(1, 0.72, k) * (1 - 0.04 * cam.punch), az: 0.04 * k };
+    const target = home.target.clone().lerp(new THREE.Vector3(tx * 0.8, 0.15, lab.pos(0, ROW).z - 0.2), k);
+    return { target, el: lerp(home.el, 0.66, k), dist: home.dist * lerp(1, lerp(0.72, 0.86, cam.hold), k) * (1 - 0.04 * cam.punch), az: -0.2 * k };
   });
 
   // ---------- the strobe: one bright frame, gone in a tenth of a second (real time, even while frozen) ----------
@@ -245,7 +245,9 @@ export default async function play(lab) {
     // camera: down to water level as she comes, tracking her, up and home after the stop
     cam.low = smooth(seg(T, 0, 0.32)) * (1 - smooth(seg(T, 1.66, 2.3)));
     const px = pose(T).x;
-    cam.x = lerp(cam.x, Math.min(5.3, px), 1 - Math.exp(-dt * 7));
+    // once she stops, pull back to take in the whole skip as one picture
+    cam.hold = smooth(seg(T, SLIDE.t1 - 0.1, SLIDE.t1 + 0.35));
+    cam.x = lerp(cam.x, lerp(Math.min(5.3, px), 4.5, cam.hold), 1 - Math.exp(-dt * 7));
     cam.punch *= freezing ? 1 : 0.8;
   });
 

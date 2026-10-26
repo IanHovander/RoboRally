@@ -1,12 +1,11 @@
 // Overshoot, undo, told as a tape played backwards. The plate shoots out on a telescoping arm of light and carries
-// Maya far past her space to the south brink, where she teeters as the room's light drains away. The overshoot
-// hangs in the dark as a long exposure (a strobe of ghosts along her trail) and a ring of white light marks the
-// one space the rules allow. Then the whole shot rewinds: her teeter plays backwards, she is reeled up her own
-// trail, the trail spools back in, each ghost is swallowed as she passes it, and she clicks into the white ring.
-// The arm slinks home.
+// Maya far past her space to the south brink, where she teeters as the room's light drains away and the camera
+// swings low to the edge. A ring of white light marks the one space the rules allow. Then the whole shot rewinds
+// like a tape (her teeter, the slide, the camera and all): she is reeled up her own trail, the trail lights up and
+// spools back in behind her, and she clicks into the ring as the end of the tape snaps home. The arm slinks home.
 export const meta = {
   title: 'Instant replay',
-  idea: 'The panel overshoots on a telescoping arm of light and leaves Maya teetering over the south edge while the room goes dark and the camera swings low to watch. A white ring marks where the rules want her; then the shot plays backwards like a tape (teeter, slide, camera and all): she is reeled up her own trail, which spools back in, and clicks into the ring, leaving a frozen ghost of her teetering at the brink.',
+  idea: 'The panel overshoots on a telescoping arm of light and leaves Maya teetering over the south edge while the room goes dark and the camera swings low to watch. A white ring marks where the rules want her; then the shot plays backwards like a tape (teeter, slide, camera and all): she is reeled up her own trail, which lights up and spools back in after her, and the tape snaps home as she clicks into the ring.',
   notes: 'Sound: a fast glass ratchet as the arm telescopes, a wobbling glass "ooh" while she teeters, then the same sounds reversed (a rising, sucked-in whoosh) during the rewind, and a bright click when she lands in the ring; the arm goes home with a sheepish little descending two-note. Real game: the overshoot only runs over empty floor (at most 2 extra spaces, never into a robot or wall) and ends at the brink when an edge or pit is within reach; the rewind is a reversed recording of whatever she did, so any overshoot works. 1.85 s.',
 };
 
@@ -105,24 +104,6 @@ export default async function play(lab) {
     vig.style.opacity = String(iris);
   });
 
-  // ---------- the ghost: a freeze-frame of her teetering, left behind when the tape rewinds ----------
-  const ghostMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(RED).multiplyScalar(1.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const ghostEye = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff6e8').multiplyScalar(1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const ghost = new THREE.Group();
-  {
-    const body = maya.model.body.clone(true);
-    body.traverse((o) => {
-      if (o.isMesh) o.material = o.material === maya.model.eyeMat ? ghostEye : ghostMat;
-    });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.37, 0.41, 48), ghostMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.006;
-    ghost.add(body, ring);
-    ghost.visible = false;
-    ghost.scale.setScalar(1.3);
-    lab.add(ghost);
-  }
-
   // the space the rules allow: a ring of white light
   const target = new THREE.Mesh(new THREE.RingGeometry(0.43, 0.49, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color('#f4efe4').multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   target.rotation.x = -Math.PI / 2;
@@ -149,7 +130,7 @@ export default async function play(lab) {
 
   // ---- 0.10-0.55 out: far too far; the arm telescopes and carries her to the brink
   const BRINK = 3.3;
-  await lab.tween(0.45, (e, k) => {
+  await lab.tween(0.42, (e, k) => {
     const y = 1 + (BRINK - 1) * e;
     armExt = 0.05 + (y - 1) - 0.05 * (1 - k);
     maya.set({ y, sx: mix(0.85, 1, k), sy: 1 + 0.06 * Math.sin(k * Math.PI), roll: 0.1 * Math.sin(k * Math.PI) });
@@ -165,12 +146,12 @@ export default async function play(lab) {
   // ---- 0.55-0.97 the teeter: over the dark drop; the room's light drains; the camera swings low to the edge
   const brinkAt = lab.pos(3, BRINK);
   const c0 = { ...shot };
-  await lab.tween(0.42, (e, k) => {
+  await lab.tween(0.32, (e, k) => {
     // she windmills: leans out over the edge (her right side, toward us), back, out again
     const lean = 0.36 * Math.sin(k * Math.PI * 2.4) * (0.55 + 0.45 * k) + 0.14 * k;
     maya.set({ y: BRINK + 0.06 * Math.sin(k * Math.PI), roll: lean, lift: 0.03 * Math.max(0, -Math.sin(k * Math.PI * 2.4)), sy: 1 - 0.04 * Math.sin(k * 18) });
     iris = ease.out(clamp01(k * 2.2));
-    const c = ease.inOut(clamp01(k * 1.4));
+    const c = ease.inOut(clamp01(k * 1.6));
     shot.tx = mix(c0.tx, brinkAt.x, c);
     shot.ty = mix(c0.ty, 0.15, c);
     shot.tz = mix(c0.tz, brinkAt.z - 0.3, c);
@@ -183,10 +164,6 @@ export default async function play(lab) {
   }, ease.linear);
 
   // ---- 0.97-1.47 REWIND: the recording plays backwards (the teeter fast, the slide at speed) to the frame she passed her space
-  // the take that doesn't count stays behind as a ghost, frozen mid-teeter
-  ghost.position.copy(maya.group.position);
-  ghost.rotation.set(-maya.pose.pitch, maya.pose.rot, -maya.pose.roll, 'YXZ');
-  ghost.visible = true;
   bm.trail = bm.trail.slice(); // ours to trim
   maya.set({ trail: false });
   const last = tape.length - 1;
@@ -219,36 +196,41 @@ export default async function play(lab) {
   };
   // the tape lights up as it starts to spool: the trail is refreshed to full brightness
   for (const pt of bm.trail) pt.t = lab.t;
-  const bead = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: glowTex(THREE), color: new THREE.Color('#ffd9df').multiplyScalar(2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const bead = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: glowTex(THREE), color: new THREE.Color('#ffd9df').multiplyScalar(3.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   bead.rotation.x = -Math.PI / 2;
   lab.add(bead);
   const trailAll = bm.trail.slice();
-  const brinkZ = lab.pos(3, BRINK).z;
+  // the tape itself: a bright strip of her light from her to the end being reeled in
+  const tapeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc2cc').multiplyScalar(2.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 1), tapeMat);
+  strip.rotation.x = -Math.PI / 2;
+  lab.add(strip);
   // A: the teeter, backwards and fast
-  await lab.tween(0.15, (e, k) => {
+  await lab.tween(0.12, (e, k) => {
     apply(lerpTape(mix(last, nOut - 1, k)));
-    ghostMat.opacity = 0.38 + 0.5 * Math.max(0, 1 - k * 3);
-    ghostEye.opacity = ghostMat.opacity;
   }, ease.linear);
   // B: reeled up her own trail; the trail spools in behind her, its end chasing her home
-  await lab.tween(0.42, (e, k) => {
-    const ph = ease.in(k) * 0.8 + 0.2 * k;
+  await lab.tween(0.52, (e, k) => {
+    // she is yanked off the brink and glides up her trail into the ring; the end of the tape lingers, then whips in after her
+    const ph = ease.out(k);
     const y = mix(BRINK, 2, ph);
     const o = lerpTape(frameAtY(y));
     apply(o, y);
-    maya.set({ roll: o.roll * (1 - k) });
-    const tailY = mix(BRINK, 2, Math.pow(ph, 1.7));
+    maya.set({ roll: o.roll * (1 - k) - 0.16 * Math.sin(Math.min(1, k * 1.3) * Math.PI) });
+    const tailY = mix(BRINK, 2, Math.pow(k, 2.6));
     const tailZ = lab.pos(3, tailY).z;
     bm.trail = trailAll.filter((pt) => pt.z <= tailZ + 0.001);
     bead.position.set(0, 0.02, tailZ);
+    const herZ = lab.pos(3, y).z;
+    strip.scale.y = Math.max(0.001, tailZ - herZ);
+    strip.position.set(0, 0.015, (tailZ + herZ) / 2);
+    tapeMat.opacity = Math.min(1, k * 5) * (1 - span(k, 0.92, 1));
+    for (const pt of bm.trail) pt.t = lab.t;
     bead.material.opacity = Math.min(1, k * 6) * (1 - span(k, 0.9, 1));
     bead.scale.setScalar(1 + 0.4 * Math.sin(k * 40));
-    // the ghost: still there, fading as the tape leaves it
-    ghostMat.opacity = 0.38 * (1 - 0.55 * k);
-    ghostEye.opacity = ghostMat.opacity;
-    void brinkZ;
   }, ease.linear);
   bead.visible = false;
+  strip.visible = false;
   bm.trail = trailAll.filter((pt) => pt.z <= lab.pos(3, 2).z + 0.001);
 
   // ---- 1.47 CLICK: into the ring
@@ -256,15 +238,11 @@ export default async function play(lab) {
   lab.shake(0.015, 0.12);
   const extAt = armExt;
   const c1 = { ...shot };
-  await lab.tween(0.36, (e, k) => {
-    const c = span(k, 0, 0.35);
+  await lab.tween(0.3, (e, k) => {
+    const c = span(k, 0, 0.4);
     maya.set({ y: 2, roll: 0, sx: 1 + 0.12 * Math.sin(c * Math.PI) * (1 - c), sy: 1 - 0.1 * Math.sin(c * Math.PI) * (1 - c), rot: E });
     target.material.opacity = (1 - ease.out(k)) * (1 + 1.5 * Math.sin(c * Math.PI));
     target.scale.setScalar(1 + 0.25 * ease.out(k));
-    // the ghost lets go
-    ghostMat.opacity = 0.17 * (1 - ease.out(k));
-    ghostEye.opacity = ghostMat.opacity;
-    ghost.position.y = -0.4 * ease.in(k);
     // the arm slinks home: it sags, dims, and backs into the wall
     armDroop = Math.sin(span(k, 0, 0.8) * Math.PI);
     armMat.opacity = 0.55 * (1 - 0.6 * k);
@@ -280,7 +258,6 @@ export default async function play(lab) {
   setArm(0);
   panel.plate.position.z = 0.05;
   for (const sg of segs) sg.body.visible = sg.collar.visible = false;
-  ghost.visible = false;
   vig.remove();
   Object.assign(shot, home);
   cam.release();

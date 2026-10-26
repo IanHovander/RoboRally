@@ -2,7 +2,7 @@
 // possible moment, and a ghost of that moment left hanging in the air while Jun slides home.
 export const meta = {
   title: 'The laser pointer (freeze frame)',
-  idea: 'Theo\'s beam lands as a jittery dot on the glass beside Maya. Jun\'s eye narrows and locks on; the camera creeps in like a nature documentary while he crouches and wiggles. He pounces, and at that very instant the dot hops up onto Maya: the hit. The picture freezes with Jun hanging mid-air (a shutter click, the room dims around him, the camera snaps in, his eye blinks once in the frozen world). When time starts again he drops, slides back to his space facing north as if nothing happened, and his frozen pounce stays in the air as a fading ghost of light.',
+  idea: 'Theo\'s beam lands as a jittery dot on the glass beside Maya. Jun\'s eye narrows and locks on; the camera creeps in like a nature documentary while he crouches and wiggles. He pounces, and at that very instant the dot hops up onto Maya: the hit. The picture freezes with Jun hanging mid-air, his glow left behind on the glass below him (a shutter flash, the still drains of colour, the room dims around him, the camera snaps in on a slight dutch angle, his eye blinks once in the frozen world). When time starts again he drops, slides back to his space facing north as if nothing happened, and his frozen pounce stays in the air as a fading ghost of light.',
   notes: 'Sound: a tiny high whine for the pointer, soft ticks as the dot darts, a rising purr-chime on the wiggle, a "zip" on the pounce, then a record-scratch-ish glass squeak and dead silence for the freeze; one small "ting" for the blink; a quiet whoosh as he slides back. Needs a bystander within two spaces of the target, so it is an occasional treat. The ghost is the cat\'s model drawn once more in additive light, so no extra assets.',
 };
 
@@ -94,8 +94,8 @@ export default async function play(lab) {
     m.poolMat.opacity *= 1 - air;
     const at = lab.pos(J.x, J.y);
     floor.position.set(at.x, 0.013, at.z);
-    floor.scale.setScalar(0.95 + 1.2 * J.lift);
-    floor.material.opacity = air * (0.75 - 0.6 * J.lift);
+    floor.scale.setScalar(0.75 + 0.8 * J.lift);
+    floor.material.opacity = air * (0.55 - 0.45 * J.lift);
     floor.visible = air > 0.001;
   };
   const floor = add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color('#ffd43b').multiplyScalar(1.3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));

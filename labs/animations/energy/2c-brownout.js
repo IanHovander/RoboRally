@@ -2,9 +2,9 @@
 export const meta = {
   title: 'Brownout',
   idea:
-    'The charge lands and the whole picture sags like house lights when the kettle goes on: the glass, the grid, the floor\'s glow, Ezra, the HUD and the room all dim and flicker (down, half back, down), a dark hum bar rolls up the screen and the picture shrinks a hair, as if the TV itself browned out. Only Maya holds her strength, her ring and eye going amber; in the HUD her energy ticks over, the one number still lit. Then the power surges back with an overshoot (the bloom flares) and settles. Ezra comes back a beat late, his eye stuttering like a bad contact.',
+    'The charge lands and the whole picture sags like house lights when the kettle goes on: the glass, the grid, the floor\'s glow, Ezra, the HUD and the room all dim and flicker (down, half back, down), and the picture shrinks a hair, as if the TV itself browned out. Only Maya holds her strength, her ring and eye going amber; in the HUD her energy ticks over, the one number still lit. Then the power surges back out of her as a wave, with an overshoot (the bloom flares), and settles. Ezra comes back a beat late, his eye stuttering like a bad contact.',
   notes:
-    'Sound: the room tone drops a fifth and wobbles with the flicker, then a soft glass "whum" as the lights surge back; a small rising chime as her number ticks. Several robots charging on one register: the dip goes deeper (multiply the depth by the number charging, capped), and each charger keeps its strength. The HUD here is a stand-in for the game\'s tokens (name, flags, energy). The hum bar is a soft band on the overlay; the shrink is a 2.5% field-of-view breath with no camera move.',
+    'Sound: the room tone drops a fifth and wobbles with the flicker, then a soft glass "whum" as the lights surge back; a small rising chime as her number ticks. Several robots charging on one register: the dip goes deeper (multiply the depth by the number charging, capped), and each charger keeps its strength. The HUD here is a stand-in for the game\'s tokens (name, flags, energy). The darkness is the 3D lights going down plus a dark layer on the overlay with a hole around her; the shrink is a 2.5% field-of-view breath with no camera move.',
 };
 
 const mix = (a, b, k) => a + (b - a) * k;
@@ -107,10 +107,6 @@ export default async function play(lab) {
   const dark = document.createElement('div');
   dark.style.cssText = 'position:absolute;inset:0;pointer-events:none';
   lab.overlay.append(dark);
-  // the hum bar rolling up the screen
-  const hum = document.createElement('div');
-  hum.style.cssText = 'position:absolute;left:0;right:0;height:38%;pointer-events:none;background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.34) 45%, rgba(0,0,0,.34) 55%, rgba(0,0,0,0));opacity:0';
-  lab.overlay.append(hum);
 
   const MOVE = 0.58;
   const HIT = 0.64; // the charge lands
@@ -124,7 +120,7 @@ export default async function play(lab) {
   maya.each = (m) => {
     // she holds her strength while the lights she's lit by go down: her own glow makes up for it
     const lost = Math.max(0, 1 - look.L);
-    m.paint.emissiveIntensity = 0.16 + lost * 0.55;
+    m.paint.emissiveIntensity = 0.16 + lost * 0.4;
     m.eyeMat.color.copy(WHITE).lerp(AMBER, look.warm);
     m.ringMat.color.copy(mRing0).lerp(RING, look.warm);
     m.poolMat.color.copy(mPool0).lerp(POOL, look.warm * 0.85);
@@ -158,6 +154,7 @@ export default async function play(lab) {
     em.ringMat.opacity *= Math.min(1.15, LE);
     em.poolMat.opacity *= LE;
     em.paint.emissiveIntensity *= LE;
+    if (ezra.tag) ezra.tag.material.opacity *= Math.min(1, LE * stutter);
     // the picture shrinks a hair as it browns out (field of view; the lab eases fov 8% toward home, so lead it)
     const cam = lab.camera3;
     const fov = 30 + (1 - L) * 1.2;
@@ -180,23 +177,18 @@ export default async function play(lab) {
     // the darkness over the picture, with its hole around her; on the surge the hole races outward
     const H = lab.overlay.clientHeight || 540;
     const dip = T < HIT + 0.42 ? Math.max(0, 1 - L) / 0.7 : 1 - seg(T, HIT + 0.5, HIT + 0.62);
-    const r0 = H * mix(0.13, 1.9, ease.in(seg(T, HIT + 0.42, HIT + 0.56)));
+    const r0 = H * mix(0.13, 1.9, ease.in(seg(T, HIT + 0.42, HIT + 0.62)));
     if (dip > 0.003) {
       const p = lab.toScreen(lab.pos(maya.pose.x, maya.pose.y).setY(0.2));
       const a = (0.5 * dip).toFixed(3);
       dark.style.background = `radial-gradient(circle at ${p.x}px ${p.y}px, rgba(0,0,0,0) ${r0}px, rgba(0,0,0,${a}) ${r0 + H * 0.16}px)`;
     } else dark.style.background = 'none';
-    // the hum bar
-    const h = seg(T, HIT + 0.02, HIT + 0.5);
-    hum.style.top = `${mix(100, -40, h)}%`;
-    hum.style.opacity = String(h > 0 && h < 1 ? Math.sin(h * Math.PI) ** 0.5 * 0.9 : 0);
   });
   lab.cleanup(stop);
 
   await lab.wait(END);
   stop();
   restore();
-  hum.remove();
   dark.remove();
   maya.each = null;
   maya.release({ x: 3, y: 1, d: 1 });
