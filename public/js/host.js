@@ -164,13 +164,18 @@ function renderJoinLink(join) {
   fitJoinLink();
 }
 
+/** The address is exactly as wide as the QR card above it, so the two read as one block. */
 function fitJoinLink() {
   const el = $('join-link');
   const lines = [...el.children];
-  if (!lines.length || !el.clientWidth) return;
+  const qr = document.querySelector('.join-qr');
+  if (!lines.length || !qr?.offsetWidth) return;
   el.style.fontSize = '';
+  const base = parseFloat(getComputedStyle(el).fontSize);
   const widest = Math.max(...lines.map((line) => line.offsetWidth));
-  if (widest > el.clientWidth) el.style.fontSize = `${(parseFloat(getComputedStyle(el).fontSize) * el.clientWidth * 0.98) / widest}px`;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const size = Math.min(4 * rem, Math.max(rem, (base * qr.offsetWidth) / widest));
+  el.style.fontSize = `${size}px`;
 }
 addEventListener('resize', fitJoinLink);
 document.fonts?.ready.then(fitJoinLink);

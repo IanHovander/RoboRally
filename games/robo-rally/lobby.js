@@ -160,13 +160,7 @@ export function mountLumenLobby(stage, ui) {
     await pause(Math.max(FADE_MS, SETTLE_MS - (performance.now() - lastBeatAt)));
     // a clean start: robots at their start spaces, nothing left glowing from the last scene
     resetPhone();
-    arena.clearCards(); // (first: a robot's card isn't removed with the robot)
-    arena.syncRobots([]); // the robots leave, with their light trails
-    arena.focusOn = null;
-    arena.setDim(0);
-    const course = lessonCourse(lesson);
-    if (arena.course === course) arena.course = null; // the same scene again: its board is built afresh too
-    arena.setCourse(course); // a new board clears the old one's effects and cards
+    arena.reset(lessonCourse(lesson)); // the board built afresh (even the same one), robots and effects gone
     arena.syncRobots(robotsAt(run.start));
     hush = false;
     stage.style.opacity = '1';

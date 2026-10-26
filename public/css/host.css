@@ -47,10 +47,10 @@ html.host body { overflow: hidden; }
 .join-or::before,
 .join-or::after { content: ""; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--hair2)); }
 .join-or::after { background: linear-gradient(to left, transparent, var(--hair2)); }
-/* sized by host.js to fit the column (this is the largest it gets) */
-.join-link { width: 100%; font-size: 2.7rem; font-weight: 300; line-height: 1.15; letter-spacing: 0.01em; color: var(--light); }
-.join-link span { display: block; width: max-content; margin: 0 auto; white-space: nowrap; }
-.join-link b { font-weight: 500; letter-spacing: 0.05em; text-shadow: 0 0 1.4rem rgba(244, 239, 228, 0.45); }
+/* the same thin, tracked type as the wordmark; host.js sizes it to exactly the QR card's width */
+.join-link { width: 100%; font-size: 2.2rem; font-weight: 200; line-height: 1.22; letter-spacing: 0.06em; color: var(--light); text-align: center; }
+.join-link span { display: block; width: max-content; margin: 0 auto; padding-left: 0.06em; white-space: nowrap; } /* (balances the tracking after the last letter) */
+.join-link b { font-weight: inherit; }
 .join-local { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: var(--dim); letter-spacing: 0.04em; }
 .join-local svg { width: 1.6rem; height: 1.6rem; color: var(--faint); }
 .join-local b { font-weight: 400; }
