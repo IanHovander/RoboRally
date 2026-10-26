@@ -78,7 +78,7 @@ export default async function play(lab) {
   const X0 = muzzle.x;
   const XF = lab.pos(1, 1).x + 0.44;
   const YB = 0.16;
-  const COLD = new THREE.Color(0.78, 0.9, 1.0);
+  const COLD = new THREE.Color(0.5, 0.74, 1.0);
 
   // ----- the lit glass and its shadows: one shader on a plane over the board -----
   const occ = [
@@ -116,7 +116,7 @@ export default async function play(lab) {
           if (i == 0) {
             // Maya's shadow can tear: beyond a point the far part is thrown sideways
             float along = dot(p - c, normalize(c - L + vec2(1e-4)));
-            c += uTear * smoothstep(0.42, 0.5, along);
+            c += uTear * smoothstep(0.44, 0.52, along);
           }
           vec2 d = L - p;
           float t = clamp(dot(c - p, d) / max(dot(d, d), 1e-5), 0.0, 1.0);
@@ -134,13 +134,13 @@ export default async function play(lab) {
       void main() {
         vec2 p = vXZ;
         float I = 0.0;
-        if (uHeadI > 0.0) I += uHeadI * vis(p, uHead) * fall(length(p - uHead), 0.55);
+        if (uHeadI > 0.0) I += uHeadI * vis(p, uHead) * fall(length(p - uHead), 1.0);
         if (uLineI > 0.0) {
           float s = 0.0;
           for (int k = 0; k < 14; k++) {
             float f = (float(k) + 0.5) / 14.0;
             vec2 L = vec2(mix(uX1, uX0, f), uZ);
-            s += vis(p, L) * fall(length(p - L), 0.6);
+            s += vis(p, L) * fall(length(p - L), 1.3);
           }
           I += uLineI * s / 14.0;
         }
@@ -190,10 +190,13 @@ export default async function play(lab) {
   setBeam(X0, 0);
 
   // ----- camera: rises a little to look down on the light, eases home as the lights return -----
+  // (kick: a tiny snap toward Maya's shadow on the tear)
+  let kick = 0;
+  const shadowAt = lab.pos(0.2, 1);
   const releaseCam = lab.camera((home) => ({
-    dist: home.dist * (1 - 0.07 * dark),
+    dist: home.dist * (1 - 0.07 * dark - 0.07 * kick),
     el: home.el + 0.11 * dark,
-    target: home.target.clone().add(new THREE.Vector3(0, 0, -0.25 * dark)),
+    target: home.target.clone().add(new THREE.Vector3(-0.75 * dark, 0, -0.2 * dark)).lerp(shadowAt, 0.12 * kick),
   }));
 
   // ----- Theo draws breath: his eye brightens -----
@@ -212,8 +215,8 @@ export default async function play(lab) {
   }, ease.inOut);
   lab.tween(0.15, (e) => (theoEye.k = 1 - e), ease.out);
   const V = 6.6;
-  const HEAD_I = 0.55;
-  const LINE_I = 0.38;
+  const HEAD_I = 0.42;
+  const LINE_I = 0.34;
   const RIM_I = 0.35;
   let hx = X0;
   const race = lab.tween((X0 - XF) / V, (e) => {
@@ -235,16 +238,22 @@ export default async function play(lab) {
 
   // ----- the hit lands on her shadow: it tears, and the picture holds on the rip -----
   lab.ring(lab.pos(1, 1).setY(0.02).add(new THREE.Vector3(0.44, 0, 0)), '#cfe6ff', 0.25, 0.16, 0.25);
-  await lab.tween(0.04, (e) => uni.uTear.value.set(0, -0.3 * e), ease.out);
+  const TEAR = new THREE.Vector2(-0.34, -0.14); // the far part of her shadow is wrenched away from her, leaving a gap of light
+  await lab.tween(0.04, (e) => {
+    uni.uTear.value.copy(TEAR).multiplyScalar(e);
+    kick = e;
+  }, ease.out);
   lab.timeScale = 0.03;
-  await lab.waitReal(0.12);
+  await lab.waitReal(0.16);
   lab.timeScale = 1;
-  await lab.tween(0.32, (e, k) => {
+  await lab.tween(0.34, (e, k) => {
     const back = Math.exp(-k * 6) * Math.cos(k * 15);
-    uni.uTear.value.set(0, -0.3 * back);
+    uni.uTear.value.copy(TEAR).multiplyScalar(back);
+    kick = 1 - ease.inOut(k);
   }, ease.linear);
   uni.uTear.value.set(0, 0);
-  await lab.wait(0.12);
+  kick = 0;
+  await lab.wait(0.06);
 
   // ----- the beam lets go; the lights rise like a sunrise and the shadows shrink back under their robots -----
   const fade = lab.tween(0.42, (e) => {

@@ -223,8 +223,8 @@ export default async function play(lab) {
   let irisK = 0; // 0 open, 1 closed
   let zoom = 0; // crash zoom
   const camRelease = lab.camera((home) => ({
-    target: home.target.clone().lerp(centre, 0.85 * zoom),
-    fov: home.fov - 6 * zoom,
+    target: home.target.clone().lerp(centre, 0.7 * zoom),
+    fov: home.fov - 5 * zoom,
     dist: home.dist * (1 - 0.06 * zoom),
   }));
 
@@ -292,7 +292,7 @@ export default async function play(lab) {
     }
     if (k >= tp && k < tl + 0.2) {
       const h = Math.min(1, (k - tp) / H);
-      lift = 0.26 * Math.sin(h * Math.PI) * (k < tl ? 1 : 0);
+      lift = 0.4 * Math.sin(h * Math.PI) * (k < tl ? 1 : 0);
       pitch = k < tl ? -0.28 * Math.sin(h * Math.PI * 0.9) + 0.32 * Math.max(0, h - 0.55) / 0.45 : 0;
       sy = k < tl ? 1 + 0.14 * Math.sin(h * Math.PI) : 1;
       sxz = k < tl ? 1 - 0.05 * Math.sin(h * Math.PI) : 1;

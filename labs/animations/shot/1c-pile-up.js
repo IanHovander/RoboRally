@@ -28,11 +28,11 @@ export default async function play(lab) {
     return t;
   })();
   const add = (o) => lab.add(o);
-  const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.3, 2.4, 2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const glowMat = new THREE.MeshBasicMaterial({ color: BLUE.clone().multiplyScalar(1.7), transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false });
+  const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.75, 2.0, 2.45), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const glowMat = new THREE.MeshBasicMaterial({ color: BLUE.clone().multiplyScalar(1.7), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
   const core = add(new THREE.Mesh(new THREE.BufferGeometry(), coreMat));
   const glow = add(new THREE.Mesh(new THREE.BufferGeometry(), glowMat));
-  const setLine = (pts, rCore = 0.013, rGlow = 0.034) => {
+  const setLine = (pts, rCore = 0.014, rGlow = 0.03) => {
     core.geometry.dispose();
     glow.geometry.dispose();
     const clean = [];
@@ -72,8 +72,8 @@ export default async function play(lab) {
   const folds = [];
   let acc = 0;
   for (let k = 0; acc < LB + 2; k++) {
-    const h = Math.min(0.74, 0.36 + 0.08 * k) * lab.range(0.86, 1.06);
-    const loop = k % 3 === 1;
+    const h = Math.min(0.6, 0.3 + 0.07 * k) * lab.range(0.88, 1.06);
+    const loop = k % 4 === 2;
     const z = lab.range(-0.06, 0.06);
     const f = loop ? Math.PI * h * 0.95 : 2.05 * h;
     folds.push({ h, loop, z, u0: acc, f, lean: lab.range(0.03, 0.08) });
@@ -90,7 +90,7 @@ export default async function play(lab) {
     const H = F.h * s * jit * lift;
     if (F.loop) {
       const a = ph * Math.PI * 2;
-      const r = H / 2;
+      const r = H * 0.4;
       return new THREE.Vector3(x0 + W * ph - Math.sin(a) * r * 0.8, YB + r * (1 - Math.cos(a)), Z + F.z + Math.sin(a) * 0.06 * s);
     }
     const tri = 1 - Math.abs(2 * ph - 1);
@@ -185,8 +185,8 @@ export default async function play(lab) {
       const straight = emitted - P;
       setLine(linePoints(t, P, straight));
       head.position.set(XF, YB, Z);
-      head.material.opacity = 0.35;
-      head.scale.setScalar(0.22);
+      head.material.opacity = 0.12;
+      head.scale.setScalar(0.18);
     }
   });
   lab.tween(0.14, (e) => {
@@ -206,8 +206,8 @@ export default async function play(lab) {
       cam.toward = w0 + (toward - w0) * e;
     });
   };
-  await snap(0.2, 0.42, 0.08);
-  await lab.waitReal(0.03);
+  await snap(0.32, 0.55, 0.06);
+  await lab.waitReal(0.05);
   lab.timeScale = 1;
 
   // the rest keeps coming: folds buckle up against her; she rocks very slightly with each one (but never moves)
@@ -230,8 +230,8 @@ export default async function play(lab) {
   lab.shake(0.03, 0.18);
   const W0 = W;
   lab.tween(0.22, (e, k) => {
-    W = W0 * (1 - 0.36 * ease.outBack(k, 2.4));
-    lift = 1 + 0.14 * ease.outBack(k, 2.4);
+    W = W0 * (1 - 0.2 * ease.outBack(k, 2.4));
+    lift = 1 + 0.3 * ease.outBack(k, 2.4);
     wobble = 0.5 + 1.5 * (1 - k);
   }, ease.linear);
   await lab.wait(0.24);
@@ -247,10 +247,10 @@ export default async function play(lab) {
   mouth.position.set(XF - 0.05, YB, Z);
   const fill = { k: 0 };
   maya.each = (m) => {
-    m.paint.emissive.copy(BLUE);
+    m.paint.emissive.lerp(BLUE, fill.k);
     m.paint.emissiveIntensity = 0.16 + fill.k * 0.8;
   };
-  snap(0.27, 0.6, 0.3);
+  snap(0.4, 0.72, 0.3);
   const t1 = lab.t;
   await lab.tween(0.3, (e, k) => {
     squeeze = ease.in(k);
@@ -269,16 +269,16 @@ export default async function play(lab) {
   // settle back to her shape, then one bright blink
   const blink = { k: 0 };
   maya.each = (m) => {
-    m.paint.emissive.copy(BLUE);
+    m.paint.emissive.lerp(BLUE, fill.k);
     m.paint.emissiveIntensity = 0.16 + fill.k * 0.8;
     const b = blink.k;
     if (b < 0) m.eyeMat.color.setRGB(0.15, 0.15, 0.15);
     else m.eyeMat.color.setRGB(3.2 + b * 9, 3.1 + b * 9.5, 2.9 + b * 10);
   };
-  lab.tween(0.18, (e) => {
+  lab.tween(0.12, (e) => {
     mouth.material.opacity = 1 - e;
-    mouth.scale.setScalar(0.9 + 0.6 * e);
-  }, ease.out).then(() => (mouth.visible = false));
+    mouth.scale.setScalar(0.9 * (1 - e));
+  }, ease.in).then(() => (mouth.visible = false));
   const settle = lab.tween(0.5, (e, k) => {
     const el = ease.outElastic(k);
     maya.set({ sx: 1.2 - 0.2 * el, sz: 1.2 - 0.2 * el, sy: 1.12 - 0.12 * el });

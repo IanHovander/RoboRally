@@ -142,10 +142,17 @@ export default async function play(lab) {
     iris.style.opacity = String(Math.min(1, S.iris * 1.2));
     iris.style.background = `radial-gradient(ellipse ${r}px ${r * 0.72}px at ${c.x}px ${c.y}px, rgba(0,0,0,0) 55%, rgba(2,3,5,0.82) 100%)`;
     // the glint
-    const ridge = theo.group.position.clone().setY(0.42);
+    // (hooks run before the puppets are posed this frame, so place it from the pose, not the group)
+    const ridge = P(theo.pose.x, theo.pose.y).setY(0.42 + theo.pose.lift);
     star.position.copy(ridge);
     star.material.opacity = S.glint;
     star.scale.setScalar(0.25 + 1.3 * S.glint);
+    // Maya's card would be cropped by the lean-in: it steps back while the camera is close
+    const card = lab.bot('a').card;
+    if (card) {
+      card.material.transparent = true;
+      card.material.opacity = 1 - 0.9 * S.cam;
+    }
   });
   theo.each = (m) => {
     m.paint.emissive.copy(blue).lerp(white, Math.min(1, S.prism));
@@ -183,9 +190,9 @@ export default async function play(lab) {
   rt(0.3, (e, k) => (S.eye = 1 - k * 0.7), ease.linear);
   await rt(0.12, (e) => (S.prism = e), ease.in);
   S.fan = 1;
-  await rt(0.3, (e) => ((S.fanFront = e), (S.prism = 1 - 0.55 * e)), ease.out);
-  await rt(0.2, (e) => (S.rain = e), ease.inOut);
-  await lab.waitReal(0.08);
+  await rt(0.27, (e) => ((S.fanFront = e), (S.prism = 1 - 0.55 * e)), ease.out);
+  await rt(0.18, (e) => (S.rain = e), ease.inOut);
+  await lab.waitReal(0.07);
 
   // ---- 3. time snaps back: Theo slides along his spectrum; the camera floats home ----
   lab.timeScale = 1;
@@ -213,6 +220,7 @@ export default async function play(lab) {
   void t1;
   releaseCam();
   stopDraw();
+  if (lab.bot('a').card) lab.bot('a').card.material.opacity = 1;
   iris.remove();
   theo.each = null;
   maya.each = null;

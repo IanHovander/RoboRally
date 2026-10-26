@@ -63,15 +63,16 @@ const CONE_GLSL = /* glsl */ `
   uniform float uOut;
   uniform float uIn;
   uniform float uReach;
+  // the glow the beam throws down on the glass under it: soft across, fading along, widening with the fan
   float coneLight(vec3 p) {
-    vec3 v = p - uEye;
-    float d = length(v);
-    float a = dot(v, uAxis);
-    float r = length(vec2(dot(v, uRight), dot(v, uUp) * ${FLAT.toFixed(2)}));
-    float ang = atan(r, max(a, 1e-4));
-    float cone = smoothstep(uOut, uIn, ang) * step(0.0, a);
-    float reach = smoothstep(uReach, uReach - 0.6, d);
-    return cone * reach / (1.0 + 0.07 * d * d);
+    vec2 v = p.xz - uEye.xz;
+    vec2 f = normalize(uAxis.xz);
+    float a = dot(v, f);
+    float lat = dot(v, vec2(-f.y, f.x));
+    float w = 0.16 + max(a, 0.0) * tan(uOut) * 0.9;
+    float across = exp(-2.2 * (lat * lat) / (w * w));
+    float along = smoothstep(0.05, 0.7, a) * smoothstep(uReach, uReach - 0.8, a) / (1.0 + 0.09 * a * a);
+    return across * along;
   }
 `;
 
@@ -79,13 +80,9 @@ function tileTexture(THREE) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d');
-  g.filter = 'blur(10px)';
-  g.fillStyle = 'rgba(255,255,255,.35)';
-  g.fillRect(18, 18, 92, 92);
-  g.filter = 'blur(1.5px)';
-  g.strokeStyle = 'rgba(255,255,255,.9)';
-  g.lineWidth = 3;
-  g.strokeRect(10, 10, 108, 108);
+  g.filter = 'blur(12px)';
+  g.fillStyle = 'rgba(255,255,255,.75)';
+  g.fillRect(22, 22, 84, 84);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -124,7 +121,7 @@ export default async function play(lab) {
   const r0 = maya.pose.rot;
   const r1 = r0 - s * (Math.PI / 2);
   const row = rowAhead(lab.scenario, end.x, end.y, end.d);
-  const warm = new THREE.Color(PALETTE.light);
+  const warm = new THREE.Color(PALETTE.light).lerp(new THREE.Color('#ffd2a0'), 0.3);
   const OUT = 15 * DEG;
   const IN = 3 * DEG;
 
@@ -175,12 +172,12 @@ export default async function play(lab) {
       varying vec3 vN;
       varying vec3 vV;
       void main() {
-        float edge = pow(abs(dot(normalize(vN), normalize(vV))), 3.0);
+        float edge = pow(abs(sin(vAng)), 2.5) * (0.35 + 0.65 * pow(abs(dot(normalize(vN), normalize(vV))), 2.0));
         float a = vAlong / ${L.toFixed(1)};
-        float fall = pow(1.0 - a, 2.0) * smoothstep(0.0, 0.05, a);
+        float fall = pow(1.0 - a, 2.6) * smoothstep(0.0, 0.06, a);
         float reach = smoothstep(uReach, uReach - 0.9, vAlong);
         float streak = 0.72 + 0.28 * sin(vAng * 11.0 + 1.3 + uT * 0.6) * sin(vAng * 5.0 - 0.4);
-        gl_FragColor = vec4(uColor * edge * fall * reach * streak * uI * 0.3, 1.0);
+        gl_FragColor = vec4(uColor * edge * fall * reach * streak * uI * 0.34, 1.0);
       }`,
   });
   const cone = new THREE.Mesh(coneGeo, coneMat);
@@ -213,7 +210,7 @@ export default async function play(lab) {
         float l = coneLight(vW);
         vec2 e = uHalf - abs(vW.xz);
         float rim = smoothstep(0.04, 0.0, min(e.x, e.y));
-        gl_FragColor = vec4(uColor * l * uI * (0.5 + 2.4 * rim), 1.0);
+        gl_FragColor = vec4(uColor * l * uI * (0.42 + 2.2 * rim), 1.0);
       }`,
   });
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(row.W, row.H), glassMat);
@@ -292,7 +289,7 @@ export default async function play(lab) {
     maya.model.muzzle.getWorldPosition(muzzle);
     const fwd = new THREE.Vector3(-Math.sin(rot), 0, -Math.cos(rot));
     const eyeAt = muzzle.clone().addScaledVector(fwd, 0.02);
-    const tilt = Math.atan2(Math.max(0.1, eyeAt.y), 3.4);
+    const tilt = Math.atan2(Math.max(0.1, eyeAt.y), 10); // a lighthouse beam: level, through the air
     cone.position.copy(eyeAt);
     cone.rotation.set(-tilt, rot, 0);
     U.uEye.value.copy(eyeAt);
@@ -323,10 +320,10 @@ export default async function play(lab) {
     dustGeo.attributes.color.needsUpdate = true;
     dustGeo.attributes.position.needsUpdate = true;
     // the room
-    arena.dim = arena.dimCur = 0.6 * room;
+    arena.dim = arena.dimCur = 0.75 * room;
     arena.key.intensity = key0 * (1 - 0.5 * room);
     arena.hemi.intensity = hemi0 * (1 - 0.4 * room);
-    for (const c of cells) c.m.material.opacity = c.k * (c.pit ? 0.9 : 0.7);
+    for (const c of cells) c.m.material.opacity = c.k * (c.pit ? 0.9 : 0.85 * (1 - 0.1 * c.i));
   });
   maya.each = (m) => m.eyeMat.color.setRGB(3.2 * eye, 3.1 * eye, 2.9 * eye);
 

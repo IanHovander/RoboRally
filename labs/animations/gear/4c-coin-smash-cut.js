@@ -82,7 +82,7 @@ export default async function play(lab) {
   // ---- the wobble, as functions of time ----
   const TIP = 0.16; // tipping onto the rim
   const T = 1.08; // the wobble
-  const A0 = 0.3; // first tilt (radians)
+  const A0 = 0.36; // first tilt (radians)
   const tilt = (u) => A0 * (1 - u) ** 1.35 + 0.012;
   const f0 = 1.15; // revolutions per second at the start ...
   const f1 = 7.0; // ... and at the end
@@ -160,7 +160,7 @@ export default async function play(lab) {
       spark.visible = true;
       spark.position.set(c.x, 0.014, c.z);
       const r = rate(u) / f1;
-      spark.scale.setScalar(0.7 + 0.6 * r);
+      spark.scale.setScalar(0.8 + 0.9 * r);
       spark.material.opacity = 0.55 + 0.45 * r;
       // the exposure: the last 0.2 s of the spark's path, sampled finely
       const pts = [];
@@ -170,12 +170,14 @@ export default async function play(lab) {
         const uu = u - span + (span * i) / N;
         if (uu < 0) continue;
         const q = contact(uu);
-        const a = (i / N) ** 1.2 * (0.35 + 0.65 * r);
+        const a = (i / N) ** 1.2 * (0.45 + 0.95 * r);
         pts.push({ x: q.x, z: q.z, a });
       }
-      arc.draw(pts, hot, 0.03 + 0.02 * r);
+      arc.draw(pts, hot, 0.035 + 0.045 * r);
     }
     push = phase === 'still' ? 0 : ease.in(Math.min(1, k / (TIP + T)));
+    // the room closes in on her as the whirr builds; the cut brings it all back at once
+    arena.dim = arena.dimCur = phase === 'still' ? 0 : 0.65 * Math.min(1, k / (TIP + T));
     sway = phase === 'still' ? 0 : Math.min(1, k / 0.3) * (1 - u * 0.5);
     swayPsi = psi;
     prevU = u;
@@ -188,26 +190,22 @@ export default async function play(lab) {
     if (phase === 'wobble') m.ringMat.opacity = Math.min(1, 0.9 + 0.3 * u);
   };
 
+  lab.cleanup(() => (arena.dim = arena.dimCur = 0));
+
   // ---- beats ----
   if (gear) gear.pulse = lab.t;
   phase = 'wobble';
   await lab.wait(TIP + T);
-  // the drop: everything stops in one frame
-  phase = 'drop';
+  // the drop and the cut, in one frame: she is flat, the light is gone, the camera is home, the room is back
+  phase = 'still';
   spark.visible = false;
   arc.visible = false;
   push = 0;
   sway = 0;
-  await lab.tween(0.05, (e) => {
-    const head = headAt(1);
-    const psi = psi0 + spin(1);
-    const a = tilt(1) * (1 - e);
-    maya.set({ rot: -head, pitch: a * Math.cos(psi - head), roll: a * Math.sin(psi - head), lift: R * Math.sin(a), sy: 1 - 0.07 * e, sx: 1 + 0.04 * e, sz: 1 + 0.04 * e });
-  }, ease.in);
-  phase = 'still';
-  // the camera is cut home now (push = 0); a tiny squash settles with no bounce, then nothing moves
-  await lab.tween(0.1, (e) => maya.set({ pitch: 0, roll: 0, lift: 0, sy: 0.93 + 0.07 * e, sx: 1.04 - 0.04 * e, sz: 1.04 - 0.04 * e }), ease.out);
-  await lab.wait(0.26);
+  maya.set({ rot: -headAt(1), pitch: 0, roll: 0, lift: 0, sy: 0.92, sx: 1.05, sz: 1.05 });
+  // a tiny squash settles with no bounce, then nothing moves
+  await lab.tween(0.1, (e) => maya.set({ sy: 0.92 + 0.08 * e, sx: 1.05 - 0.05 * e, sz: 1.05 - 0.05 * e }), ease.out);
+  await lab.wait(0.3);
   stop();
   if (gear) {
     // hand the gear back so its idle spin carries on from where it stopped

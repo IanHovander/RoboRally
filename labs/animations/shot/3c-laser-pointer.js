@@ -35,8 +35,8 @@ export default async function play(lab) {
     return t;
   })();
   // the dot: a hot point plus a soft pool of light on the glass
-  const dot = add(new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5.5, 6.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
-  const pool = add(new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: glowTex, color: BLUE.clone().multiplyScalar(2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
+  const dot = add(new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5.5, 6.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
+  const pool = add(new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.75), new THREE.MeshBasicMaterial({ map: glowTex, color: BLUE.clone().multiplyScalar(2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
   pool.rotation.x = -Math.PI / 2;
   const up = new THREE.Vector3(0, 1, 0);
   let lineOn = 0;
@@ -62,17 +62,17 @@ export default async function play(lab) {
   // where the dot wanders: on the glass just beside Maya, toward Jun; a shaky hand, with a couple of darts
   const base = lab.pos(1.62, 1.58);
   const darts = [
-    { t: 0.28, to: new THREE.Vector3(0.16, 0, -0.1) },
-    { t: 0.55, to: new THREE.Vector3(-0.08, 0, 0.12) },
-    { t: 0.8, to: new THREE.Vector3(0.05, 0, 0.02) },
+    { t: 0.26, to: new THREE.Vector3(0.24, 0, -0.14) },
+    { t: 0.5, to: new THREE.Vector3(-0.12, 0, 0.18) },
+    { t: 0.74, to: new THREE.Vector3(0.08, 0, 0.02) },
   ];
   const dotAt = (t) => {
     const p = base.clone();
     let off = new THREE.Vector3();
     for (const d of darts) if (t > d.t) off.lerp(d.to, Math.min(1, (t - d.t) / 0.05));
     p.add(off);
-    p.x += Math.sin(t * 9.1) * 0.03 + Math.sin(t * 23.7) * 0.012 + Math.sin(t * 41) * 0.006;
-    p.z += Math.sin(t * 7.3 + 1) * 0.03 + Math.sin(t * 19.3) * 0.012 + Math.sin(t * 37) * 0.006;
+    p.x += Math.sin(t * 9.1) * 0.05 + Math.sin(t * 23.7) * 0.02 + Math.sin(t * 41) * 0.01;
+    p.z += Math.sin(t * 7.3 + 1) * 0.05 + Math.sin(t * 19.3) * 0.02 + Math.sin(t * 37) * 0.01;
     p.y = 0.012;
     return p;
   };
@@ -88,7 +88,19 @@ export default async function play(lab) {
     const shut = eye.blink;
     m.eyeMat.color.setRGB(3.2 * b * (1 - shut * 0.9), 3.1 * b * (1 - shut * 0.9), 2.6 * b * (1 - shut * 0.9));
     for (const [o, s] of visor) o.scale.y = s * (1 - 0.55 * eye.lock) * (1 - 0.85 * shut);
+    // airborne, his ring and glow stay down on the glass, dimmer and wider the higher he is: that is what reads as height
+    const air = Math.min(1, J.lift / 0.12);
+    m.ringMat.opacity *= 1 - air;
+    m.poolMat.opacity *= 1 - air;
+    const at = lab.pos(J.x, J.y);
+    floor.position.set(at.x, 0.013, at.z);
+    floor.scale.setScalar(0.95 + 1.2 * J.lift);
+    floor.material.opacity = air * (0.75 - 0.6 * J.lift);
+    floor.visible = air > 0.001;
   };
+  const floor = add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color('#ffd43b').multiplyScalar(1.3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
+  floor.rotation.x = -Math.PI / 2;
+  floor.visible = false;
   const poseJun = () => jun.set({ x: J.x, y: J.y, rot: J.rot, lift: J.lift, sx: J.sx, sz: J.sx, sy: J.sy, pitch: J.pitch, roll: J.roll });
   const aimAt = (p) => {
     const at = lab.pos(J.x, J.y);
@@ -118,7 +130,7 @@ export default async function play(lab) {
   });
 
   // Jun notices: a snap of the head toward the dot, the eye narrows and locks on
-  const camPush = lab.tween(1.0, (e) => (cam.push = e), ease.inOut);
+  const camPush = lab.tween(0.85, (e) => (cam.push = e), ease.inOut);
   await lab.wait(0.12);
   const rot0 = J.rot;
   await lab.tween(0.12, (e) => {
@@ -164,7 +176,7 @@ export default async function play(lab) {
   }, ease.out);
   await lab.tween(0.13, (e) => {
     jump(e * 0.62);
-    J.lift = 0.4 * Math.sin((e * Math.PI) / 2);
+    J.lift = 0.5 * Math.sin((e * Math.PI) / 2);
     J.pitch = -0.18 + 0.45 * e;
     poseJun();
   }, ease.out);
@@ -192,9 +204,10 @@ export default async function play(lab) {
   const shutter = document.createElement('div');
   shutter.style.cssText = 'position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 42% 52% at 50% 55%,rgba(0,0,0,0) 60%,rgba(0,0,0,.6) 100%);opacity:0';
   lab.overlay.append(shutter);
-  const flash = document.createElement('div');
-  flash.style.cssText = 'position:absolute;inset:0;pointer-events:none;background:#fff;opacity:.45';
-  lab.overlay.append(flash);
+  // the still: a shutter flash on the picture itself, then it holds, a little drained of colour, like a photo
+  const canvas = lab.renderer.domElement;
+  lab.cleanup(() => (canvas.style.filter = ''));
+  const still = (flashK, drain) => (canvas.style.filter = `brightness(${1 + 0.9 * flashK}) saturate(${1 - 0.45 * drain}) contrast(${1 + 0.08 * drain})`);
   const real = (dur, fn) => new Promise((ok) => {
     const r0 = lab.real;
     const stop = lab.every(() => {
@@ -207,25 +220,34 @@ export default async function play(lab) {
     });
   });
   // the freeze: a snap in, a slight dutch angle, the room drops away around him... and he blinks
-  await real(0.09, (k) => {
+  await real(0.08, (k) => {
     const e = ease.out3(k);
     cam.snap = e;
     cam.roll = 0.035 * e;
-    flash.style.opacity = String(0.45 * (1 - k));
+    still(1 - k, e);
     shutter.style.opacity = String(e);
   });
-  flash.remove();
-  await real(0.12, () => {});
+  await real(0.1, () => {});
   await real(0.16, (k) => (eye.blink = Math.sin(k * Math.PI)));
   eye.blink = 0;
-  await real(0.12, () => {});
+  await real(0.08, () => {});
 
   // ----- time starts again: he drops, and slides home as if nothing happened -----
   lab.timeScale = 1;
   lab.glitch('a', '#ff7a6b');
-  ghostMat.opacity = 0.5;
-  lab.tween(0.7, (e) => (ghostMat.opacity = 0.5 * (1 - e)), ease.in).then(() => (ghost.visible = false));
-  lab.tween(0.3, (e) => (shutter.style.opacity = String(1 - e)), ease.out).then(() => shutter.remove());
+  // the ghost of the pounce stays hanging in the air as he drops out from under it, then rises away like breath
+  const g0 = ghost.matrix.clone();
+  lab.tween(0.55, (e, k) => {
+    ghostMat.opacity = 0.36 * Math.min(1, k * 3) * (1 - ease.in(k));
+    ghost.matrix.copy(g0).premultiply(new THREE.Matrix4().makeTranslation(0, 0.08 * ease.out(k), 0));
+  }, ease.linear).then(() => (ghost.visible = false));
+  lab.tween(0.3, (e) => {
+    shutter.style.opacity = String(1 - e);
+    still(0, 1 - e);
+  }, ease.out).then(() => {
+    shutter.remove();
+    canvas.style.filter = '';
+  });
   lab.tween(0.3, (e) => (lineOn = 1 - e), ease.out).then(() => {
     lineCore.visible = lineGlow.visible = dot.visible = pool.visible = false;
   });
@@ -245,12 +267,12 @@ export default async function play(lab) {
   const r1 = J.rot;
   const cs = cam.snap;
   const cr = cam.roll;
-  lab.tween(0.55, (e) => {
+  lab.tween(0.46, (e) => {
     cam.snap = cs * (1 - e);
     cam.roll = cr * (1 - e);
     cam.push = 1 - e;
   }, ease.inOut);
-  await lab.tween(0.5, (e, k) => {
+  await lab.tween(0.42, (e, k) => {
     J.x = xm + (3 - xm) * e;
     J.y = ym + (3 - ym) * e;
     J.rot = r1 + (facing(0) - r1) * e;
@@ -260,7 +282,7 @@ export default async function play(lab) {
     J.pitch = -0.06 * Math.sin(k * Math.PI);
     poseJun();
   }, ease.inOut);
-  await lab.wait(0.08);
+  await lab.wait(0.03);
   keep();
   releaseCam();
   jun.each = null;

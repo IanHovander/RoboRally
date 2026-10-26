@@ -36,10 +36,18 @@ export default async function play(lab) {
   const S = { rail: 0, railA: 0, leash: 0, leashA: 0, punch: 0 };
   // ---- the leash: a thin line of light from the rail to Theo (a stretched box) ----
   const leashMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 2.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const leash = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 8).translate(0, 0.5, 0), leashMat);
+  const leash = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 8).translate(0, 0.5, 0), leashMat);
   lab.add(leash);
+  // the hook: a bead of light where the leash catches him
+  const beadMat = new THREE.MeshBasicMaterial({ color: hdr(warm, 3.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 10), beadMat);
+  lab.add(bead);
   const anchor = P(3, 2).setY(0.012);
   const up = new THREE.Vector3(0, 1, 0);
+  // his ring's shadow of light stays on the glass while he is in the air, so the hop's height reads
+  const footMat = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const foot = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 48).rotateX(-Math.PI / 2), footMat);
+  lab.add(foot);
   const stopDraw = lab.every(() => {
     const a = P(RAIL0, 2).setY(0.012);
     rail.position.copy(a);
@@ -51,16 +59,22 @@ export default async function play(lab) {
     haloMat.opacity = S.railA * 0.6;
     capMat.opacity = S.railA * Math.max(0, (S.rail - 0.9) / 0.1);
     // leash: from the anchor on the rail toward Theo's body (drawn out by S.leash)
-    const to = theo.group.position.clone().add(new THREE.Vector3(0, 0.22, 0));
+    // (hooks run before the puppets are posed this frame: aim at the pose, not the group)
+    const to = P(theo.pose.x, theo.pose.y).setY(theo.pose.lift + 0.22);
     const d = to.clone().sub(anchor);
     const L = d.length() * S.leash;
     leash.position.copy(anchor);
     leash.quaternion.setFromUnitVectors(up, d.normalize());
     leash.scale.set(1, Math.max(0.001, L), 1);
     leashMat.opacity = S.leashA;
+    bead.position.copy(anchor).addScaledVector(d, L);
+    beadMat.opacity = S.leashA * Math.min(1, S.leash * 3);
+    const at = P(theo.pose.x, theo.pose.y).setY(0.008);
+    foot.position.copy(at);
+    footMat.opacity = Math.min(0.6, theo.pose.lift * 2.2);
   });
 
-  // ---- the camera: a small punch-in on the frozen frame (keeps the game's framing offset) ----
+  // ---- the camera: a swing round the frozen frame (keeps the game's framing offset) ----
   const off0 = { sx: arena.camCur?.sx ?? 0, sy: arena.camCur?.sy ?? 0 };
   const releaseCam = lab.camera((home) => {
     const kk = Math.min(0.99, Math.min(arena.dt, 0.1) * 4);
@@ -68,8 +82,9 @@ export default async function play(lab) {
       arena.camCur.sx = off0.sx / (1 - kk);
       arena.camCur.sy = off0.sy / (1 - kk);
     }
-    const aim = P(3, 2.5).setY(0.2);
-    return { target: home.target.clone().lerp(aim, 0.3 * S.punch), dist: home.dist * (1 - 0.1 * S.punch) };
+    // the replay's other angle: a bullet-time swing round the frozen frame, so his dodge toward the room is seen side-on
+    const aim = P(3.1, 2.45).setY(0.25);
+    return { target: home.target.clone().lerp(aim, 0.45 * S.punch), az: 0.62 * S.punch, el: home.el - 0.2 * S.punch, dist: home.dist * (1 - 0.14 * S.punch) };
   });
   // real-time tweens (they keep running while the scene clock is frozen)
   const rt = (dur, fn, easing = ease.inOut) =>
@@ -86,6 +101,29 @@ export default async function play(lab) {
       });
     });
 
+  // ---- the replay look, in the HUD layer: the frozen frame drains of colour (real time) ----
+  const drain = document.createElement('div');
+  drain.style.cssText = 'position:absolute;inset:0;pointer-events:none;backdrop-filter:saturate(1) brightness(1)';
+  lab.overlay.append(drain);
+  const shutter = document.createElement('div');
+  shutter.style.cssText = 'position:absolute;inset:0;pointer-events:none;background:#fff8ec;opacity:0';
+  lab.overlay.append(shutter);
+  const replay = (k) => (drain.style.backdropFilter = `saturate(${1 - 0.72 * k}) brightness(${1 - 0.25 * k})`);
+
+  // ---- the telestrator arc: his illegal hop, drawn in his own light while the frame is frozen ----
+  let arcMesh = null;
+  const arcMat = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const drawArc = (to) => {
+    const from = P(3, 2).setY(0.03);
+    const mid = from.clone().lerp(to, 0.5);
+    mid.y = Math.max(from.y, to.y) + 0.32;
+    const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+    arcMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.014, 6, false), arcMat);
+    arcMesh.geometry.setDrawRange(0, 0);
+    lab.add(arcMesh);
+  };
+  const arcShow = (k) => arcMesh && arcMesh.geometry.setDrawRange(0, Math.floor(40 * k) * 6 * 6);
+
   // ---- the ghost: a copy of Theo's body made of light, left where he tried to go ----
   const makeGhost = () => {
     const g = new THREE.Group();
@@ -96,7 +134,7 @@ export default async function play(lab) {
     const mats = [];
     body.traverse((o) => {
       if (o.isMesh) {
-        o.material = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 1.3), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+        o.material = new THREE.MeshBasicMaterial({ color: hdr(theo.bot.color, 1.3), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
         o.castShadow = false;
         mats.push(o.material);
       }
@@ -115,36 +153,38 @@ export default async function play(lab) {
   await lab.tween(
     0.2,
     (e, k) => {
-      theo.set({ y: 2 + 0.75 * e, lift: 0.42 * Math.sin(Math.min(1, k * 1.1) * Math.PI * 0.5), sy: 0.82 + 0.33 * Math.min(1, k * 2) - 0.15 * Math.max(0, k * 2 - 1), sx: 1.1 - 0.15 * Math.min(1, k * 2), roll: 0.35 * e, rot: facing(2) + 0.25 - 0.4 * e, trail: false });
+      theo.set({ y: 2 + 0.95 * e, lift: 0.72 * Math.sin(Math.min(1, k * 1.1) * Math.PI * 0.5), sy: 0.82 + 0.33 * Math.min(1, k * 2) - 0.15 * Math.max(0, k * 2 - 1), sx: 1.1 - 0.15 * Math.min(1, k * 2), roll: 0.35 * e, rot: facing(2) + 0.25 - 0.4 * e, trail: false });
     },
     ease.out,
   );
-  // ---- 3. FREEZE: the ruling is drawn (a shutter click, the room cools a little) ----
+  // ---- 3. FREEZE: a shutter click, the frame drains of colour; the ruling is drawn over it ----
   lab.timeScale = 0.01;
-  lab.flash('rgba(255,255,255,1)', 0.07, 0.22);
-  const dim0 = arena.dimCur;
-  rt(0.12, (e) => (arena.dimCur = dim0 + 0.45 * e), ease.out);
-  lab.cleanup(() => (arena.dimCur = 0));
-  rt(0.1, (e) => (S.punch = e), ease.out3);
+  rt(0.09, (e, k) => (shutter.style.opacity = String(0.2 * (1 - k))), ease.out);
+  rt(0.12, (e) => replay(e), ease.out3);
+  rt(0.34, (e) => (S.punch = e), ease.inOut);
+  drawArc(P(theo.pose.x, theo.pose.y).setY(theo.pose.lift + 0.2));
+  arcMat.opacity = 1;
+  await rt(0.14, (e) => arcShow(e), ease.out);
   rt(0.08, (e) => (S.railA = e), ease.out);
   await rt(0.17, (e) => (S.rail = e), ease.inOut);
   await lab.waitReal(0.03);
   S.leashA = 1;
   await rt(0.08, (e) => (S.leash = e), ease.out);
-  await lab.waitReal(0.12);
+  await lab.waitReal(0.14);
 
-  // ---- 4. SNAP: time back; yanked into the lane, a ghost left behind ----
+  // ---- 4. SNAP: time back, colour slams back; yanked into the lane, a ghost left behind ----
   const ghost = makeGhost();
   lab.timeScale = 1;
-  rt(0.25, (e) => (arena.dimCur = (dim0 + 0.45) * (1 - e)), ease.inOut);
+  rt(0.16, (e) => replay(1 - e), ease.in);
+  rt(0.35, (e) => (arcMat.opacity = 1 - e), ease.out);
   // Maya's nose lands right on the beat of his landing
   const roll2 = lab.tween(0.14, (e) => maya.set({ x: 1.8 + 0.42 * e, pitch: 0.08 }), ease.linear);
-  rt(0.3, (e) => (S.punch = 1 - e), ease.inOut);
+  rt(0.26, (e) => (S.punch = 1 - e), ease.out3);
   const y0 = theo.pose.y;
   const l0 = theo.pose.lift;
   const r0 = theo.pose.roll;
   const rot0 = theo.pose.rot;
-  rt(0.6, (e) => ghost.mats.forEach((m) => (m.opacity = 0.9 * (1 - e))), ease.in).then(() => lab.group.remove(ghost.g));
+  rt(0.4, (e) => ghost.mats.forEach((m) => (m.opacity = 0.7 * (1 - e))), ease.out).then(() => lab.group.remove(ghost.g));
   await lab.tween(
     0.1,
     (e) => {
@@ -172,7 +212,9 @@ export default async function play(lab) {
   theo.set({ sx: 1, sy: 1, roll: 0, rot: facing(2) });
   await railOff;
   stopDraw();
-  for (const m of [rail, halo, cap, leash]) m.visible = false;
+  for (const m of [rail, halo, cap, leash, foot, bead]) m.visible = false;
+  if (arcMesh) arcMesh.visible = false;
+  for (const el of [drain, shutter]) el.remove();
   releaseCam();
   maya.release({ x: 3, y: 2, d: 1 });
   theo.release({ x: 4, y: 2, d: 2 });

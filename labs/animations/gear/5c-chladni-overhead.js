@@ -75,7 +75,7 @@ export default async function play(lab) {
   };
 
   // ---- grains of light on the glass ----
-  const N = 2200;
+  const N = 3200;
   const P = new Float32Array(N * 3);
   const C = new Float32Array(N * 3);
   const gx = new Float32Array(N);
@@ -89,7 +89,7 @@ export default async function play(lab) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
-  const grains = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.05, map: dotTexture(THREE), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const grains = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.06, map: dotTexture(THREE), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   grains.frustumCulled = false;
   grains.renderOrder = 4;
   lab.add(grains);
@@ -117,6 +117,7 @@ export default async function play(lab) {
   let show = 0; // grains visible
   let sink = 0; // sinking back into the glass
   let turn = 0;
+  let flash = 0; // the instant the figure locks: the note rings true
   const releaseCam = lab.camera((home) => ({
     target: home.target.clone().lerp(centre, 0.7 * crane),
     el: home.el + 0.4 * crane,
@@ -129,7 +130,7 @@ export default async function play(lab) {
     lastT = lab.t;
     // grains: thrown about where the glass moves, drifting to where it is still
     const jit = 0.9 * (1 - mix * 0.85) * tone;
-    const pull = mix > 0 ? 2 + 10 * mix : 0.8;
+    const pull = 2.4 + 9 * mix;
     for (let i = 0; i < N; i++) {
       let x = gx[i];
       let z = gz[i];
@@ -160,11 +161,11 @@ export default async function play(lab) {
       const still = Math.exp(-Math.abs(f) * 14);
       const th = Math.atan2(x, -z);
       const needle = mix * Math.max(0, Math.cos(th - thE)) ** 16 * Math.min(1, r / 0.6);
-      const b = show * (0.35 + 0.65 * (0.35 + 0.65 * mix) * still) * (1 - sink) * (0.8 + 0.4 * Math.sin(lab.t * 31 + i));
+      const b = (1 + 1.1 * flash * still) * show * (0.45 + 0.75 * (0.4 + 0.6 * mix) * still) * (1 - sink) * (0.8 + 0.4 * Math.sin(lab.t * 31 + i));
       const col = warm.clone().lerp(tint, 0.55 * needle);
-      C[i * 3] = col.r * b * 1.4;
-      C[i * 3 + 1] = col.g * b * 1.4;
-      C[i * 3 + 2] = col.b * b * 1.4;
+      C[i * 3] = col.r * b * 2;
+      C[i * 3 + 1] = col.g * b * 2;
+      C[i * 3 + 2] = col.b * b * 2;
     }
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;
@@ -190,7 +191,7 @@ export default async function play(lab) {
   lab.tween(0.25, (e) => (tone = e), ease.in);
   lab.tween(0.3, (e) => (show = e), ease.out);
   // hunting: the modes keep changing
-  const cyc = 0.16;
+  const cyc = 0.21;
   const tH = lab.t;
   const stopHunt = lab.every(() => {
     const k = (lab.t - tH) / cyc;
@@ -201,14 +202,17 @@ export default async function play(lab) {
   // it finds the figure
   await lab.tween(0.32, (e) => (mix = e), ease.inOut);
   stopHunt();
-  // she turns into it
+  lab.tween(0.4, (e) => (flash = (1 - e) ** 2), ease.linear);
+  // she turns into it; as she settles the camera starts down
+  lab.at(0.32, () =>
+    lab.tween(0.44, (e) => {
+      crane = 1 - e;
+      room = 1 - e;
+    }, ease.inOut),
+  );
   await lab.tween(0.42, (e) => (turn = e), ease.inOut);
   await lab.wait(0.04);
-  // the note fades and the grains sink back into the glass; the camera comes down
-  lab.tween(0.34, (e) => {
-    crane = 1 - e;
-    room = 1 - e;
-  }, ease.inOut);
+  // the note fades and the grains sink back into the glass
   await lab.tween(0.34, (e) => {
     sink = e;
     tone = 1 - e;

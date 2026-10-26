@@ -21,7 +21,7 @@ export default async function play(lab) {
   const [tx, ty] = [4, 2];
   const pitNear = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].some(([dx, dy]) => grid[ty + dy]?.[tx + dx] === 'XX');
   const drama = Math.min(3, pushed + (pitNear ? 1.5 : 0)); // 1: a single shove .. 3: the full arena
-  const reach = 3.2 + drama * 2.4; // how far from the shove the crowd really reacts
+  const reach = 2.4 + drama * 2.2; // how far from the shove the crowd really reacts (the rest only glimmers)
   const jump = 0.2 + 0.08 * drama;
 
   // ---- the crowd: tiers of phones in a rounded bowl around and below the slab ----
@@ -119,7 +119,7 @@ export default async function play(lab) {
     lab.add(m);
     return m;
   };
-  const dots = mk(new THREE.PlaneGeometry(0.095, 0.14), phoneTex);
+  const dots = mk(new THREE.PlaneGeometry(0.11, 0.165), phoneTex);
   const streaks = mk(new THREE.PlaneGeometry(0.04, 1).translate(0, -0.5, 0), streakTex);
 
   // the crowd runs on REAL time, so it keeps moving while the board is frozen
@@ -140,8 +140,9 @@ export default async function play(lab) {
       let size = 1;
       if (p === early && C.earlyOn >= 0) {
         const k = Math.min(1, (now - C.earlyOn) / 0.35);
-        bright = 0.9 * ease.out(k);
+        bright = 1.6 * ease.out(k);
         y = 0.06 * ease.inOut(k);
+        size = 1.7;
       }
       if (C.on >= 0) {
         const s = now - C.on - p.lag;
@@ -150,7 +151,7 @@ export default async function play(lab) {
           const up = Math.min(1, s / 0.09);
           const jolt = ease.out(up) * (1 + 0.15 * Math.sin(Math.min(1, s / 0.3) * Math.PI));
           y = Math.max(y, jump * p.amp * p.str * jolt);
-          bright = Math.max(bright, Math.min(1, s / 0.03) * (0.35 + 0.95 * p.str));
+          bright = Math.max(bright, Math.min(1, s / 0.03) * (0.1 + 1.3 * p.str ** 1.4));
           if (p.flash >= 0 && s > p.flash && s < p.flash + 0.09) {
             const f = 1 - (s - p.flash) / 0.09;
             bright += 5 * f;

@@ -10,7 +10,7 @@ export const meta = {
 };
 
 export default async function play(lab) {
-  const { THREE, ease } = lab;
+  const { THREE, ease, facing } = lab;
   const arena = lab.arena;
   const maya = lab.puppet('a');
   const theo = lab.puppet('b');
@@ -85,11 +85,11 @@ export default async function play(lab) {
   const C = { low: 0, shove: 0, roll: 0, bump: 0 };
   // a camera strapped to Theo's south side, low on the glass, looking back west along the row at Maya
   const lowCam = (() => {
-    const eye = P(3.62, 2.72).setY(0.3);
-    const look = P(1.3, 2.0).setY(0.2);
+    const eye = P(4.75, 3.1).setY(0.3);
+    const look = P(1.7, 2.0).setY(0.24);
     const d = eye.clone().sub(look);
     const dist = d.length();
-    return { target: look, az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist), dist, fov: 40 };
+    return { target: look, az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist), dist, fov: 42 };
   })();
   const lerp = (a, b, k) => a + (b - a) * k;
   const releaseCam = lab.camera((home) => {
@@ -117,18 +117,19 @@ export default async function play(lab) {
 
   // ---- headlights: the flare, the halo and the reflection follow Maya's eye ----
   const eyeAt = new THREE.Vector3();
-  const L = { on: 0 };
-  const stopLights = lab.every(() => {
+  const L = { on: 0, grow: 0 };
+  // (placed from maya.each, which runs after her pose is applied this frame; a lab.every hook runs before it)
+  const placeLights = () => {
     eyeMesh.getWorldPosition(eyeAt);
     const cam = arena.camera.position;
     const d = eyeAt.distanceTo(cam);
-    const near = Math.min(1.6, 2.2 / Math.max(0.6, d)); // closer = brighter and wider
+    const near = Math.min(2.2, (2.6 / Math.max(0.6, d)) * (1 + 0.8 * L.grow)); // closer = brighter and wider
     const k = L.on * C.low;
     flare.position.copy(eyeAt);
-    flare.scale.set(2.6 * near, 0.18 * near, 1);
+    flare.scale.set(3.2 * near, 0.2 * near, 1);
     flare.material.opacity = k * Math.min(1, near);
     halo.position.copy(eyeAt);
-    halo.scale.setScalar(0.5 * near);
+    halo.scale.setScalar(0.62 * near);
     halo.material.opacity = k;
     // reflection: a streak on the glass from under her eye toward the camera
     const base = new THREE.Vector3(eyeAt.x, 0.011, eyeAt.z);
@@ -138,22 +139,32 @@ export default async function play(lab) {
     refl.rotation.set(0, Math.atan2(toCam.x, toCam.z), 0);
     refl.scale.set(0.16 * (0.7 + 0.3 * near), 1, len);
     reflMat.opacity = k * 0.55 * near;
-  });
+  };
   // the name tags step out of the way while the camera is low
   const tags = ['a', 'b', 'c'].map((id) => lab.bot(id).tag).filter(Boolean);
   const stopTags = lab.every(() => {
-    for (const t of tags) t.material.opacity = 1 - Math.min(1, C.low * 2);
+    const o = 1 - Math.min(1, C.low * 2);
+    for (const t of tags) t.material.opacity = o;
+    const card = lab.bot('a').card;
+    if (card) {
+      card.material.transparent = true;
+      card.material.opacity = o;
+    }
   });
   // Theo's nerves (in the corner of the frame) and Maya's revving eye
-  const T = { tremble: 0, brace: 0 };
+  const T = { tremble: 0, brace: 0, look: 0 };
+  const ridgeLow = new THREE.Color(theo.bot.color).multiplyScalar(0.55);
   theo.each = (m) => {
-    theo.set({ roll: Math.sin(lab.t * 61) * 0.035 * T.tremble, sy: 1 - 0.08 * T.brace, sx: 1 + 0.05 * T.brace });
-    const k = 1 - 0.7 * Math.min(1, C.low * 1.4); // his ridge light is right by the lens: keep it from blowing out
-    m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
+    // deer in the headlights: he turns to stare into her light (turning right is negative), then the shove spins him back
+    theo.set({ roll: Math.sin(lab.t * 61) * 0.035 * T.tremble, sy: 1 - 0.08 * T.brace, sx: 1 + 0.05 * T.brace, rot: facing(2) - 0.62 * T.look, pitch: -0.12 * T.brace });
+    // his ridge light is right by the lens: tint it to his own blue so the headlights stay the brightest thing
+    const k = Math.min(1, C.low * 1.4);
+    m.eyeMat.color.setRGB(3.2, 3.1, 2.9).lerp(ridgeLow, k);
   };
   maya.each = (m) => {
     const k = 1 + 1.2 * L.on;
     m.eyeMat.color.setRGB(3.2 * k, 3.1 * k, 2.9 * k);
+    placeLights();
   };
 
   lab.playCard('a', ['m2']);
@@ -161,22 +172,24 @@ export default async function play(lab) {
   lab.tween(0.5, (e) => (L.on = e), ease.in);
   lab.tween(0.5, (e) => maya.set({ x: 1 - 0.08 * Math.sin(e * Math.PI * 0.5), pitch: -0.18 * e }), ease.inOut);
   lab.tween(0.5, (e) => (T.tremble = e), ease.in);
+  lab.wait(0.12).then(() => lab.tween(0.34, (e) => (T.look = e), ease.inOut));
   await lab.tween(0.5, (e) => (C.low = e), ease.inOut);
 
   // ---- 2. the charge: headlights coming straight at us ----
   T.brace = 1;
-  await lab.tween(0.36, (e, k) => maya.set({ x: 0.92 + (2.22 - 0.92) * e, pitch: -0.18 + 0.32 * k }), ease.in3);
+  await lab.tween(0.36, (e, k) => (maya.set({ x: 0.92 + (2.22 - 0.92) * e, pitch: -0.18 + 0.32 * k }), (L.grow = e)), ease.in3);
 
   // ---- 3. contact: the lens blows out, the camera is shoved east with Theo ----
   lab.flash('rgba(255,246,228,1)', 0.14, 0.4);
   T.tremble = 0;
   T.brace = 0;
+  lab.tween(0.36, (e) => (T.look = 1 - e), ease.outBack);
   lab.tween(0.4, (e, k) => {
     C.shove = 1 * ease.outBack(k, 1.4);
     C.roll = 0.11 * Math.sin(Math.min(1, k * 2.2) * Math.PI) * (1 - k * 0.4) + -0.03 * Math.sin(k * Math.PI * 3) * k;
     C.bump = 0.06 * Math.sin(k * Math.PI) * (1 - k);
   }, ease.linear);
-  lab.tween(0.25, (e) => (L.on = 1 - 0.8 * e), ease.out);
+  lab.tween(0.25, (e) => ((L.on = 1 - 0.8 * e), (L.grow = 1 - e)), ease.out);
   await lab.tween(
     0.4,
     (e, k) => {
@@ -191,10 +204,11 @@ export default async function play(lab) {
 
   // ---- 4. crane back up to the game's framing ----
   await lab.tween(1.0, (e) => ((C.low = 1 - e), (L.on = 0.2 * (1 - e))), ease.inOut);
-  stopLights();
+  for (const o of [flare, halo, refl]) o.visible = false;
   stopTags();
   theo.each = null;
   for (const t of tags) t.material.opacity = 1;
+  if (lab.bot('a').card) lab.bot('a').card.material.opacity = 1;
   releaseCam();
   maya.each = null;
   maya.release({ x: 3, y: 2, d: 1 });

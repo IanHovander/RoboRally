@@ -16,8 +16,8 @@ export default async function play(lab) {
   const CORAL = '#ff7a6b';
 
   // ----- the slide: a coral card with a thin ⚠, drawn on a canvas -----
-  const CW = 0.58;
-  const CH = 0.78;
+  const CW = 0.66;
+  const CH = 0.9;
   const cardTex = (() => {
     const c = document.createElement('canvas');
     c.width = 256;
@@ -66,6 +66,26 @@ export default async function play(lab) {
   const edgeCore = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 3.3, 3.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   const edgeGlow = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#4dabf7').multiplyScalar(1.6), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
   card.add(edgeCore, edgeGlow);
+  // the glint: a soft band of light that sweeps across the face as it squares up to us
+  const bandTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 4;
+    const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 64, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,0)');
+    gr.addColorStop(0.5, 'rgba(255,255,255,1)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 64, 4);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  const band = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: bandTex, color: new THREE.Color(1.6, 1.5, 1.45), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  band.position.z = 0.003;
+  card.add(band);
+  const glint = { u: 0, o: 0 };
   lab.add(card);
 
   theo.model.muzzle.updateWorldMatrix(true, false);
@@ -97,6 +117,10 @@ export default async function play(lab) {
     edgeCore.material.opacity = S.edge;
     edgeGlow.material.opacity = 0.5 * S.edge;
     faceMat.opacity = 1;
+    band.visible = face.visible && glint.o > 0.001;
+    band.scale.set(len * 0.35, S.h * S.scale, 1);
+    band.position.x = (glint.u - 0.5) * len * 1.1;
+    band.material.opacity = glint.o;
   };
   const camAt = lab.pos(1.6, 1).setY(0.3);
 
@@ -125,7 +149,7 @@ export default async function play(lab) {
   const cam = { k: 0 };
   const releaseCam = lab.camera((home) => ({
     target: home.target.clone().lerp(camAt, 0.4 * cam.k),
-    dist: home.dist * (1 - 0.14 * cam.k),
+    dist: home.dist * (1 - 0.2 * cam.k),
   }));
 
   // ----- 1. an ordinary laser crosses the row -----
@@ -145,13 +169,19 @@ export default async function play(lab) {
   // ----- 3. lights down, slow motion, and it turns to face us -----
   lab.slowmo(0.5, 0.05);
   lab.tween(0.25, (e) => (house = e), ease.out);
-  await lab.tween(0.2, (e) => {
+  await lab.tween(0.2, (e, k) => {
     S.turn = e;
     S.edge = 1 - Math.min(1, e * 1.5);
+    // the light catches it as it squares up: a band sweeps across the face
+    glint.u = k;
+    glint.o = Math.sin(k * Math.PI) * 0.9;
   }, ease.inOut);
+  glint.o = 0;
   lab.slowmo(1, 0.12);
-  // it hangs for a breath, breathing light
-  const hang = lab.every((dt, t) => (faceMat.color.setScalar(1.15 + 0.2 * Math.sin(t * 14))));
+  // it hangs for a breath: one bright flare as it faces us, then breathing light
+  const flare = { k: 0 };
+  const hang = lab.every((dt, t) => faceMat.color.setScalar(1.15 + 0.15 * Math.sin(t * 14) + flare.k));
+  lab.tween(0.2, (e, k) => (flare.k = 0.9 * Math.exp(-k * 4) * Math.min(1, k * 8)), ease.linear);
   await lab.wait(0.22);
   hang();
   faceMat.color.setScalar(1.2);
@@ -235,7 +265,7 @@ export default async function play(lab) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   })();
-  const img = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(IW, IH), new THREE.MeshBasicMaterial({ map: projTex, color: new THREE.Color(1.4, 1.4, 1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
+  const img = lab.add(new THREE.Mesh(new THREE.PlaneGeometry(IW, IH), new THREE.MeshBasicMaterial({ map: projTex, color: new THREE.Color(1.15, 1.15, 1.15), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
   img.rotation.x = -Math.PI / 2;
   img.position.set(imgC.x, 0.014, imgC.z);
   // the cone: four triangles from the lens to the image's corners, bright at the lens and fading out
@@ -246,7 +276,7 @@ export default async function play(lab) {
     const a = corners[i];
     const b = corners[(i + 1) % 4];
     pos.push(eye.x, eye.y, eye.z, a.x, a.y, a.z, b.x, b.y, b.z);
-    col.push(1.2, 0.75, 0.66, 0.1, 0.05, 0.045, 0.1, 0.05, 0.045);
+    col.push(1.5, 0.92, 0.8, 0.1, 0.05, 0.045, 0.1, 0.05, 0.045);
   }
   const coneGeo = new THREE.BufferGeometry();
   coneGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -258,7 +288,7 @@ export default async function play(lab) {
   await lab.tween(0.16, (e, k) => {
     const flick = k < 0.25 ? 1 : k < 0.4 ? 0.15 : k < 0.55 ? 0.9 : k < 0.65 ? 0.3 : 1;
     glow.lens = e * flick;
-    coneMat.opacity = 0.7 * e * flick;
+    coneMat.opacity = 0.9 * e * flick;
     img.material.opacity = 0.8 * e * flick;
     img.scale.setScalar(0.9 + 0.1 * e);
   }, ease.out);
@@ -268,7 +298,7 @@ export default async function play(lab) {
   lab.tween(0.42, (e) => (cam.k = 1 - e), ease.inOut);
   await lab.tween(0.3, (e) => {
     glow.lens = 1 - e;
-    coneMat.opacity = 0.7 * (1 - e);
+    coneMat.opacity = 0.9 * (1 - e);
     img.material.opacity = 0.8 * (1 - e);
   }, ease.inOut);
   cone.visible = img.visible = false;
