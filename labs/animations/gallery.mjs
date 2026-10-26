@@ -1,5 +1,5 @@
 // Build the gallery page: every moment, its 50 ideas, the 5 picks and the three animators' videos.
-//   node labs/animations/gallery.mjs <out-dir> [--done push,pit,...]
+//   node labs/animations/gallery.mjs <out-dir> [--done push,pit,...] [--winners <winners page url>]
 // Writes <out-dir>/index.html (data inlined) plus v/<scenario>/<name>.mp4 and p/<scenario>/<name>.jpg posters.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +11,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(process.argv[2] ?? path.join(HERE, 'out', 'gallery'));
 const doneArg = process.argv.indexOf('--done');
 const DONE = new Set(doneArg > 0 ? process.argv[doneArg + 1].split(',') : []);
+const winnersArg = process.argv.indexOf('--winners');
+const WINNERS = winnersArg > 0 ? process.argv[winnersArg + 1] : '';
 const SHORT = { push: 'Push', edge: 'Off the edge', pit: 'Pit', shot: 'Shot', reboot: 'Reboot', wall: 'Wall', belt: 'Belt', gear: 'Gear', pusher: 'Push panel', energy: 'Battery', checkpoint: 'Checkpoint', win: 'Win', drive: 'Driving' };
 
 const read = (f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
@@ -76,8 +78,13 @@ async function metaOf(file) {
     const mod = await import(pathToFileURL(file).href + `?t=${fs.statSync(file).mtimeMs}`);
     return mod.meta ?? {};
   } catch {
+    // entries that import game files (browser paths) can't load in node: read the text instead
     const src = read(file) ?? '';
-    return { title: src.match(/title:\s*['"`](.+?)['"`]/)?.[1], idea: src.match(/idea:\s*['"`](.+?)['"`]/)?.[1] };
+    const field = (k) => {
+      const m = src.match(new RegExp(`\\b${k}:\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`));
+      return m ? m[2].replace(/\\(.)/g, '$1') : undefined;
+    };
+    return { title: field('title'), idea: field('idea') };
   }
 }
 
@@ -103,7 +110,7 @@ for (const [id, sc] of Object.entries(SCENARIOS)) {
   const ready = DONE.has(id);
   moments.push({ id, short: SHORT[id] ?? id, title: sc.title, what: sc.what, rule: sc.rule, often: sc.often, budget: sc.budget, status: ready ? 'ready' : 'working', baseline: { video: base.video ?? null, poster: base.poster ?? null }, banned, ideas, picks: out });
 }
-const html = read(path.join(HERE, 'gallery-template.html')).replace('__DATA__', JSON.stringify({ moments }).replace(/</g, '\\u003c'));
+const html = read(path.join(HERE, 'gallery-template.html')).replace('__DATA__', JSON.stringify({ moments, winners: WINNERS }).replace(/</g, '\\u003c'));
 fs.writeFileSync(path.join(OUT, 'index.html'), html);
 const n = moments.reduce((k, m) => k + m.picks.reduce((j, p) => j + p.takes.filter((t) => t.video).length, 0), 0);
 console.log(`gallery: ${moments.filter((m) => m.status === 'ready').length} moments ready, ${n} animation videos → ${path.relative(process.cwd(), OUT)}/index.html`);

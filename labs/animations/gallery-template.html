@@ -130,6 +130,7 @@
       <span class="c"><i class="dot"></i><span>Animator C · cinematic &amp; light staging</span></span>
     </div>
   </header>
+  <p class="lede" id="winners" hidden></p>
   <nav class="moments" id="nav" aria-label="Moments"></nav>
   <main id="moment"></main>
 </div>
@@ -158,6 +159,11 @@
   document.getElementById('lede').textContent =
     `${DATA.moments.length} moments from a game of Robo Rally. For each one an agent wrote 50 animation ideas with the obvious ones banned, a second agent picked the five most delightful, and three animators working separately each animated all five in their own style. ${done} of ${DATA.moments.length} moments are in, with ${takes} animations so far. Tap any video to watch it big and slowed down.`;
 
+  if (DATA.winners) {
+    const w = document.getElementById('winners');
+    w.innerHTML = `The judges' picks, a winner and a runner-up for each moment, are on the <a href="${esc(DATA.winners)}" target="_blank" rel="noopener">winners page</a>.`;
+    w.hidden = false;
+  }
   const nav = document.getElementById('nav');
   const main = document.getElementById('moment');
   function renderNav(current) {

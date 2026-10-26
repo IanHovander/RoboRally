@@ -1,5 +1,10 @@
 # Handoff: Robo Rally animation lab (Lumen)
 
+**Done (2026-10-26):** every moment is animated and judged. Winners page:
+https://claude.ai/artifact/MTLTTNLFwEeFbrMn2RAZs2 (built by `winners.mjs` from each moment's `judging-room.json` and
+`judging-director.json`). Full gallery: https://claude.ai/artifact/GeoWfKHzMY2A4uywhpxHTT. Next step: port the
+winners into `looks/three/games/robo-rally/scene.js`, following each judge's porting notes.
+
 Paused on 2026-10-26 to continue in another thread. Read `README.md` in this folder first (the lab and its API).
 
 ## The ask

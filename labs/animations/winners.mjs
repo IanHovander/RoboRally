@@ -21,11 +21,17 @@ const json = (f) => {
   }
 };
 
+/** An entry's meta. Entries that import game files (browser paths) can't load in node, so read the text then. */
 async function metaOf(file) {
   try {
     return (await import(pathToFileURL(file).href)).meta ?? {};
   } catch {
-    return {};
+    const src = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    const field = (k) => {
+      const m = src.match(new RegExp(`\\b${k}:\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`));
+      return m ? m[2].replace(/\\(.)/g, '$1') : undefined;
+    };
+    return { title: field('title'), idea: field('idea') };
   }
 }
 
