@@ -60,8 +60,8 @@ export default async function play(lab) {
   const flare = document.createElement('div');
   flare.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;opacity:0';
   flare.innerHTML = `
-    <div style="position:absolute;left:-90vw;top:-1px;width:180vw;height:3px;background:linear-gradient(90deg,transparent,rgba(255,244,228,.5) 30%,#fff8ee 50%,rgba(255,244,228,.5) 70%,transparent);filter:blur(.6px)"></div>
-    <div style="position:absolute;left:-70vw;top:-9px;width:140vw;height:18px;background:linear-gradient(90deg,transparent,rgba(77,171,247,.25) 30%,rgba(140,200,255,.45) 50%,rgba(77,171,247,.25) 70%,transparent);filter:blur(5px)"></div>
+    <div style="position:absolute;left:-90vw;top:-2px;width:180vw;height:4px;background:linear-gradient(90deg,transparent,rgba(255,244,228,.65) 25%,#fffaf2 50%,rgba(255,244,228,.65) 75%,transparent);filter:blur(.8px)"></div>
+    <div style="position:absolute;left:-80vw;top:-14px;width:160vw;height:28px;background:linear-gradient(90deg,transparent,rgba(77,171,247,.35) 25%,rgba(150,205,255,.6) 50%,rgba(77,171,247,.35) 75%,transparent);filter:blur(7px)"></div>
     <div style="position:absolute;left:-60px;top:-60px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,250,240,.95) 0,rgba(255,240,220,.45) 18%,rgba(255,230,200,.12) 45%,transparent 70%)"></div>`;
   const ghosts = [0.55, 1.35, 1.8].map((f, i) => {
     const g = document.createElement('div');
@@ -71,6 +71,20 @@ export default async function play(lab) {
     return { g, f };
   });
   lab.overlay.append(flare);
+  // the documentary's lower third: his name, in Lumen's thin type
+  const third = document.createElement('div');
+  third.style.cssText = 'position:absolute;left:7%;bottom:11%;pointer-events:none;opacity:0;font-family:Lumen,system-ui,sans-serif;color:#f4efe4;text-shadow:0 0 12px rgba(0,0,0,.6)';
+  third.innerHTML = '<div style="font-weight:300;font-size:min(4.4vw,7.8vh);letter-spacing:.06em;line-height:1">Theo</div><div style="height:1px;width:0;background:#4dabf7;box-shadow:0 0 8px #4dabf7;margin:.5em 0 .45em" class="rule"></div><div style="font-weight:300;font-size:min(1.7vw,3vh);letter-spacing:.32em;opacity:.75">WITNESS</div>';
+  lab.overlay.append(third);
+  const rule = third.querySelector('.rule');
+  let thirdOn = 0;
+  const stopThird = lab.every(() => {
+    third.style.opacity = String(thirdOn);
+    third.style.transform = `translateX(${(1 - thirdOn) * -12}px)`;
+    rule.style.width = `${(thirdOn * 4.2).toFixed(2)}em`;
+    const tag = arena.bots.get('b')?.tag;
+    if (tag) tag.material.opacity = Math.max(0, 1 - rig.aim * 1.6);
+  });
 
   // ---------- Theo ----------
   const theo = lab.puppet('b');
@@ -129,6 +143,7 @@ export default async function play(lab) {
   await turn;
 
   // the look: hold it... blink once... hold
+  lab.tween(0.25, (e) => (thirdOn = e), ease.out);
   await lab.wait(0.3);
   await lab.tween(0.16, (e, k) => (blink = 1 - 0.92 * Math.sin(k * Math.PI)), ease.linear);
   blink = 1;
@@ -141,6 +156,7 @@ export default async function play(lab) {
     rig.shake = 1 - e;
   }, ease.inOut);
   lab.tween(0.3, (e) => (roomDim = 1 - e), ease.out);
+  lab.tween(0.12, (e) => (thirdOn = 1 - e), ease.linear);
   await lab.tween(0.38, (e) => theo.set({ rot: Math.PI * (1 - e) }), ease.inOut);
   rig.aim = 0;
   rig.fov = 30;
@@ -148,6 +164,10 @@ export default async function play(lab) {
   roomDim = 0;
   await lab.wait(1 / 30);
   theo.each = null;
+  stopThird();
+  third.style.opacity = '0';
+  const tag = arena.bots.get('b')?.tag;
+  if (tag) tag.material.opacity = 1;
   arena.dim = arena.dimCur = 0;
   flare.style.opacity = '0';
   for (const { g } of ghosts) g.style.opacity = '0';

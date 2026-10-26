@@ -136,7 +136,7 @@ export default async function play(lab) {
     const dt = Math.max(0, t - lastT);
     lastT = t;
     front.lerp(frontWant, 1 - Math.exp(-dt * 4));
-    const target = home.target.clone().lerp(front, 0.45 * cam.ride + 0.5 * cam.push).add(new THREE.Vector3(0, 0, -0.1 * cam.plan));
+    const target = home.target.clone().lerp(front, 0.45 * cam.ride + 0.5 * cam.push).add(new THREE.Vector3(0, 0, -0.1 * cam.plan - 0.35 * cam.ride - 0.2 * cam.push)); // keep the slab's dark front face out of the low shots
     A.showNames = cam.ride + cam.push < 0.15;
     return {
       target,
