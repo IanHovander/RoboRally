@@ -61,16 +61,24 @@ async function acquire() {
           pid = Number(fs.readFileSync(path.join(dir, 'pid'), 'utf8'));
         } catch {}
         const age = Date.now() - (fs.statSync(dir, { throwIfNoEntry: false })?.mtimeMs ?? Date.now());
-        if ((pid && !alive(pid)) || (!pid && age > 10000) || age > 10 * 60 * 1000) fs.rmSync(dir, { recursive: true, force: true });
+        // free a slot only when its owner is gone; a slow render on a busy machine still owns its slot
+        if ((pid && !alive(pid)) || (!pid && age > 10000)) fs.rmSync(dir, { recursive: true, force: true });
       }
     }
     if (waited === 0) console.log(`waiting for a render slot (${SLOTS} in use)...`);
     await new Promise((r) => setTimeout(r, 700));
   }
 }
-const release = () => mySlot && fs.rmSync(mySlot, { recursive: true, force: true });
+const release = () => {
+  // only give back a slot that is still ours
+  try {
+    if (mySlot && Number(fs.readFileSync(path.join(mySlot, 'pid'), 'utf8')) === process.pid) fs.rmSync(mySlot, { recursive: true, force: true });
+  } catch {}
+};
 process.on('exit', release);
 process.on('SIGINT', () => process.exit(130));
+// if whoever ran us gave up (a timed-out command), stop rather than hold a slot and the CPU for nobody
+setInterval(() => process.ppid === 1 && process.exit(1), 2000).unref();
 process.on('SIGTERM', () => process.exit(143));
 
 // ----- rendering -----
