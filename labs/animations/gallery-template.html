@@ -108,6 +108,7 @@
   .pending-note { color: var(--dim); padding: 28px; border: 1px dashed var(--edge); border-radius: 8px; }
 
   .viewer { position: fixed; inset: 0; z-index: 20; background: rgba(3, 4, 6, 0.94); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .viewer[hidden] { display: none; }
   .viewer .box { width: min(1100px, 100%); display: grid; gap: 10px; }
   .viewer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; }
   .viewer .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
