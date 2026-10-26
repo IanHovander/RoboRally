@@ -2,7 +2,7 @@
 export const meta = {
   title: 'The Koi (the deep glass)',
   idea:
-    'Once in a while the room\'s lights sink and the camera lowers to look into the slab, as if someone noticed something under the glass. A long, soft shape made of the belt\'s own light, two spaces long, glides up the stream inside the glass, blurred and deep. The chevrons part over its back. It rises under Maya and carries her along with a gentle bob. At the bend the world slows, its tail sweeps under her, and she swings round to face east, the swing left behind as a long-exposure arc of light. Then it slips away down the south leg, faster and fainter, into the stream, and the lights come back as if nothing happened.',
+    'Once in a while the room\'s lights sink and the camera leans over the board to look down into the slab, as if someone noticed something under the glass. A long, soft shape made of the belt\'s own light, two spaces long, glides up the stream inside the glass, blurred and deep. The chevrons part over its back. It rises under Maya and carries her along with a gentle bob. At the bend the world slows, its tail sweeps under her, and she swings round to face east, the swing left behind as a long-exposure arc of light. Then it slips away down the south leg, faster and fainter, into the stream, and the lights come back as if nothing happened.',
   notes:
     'Sound: the room\'s hum drops a little, a low, slow glassy "whoom" as it passes under the board, a gentle water-glass bob under her, a soft bright swish for the tail, and the belt\'s normal chime returning. Its glow is drawn about 0.12 below the glass with real parallax as the camera moves: it renders in the opaque pass with additive blending, after the glass and before Maya, so the belt\'s chevrons sit over it and Maya rides on top. Rare: it does not appear on every ride, so every belt ride might be the one.',
 };
@@ -151,13 +151,13 @@ export default async function play(lab) {
     lab.add(mesh);
     return { mesh, geo, pos, col, y, widthK };
   };
-  const deep = ribbon(bodyTex, new THREE.MeshBasicMaterial({ color: blue.clone().multiplyScalar(1.7), blending: THREE.AdditiveBlending, transparent: false, depthTest: false, depthWrite: false }), -0.12, 1);
+  const deep = ribbon(bodyTex, new THREE.MeshBasicMaterial({ color: blue.clone().multiplyScalar(2.7), blending: THREE.AdditiveBlending, transparent: false, depthTest: false, depthWrite: false }), -0.12, 1);
   deep.mesh.renderOrder = 0.5;
   const part = ribbon(partTex, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }), 0.0055, 1);
   part.mesh.renderOrder = 1.05;
   const back = ribbon(backTex, new THREE.MeshBasicMaterial({ color: blue.clone().multiplyScalar(2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 0.0065, 1.25);
   back.mesh.renderOrder = 1.1;
-  const W = 0.62; // its width (world)
+  const W = 0.78; // its width (world)
 
   const onBoard = (x, y) => smooth(seg(x, -0.55, -0.05)) * smooth(seg(y, 3.55, 3.05)) * smooth(seg(x, 6.55, 6.05));
   const placeRibbons = (head, t, swim, tailFlick, bright, partK) => {
@@ -267,15 +267,15 @@ export default async function play(lab) {
 
     // ---- the room: lights sink while it's here ----
     const dim = ease.inOut(seg(t, 0, 0.35)) * (1 - ease.inOut(seg(t, AWAY[0] + 0.1, END)));
-    arena.topMat.emissiveIntensity *= 1 - 0.45 * dim;
-    for (const b of express) b.mat.color.multiplyScalar(1 - 0.35 * dim);
+    arena.topMat.emissiveIntensity *= 1 - 0.6 * dim;
+    for (const b of express) b.mat.color.multiplyScalar(1 - 0.5 * dim);
     arena.key.intensity = key0 * (1 - 0.4 * dim);
     arena.hemi.intensity = hemi0 * (1 - 0.45 * dim);
 
     // ---- camera: lower, closer, looking into the slab, tracking along; then home ----
     const look = ease.inOut(seg(t, 0, 0.5)) * (1 - ease.inOut(seg(t, AWAY[0] + 0.05, END - 0.02)));
     const track = lab.pos(mix(1.6, 3, seg(x, 1, 3)), 1.3);
-    cam.del = -0.15 * look;
+    cam.del = 0.13 * look; // leaning over the pond, to look down into the slab
     cam.dk = 1 - 0.16 * look;
     cam.dx = track.x * 0.5 * look;
     cam.dz = track.z * 0.5 * look;

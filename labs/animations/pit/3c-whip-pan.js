@@ -100,7 +100,7 @@ export default async function play(lab) {
   let piling = false;
   let knotOn = 1;
   let knotPulse = 0;
-  const FOLDS = 26;
+  const FOLDS = 30;
   const fpos = new Float32Array((FOLDS + 1) * 2 * 3);
   const fcol = new Float32Array((FOLDS + 1) * 2 * 3);
   const fidx = [];
@@ -135,10 +135,10 @@ export default async function play(lab) {
       else p.t = Math.max(p.t, now - 0.6); // the rest of the trail is lit up again, ominously
     }
     gathered = oxs.filter((x) => x <= K).length;
-    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 1.8)));
-    const h = 0.2 + 0.14 * Math.min(1, m / FOLDS);
+    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 1.25)));
+    const h = 0.22 + 0.16 * Math.min(1, m / FOLDS);
     const w = 0.22;
-    const step = 0.048;
+    const step = 0.042;
     const c = RED.clone().multiplyScalar(1.9 * knotOn * (1 + 0.8 * knotPulse));
     for (let i = 0; i <= FOLDS; i++) {
       const j = Math.min(i, m);
@@ -160,7 +160,7 @@ export default async function play(lab) {
   await camTo(0.12, { tx: W(2.05, 1).x, d: 0.55, el: HOME.el - 0.22 }, ease.inOut);
   piling = true;
   lab.ring(new THREE.Vector3(tailX, 0, z0), '#ff4d6d', 0.3, 0.03, 0.35);
-  await lab.tween(0.36, (e) => (K = tailX + (W(2.15, 1).x - tailX) * e), ease.in);
+  await lab.tween(0.44, (e, k) => (K = tailX + (W(2.15, 1).x - tailX) * (0.55 * k + 0.45 * k * k * k)), ease.linear);
   // whip pan forward with it, the pile-up accelerating into her
   camTo(0.12, { tx: W(2.75, 1).x, d: 0.47 }, ease.inOut);
   await lab.tween(0.1, (e) => (K = W(2.15, 1).x + (rearX - W(2.15, 1).x) * e), ease.linear);
@@ -192,8 +192,8 @@ export default async function play(lab) {
   eyeBoost = 1;
 
   // the pile sits on the rim a moment, then fades the way a trail always does
-  await lab.wait(0.25);
-  await lab.tween(0.6, (e) => (knotOn = 1 - e), ease.in);
+  await lab.wait(0.2);
+  await lab.tween(0.55, (e) => (knotOn = 1 - e), ease.in);
   stopPile();
   folds.visible = false;
   knot.visible = false;

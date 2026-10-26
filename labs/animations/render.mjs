@@ -78,7 +78,15 @@ const release = () => {
 process.on('exit', release);
 process.on('SIGINT', () => process.exit(130));
 // if whoever ran us gave up (a timed-out command), stop rather than hold a slot and the CPU for nobody
-setInterval(() => process.ppid === 1 && process.exit(1), 2000).unref();
+// (also through a wrapper like `timeout`: our parent's parent gone counts too)
+const ppidOf = (pid) => {
+  try {
+    return Number(fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' ')[1]);
+  } catch {
+    return 1;
+  }
+};
+setInterval(() => (process.ppid === 1 || ppidOf(process.ppid) === 1) && process.exit(1), 2000).unref();
 process.on('SIGTERM', () => process.exit(143));
 
 // ----- rendering -----

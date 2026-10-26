@@ -68,13 +68,16 @@ export default async function play(lab) {
     const body = maya.model.body;
     body.updateWorldMatrix(true, false);
     const g = body.clone(true);
-    const mat = new THREE.MeshBasicMaterial({ color: red.clone().multiplyScalar(0.55 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+    // a strobe exposure: the body faint, its light (the eye) printed bright
+    const mat = new THREE.MeshBasicMaterial({ color: red.clone().multiplyScalar(0.28 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1e0').multiplyScalar(1.6 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
     g.traverse((o) => {
       if (o.isMesh) {
-        o.material = mat;
+        o.material = o.material === maya.model.eyeMat ? eyeMat : mat;
         o.castShadow = false;
       }
     });
+    mat.userData.eye = eyeMat;
     g.matrixAutoUpdate = false;
     g.matrix.copy(body.matrixWorld);
     lab.add(g);
@@ -117,10 +120,11 @@ export default async function play(lab) {
     // ghosts fade
     for (let i = ghosts.length - 1; i >= 0; i--) {
       const gh = ghosts[i];
-      const k = (t - gh.t) / 0.9;
-      gh.mat.opacity = Math.max(0, 1 - k) ** 1.5;
+      const k = (t - gh.t) / 0.8;
+      gh.mat.opacity = gh.mat.userData.eye.opacity = Math.max(0, 1 - k) ** 1.5;
       if (k >= 1) {
         lab.group.remove(gh.g);
+        gh.mat.userData.eye.dispose();
         gh.mat.dispose();
         ghosts.splice(i, 1);
       }
@@ -188,11 +192,14 @@ export default async function play(lab) {
   }));
 
   const P = (x) => lab.pos(x, 2);
-  let strobeNext = 0;
-  const strobe = (every, gain) => {
-    if (lab.t >= strobeNext) {
+  // the strobe fires every so much of her path (so the exposures are evenly spaced, like a real strobe photo)
+  let strobeLast = null;
+  const strobe = (spacing, gain) => {
+    const q = maya.pose;
+    const here = new THREE.Vector3(q.x, q.lift, q.y);
+    if (!strobeLast || here.distanceTo(strobeLast) >= spacing) {
       wantGhost = gain;
-      strobeNext = lab.t + every;
+      strobeLast = here;
     }
   };
 
@@ -203,12 +210,12 @@ export default async function play(lab) {
   // coil
   await lab.tween(0.16, (e) => maya.set({ x: 1 - 0.06 * e, pitch: -0.28 * e, sy: 1 - 0.1 * e, sx: 1 + 0.04 * e, sz: 1 + 0.04 * e }), ease.out);
   // leap and tip nose-down into the glass
-  strobeNext = 0;
+  strobeLast = null;
   await lab.tween(0.3, (e, k) => {
     const x = 0.94 + (1.72 - 0.94) * k;
     const lift = 0.42 * Math.sin(Math.min(1, k / 0.92) * Math.PI) - (k > 0.92 ? ((k - 0.92) / 0.08) * 0.04 : 0);
     maya.set({ x, lift, pitch: -0.5 + 1.75 * ease.inOut(k), sy: 1.08 - 0.08 * Math.abs(1 - 2 * k), sx: 1, sz: 1 });
-    if (k > 0.05) strobe(0.05, 1);
+    if (k > 0.05) strobe(0.2, 1);
   }, ease.linear);
   // entry: rings and a splash of light; she slips under
   const entry = P(1.82);
@@ -223,8 +230,8 @@ export default async function play(lab) {
   maya.set({ visible: false });
 
   // ---- under the glass: a red glow gliding, the grid wavering above her; the camera sinks ----
-  lab.tween(0.42, (e) => (low = e), ease.inOut);
-  await lab.tween(0.36, (e, k) => {
+  lab.tween(0.55, (e) => (low = e), ease.inOut);
+  await lab.tween(0.52, (e, k) => {
     const x = 1.92 + (2.5 - 1.92) * e;
     const p = P(x);
     wx = p.x;
@@ -239,7 +246,7 @@ export default async function play(lab) {
   lab.ring(out.clone().setY(0.02), '#f4efe4', 0.6, 0.02, 0.8);
   lab.slowmo(0.34, 0.08);
   maya.set({ visible: true });
-  strobeNext = 0;
+  strobeLast = null;
   let snapped = false;
   lab.tween(0.3, (e) => (glowK = 1 - e), ease.out);
   await lab.tween(0.42, (e, k) => {
@@ -247,7 +254,7 @@ export default async function play(lab) {
     // up out of the glass, over the top, down onto the spot
     const arc = k < 0.5 ? -0.3 + 0.95 * Math.sin((k / 0.5) * Math.PI * 0.5) : 0.65 * Math.cos(((k - 0.5) / 0.5) * Math.PI * 0.5);
     maya.set({ x, lift: arc, pitch: -1.15 + 1.6 * k, sy: 1.1, sx: 0.96, sz: 0.96 });
-    if (k > 0.08 && k < 0.95) strobe(0.035, 1.3);
+    if (k > 0.12 && k < 0.95) strobe(0.17, 1.3);
     if (k > 0.55 && !snapped) {
       snapped = true;
       lab.slowmo(1, 0.06);

@@ -80,6 +80,9 @@ Time (everything runs on the scene clock, so it's deterministic and slow motion 
 - `const stop = lab.every((dt, t) => {...})` — every frame until `stop()`.
 - `lab.timeScale` (1 = normal), `await lab.slowmo(0.3, 0.1)` eases it (to, over real seconds). Slow motion counts
   toward your time budget in real seconds.
+- `lab.real` is real seconds since the stage started and `await lab.waitReal(sec)` waits in real time. `lab.wait`,
+  `lab.tween` and `lab.flash` run on the scene clock, so during a slow-motion freeze they freeze too: time a freeze
+  frame's own effects on `lab.real` (`lab.every` plus `lab.real`).
 - `lab.rand()`, `lab.range(a, b)` — seeded random. (`Math.random` is seeded too in captures.)
 
 Robots:
@@ -94,6 +97,8 @@ Robots:
   light; the game sets `color` each frame, so set yours here), `model.ringMat` / `model.poolMat` (the ring of
   light and the glow pool on the glass: `opacity`, `color`), `model.muzzle` (where the laser leaves).
   `p.group` is the robot's Object3D; `p.bot.trail` is its trail points.
+- Hooks (`lab.every`, `lab.tween`) run before puppet poses are applied each frame, so inside them `p.group.position`
+  is still the game's resting spot. Work from `p.pose`, or place things in `p.each`, which runs after the pose.
 - `p.release({ x, y, d, on })` — hand the robot back to the game, resting there (`on: false` = gone).
 - `lab.rest('b', { x, y, d, on })` — change where the game thinks a robot rests, without animating.
 - `lab.bot('a')` — the arena's own record (`group`, `model`, `x`, `y`, `rot`, `visible`, `trail`, `card`, `tag`).
