@@ -10,7 +10,7 @@ export const meta = {
     'Sound: a soft glass "unlatch" on contact, a rising airy whoosh through the turn that drops out entirely on the freeze (a held ' +
     'shimmer, like a camera shutter held open), whoosh resumes, then a small dry click as it locks. One turn per lost step: a Move 3 ' +
     'stopped after one space goes round twice (the second turn could be faster, the freeze only on the first). Porting: the fin is the ' +
-    'wall group in arena.board; the light painting is a set of short-lived copies of its cap; the ghost is a clone of the robot with one ' +
+    'wall group in arena.board; the light painting is a swept, fading sector mesh that follows its cap; the ghost is a clone of the robot with one ' +
     'additive material.',
 };
 
@@ -84,37 +84,55 @@ export default async function play(lab) {
   const lay = (t) => {
     const p = maya.group.position;
     const last = trail[trail.length - 1];
-    if (!last || Math.hypot(last.x - p.x, last.z - p.z) > 0.075) trail.push({ x: p.x, z: p.z, t });
+    if (!last || Math.hypot(last.x - p.x, last.z - p.z) > (door.th > 0.01 ? 0.045 : 0.1)) trail.push({ x: p.x, z: p.z, t });
   };
 
-  // ---------- light painting: the fin's bright edge, long-exposed ----------
-  const streakGeo = new THREE.BoxGeometry(0.98, 0.01, 0.012);
-  const streaks = [];
-  let lastStreak = -1;
+  // ---------- light painting: the fin's bright edge, long-exposed into a swept disc ----------
+  const NS = 140; // samples of the fin's angle we keep
+  const sweepGeo = new THREE.BufferGeometry();
+  const sPos = new Float32Array(NS * 4 * 3);
+  const sCol = new Float32Array(NS * 4 * 3);
+  sweepGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+  sweepGeo.setAttribute('color', new THREE.BufferAttribute(sCol, 3));
+  const sIdx = [];
+  for (let i = 0; i < NS - 1; i++)
+    for (const h of [0, 2]) {
+      const a = i * 4 + h;
+      const b = a + 4;
+      sIdx.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  sweepGeo.setIndex(sIdx);
+  const sweep = new THREE.Mesh(sweepGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  sweep.frustumCulled = false;
+  sweep.renderOrder = 4;
+  lab.add(sweep);
+  const hist = [];
+  const warmC = new THREE.Color('#f4efe4');
+  const LIFE = 0.42;
   const paint = (t) => {
     if (!finG) return;
-    const step = 0.035; // radians between copies
-    while (lastStreak < 0 || door.th - lastStreak >= step) {
-      const th = lastStreak < 0 ? door.th : lastStreak + step;
-      lastStreak = th;
-      const m = new THREE.Mesh(
-        streakGeo,
-        new THREE.MeshBasicMaterial({ color: new THREE.Color('#f4efe4').multiplyScalar(1.4), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
-      );
-      m.position.set(C.x, 0.262, C.z);
-      m.rotation.y = rot0 + th;
-      m.userData.t = t;
-      lab.add(m);
-      streaks.push(m);
-      if (door.th - lastStreak < step) break;
+    if (door.th > 0.02 || hist.length) {
+      const last = hist[hist.length - 1];
+      if (!last || Math.abs(last.th - door.th) > 0.004 || t - last.t > 0.05) hist.push({ t, th: door.th });
     }
-  };
-  const fadeStreaks = (t) => {
-    for (const m of streaks) {
-      const age = t - m.userData.t;
-      m.material.opacity = 0.2 * Math.max(0, 1 - age / 0.45) ** 1.5;
-      m.visible = m.material.opacity > 0.003;
+    while (hist.length > NS || (hist.length && t - hist[0].t > LIFE)) hist.shift();
+    for (let i = 0; i < hist.length; i++) {
+      const h = hist[i];
+      const phi = rot0 + h.th;
+      const dx = Math.cos(phi);
+      const dz = -Math.sin(phi);
+      const age = (t - h.t) / LIFE;
+      const f = 0.55 * Math.max(0, 1 - age) ** 1.6;
+      const k = i * 12;
+      // two halves of the fin: inner (near the pivot) to outer (its ends), at the cap's height
+      for (const [o, sgn] of [[0, 1], [6, -1]]) {
+        sPos.set([C.x + sgn * dx * 0.05, 0.262, C.z + sgn * dz * 0.05, C.x + sgn * dx * 0.49, 0.262, C.z + sgn * dz * 0.49], k + o);
+        sCol.set([warmC.r * f * 0.35, warmC.g * f * 0.35, warmC.b * f * 0.35, warmC.r * f, warmC.g * f, warmC.b * f], k + o);
+      }
     }
+    sweepGeo.attributes.position.needsUpdate = true;
+    sweepGeo.attributes.color.needsUpdate = true;
+    sweepGeo.setDrawRange(0, Math.max(0, hist.length - 1) * 12);
   };
 
   // ---------- the ghost left by the freeze-frame ----------
@@ -186,7 +204,6 @@ export default async function play(lab) {
   const lightHook = lab.every((dt, t) => {
     setDoor();
     paint(t);
-    fadeStreaks(t);
   });
   void lightHook;
   maya.each = (m, t) => {
@@ -211,7 +228,6 @@ export default async function play(lab) {
     },
     ease.linear,
   );
-  lastStreak = -1;
 
   // ---------- 3. round she goes: lights down, the camera leans in ----------
   const T = 0.9; // one full turn, in scene seconds
@@ -248,7 +264,7 @@ export default async function play(lab) {
     },
     ease.linear,
   );
-  door.th = 0;
+  door.th = Math.PI * 2; // the same as 0, and keeps the light painting continuous
   door.glow = 0;
   onDoor(0, { pitch: 0 });
 

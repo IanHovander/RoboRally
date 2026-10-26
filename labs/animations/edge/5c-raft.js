@@ -88,8 +88,8 @@ export default async function play(lab) {
   const barMat = () => new THREE.MeshBasicMaterial({ color: LIGHT.clone().multiplyScalar(1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const bw = course.w;
   const bh = course.h;
-  const barX = new THREE.BoxGeometry(bw, 0.025, 0.025);
-  const barZ = new THREE.BoxGeometry(0.025, 0.025, bh);
+  const barX = new THREE.BoxGeometry(bw, 0.016, 0.016);
+  const barZ = new THREE.BoxGeometry(0.016, 0.016, bh);
   lab.cleanup(() => {
     barX.dispose();
     barZ.dispose();
@@ -106,12 +106,12 @@ export default async function play(lab) {
     g.rotation.z = -T.th * T.settle;
     lab.add(g);
     lab.cleanup(() => mat.dispose());
-    strobes.push({ g, mat, t0: lab.t, peak: Math.min(0.6, 0.12 + Math.abs(T.v) * 0.9) });
+    strobes.push({ g, mat, t0: lab.t, peak: Math.min(0.42, 0.08 + Math.abs(T.v) * 0.6) });
   };
   const stopStrobes = lab.every(() => {
     for (const s of strobes) {
-      const k = (lab.t - s.t0) / 0.6;
-      s.mat.opacity = k >= 1 ? 0 : s.peak * (1 - k) ** 1.6;
+      const k = (lab.t - s.t0) / 0.5;
+      s.mat.opacity = k >= 1 ? 0 : s.peak * (1 - k) ** 1.8;
       s.g.visible = k < 1;
     }
   });
@@ -211,14 +211,14 @@ export default async function play(lab) {
   (async () => {
     while (strobing) {
       strobe();
-      await lab.wait(0.04);
+      await lab.wait(0.05);
     }
   })();
   const fromLean = snapCam();
   const camHome = rtween(1.1, (e) => blend(fromLean, base, e), ease.inOut);
   // Ava's woozy little yaw while the raft rocks
   const wob = lab.every((dt, t) => (P.wob = 0.11 * Math.sin(t * 7.5) * Math.min(1, Math.abs(T.th) * 14 + Math.abs(P.lag) * 3)));
-  await lab.wait(0.85);
+  await lab.wait(0.75);
   strobing = false;
   await fall;
   await lab.wait(0.25);

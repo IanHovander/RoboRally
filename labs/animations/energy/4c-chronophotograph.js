@@ -4,7 +4,7 @@ export const meta = {
   idea:
     'The hop, shot like a Marey chronophotograph. As Maya settles, the battery\'s bolt squeezes out from under her toward us, the camera eases in on it, and it stands up on the glass, shakes itself off and crouches. Then it hops onto her back and the hop is printed in the air as a stroboscopic multiple exposure: a fan of fading bolts tracing the arc, hanging at the top like a slow-motion replay. It dives in, her eye and ring flush amber, and a fresh bolt fades back into the glass as the arcs brighten.',
   notes:
-    'Sound: a squeak of glass as it squeezes out, a tiny tinkle for the shake, a rising glass glissando through the hop (each strobe ghost a soft tick), a warm "plip" as it dives in. The strobe ghosts are copies of the bolt frozen every other frame; they fade in about 0.4 s. The camera push is small (14%) because this moment comes round often. Variation: the shake could become a stretch, or a look at the camera, now and then.',
+    'Sound: a squeak of glass as it squeezes out, a tiny tinkle for the shake, a rising glass glissando through the hop (each strobe ghost a soft tick), a warm "plip" as it dives in. The strobe ghosts are copies of the bolt frozen at even steps along the arc; they fade in about half a second. The camera push is modest (20%) because this moment comes round often. Variation: the shake could become a stretch, or a look at the camera, now and then.',
 };
 
 const BAT = { x: 3, y: 1 };
@@ -121,7 +121,7 @@ export default async function play(lab) {
 
   // the living bolt: a pivot at its feet on the glass, the glyph inside it
   const tex = boltTexture(lab);
-  const SIZE = 0.42; // a little bigger than the painted bolt's box (a third of a space): it stands half her height
+  const SIZE = 0.7; // a little bigger than the painted bolt's box (a third of a space): it stands half her height
   const geo = new THREE.PlaneGeometry(SIZE, SIZE).translate(0, SIZE / 2 - SIZE * 0.08, 0);
   const mat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(PALETTE.energy), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const pivot = new THREE.Group();
@@ -162,8 +162,8 @@ export default async function play(lab) {
   const HOP = 1.24; // hops (the apex hangs, like a replay)
   const DIVE = 1.66; // dives into her back
   const END = 2.24;
-  const FRONT = at.clone().add(new THREE.Vector3(0.04, 0, 0.58)); // the edge of her ring, on our side
-  const BACK = at.clone().add(new THREE.Vector3(-0.02, 0.3, -0.02)); // her back
+  const FRONT = at.clone().add(new THREE.Vector3(0.32, 0, 0.78)); // the edge of her ring, on our side
+  const BACK = at.clone().add(new THREE.Vector3(-0.1, 0.3, -0.04)); // her back
 
   lab.playCard('a', ['m2']);
   let lastGhost = -1;
@@ -192,7 +192,7 @@ export default async function play(lab) {
       const pinch = bump(seg(T, OUT, STAND + 0.04));
       sx = 1 - 0.55 * pinch + 0.18 * bump(seg(T, STAND - 0.04, STAND + 0.08));
       sy = 1 + 0.45 * pinch;
-      lit = 1 + 1.4 * seg(T, OUT, STAND);
+      lit = 1 + 2 * seg(T, OUT, STAND);
     }
     if (T >= STAND) {
       // stands up (facing us), with a little overshoot
@@ -216,16 +216,16 @@ export default async function play(lab) {
       const u = k < 0.5 ? 0.5 * (2 * k) ** 0.55 : 1 - 0.5 * (2 - 2 * k) ** 0.55;
       hop = u;
       pos = FRONT.clone().lerp(BACK, u);
-      pos.y = mix(0, BACK.y, u) + Math.sin(u * Math.PI) * 0.46;
+      pos.y = mix(0, BACK.y, u) + Math.sin(u * Math.PI) * 0.55;
       const launch = 1 - seg(T, HOP, HOP + 0.08);
       sy = mix(1.3, 1, 1 - launch) * (1 + 0.15 * Math.sin(u * Math.PI));
       sx = 1 - 0.15 * Math.sin(u * Math.PI);
       tilt = -EL * 0.7 + mix(0, 0.9, ease.in(u)); // nose over into the dive
       wig = -0.25 * Math.sin(u * Math.PI);
-      lit = 2.4;
-      // the multiple exposure: a frozen copy every other frame
-      const n = Math.floor((T - HOP) * 15);
-      if (n !== lastGhost && T < DIVE - 0.02) {
+      lit = 3;
+      // the multiple exposure: a frozen copy at even steps along the arc
+      const n = Math.floor(u * 8);
+      if (n !== lastGhost && n >= 1 && n <= 7) {
         lastGhost = n;
         glyph.updateWorldMatrix(true, false);
         const g = new THREE.Mesh(geo, mat.clone());
@@ -254,8 +254,8 @@ export default async function play(lab) {
     mat.color.set(PALETTE.energy).multiplyScalar(lit);
     for (const g of ghosts) {
       const age = T - g.userData.born;
-      g.material.color.set(PALETTE.energy).multiplyScalar(2 * Math.max(0, 1 - age / 0.42) ** 1.5);
-      g.visible = age < 0.42;
+      g.material.color.set(PALETTE.energy).multiplyScalar(1.7 * Math.max(0, 1 - age / 0.55) ** 1.3);
+      g.visible = age < 0.55;
     }
 
     // ---- Maya: she settles onto it, then a happy shiver as it dives in ----
@@ -274,9 +274,9 @@ export default async function play(lab) {
     // ---- the camera ----
     const inK = ease.inOut(seg(T, OUT + 0.05, STAND + 0.12));
     const outK = ease.inOut(seg(T, DIVE + 0.06, END - 0.04));
-    cam.k = 0.5 * inK * (1 - outK);
-    cam.push = 0.14 * inK * (1 - outK);
-    cam.focus.copy(at.clone().lerp(FRONT, 0.6 * (1 - hop)).setY(0.15));
+    cam.k = 0.55 * inK * (1 - outK);
+    cam.push = 0.2 * inK * (1 - outK);
+    cam.focus.copy(at.clone().lerp(FRONT, 0.5 * (1 - hop)).setY(0.2 + 0.15 * hop));
   });
   lab.cleanup(stop);
   lab.at(DIVE + 0.04, () => {

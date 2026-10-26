@@ -14,6 +14,7 @@ const RED = '#ff4d6d';
 export default async function play(lab) {
   const { THREE, ease, facing } = lab;
   const A = lab.arena;
+  lab.cleanup(() => (A.showNames = true));
   const maya = lab.puppet('a');
   const theo = lab.puppet('b');
   const W = (x, y) => lab.pos(x, y);
@@ -22,14 +23,14 @@ export default async function play(lab) {
 
   // ---------- the run: a smooth curve from Maya's tail round to Theo's nose ----------
   const curve = new THREE.CatmullRomCurve3(
-    [[3.5, 1.0], [2.65, 1.12], [2.0, 1.75], [2.05, 2.6], [2.75, 3.15], [3.6, 3.15], [4.3, 3.0]].map(([x, y]) => W(x, y)),
+    [[3.5, 1.0], [2.7, 1.2], [2.2, 1.95], [2.5, 2.8], [3.4, 3.15], [4.3, 3.0]].map(([x, y]) => W(x, y)),
     false,
     'centripetal',
   );
-  const H = 0.46; // pane height
+  const H = 0.5; // pane height
   const PW = 0.5; // pane width
   const T = 0.03; // thickness
-  const GAP = 0.33;
+  const GAP = 0.39;
   const L = curve.getLength();
   const N = Math.floor(L / GAP) + 1;
   const panes = [];
@@ -47,7 +48,7 @@ export default async function play(lab) {
     const tilt = new THREE.Group(); // pivots on the front edge of its foot
     tilt.position.z = T / 2;
     g.add(tilt);
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1c222c, roughness: 0.12, metalness: 0.2, transparent: true, opacity: 0.62, emissive: 0x6c7a90, emissiveIntensity: 0.12 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1c222c, roughness: 0.12, metalness: 0.2, transparent: true, opacity: 0.55, emissive: 0x6c7a90, emissiveIntensity: 0.32 });
     const glass = new THREE.Mesh(glassGeo, glassMat);
     glass.position.set(0, H / 2, -T / 2);
     tilt.add(glass);
@@ -55,7 +56,7 @@ export default async function play(lab) {
     const edge = new THREE.Mesh(edgeGeo, edgeMat);
     edge.position.set(0, H, -T / 2);
     tilt.add(edge);
-    const sideMat = new THREE.MeshBasicMaterial({ color: warm.clone().multiplyScalar(0.5), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+    const sideMat = new THREE.MeshBasicMaterial({ color: warm.clone().multiplyScalar(0.16), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
     for (const sx of [-1, 1]) {
       const side = new THREE.Mesh(sideGeo, sideMat);
       side.position.set((sx * PW) / 2, H / 2, -T / 2);
@@ -99,14 +100,14 @@ export default async function play(lab) {
       const fwd = pn.tan.clone().setY(0).normalize();
       across.set(-fwd.z, 0, fwd.x);
       const age = A.time - a.born;
-      const fade = clamp(1 - (age - 0.35) / 0.7) * arcFade.k;
+      const fade = clamp(1 - (age - 0.2) / 0.5) * arcFade.k;
       for (let j = 0; j < ARC_N; j++) {
         const th = (a.maxTheta * j) / (ARC_N - 1);
         const r = H + 0.005;
         const c = pn.p.clone().add(fwd.clone().multiplyScalar(Math.sin(th) * r + T / 2)).setY(Math.cos(th) * r + pn.g.position.y);
         const w = 0.012 + 0.03 * (j / (ARC_N - 1));
         a.pos.set([c.x - across.x * w, c.y, c.z - across.z * w, c.x + across.x * w, c.y, c.z + across.z * w], j * 6);
-        const k = 1.5 * fade * (0.15 + 0.85 * (j / (ARC_N - 1)) ** 1.5);
+        const k = 1.0 * fade * (0.1 + 0.9 * (j / (ARC_N - 1)) ** 2);
         a.col.set([warm.r * k, warm.g * k, warm.b * k, warm.r * k, warm.g * k, warm.b * k], j * 6);
       }
       a.mesh.geometry.attributes.position.needsUpdate = true;
@@ -120,7 +121,8 @@ export default async function play(lab) {
     for (const pn of panes) {
       pn.tilt.rotation.x = pn.theta;
       const f = clamp(1 - (A.time - pn.flash) / 0.3);
-      pn.edgeMat.color.copy(warm).multiplyScalar(2.2 + 4 * f);
+      const lit = pn.done ? 1.3 : 1.0 + 1.6 * clamp(pn.theta / 0.6);
+      pn.edgeMat.color.copy(warm).multiplyScalar(lit + 3.5 * f);
     }
     paintArcs();
   });
@@ -134,12 +136,13 @@ export default async function play(lab) {
     const dt = Math.max(0, t - lastT);
     lastT = t;
     front.lerp(frontWant, 1 - Math.exp(-dt * 4));
-    const target = home.target.clone().lerp(front, 0.55 * cam.ride + 0.25 * cam.push).add(new THREE.Vector3(0, 0, -0.1 * cam.plan));
+    const target = home.target.clone().lerp(front, 0.45 * cam.ride + 0.5 * cam.push).add(new THREE.Vector3(0, 0, -0.1 * cam.plan));
+    A.showNames = cam.ride + cam.push < 0.15;
     return {
       target,
-      el: home.el + 0.42 * cam.plan - 0.42 * cam.ride - 0.08 * cam.push,
-      dist: home.dist * (1 + 0.04 * cam.plan - 0.3 * cam.ride - 0.12 * cam.push),
-      az: -0.22 * cam.ride + 0.1 * cam.push,
+      el: home.el + 0.42 * cam.plan - 0.3 * cam.ride - 0.04 * cam.push,
+      dist: home.dist * (1 + 0.04 * cam.plan - 0.22 * cam.ride - 0.26 * cam.push),
+      az: -0.18 * cam.ride + 0.08 * cam.push,
     };
   });
 
@@ -153,22 +156,22 @@ export default async function play(lab) {
     col2.flash = A.time;
     col2.flashColor = new THREE.Color(RED);
   }
-  lab.ring(W(4, 1), RED, 2.6, 0.02, 1.3);
+  lab.ring(W(4, 1), RED, 1.3, 0.02, 0.8);
   A.emit('checkpoint', { id: 'a', n: 2 });
   A.emit('win', { id: 'a' });
 
   // ---------- 2. plan view: the panes rise out of the glass, from her square outward ----------
-  lab.tween(0.7, (e) => (cam.plan = e), ease.inOut);
-  await lab.tween(0.62, (e, k) => {
+  lab.tween(0.6, (e) => (cam.plan = e), ease.inOut);
+  await lab.tween(0.5, (e, k) => {
     for (let i = 0; i < N; i++) {
       const kk = clamp((k - (i / N) * 0.55) / 0.45);
       panes[i].g.position.y = -H - 0.05 + (H + 0.05) * ease.outBack(kk);
     }
   }, ease.linear);
-  await lab.wait(0.22); // stillness
+  await lab.wait(0.18); // stillness
 
   // ---------- 3. Maya taps the first pane with her tail; the run goes ----------
-  lab.tween(0.75, (e) => {
+  lab.tween(0.6, (e) => {
     cam.plan = 1 - e;
     cam.ride = e;
   }, ease.inOut);
@@ -181,14 +184,15 @@ export default async function play(lab) {
     makeArc(pn);
     return lab.tween(dur, (e) => (pn.theta = to * e), ease.in).then(() => {
       pn.flash = A.time;
-      lab.tween(0.3, (e) => (pn.theta = to + (then - to) * e), ease.out);
+      pn.done = true;
+      lab.tween(0.25, (e) => (pn.theta = to + (then - to) * e), ease.out);
     });
   };
   for (let i = 0; i < N - 1; i++) {
     frontWant = panes[Math.min(N - 1, i + 1)].p.clone();
     // quickening: the first panes are spaced, then the run gathers speed
-    const dur = 0.15 - 0.07 * clamp(i / 8);
-    if (i === N - 4) lab.slowmo(0.32, 0.18); // the last few in slow motion
+    const dur = 0.13 - 0.06 * clamp(i / 6);
+    if (i === N - 4) lab.slowmo(0.35, 0.15); // the last few in slow motion
     if (i === N - 4) {
       // Theo sees it coming and leans away
       lab.tween(0.45, (e) => theo.set({ pitch: -0.2 * e, sy: 1 - 0.05 * e }), ease.out);
@@ -205,7 +209,7 @@ export default async function play(lab) {
   await lab.waitReal(0.32);
   lab.slowmo(1, 0.16);
   // Theo rocks back and settles, still facing west
-  await lab.tween(0.7, (e, k) => {
+  await lab.tween(0.55, (e, k) => {
     const s = Math.sin(k * Math.PI * 3.2) * (1 - k) ** 1.6;
     theo.set({ pitch: -0.2 * (1 - Math.min(1, k * 3)) - 0.16 * s, sy: 1 - 0.05 * (1 - Math.min(1, k * 3)) + 0.04 * Math.abs(s), rot: facing(3) });
     last.theta = LAST_REST - 0.12 * s;
@@ -213,8 +217,8 @@ export default async function play(lab) {
   theo.set({ pitch: 0, sy: 1 });
 
   // ---------- 4. the run lies flat and sinks into the glass as rungs of light ----------
-  lab.tween(0.9, (e) => (cam.ride = 1 - e, cam.push = 1 - e), ease.inOut);
-  await lab.tween(0.35, (e, k) => {
+  lab.tween(0.8, (e) => (cam.ride = 1 - e, cam.push = 1 - e), ease.inOut);
+  await lab.tween(0.3, (e, k) => {
     for (let i = 0; i < N; i++) {
       const kk = clamp((k - (i / N) * 0.5) / 0.5);
       const from = i === N - 1 ? LAST_REST : REST;
@@ -222,12 +226,12 @@ export default async function play(lab) {
     }
   }, ease.linear);
   for (const pn of panes) pn.flash = A.time - 0.15;
-  await lab.tween(0.6, (e, k) => {
+  await lab.tween(0.5, (e, k) => {
     for (let i = 0; i < N; i++) {
       // the glass goes first, the rung of light lingers, fading back toward Maya
       const j = N - 1 - i;
       const kk = clamp((k - (j / N) * 0.45) / 0.55);
-      panes[i].glassMat.opacity = 0.62 * (1 - Math.min(1, kk * 2.5));
+      panes[i].glassMat.opacity = 0.55 * (1 - Math.min(1, kk * 2.5));
       panes[i].sideMat.opacity = 1 - Math.min(1, kk * 2.5);
       panes[i].edgeMat.opacity = 1 - kk;
       panes[i].g.position.y = -0.02 * kk;
@@ -237,7 +241,7 @@ export default async function play(lab) {
   for (const pn of panes) pn.g.visible = false;
   for (const a of arcs) a.mesh.visible = false;
   stopPanes();
-  await lab.wait(0.15);
+  A.showNames = true;
   releaseCam();
   maya.release({ x: 4, y: 1, d: 1 });
   theo.release({ x: 5, y: 3, d: 3 });

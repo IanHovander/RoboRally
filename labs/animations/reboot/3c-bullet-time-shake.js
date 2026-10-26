@@ -177,7 +177,7 @@ export default async function play(lab) {
 
     // the room dims and the token lights her from below
     const appear = smooth(seg(T, 0, 0.12));
-    const lightsBack = smooth(seg(T, SHAKE1 - 0.05, SHAKE1 + 0.55));
+    const lightsBack = smooth(seg(T, SHAKE1 - 0.05, SHAKE1 + 0.4));
     back.material.color.copy(backColor).multiplyScalar((0.85 * appear + 0.25 * Math.max(0, 1 - T / 0.12) * (T < 0.12 ? 1 : 0)) * (1 - 0.85 * lightsBack));
     arena.topMat.emissiveIntensity *= 1 - 0.5 * appear * (1 - lightsBack);
     theo.model.poolMat.opacity *= 1 - 0.4 * appear * (1 - lightsBack);
@@ -259,7 +259,7 @@ export default async function play(lab) {
 
     // ring, then eye; the stuck drops blink grey twice and fade
     look.ring = smooth(seg(T, RING_ON, RING_ON + 0.18));
-    look.pool = look.ring;
+    look.pool = look.ring * smooth(seg(T, SHAKE1 + 0.35, SHAKE1 + 0.7));
     look.eye = smooth(seg(T, EYE_ON, EYE_ON + 0.05)) * (1 + 0.4 * (1 - smooth(seg(T, EYE_ON + 0.05, EYE_ON + 0.3))));
     look.glint = 0.5 * Math.max(0, 1 - Math.abs(T - SHAKE1) / 0.18) * 0;
     for (const s of sticks) s.visible = T >= SHAKE1 - 0.02 && T < BLINKS[1] + 0.5;
@@ -280,6 +280,12 @@ export default async function play(lab) {
     if (frozen) cam.orbit = 0.62 * smooth(clamp((lab.real - freezeStart) / FREEZE_REAL));
     else if (T > FREEZE_AT) cam.orbit = orbitAtThaw;
     cam.home = smooth(seg(T, SHAKE1 + 0.1, END - 0.2));
+    // name tags would be huge in the close-up: hide them while the camera is in close
+    const close = cam.snap * (1 - cam.home) > 0.25;
+    for (const key of ['a', 'b']) {
+      const tag = lab.bot(key).tag;
+      if (tag && close) tag.visible = false;
+    }
   });
 
   // bullet time

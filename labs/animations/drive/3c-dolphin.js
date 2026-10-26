@@ -69,7 +69,7 @@ export default async function play(lab) {
     body.updateWorldMatrix(true, false);
     const g = body.clone(true);
     // a strobe exposure: the body faint, its light (the eye) printed bright
-    const mat = new THREE.MeshBasicMaterial({ color: red.clone().multiplyScalar(0.28 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+    const mat = new THREE.MeshBasicMaterial({ color: red.clone().multiplyScalar(0.17 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
     const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1e0').multiplyScalar(1.6 * gain), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
     g.traverse((o) => {
       if (o.isMesh) {
@@ -81,7 +81,7 @@ export default async function play(lab) {
     g.matrixAutoUpdate = false;
     g.matrix.copy(body.matrixWorld);
     lab.add(g);
-    ghosts.push({ g, mat, t: lab.t });
+    ghosts.push({ g, mat, t: lab.t, r: lab.real });
   };
 
   // ---- under the glass: her glow and the wavering grid ----
@@ -120,7 +120,7 @@ export default async function play(lab) {
     // ghosts fade
     for (let i = ghosts.length - 1; i >= 0; i--) {
       const gh = ghosts[i];
-      const k = (t - gh.t) / 0.8;
+      const k = (lab.real - gh.r) / 0.75; // the exposure fades in real time, even in slow motion
       gh.mat.opacity = gh.mat.userData.eye.opacity = Math.max(0, 1 - k) ** 1.5;
       if (k >= 1) {
         lab.group.remove(gh.g);
@@ -183,7 +183,7 @@ export default async function play(lab) {
 
   // the camera: sinks toward the waterline for the breach
   let low = 0;
-  const breachAt = lab.pos(2.75, 2).setY(0.35);
+  const breachAt = lab.pos(2.6, 2).setY(0.4);
   const camRelease = lab.camera((home) => ({
     target: home.target.clone().lerp(breachAt, 0.75 * low),
     el: home.el - 0.32 * low,
@@ -231,8 +231,8 @@ export default async function play(lab) {
 
   // ---- under the glass: a red glow gliding, the grid wavering above her; the camera sinks ----
   lab.tween(0.55, (e) => (low = e), ease.inOut);
-  await lab.tween(0.52, (e, k) => {
-    const x = 1.92 + (2.5 - 1.92) * e;
+  await lab.tween(0.46, (e, k) => {
+    const x = 1.92 + (2.2 - 1.92) * e;
     const p = P(x);
     wx = p.x;
     wz = p.z;
@@ -241,7 +241,7 @@ export default async function play(lab) {
   }, ease.inOut);
 
   // ---- the breach: slow motion, ghosted frame by frame ----
-  const out = P(2.5);
+  const out = P(2.2);
   lab.particles(out.clone().setY(0.05), ['#f4efe4', maya.bot.color], 18, { speed: 0.7, up: 2.2, gravity: 4, size: 0.045, dur: 0.8 });
   lab.ring(out.clone().setY(0.02), '#f4efe4', 0.6, 0.02, 0.8);
   lab.slowmo(0.34, 0.08);
@@ -249,12 +249,15 @@ export default async function play(lab) {
   strobeLast = null;
   let snapped = false;
   lab.tween(0.3, (e) => (glowK = 1 - e), ease.out);
-  await lab.tween(0.42, (e, k) => {
-    const x = 2.5 + 0.5 * k;
-    // up out of the glass, over the top, down onto the spot
-    const arc = k < 0.5 ? -0.3 + 0.95 * Math.sin((k / 0.5) * Math.PI * 0.5) : 0.65 * Math.cos(((k - 0.5) / 0.5) * Math.PI * 0.5);
-    maya.set({ x, lift: arc, pitch: -1.15 + 1.6 * k, sy: 1.1, sx: 0.96, sz: 0.96 });
-    if (k > 0.12 && k < 0.95) strobe(0.17, 1.3);
+  const H = 0.78;
+  await lab.tween(0.5, (e, k) => {
+    const x = 2.2 + 0.8 * k;
+    // up out of the glass, over the top, down onto the spot: a ballistic arc, nose along it
+    const arc = 4 * H * k * (1 - k) - 0.3 * (1 - k);
+    const slope = (4 * H * (1 - 2 * k) + 0.3) / 0.8;
+    const pitch = Math.max(-1.25, Math.min(0.5, -Math.atan(slope) * 0.95));
+    maya.set({ x, lift: arc, pitch, sy: 1.1, sx: 0.96, sz: 0.96 });
+    if (k > 0.12 && k < 0.95) strobe(0.21, 1.3);
     if (k > 0.55 && !snapped) {
       snapped = true;
       lab.slowmo(1, 0.06);
@@ -267,7 +270,7 @@ export default async function play(lab) {
   lab.tween(0.45, (e) => (low = 1 - e), ease.inOut);
   await lab.tween(0.2, (e, k) => {
     const sq = Math.sin(k * Math.PI);
-    maya.set({ x: 3, lift: 0, pitch: 0.45 * (1 - e), sy: 1 - 0.16 * sq, sx: 1 + 0.07 * sq, sz: 1 + 0.07 * sq });
+    maya.set({ x: 3, lift: 0, pitch: 0.5 * (1 - e), sy: 1 - 0.16 * sq, sx: 1 + 0.07 * sq, sz: 1 + 0.07 * sq });
   }, ease.out);
   maya.set({ sx: 1, sy: 1, sz: 1, pitch: 0, trail: true });
 

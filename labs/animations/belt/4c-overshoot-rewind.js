@@ -2,7 +2,7 @@
 export const meta = {
   title: 'Overshoot and Rewind (the replay)',
   idea:
-    'The belt is overeager: it carries Maya through the corner and on down the south leg, turning her south. Then the picture freezes like a sports replay. Time stops dead (chevrons, trail, everything), the room drops into shadow, black bars slide in, and the camera crash-zooms onto the mistake with a slight dutch tilt. Then it rewinds: the chevrons run backwards, her red trail winds back up the belt under her like tape onto a spool, and she slides backwards in strobed afterimages of light, a long exposure played in reverse. The corner\'s turn to east then plays properly, softly, and the frame opens back up.',
+    'The belt is overeager: it carries Maya through the corner and on down the south leg, turning her south. Then the picture freezes like a sports replay. Time stops dead (chevrons, trail, everything), the room drops into shadow, black bars slide in, and the camera crash-zooms onto the mistake with a slight dutch tilt. Then it rewinds the whole beat: the chevrons run backwards, her red trail winds back up the belt under her like tape onto a spool, and she slides backwards round the corner in strobed afterimages of light, a long exposure played in reverse. Then the replay: the belt carries her onto the corner and its turn to east plays properly, softly, and the frame opens back up.',
   notes:
     'Sound: the belt whirr running a little too long, a hard cut to silence with a soft camera-shutter "tk" on the freeze, a reversed glass shimmer (tape rewinding) during the rewind, then the normal soft belt chime and a settled two-note "there". The freeze is real: the scene\'s clock stops (lab.timeScale 0), so everything on the board holds. Keep it rare (once or twice a game) so the fake-out keeps working. On the way back it also shows where the belt will take her next register.',
 };
@@ -37,7 +37,7 @@ export default async function play(lab) {
   // ---- letterbox bars and a snapshot flash on the HUD layer ----
   const bars = ['top', 'bottom'].map((side) => {
     const el = document.createElement('div');
-    el.style.cssText = `position:absolute;left:0;right:0;${side}:0;height:0;background:#020304;pointer-events:none;`;
+    el.style.cssText = `position:absolute;left:0;right:0;${side}:0;height:0;background:#020304;pointer-events:none;border-${side === 'top' ? 'bottom' : 'top'}:1px solid rgba(255,236,205,0);`;
     lab.overlay.append(el);
     return el;
   });
@@ -88,11 +88,11 @@ export default async function play(lab) {
   const EXP = [0, 0.3]; // express step
   const OVER = [0.32, 0.8]; // overeager: through the corner and halfway down the south leg
   const FREEZE = 0.8;
-  const REW = [1.1, 1.62]; // rewind, back to before the corner
-  const PROPER = [1.68, 2.08]; // the corner's turn, played properly
+  const REW = [1.06, 1.62]; // rewind, the whole beat, back to (2,1)
+  const PROPER = [1.66, 2.08]; // the all-belts step and the corner's turn, played properly
   const END = 2.4;
   const S_OVER = 1.5;
-  const S_BACK = 0.52;
+  const S_BACK = 0; // the whole beat rewinds, back to (2,1), and replays
 
   const r0 = lab.real;
   let lastGhost = -1;
@@ -137,7 +137,7 @@ export default async function play(lab) {
       const tr = bot.trail;
       while (tr.length > 1 && sOf(tr[tr.length - 1]) > s + 0.04) tr.pop();
       // strobed afterimages, a long exposure in reverse
-      if (t < REW[1] - 0.04 && t - lastGhost > 0.05) {
+      if (t < REW[1] - 0.04 && t - lastGhost > 0.04) {
         lastGhost = t;
         addGhost(x, y, rot, t);
       }
@@ -145,8 +145,9 @@ export default async function play(lab) {
       // the turn, played properly, with a soft settle
       const k = seg(t, PROPER[0], PROPER[1]);
       s = mix(S_BACK, 1, ease.inOut(k));
+      trail = true;
       ({ x, y } = at(s));
-      rot = facing(0) + (facing(1) - facing(0)) * ease.outBack(seg(t, PROPER[0] + 0.08, PROPER[1] + 0.12), 1.3);
+      rot = facing(0) + (facing(1) - facing(0)) * ease.outBack(seg(t, PROPER[0] + 0.14, PROPER[1] + 0.14), 1.3);
       squash = Math.sin(seg(t, PROPER[1] - 0.05, PROPER[1] + 0.25) * Math.PI);
     }
     maya.set({ x, y, rot, lift, trail, sy: 1 - 0.07 * squash, sx: 1 + 0.035 * squash, sz: 1 + 0.035 * squash });
@@ -156,15 +157,18 @@ export default async function play(lab) {
 
     // ---- the room: dark for the replay, back with the proper turn ----
     const dark = ease.out3(seg(t, FREEZE, FREEZE + 0.12)) * (1 - ease.inOut(seg(t, PROPER[0], PROPER[1] + 0.2)));
-    arena.topMat.emissiveIntensity *= 1 - 0.55 * dark;
+    arena.topMat.emissiveIntensity *= 1 - 0.75 * dark;
     express.forEach((b) => b.mat.color.multiplyScalar(1 - 0.25 * dark + (t > REW[0] && t < REW[1] ? 0.6 * Math.sin(seg(t, REW[0], REW[1]) * Math.PI) : 0)));
-    arena.key.intensity = key0 * (1 - 0.45 * dark);
-    arena.hemi.intensity = hemi0 * (1 - 0.5 * dark);
+    arena.key.intensity = key0 * (1 - 0.55 * dark);
+    arena.hemi.intensity = hemi0 * (1 - 0.6 * dark);
 
     // ---- letterbox and the snapshot flash ----
     const box = ease.out3(seg(t, FREEZE, FREEZE + 0.14)) * (1 - ease.inOut(seg(t, PROPER[1] - 0.1, END - 0.12)));
-    for (const b of bars) b.style.height = `${(box * 9).toFixed(2)}%`;
-    flash.style.opacity = String(t >= FREEZE ? 0.22 * Math.max(0, 1 - (t - FREEZE) / 0.16) : 0);
+    bars.forEach((b, i) => {
+      b.style.height = `${(box * 10).toFixed(2)}%`;
+      b.style[i ? 'borderTopColor' : 'borderBottomColor'] = `rgba(255,236,205,${(0.45 * box).toFixed(3)})`;
+    });
+    flash.style.opacity = String(t >= FREEZE ? 0.16 * Math.max(0, 1 - (t - FREEZE) / 0.14) : 0);
 
     // ---- camera: a crash-zoom onto the mistake, a dutch tilt, then it follows her back and goes home ----
     const wrong = lab.pos(3, 1 + (S_OVER - 1));

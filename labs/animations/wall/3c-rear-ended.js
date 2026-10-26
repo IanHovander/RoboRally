@@ -108,8 +108,8 @@ export default async function play(lab) {
       pos.set([cx[i] - tz * w, 0.009, cz[i] + tx * w, cx[i] + tz * w, 0.009, cz[i] - tx * w], i * 6);
       // newest light brightest, like Lumen's own trail; the flow shimmers forward inside it
       let k = R.gain * (0.3 + 0.7 * u ** 1.2);
-      if (R.flow) k *= 1 + R.flow * 2.2 * Math.max(0, Math.sin((u * 3 - t * 7) * Math.PI)) ** 4;
-      k *= 1 - R.sink;
+      if (R.flow) k *= 1 + R.flow * 1.4 * Math.max(0, Math.sin((u * 3 - t * 7) * Math.PI)) ** 4;
+      k = Math.min(2.3, k) * (1 - R.sink); // never a wash of colour: a line of light
       col.set([color.r * k, color.g * k, color.b * k, color.r * k, color.g * k, color.b * k], i * 6);
     }
     geo.attributes.position.needsUpdate = true;

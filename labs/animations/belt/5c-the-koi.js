@@ -159,7 +159,7 @@ export default async function play(lab) {
   back.mesh.renderOrder = 1.1;
   const W = 0.78; // its width (world)
 
-  const onBoard = (x, y) => smooth(seg(x, -0.55, -0.05)) * smooth(seg(y, 3.55, 3.05)) * smooth(seg(x, 6.55, 6.05));
+  const onBoard = (x, y) => smooth(seg(x, -0.55, -0.05)) * smooth(seg(y, 3.25, 2.6)) * smooth(seg(x, 6.55, 6.05));
   const placeRibbons = (head, t, swim, tailFlick, bright, partK) => {
     for (const r of [deep, part, back]) {
       for (let i = 0; i <= N; i++) {

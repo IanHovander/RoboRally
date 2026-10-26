@@ -62,7 +62,7 @@ export default async function play(lab) {
   const mayaW = W(4, 1);
   const behindMaya = Math.atan2(mayaW.x - 0.0, -4.5 - 0); // the direction of the back wall, behind her
   const add = (x, z, size, kind) => {
-    const tint = new THREE.Color(tints[Math.floor(lab.rand() * tints.length)]).lerp(new THREE.Color('#ffffff'), 0.35);
+    const tint = new THREE.Color(tints[Math.floor(lab.rand() * tints.length)]).lerp(new THREE.Color('#fff1dc'), 0.7);
     const h = 0.32 + lab.rand() * 0.22; // eye height: the audience are different forms
     const mat = new THREE.SpriteMaterial({ map: kind === 'dot' ? glowTex : eyeTex, color: new THREE.Color(3.0, 2.9, 2.7), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const s = new THREE.Sprite(mat);
@@ -83,7 +83,7 @@ export default async function play(lab) {
     pool.scale.setScalar(size);
     lab.add(pool);
     const ang = Math.atan2(x, z); // 0 toward the camera, ±π behind the slab
-    const e = { s, mat, ring, rmat, pmat, w, hgt: s.scale.y, open: 0, openAt: 99, closeAt: 99, ang, x, z, wave: 99, phase: lab.rand() * TAU, jit: lab.rand() };
+    const e = { s, mat, ring, rmat, pmat, w, w0: s.scale.x, hgt: s.scale.y, open: 0, openAt: 99, closeAt: 99, ang, x, z, wave: 99, phase: lab.rand() * TAU, jit: lab.rand() };
     eyes.push(e);
     return e;
   };
@@ -102,7 +102,7 @@ export default async function play(lab) {
       const r = 1 / Math.pow(Math.pow(Math.abs(ca) / hx, 4) + Math.pow(Math.abs(sa) / hz, 4), 1 / 4);
       const x = ca * r + lab.range(-0.25, 0.25);
       const z = sa * r + lab.range(-0.25, 0.25);
-      if (z > c.h / 2 + 2.6) continue; // too close to the camera
+      if (z > c.h / 2 + 1.9) continue; // too close to the camera
       add(x, z, 1 + row * 0.12, lab.rand() < 0.3 ? 'dot' : 'bar');
     }
   }
@@ -120,18 +120,21 @@ export default async function play(lab) {
   let wink = eyes[0];
   best = 1e9;
   for (const e of eyes) {
-    const d = Math.hypot(e.x - -2.6, e.z - (c.h / 2 + 1.0));
+    const d = Math.hypot(e.x - -2.3, e.z - (-c.h / 2 - 2.2));
     if (d < best) {
       best = d;
       wink = e;
     }
   }
 
+  wink.w0 *= 1.35; // the one that stays is a little bigger (a closer robot)
+  wink.hgt *= 1.35;
+
   // ---------- the wave: runs round the room (from the left, behind, to the right) ----------
   // s: how far round the wave has to go to reach an eye; it passes behind Maya about halfway
   const sOf = (ang) => ((-ang + TAU * 2 - 0.9) % TAU);
   const sMaya = sOf(behindMaya);
-  const wave = { s: -1, on: false };
+  const wave = { s: -1, on: false, k: 0 };
   const room = { dim: 0 };
   const backlight = { k: 0 };
 
@@ -155,11 +158,13 @@ export default async function play(lab) {
       // a lazy idle blink now and then
       const idle = Math.max(0, Math.sin(t * 1.3 + e.phase * 7) - 0.985) * 60;
       const lidOpen = open * (1 - Math.max(lid, clamp(idle)));
-      e.s.scale.y = e.hgt * Math.max(0.02, lidOpen);
+      const pop = 1 + 0.35 * boost;
+      e.s.scale.set(e.w0 * pop, e.hgt * pop * Math.max(0.02, lidOpen), 1);
       e.mat.opacity = open > 0 ? 1 : 0;
-      e.mat.color.setRGB(3.0, 2.9, 2.7).multiplyScalar(0.75 + boost);
-      e.rmat.opacity = 0.32 * open * (1 + boost * 0.6);
-      e.pmat.opacity = 0.5 * open * (1 + boost);
+      // while the wave runs, the rest of the crowd sits a little lower so the band of blinks pops
+      e.mat.color.setRGB(3.0, 2.9, 2.7).multiplyScalar(0.7 - 0.3 * wave.k + 1.2 * boost);
+      e.rmat.opacity = 0.13 * open * (1 + boost);
+      e.pmat.opacity = 0.18 * open * (1 + boost);
     }
   });
 
@@ -214,7 +219,7 @@ export default async function play(lab) {
     col2.flash = A.time;
     col2.flashColor = new THREE.Color(RED);
   }
-  lab.ring(W(4, 1), RED, 2.4, 0.02, 1.2);
+  lab.ring(W(4, 1), RED, 1.6, 0.02, 1.0);
   A.emit('checkpoint', { id: 'a', n: 2 });
   A.emit('win', { id: 'a' });
 
@@ -224,20 +229,22 @@ export default async function play(lab) {
     room.dim = e;
     A.dim = A.dimCur = 0.45 * e;
   }, ease.inOut);
-  await lab.wait(0.35);
+  await lab.wait(0.25);
   const T0 = A.time;
   first.openAt = T0;
   const rest = eyes.filter((e) => e !== first);
   // order: spreading out from behind Maya, with some randomness
   rest.sort((a, b) => Math.abs(sOf(a.ang) - sMaya) + a.jit * 1.4 - (Math.abs(sOf(b.ang) - sMaya) + b.jit * 1.4));
-  rest.forEach((e, i) => (e.openAt = T0 + 0.45 + 0.85 * Math.pow(i / rest.length, 0.55)));
-  await lab.wait(1.35);
+  // one, then two, then four... each doubling a little quicker than the last
+  rest.forEach((e, i) => (e.openAt = T0 + 0.32 + 0.17 * Math.log2(i + 1)));
+  await lab.wait(0.32 + 0.17 * Math.log2(rest.length) + 0.12);
 
   // ---------- 3. the applause: a wave of blinks round the room, swelling behind her ----------
   wave.on = true;
-  lab.tween(1.5, (e) => (cam.push = Math.sin(e * Math.PI) * 0.7), ease.inOut);
-  await lab.tween(1.5, (e) => {
+  lab.tween(1.35, (e) => (cam.push = Math.sin(e * Math.PI) * 0.7), ease.inOut);
+  await lab.tween(1.35, (e) => {
     wave.s = -0.6 + 5.6 * e;
+    wave.k = Math.min(1, Math.min(e, 1 - e) * 8);
     backlight.k = Math.exp(-(((wave.s - sMaya) / 0.75) ** 2));
   }, ease.inOut);
   wave.on = false;

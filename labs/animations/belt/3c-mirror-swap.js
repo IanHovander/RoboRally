@@ -109,7 +109,7 @@ export default async function play(lab) {
     tx.colorSpace = THREE.SRGBColorSpace;
     return tx;
   })();
-  const catchMat = new THREE.MeshBasicMaterial({ map: catchTex, color: new THREE.Color('#cfe0ff').multiplyScalar(1.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const catchMat = new THREE.MeshBasicMaterial({ map: catchTex, color: new THREE.Color('#cfe0ff').multiplyScalar(1.05), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const catchLight = new THREE.Mesh(new THREE.PlaneGeometry(L, PH), catchMat);
   catchLight.position.set(0, PH / 2, 0.002);
   catchLight.renderOrder = 3;

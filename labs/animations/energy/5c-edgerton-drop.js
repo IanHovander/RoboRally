@@ -46,6 +46,7 @@ function batteryRig(lab) {
       new THREE.MeshBasicMaterial({ map, color: new THREE.Color(PALETTE.energy), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     m.position.set(at.x, y, at.z);
+    m.renderOrder = -3; // under the well
     lab.add(m);
     return m;
   };
@@ -143,8 +144,9 @@ function wellRig(lab, at) {
   const m2 = new THREE.Mesh(geo, light);
   m1.position.set(at.x, 0.0056, at.z);
   m2.position.set(at.x, 0.0058, at.z);
-  m1.renderOrder = 3;
-  m2.renderOrder = 4;
+  // drawn before her ring, pool and trail (so they float over the hole), after the battery's own light
+  m1.renderOrder = -2;
+  m2.renderOrder = -1;
   lab.add(m1);
   lab.add(m2);
   return {
@@ -181,7 +183,7 @@ export default async function play(lab) {
   const at = bat.at;
   const well = wellRig(lab, at);
   const R = 0.58; // the well: a little wider than her ring, so her ring floats over the hole
-  const LAND = new THREE.Vector3(0.2, 0, 0.5); // the drop lands at the well's edge, on our side
+  const LAND = new THREE.Vector3(0.3, 0, 0.47); // the drop lands at the well's edge, on our side
   well.from(LAND.x, LAND.z);
   const landAt = at.clone().add(LAND);
 
@@ -190,11 +192,13 @@ export default async function play(lab) {
   const AMBER = new THREE.Color(PALETTE.energy).multiplyScalar(4.2);
   const ring0 = maya.model.ringMat.color.clone();
   const RING = new THREE.Color(PALETTE.energy).multiplyScalar(2.3);
-  const look = { warm: 0, pool: 1 };
+  const look = { warm: 0, pool: 1, card: 1 };
   maya.each = (m) => {
     m.eyeMat.color.copy(WHITE).lerp(AMBER, look.warm);
     m.ringMat.color.copy(ring0).lerp(RING, look.warm * 0.9);
     m.poolMat.opacity *= look.pool;
+    const card = maya.bot.card;
+    if (card) card.material.opacity = Math.min(card.material.opacity, look.card);
   };
   const restore = () => maya.model.ringMat.color.copy(ring0);
   lab.cleanup(restore);
@@ -263,12 +267,14 @@ export default async function play(lab) {
     const lv = back ? 1.25 : 1 + 1.2 * bump(dr * 0.8) - 2.2 * ease.in(dr);
     bat.level = [lv, lv, lv].map((v) => Math.max(0, v));
     bat.boltLevel = back ? 1.25 : Math.max(0, 1 - 1.3 * dr);
-    bat.glow = back ? mix(0, 1.6, seg(T, SPLASH, SPLASH + 0.25)) : Math.max(0, 1 - dr);
+    bat.glow = back ? 1.5 * ease.out(seg(T, SPLASH + 0.02, SPLASH + 0.42)) : Math.max(0, 1 - dr);
     well.u.uR.value = R * ease.out(seg(T, DRAIN + 0.08, HOLD + 0.04));
     // her: a little lift as it pours up into her, eye and ring amber
     pose.sy += 0.07 * bump(seg(T, DRAIN + 0.05, HOLD + 0.05));
     pose.sx = pose.sz = 1 - 0.03 * bump(seg(T, DRAIN + 0.05, HOLD + 0.05));
     look.warm = ease.out(seg(T, DRAIN + 0.1, HOLD)) * (1 - ease.inOut(seg(T, SPLASH + 0.2, END - 0.02)));
+    // the card above her steps back so the dark above is empty for the star
+    look.card = 1 - ease.inOut(seg(T, HOLD - 0.1, STAR - 0.04)) * (1 - ease.inOut(seg(T, SPLASH + 0.3, END - 0.04)));
     look.pool = 1 - 0.8 * ease.inOut(seg(T, DRAIN, HOLD)) * (1 - seg(T, SPLASH + 0.05, SPLASH + 0.4));
     // "did she break it?": she peers down into the hole, then looks up at the star
     pose.pitch += 0.28 * ease.inOut(seg(T, HOLD, HOLD + 0.12)) * (1 - ease.inOut(seg(T, STAR + 0.02, STAR + 0.14)));
@@ -280,7 +286,7 @@ export default async function play(lab) {
       const kin = ease.out(seg(T, STAR, STAR + 0.08));
       const f = ease.in(seg(T, FALL, SPLASH));
       star.position.lerpVectors(TOP, landAt, f);
-      star.scale.setScalar(0.06 + 0.12 * kin + 0.1 * bump(seg(T, STAR, STAR + 0.12)));
+      star.scale.setScalar(0.06 + 0.1 * kin + 0.22 * bump(seg(T, STAR, STAR + 0.1)));
       // the streak: long while it's fast, shrinking to a bead as time slows
       const speed = f > 0 ? (2 * seg(T, FALL, SPLASH)) * TOP.y / (SPLASH - FALL) : 0;
       const len = Math.min(0.9, speed * 0.075 * lab.timeScale);

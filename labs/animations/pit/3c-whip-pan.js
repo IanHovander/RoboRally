@@ -91,7 +91,6 @@ export default async function play(lab) {
   // ---------- the trail piles up: it folds up off the glass like a rug being shoved ----------
   const pts = bot.trail;
   for (const p of pts) p.ox = p.x;
-  const oxs = pts.map((p) => p.x);
   const tailX = pts.length ? pts[0].x : W(1, 1).x;
   const rearX = W(3, 1).x - 0.45;
   const rimX = W(3.45, 1).x;
@@ -134,11 +133,11 @@ export default async function play(lab) {
       if (p.ox <= K) p.t = now - 10;
       else p.t = Math.max(p.t, now - 0.6); // the rest of the trail is lit up again, ominously
     }
-    gathered = oxs.filter((x) => x <= K).length;
-    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 1.25)));
+    gathered = Math.max(0, K - tailX);
+    const m = Math.min(FOLDS, Math.max(1, Math.round(gathered / 0.055)));
     const h = 0.22 + 0.16 * Math.min(1, m / FOLDS);
     const w = 0.22;
-    const step = 0.042;
+    const step = 0.03;
     const c = RED.clone().multiplyScalar(1.9 * knotOn * (1 + 0.8 * knotPulse));
     for (let i = 0; i <= FOLDS; i++) {
       const j = Math.min(i, m);
@@ -157,7 +156,7 @@ export default async function play(lab) {
   });
 
   // whip pan back along her path: the faded trail lights up again and its far end starts to fold up
-  await camTo(0.12, { tx: W(2.05, 1).x, d: 0.55, el: HOME.el - 0.22 }, ease.inOut);
+  await camTo(0.12, { tx: W(2.05, 1).x, d: 0.55, el: HOME.el - 0.3 }, ease.inOut);
   piling = true;
   lab.ring(new THREE.Vector3(tailX, 0, z0), '#ff4d6d', 0.3, 0.03, 0.35);
   await lab.tween(0.44, (e, k) => (K = tailX + (W(2.15, 1).x - tailX) * (0.55 * k + 0.45 * k * k * k)), ease.linear);

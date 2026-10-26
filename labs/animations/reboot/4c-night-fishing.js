@@ -36,10 +36,9 @@ export default async function play(lab) {
   const LEAN = [0, 0.26];
   const FLICK = [0.26, 0.36];
   const CAST = [0.3, 0.86];
-  const TUG = 1.24;
-  const RISE = [1.36, 1.7];
-  const ACROSS = [1.7, 2.08];
-  const DROP = [2.08, 2.2];
+  const TUG = 1.2;
+  const REEL = [1.32, 2.06];
+  const DROP = [2.06, 2.18];
   const FLOPS = [2.26, 2.48];
   const ZIP = [2.14, 2.3];
   const GLANCE = [2.36, 2.72];
@@ -190,6 +189,7 @@ export default async function play(lab) {
   };
   let castFrom = null;
   let hooked = false;
+  let surfaced = false;
   const stop = lab.every(() => {
     const T = now();
 
@@ -206,7 +206,7 @@ export default async function play(lab) {
 
     const mz = muzzleW();
     // the cast: the bead flies, the line unrolls along its path then relaxes into a drape
-    if (T >= CAST[0] && T < RISE[0]) {
+    if (T >= CAST[0] && T < REEL[0]) {
       if (!castFrom) castFrom = mz.clone();
       const k = seg(T, CAST[0], CAST[1]);
       let bp = beadFlight(ease.out(k) * 0.35 + k * 0.65, castFrom);
@@ -214,10 +214,11 @@ export default async function play(lab) {
         // bob on the line: a spring settling, then the bite pulls it down hard
         const s = T - CAST[1];
         bp = BEAD_REST.clone().add(V(0, 0.18 * Math.exp(-6 * s) * Math.cos(15 * s) + 0.02 * Math.sin(T * 9), 0));
-        const tug = seg(T, TUG, TUG + 0.07);
-        bp.y -= 0.36 * tug;
+        // the bite: the bead is pulled under the black water
+        const tug = ease.in(seg(T, TUG, TUG + 0.09));
+        bp.y -= 0.95 * tug;
       }
-      bead.visible = true;
+      bead.visible = bp.y > FLOOR - 0.06;
       bead.position.copy(bp);
       traj.push(bp.clone());
       const unrolled = resample([mz, ...traj]);
@@ -226,10 +227,10 @@ export default async function play(lab) {
       setLine(unrolled.map((p, i) => p.lerp(dr[i], relax)));
       // the glow of the bead on the dark water: brighter the closer it hangs
       const near = clamp(1 - (bp.y - FLOOR) / 1.4);
-      pool.material.color.copy(hdr(THEO_BLUE, 1)).multiplyScalar(0.9 * near * near);
+      pool.material.color.copy(hdr(THEO_BLUE, 1)).multiplyScalar(0.9 * near * near * (1 - seg(T, TUG + 0.06, TUG + 0.3)));
       pool.scale.setScalar(0.9 + 0.4 * near);
       pool.position.x = bp.x;
-      if (T >= TUG && !hooked) {
+      if (bp.y <= FLOOR && !hooked) {
         hooked = true;
         waterRing(bp, 0, 1.2, 0);
         waterRing(bp, 0.1, 0.75, 0);
@@ -238,34 +239,37 @@ export default async function play(lab) {
     }
 
     // the reel: she comes up out of the dark hanging nose-first, over the edge, across the glass
-    if (T >= RISE[0] && T < DROP[0]) {
+    if (T >= REEL[0] && T < DROP[0]) {
       bead.visible = false;
       maya.set({ visible: true });
-      let hook;
-      let swing;
-      if (T < RISE[1]) {
-        const k = ease.out(seg(T, RISE[0], RISE[1]));
-        const a = BEAD_REST.clone().add(V(0, -0.3, 0));
-        hook = V(lerp(a.x, -3.2, k), lerp(a.y, 1.15, k) + 0.25 * Math.sin(Math.PI * k), ROWZ);
-        swing = -0.35 * k;
-      } else {
-        const k = seg(T, ACROSS[0], ACROSS[1]);
-        hook = V(lerp(-3.2, token.x, ease.inOut(k)), 1.15 + 0.12 * Math.sin(Math.PI * k), ROWZ);
-        swing = -0.35 + 0.65 * Math.sin(k * Math.PI * 1.5) * (1 - 0.4 * k);
+      // one long pull: up out of the water, over the lip, across to above the token
+      const k = seg(T, REEL[0], REEL[1]);
+      const q = ease.inOut(k);
+      const P0 = V(BEAD_REST.x, FLOOR - 0.38, ROWZ);
+      const P1 = V(-4.15, 2.45, ROWZ);
+      const P2 = V(token.x, 0.98, ROWZ);
+      const hook = V(
+        (1 - q) ** 2 * P0.x + 2 * (1 - q) * q * P1.x + q * q * P2.x,
+        (1 - q) ** 2 * P0.y + 2 * (1 - q) * q * P1.y + q * q * P2.y,
+        ROWZ,
+      );
+      // breaking the surface: a ring on the black water
+      if (!surfaced && hook.y > FLOOR + 0.02) {
+        surfaced = true;
+        waterRing(V(hook.x, FLOOR, ROWZ), 0, 0.9, 0);
       }
-      // nose up (pitch about -1.3) with the pendulum swing on top; a slow twist
-      hang(hook, -1.05 + swing, lab.facing(1) + 0.5 * Math.sin((T - RISE[0]) * 7) * (1 - seg(T, ACROSS[0], ACROSS[1])));
+      // the body lags behind the pull and swings like a pendulum, twisting a little on the line
+      const swing = -0.42 * Math.sin(Math.PI * k) + 0.22 * Math.sin(2 * Math.PI * k) * k;
+      hang(hook, -1.05 + swing, lab.facing(1) + 0.45 * Math.sin((T - REEL[0]) * 8) * (1 - k));
       look.eye = 0.45;
       setLine(resample(drape(mz, hook, -0.08)));
-      // the room watches her come out of the dark
-      const out = smooth(seg(T, RISE[0], RISE[0] + 0.25));
-      maya.model.paint.emissiveIntensity = 0.16 * out;
+      maya.model.paint.emissiveIntensity = 0.16 * smooth(seg(T, REEL[0] + 0.1, REEL[0] + 0.35));
     }
 
     // drop and slap down on the token, flat, nose east; the line lets go and whips home
     if (T >= DROP[0]) {
       const k = seg(T, DROP[0], DROP[1]);
-      const lift0 = 0.62;
+      const lift0 = 0.49;
       const lift = lift0 * (1 - ease.in(k));
       maya.set({ x: 3, y: 1, lift, pitch: -1.05 * (1 - ease.in(k)), rot: lab.facing(1), roll: 0 });
       const landed = seg(T, DROP[1], DROP[1] + 0.14);
@@ -287,7 +291,7 @@ export default async function play(lab) {
       // the line: from her nose back into Theo's muzzle, fast
       const zk = ease.in(seg(T, ZIP[0], ZIP[1]));
       if (zk < 1) {
-        const hook = V(token.x, lerp(1.15, lift * 0.5 + 0.2, k), ROWZ);
+        const hook = V(token.x, lerp(0.98, lift * 0.5 + 0.2, k), ROWZ);
         const end = hook.clone().lerp(mz, zk);
         setLine(resample(drape(mz, end, -0.08 * (1 - zk))));
       } else line.visible = false;
@@ -299,10 +303,10 @@ export default async function play(lab) {
       r.m.scale.setScalar(0.05 + r.size * ease.out3(q));
       r.m.material.opacity = q <= 0 ? 0 : (1 - q) ** 1.5;
     }
-    if (T >= RISE[0]) pool.material.color.multiplyScalar(0.85);
+    if (T >= REEL[0]) pool.material.color.multiplyScalar(0.85);
 
     // camera: wide over the water for the cast and the bite, back home with her
-    cam.wide = smooth(seg(T, 0.1, 0.8)) * (1 - smooth(seg(T, ACROSS[0] - 0.05, END - 0.25)));
+    cam.wide = smooth(seg(T, 0.1, 0.8)) * (1 - smooth(seg(T, REEL[0] + 0.3, END - 0.25)));
   });
 
   await lab.wait(END - 0.24);

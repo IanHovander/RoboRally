@@ -118,8 +118,8 @@ export default async function play(lab) {
   const shadowMat = new THREE.MeshBasicMaterial({
     map: tex(THREE, 64, 256, (g, w, h) => {
       const lg = g.createLinearGradient(0, 0, 0, h);
-      lg.addColorStop(0, 'rgba(0,0,0,0.95)');
-      lg.addColorStop(0.5, 'rgba(0,0,0,0.6)');
+      lg.addColorStop(0, 'rgba(0,0,0,1)');
+      lg.addColorStop(0.45, 'rgba(0,0,0,0.88)');
       lg.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = lg;
       g.beginPath();
@@ -134,7 +134,7 @@ export default async function play(lab) {
     transparent: true, opacity: 0, depthWrite: false,
   });
   const SH_LEN = 1.7;
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, SH_LEN).translate(0, -SH_LEN / 2, 0), shadowMat);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.7, SH_LEN).translate(0, -SH_LEN / 2, 0), shadowMat);
   shadow.rotation.x = -Math.PI / 2;
   shadow.renderOrder = 6;
   add(shadow);
@@ -200,7 +200,7 @@ export default async function play(lab) {
     door.scale.x = 0.012 + 0.2 * open;
     haloMat.opacity = 0.55 * light;
     halo.scale.x = 0.5 + 0.8 * open;
-    wedgeMat.opacity = 0.95 * light;
+    wedgeMat.opacity = 0.78 * light;
     wedge.scale.x = Math.tan(theta) / Math.tan(TMAX);
     hazeMat.opacity = 0.32 * light;
     const r = Math.tan(theta) * LEN;
@@ -209,10 +209,10 @@ export default async function play(lab) {
     spot.angle = 0.18 + 0.55 * open;
     // Maya's shadow, falling away from the door
     const mp = maya.group.position;
-    shadow.position.set(mp.x, 0.009, mp.z + 0.12);
+    shadow.position.set(mp.x, 0.009, mp.z + 0.05);
     const away = Math.atan2(mp.x - APEX.x, mp.z - APEX.z);
     shadow.rotation.z = away;
-    shadowMat.opacity = 0.85 * light;
+    shadowMat.opacity = light;
     shadow.scale.set(1, 0.7 + 0.5 * open, 1);
     // dust turning in the beam
     for (let i = 0; i < N; i++) {
