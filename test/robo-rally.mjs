@@ -404,6 +404,13 @@ function plain(v) {
   check(t.s.phase === 'program' && t.s.round === 1 && !t.hv().teach && t.hv().brief === null, 'no newcomer: no Briefing, programming starts');
 }
 {
+  const t = room(3, { raced: [0, 1, 2] });
+  t.s.opts.brief = true; // the leader's Briefing toggle (setOpt, in setup)
+  check(t.hv().teach === true, 'the Briefing toggle: the big screen teaches even with no newcomer');
+  pickAll(t);
+  check(t.s.phase === 'brief' && t.s.round === 1, `the Briefing toggle: veterans get the Briefing too (got ${t.s.phase})`);
+}
+{
   const t = room(3, { raced: [0, 1] });
   check(t.hv().teach === true, 'a phone that never says hello counts as a newcomer');
   t.act(2, 'hello', { raced: true });

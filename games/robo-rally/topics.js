@@ -99,6 +99,7 @@ export const TOPICS = {
   'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing. A lighter first game.' },
   'opt-safe': { sec: 'options', pic: { g: 'wall' }, clips: [['safe-edges', 'Safe edges']], fine: 'The outer edge acts as a wall. Pits still swallow.' },
   'opt-lessspam': { sec: 'options', pic: { card: 'sp' }, clips: [['less-spam', 'Less SPAM']], fine: 'SPAM in your hand goes to your discard pile after programming instead of clogging your hand.' },
+  'opt-brief': { sec: 'options', pic: { g: 'sound' }, clips: [], cap: 'Briefing', fine: 'On: Floor Control explains the game on the big screen before round 1, even if everyone has raced before. Off: only when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };
 

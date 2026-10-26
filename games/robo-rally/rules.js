@@ -77,11 +77,14 @@ function onDeadline(ctx) {
   drive(ctx);
 }
 
-/** Start pads are picked: the race begins. Round 1 has no shop, and a newcomer gets the Briefing first. */
+/**
+ * Start pads are picked: the race begins. Round 1 has no shop, and a newcomer gets the Briefing first
+ * (as does everyone, when the leader switched it on for this game).
+ */
 function startRace(ctx) {
   const s = ctx.state;
   const e = env(ctx);
-  s.teach = fresh(s).length > 0;
+  s.teach = fresh(s).length > 0 || !!s.opts.brief;
   E.startRace(s, e);
   if (s.phase === 'upgrade' && s.round === 1) E.startProgramming(s, e); // round 1: no shop (delete to bring it back)
   if (s.teach) {
@@ -298,7 +301,7 @@ function setOpt(ctx, payload) {
   if (s.phase !== 'setup' || !payload || typeof payload !== 'object') return;
   const { key, value } = payload;
   if (key === 'course' && COURSES.some((c) => c.id === value)) s.opts.course = value;
-  if (['upgrades', 'lessDeadly', 'lessSpam'].includes(key) && typeof value === 'boolean') s.opts[key] = value;
+  if (['upgrades', 'lessDeadly', 'lessSpam', 'brief'].includes(key) && typeof value === 'boolean') s.opts[key] = value;
   if (key === 'timer' && TIMERS.includes(value)) s.opts.timer = value;
 }
 
@@ -493,7 +496,7 @@ export default {
       deadline: s.deadline,
       prio: s.order[s.prio] ?? null,
       cps: course.checkpoints.length,
-      teach: s.teach ?? fresh(s).length > 0,
+      teach: s.teach ?? (fresh(s).length > 0 || !!s.opts.brief),
       brief: tally ? { votes: tally.votes, need: tally.need } : null,
       robots: s.order.map((id, seat) => publicRobot(ctx, id, seat, true)),
       beat: s.beat,

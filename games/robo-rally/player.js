@@ -532,10 +532,10 @@ export default function (root, api) {
       <img alt="" src="${thumb(sel.id)}">
       <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
       <span class="pl-course-meta"><span class="pl-dots">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>`);
-    const ask = { upgrades: 'opt-upgrades', lessDeadly: 'opt-safe', lessSpam: 'opt-lessspam' };
+    const ask = { upgrades: 'opt-upgrades', lessDeadly: 'opt-safe', lessSpam: 'opt-lessspam', brief: 'opt-brief' };
     const tog = (key, glyph) => html`<button class="pl-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}" data-ask="${ask[key]}" aria-pressed="${String(!!o[key])}">${g(glyph)}</button>`;
     set(body.querySelector('.pl-opts'), html`
-      ${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}
+      ${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}${tog('brief', 'sound')}
       <span class="pl-seg" data-ask="opt-timer"><span class="pl-seg-ic">${g('timer')}</span>${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-ui="opt" data-arg="timer=${t}">${t ? t / 60 : g('inf')}</button>`)}</span>`);
     // an option just changed: its clip plays above the row for a few seconds
     if (shownOpts && !fresh) {
@@ -553,6 +553,7 @@ export default function (root, api) {
       lessSpam: ['less-spam', !value, null],
       timer: ['timeout', false, value ? String(value / 60) : '∞'],
     }[key];
+    if (!clip) return; // (the Briefing toggle has no clip: the Briefing itself is the explanation)
     const [k, crossed, numeral] = clip;
     box.innerHTML = String(html`<canvas data-demo="${k}"></canvas>${crossed && html`<i class="pl-optx">${g('cross')}</i>`}${numeral && html`<b class="pl-optnum">${numeral === '∞' ? g('inf') : numeral}</b>`}`);
     box.hidden = false;
