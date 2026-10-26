@@ -1,0 +1,157 @@
+{
+  "scores": [
+    {
+      "entry": "1a-laser-cat",
+      "delight": 8,
+      "surprise": 7,
+      "clarity": 7,
+      "lumen": 6,
+      "craft": 6,
+      "repeat": 6,
+      "overall": 7,
+      "note": "The surest laugh in the set: the startle, overshooting snaps and pounce-splat land, and the dot always dies at east. But Maya's body goes lumpy and rubbery mid-snap (1.2-1.5 s), her ring clips into the glass while she leans, and the landing flash (2.2 s) is a little hot."
+    },
+    {
+      "entry": "1b-cat-and-dot",
+      "delight": 9,
+      "surprise": 7,
+      "clarity": 8,
+      "lumen": 7,
+      "craft": 8,
+      "repeat": 6,
+      "overall": 8,
+      "note": "The cleanest acting in the set: the dot sneaks round, she does a take, snaps after it, crouches, pounces and puffs up, and every beat reads. She already faces east by about 1.3 s, so the gag plays on top of a settled game state, and the ring fades out gently at the end. Its risk is wearing thin when it repeats."
+    },
+    {
+      "entry": "1c-laser-cat-iris",
+      "delight": 7,
+      "surprise": 7,
+      "clarity": 6,
+      "lumen": 6,
+      "craft": 5,
+      "repeat": 3,
+      "overall": 5,
+      "note": "The cat gag with cartoon camera grammar, but it costs too much. There is a one-frame crash zoom at 1.67 s, the iris blacks out the board, the labels ghost through it, and the iris snaps open into a camera jump at 2.27 s. It needs slow motion on the global clock. It is fun once and grating on the tenth gear."
+    },
+    {
+      "entry": "2a-hand-in-the-dark",
+      "delight": 7,
+      "surprise": 9,
+      "clarity": 7,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 5,
+      "overall": 6,
+      "note": "A real gasp, and the shadow stays on the glass as missing light, which is pure Lumen. The pinch itself turns into a blobby shadow-puppet shape, Maya's label shrinks and jumps while she is lifted, and the hand leaves in about 0.1 s."
+    },
+    {
+      "entry": "2b-the-hand",
+      "delight": 5,
+      "surprise": 8,
+      "clarity": 4,
+      "lumen": 6,
+      "craft": 5,
+      "repeat": 4,
+      "overall": 4,
+      "note": "The whole board goes dark and the hand is dark on dark, so at TV size it is a smudge. Maya is reduced to one eye, and the turn itself happens where nobody can see it. The bright relight and the indignant ring pulse come too late to rescue it."
+    },
+    {
+      "entry": "2c-hand-vertigo",
+      "delight": 8,
+      "surprise": 9,
+      "clarity": 8,
+      "lumen": 5,
+      "craft": 7,
+      "repeat": 4,
+      "overall": 7,
+      "note": "The strongest single image in the set: a crisp hand silhouette closes on her and twists her a quarter, and it reads from the sofa. But the warm pool is a flat beige disc that turns the smoked glass into a lit tablecloth, the frame's brightness almost doubles, and the camera rushes home in about 0.25 s. Everything that makes it big also makes it tiring on repeat."
+    },
+    {
+      "entry": "3b-lookout",
+      "delight": 6,
+      "surprise": 5,
+      "clarity": 6,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 6,
+      "overall": 6,
+      "note": "The beam is good warm light in the room's air, and the double-take gives it character. But the snap back from past east is a single frame (1.37-1.40 s), the lit row is soft blurry blocks, and a lit row ahead looks like Lumen's path language, so people may read it as a move."
+    },
+    {
+      "entry": "3c-lighthouse-follow",
+      "delight": 6,
+      "surprise": 5,
+      "clarity": 6,
+      "lumen": 7,
+      "craft": 6,
+      "repeat": 5,
+      "overall": 6,
+      "note": "Better lit than 3b: dust in the fan, solid tiles, a star glint at the edge. The camera lean adds motion this calm moment doesn't need, though, and the tiles, beam and camera all snap home within about 0.1 s (2.07-2.17 s). It has the same risk of reading as a programmed move."
+    },
+    {
+      "entry": "4a-coin-on-table",
+      "delight": 5,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 5,
+      "craft": 6,
+      "repeat": 7,
+      "overall": 5,
+      "note": "The Euler-disk physics is honest, and the dead stop is a nice button. At TV size, though, the wobble reads as a jiggle, the tilted ring and the white contact glare look like geometry clipping under her, and with no sound the rising whirr cut to silence (the punchline) is missing. The turn is hidden on purpose, which hurts clarity."
+    },
+    {
+      "entry": "4b-coin",
+      "delight": 6,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 5,
+      "craft": 6,
+      "repeat": 6,
+      "overall": 5,
+      "note": "A gentler coin with a smaller bead of light, and the turn finishes early (about 1.0 s), so the state reads. Theo's sway and freeze is too small to land from across the room, and without the whirr the stop is not a joke."
+    },
+    {
+      "entry": "4c-coin-smash-cut",
+      "delight": 5,
+      "surprise": 6,
+      "clarity": 5,
+      "lumen": 6,
+      "craft": 4,
+      "repeat": 3,
+      "overall": 4,
+      "note": "The arc of light growing into a spinning ring is a lovely image. But the camera sways the whole board, a red wash comes over the room, and the smash cut at 1.87 s is the largest one-frame jump in the set: in a living room it reads as a glitch, not a punchline."
+    },
+    {
+      "entry": "5b-the-note",
+      "delight": 7,
+      "surprise": 8,
+      "clarity": 9,
+      "lumen": 9,
+      "craft": 7,
+      "repeat": 8,
+      "overall": 8,
+      "note": "The most Lumen thing here: the glass itself shimmers, finds its note and locks into a bright compass whose long petal points east before she turns, then she turns smoothly into it. It reads at any size and stays calm enough for every gear of the night. Craft slips at the edges: the fade-in is about 2 frames, and at 2.30-2.33 s the figure vanishes and her red glow pops back in the same frame."
+    },
+    {
+      "entry": "5c-chladni-overhead",
+      "delight": 7,
+      "surprise": 8,
+      "clarity": 6,
+      "lumen": 7,
+      "craft": 5,
+      "repeat": 4,
+      "overall": 6,
+      "note": "The grains of light are a faithful, gorgeous Chladni plate. But the crane overhead pushes Theo half out of the frame, the locked figure is dominated by a dashed outer circle (it reads as an atom, not a compass), and the camera swoops home in about 0.3 s. On a 12-wide board with a HUD, a crane on every gear is too much."
+    }
+  ],
+  "winner": {
+    "entry": "5b-the-note",
+    "why": "It is the one that belongs in Lumen: the glass rings, light gathers onto the still lines and locks into a compass that announces her new heading before she turns. It is calm and beautiful, and it says something useful, so it survives being seen ten times a night. The result reads clearly at TV size (a bright figure three spaces across), and the surprise (glass that sings) is fresh rather than borrowed.",
+    "port": "Fix the end pop: fade the figure out over about 0.25 s and cross-fade Maya's ring glow back instead of restoring it in one frame. Give the fade-in at least 0.15 s. Make the east petal clearly dominant (brighter and longer, and shorten the west petal) so it reads as 'east', not 'east-west'. Trim the restless hunt to about 0.4 s so the moment lands near 1.5 s. Port the figure as one additive shader plane on the glass, under the robots' depth, and cap its radius at about 1.5 spaces so that robots on neighbouring gears blend rather than stack. Drop or minimise Theo's sway and hop, because a robot that moves when the rules don't move it misleads the room. Map PALETTE.right/left/light to scene.js's colours and check that the red-gear mirror points west."
+  },
+  "runner_up": {
+    "entry": "1b-cat-and-dot",
+    "why": "It is the biggest laugh with the cleanest staging: one bright dot is the focal point, she faces east by about 1.3 s, and the crouch-wiggle-pounce is a joke the whole room knows. Of the three cat versions, it has the clearest beats and the cleanest ending, without 1a's rubbery distortion or 1c's camera cuts.",
+    "port": "Scale the acting up for a 10-13 wide board: the crouch and wiggle are small even here, and in the game Maya is about half this size, so push the poses and keep the dot big and bright. Keep her ring flat on the glass while she leans (it clips into the glass in the lab). Seed the feints so they vary, and consider a shorter cut (about 1.2 s, without the stalk) for repeats in the same game, so the gag doesn't wear out. With several robots on gears at once, launch each dot from its own gear arrow and keep the dots apart. Theo's blink needs an eye-blink hook on other robots in scene.js; leave it out if that isn't cheap."
+  }
+}
