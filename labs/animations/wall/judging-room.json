@@ -1,0 +1,79 @@
+{
+  "scores": [
+    {
+      "entry": "1a-revolving-door",
+      "delight": 7, "surprise": 8, "clarity": 7, "lumen": 7, "craft": 8, "repeat": 7, "overall": 8,
+      "note": "One big, heavy swing round the fin and a slam back to nose-on, leaving a neat ring of light. It reads at any size and the rule survives. The far side flashes past a little too fast for the 'she made it?' beat to land."
+    },
+    {
+      "entry": "1b-revolving-door",
+      "delight": 8, "surprise": 8, "clarity": 7, "lumen": 7, "craft": 8, "repeat": 7, "overall": 8,
+      "note": "Same swing, but she pauses and pops up on the far side ('I made it!') before the door whisks her back, and that held beat is the laugh. Ava's flinch and head-shake add a second chuckle, but they pull eyes away and for a moment it looks as if Ava moved."
+    },
+    {
+      "entry": "1c-revolving-door",
+      "delight": 6, "surprise": 7, "clarity": 6, "lumen": 6, "craft": 5, "repeat": 5, "overall": 6,
+      "note": "The room dims and the fin sweeps a pale disc. The ghost left on the far side is a grey frosted blob, not light, and a small white square sits on Maya's back after the turn. Dimming the whole board for such a common miscount is heavy."
+    },
+    {
+      "entry": "2a-to-camera",
+      "delight": 6, "surprise": 6, "clarity": 9, "lumen": 5, "craft": 7, "repeat": 6, "overall": 6,
+      "note": "Perfectly clear: she never leaves the fin and her trail stays intact. But from the normal camera the stare is a small red heart with a lit eye, so half the couch will miss it. Nothing here is made of light beyond the eye."
+    },
+    {
+      "entry": "2b-to-camera",
+      "delight": 7, "surprise": 7, "clarity": 8, "lumen": 5, "craft": 7, "repeat": 5, "overall": 6,
+      "note": "Ava turning to stare at the room too, then whipping back when she's caught, is a proper punchline. It is still small on screen, Ava's upright 'stare' pose looks a bit like she stood up, and a second robot joining in on every miscount will wear thin."
+    },
+    {
+      "entry": "2c-to-camera",
+      "delight": 8, "surprise": 7, "clarity": 8, "lumen": 6, "craft": 8, "repeat": 5, "overall": 7,
+      "note": "The snap zoom and iris make the deadpan readable from the back of the room, and a thin line of light flares across the frame. It's probably the loudest single laugh, aimed at whoever programmed her. But a camera punch-in on every miscount will feel like a sitcom tic by round 5."
+    },
+    {
+      "entry": "3a-rear-ended",
+      "delight": 5, "surprise": 7, "clarity": 6, "lumen": 7, "craft": 5, "repeat": 6, "overall": 5,
+      "note": "The trail snaps back like a tape measure, but the slap is a big red bloom over half the board and the coil left behind looks like a doodle, so the second bump gets lost. It also eats her trail, so a late glance no longer shows her path."
+    },
+    {
+      "entry": "3b-rear-ended",
+      "delight": 6, "surprise": 7, "clarity": 6, "lumen": 7, "craft": 7, "repeat": 6, "overall": 6,
+      "note": "The cleanest of the three: a bright knot whips up the line and the trail folds into an accordion behind her. The head-shake, the glare and Ava's giggle are too small to read from the couch, and the trail is gone afterwards."
+    },
+    {
+      "entry": "3c-rear-ended",
+      "delight": 6, "surprise": 6, "clarity": 6, "lumen": 7, "craft": 7, "repeat": 5, "overall": 6,
+      "note": "The impact-frame punch-in gives the second hit real force. But a camera jolt and blackout on every miscount gets tiring, and the crumpled rings left behind are tiny."
+    },
+    {
+      "entry": "4a-prism",
+      "delight": 7, "surprise": 6, "clarity": 6, "lumen": 8, "craft": 7, "repeat": 7, "overall": 6,
+      "note": "A rainbow fan over the spaces she didn't reach is pretty and visible across the room. The drip-and-slosh fill is too small to see. The fan folds into a white line shooting east through the wall, which looks a lot like a robot laser, and walls are supposed to block those."
+    },
+    {
+      "entry": "4c-prism",
+      "delight": 8, "surprise": 6, "clarity": 6, "lumen": 9, "craft": 8, "repeat": 6, "overall": 7,
+      "note": "The most beautiful frame in the set, and a real 'ooh': the lights go down, the camera lifts and a big soft spectrum spreads over the lost spaces. But it is a reward-sized show for a blunder, a camera move every time adds up, and the closing white line also reads like a laser through the wall."
+    },
+    {
+      "entry": "5b-lost-and-found",
+      "delight": 4, "surprise": 6, "clarity": 5, "lumen": 6, "craft": 5, "repeat": 6, "overall": 4,
+      "note": "The flying chevron is a few pixels wide, and the pile meant to be on the floor floats in the black above the far edge like a stray scribble (it also fades in before anything happens). Ava's knowing nod can't be seen from the couch."
+    },
+    {
+      "entry": "5c-lost-and-found",
+      "delight": 8, "surprise": 9, "clarity": 7, "lumen": 7, "craft": 7, "repeat": 5, "overall": 7,
+      "note": "The biggest surprise here: the camera tips over the edge, follows the lost step into the dark and finds a glowing heap in everyone's colours, a lovely running record. But the board leaves the screen for about a second on every miscount, and the return is a little abrupt."
+    }
+  ],
+  "winner": {
+    "entry": "1b-revolving-door",
+    "why": "This is the one the couch shouts 'again!' at. One big, simple swing round the fin reads from anywhere in the room, and the held 'I made it!' pop on the far side lands the joke before the door whisks her back. Geometry keeps the rule (a full turn is no move), she ends nose to the fin facing east, and the ring of light left round the fin tells anyone who looked away what happened. Spinning once per lost step keeps it varied and quietly teaches the rule.",
+    "port": "Check the swing arc before playing it. She sweeps through the edges of the squares beside the fin, so another robot or wall there, or a fin on the board edge, needs a fallback (a tighter swing or a plain bump). Cap the time per extra turn so a Move 3 that loses every step still fits the 2.5 s budget, and fade the ring on the normal trail clock. Make Ava's reaction rare or drop it: a bystander that turns and rocks on every miscount gets old and briefly suggests another robot moved. End on 1a's heavier lock clunk and spring-back."
+  },
+  "runner_up": {
+    "entry": "1a-revolving-door",
+    "why": "The same gag played as pure weight: she hits the fin at speed, it creaks, swings her round and slams into its lock while she skids and springs back. Only Maya and the door move, so it is the clearest and most repeatable version. It just rushes the far-side beat that makes 1b funnier.",
+    "port": "Run the same swing-arc checks as for the winner: robots or walls beside the fin, fins on the board edge, and the time budget for several turns. Hold the far side for a few more frames so the room registers she got through. Keep the creak, whoosh and clunk sounds, which carry the joke when the robot is small on a busy board."
+  }
+}
