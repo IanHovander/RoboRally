@@ -639,6 +639,8 @@ export default function (root, api) {
     return [...new Set([slide.o < 0 ? slide.right : slide.left, slide.left, slide.right, courseAt(slide.course, 1), courseAt(slide.course, -1)])].filter((id) => id && id !== slide.course);
   }
 
+  const SPRING_W = 13; // how tightly the big screen's slide follows the leader's finger (see slideTick)
+
   /** A view in setup: if the map changed, the slide carries on from where the new one already was (or glides it in). */
   function courseSlide(v) {
     const id = v.opts.course;
@@ -694,9 +696,9 @@ export default function (root, api) {
   }
 
   /**
-   * Every frame: where the slide is now, and everything placed to match. Following the leader's finger it shows the
-   * newest sample at once, carried on by its speed for the moment it has been travelling (the samples carry the
-   * server's time), smoothed only enough to hide the network's jitter.
+   * Every frame: where the slide is now, and everything placed to match. Following the leader's finger it's a
+   * critically damped spring: pulled toward where the finger is, and toward the finger's smoothed speed, so a steady
+   * drag is followed without lag while a jerky finger's sudden changes of speed are smoothed into a glide.
    */
   function slideTick() {
     const now = performance.now();
@@ -705,6 +707,7 @@ export default function (root, api) {
     if (view?.phase !== 'setup' || !slide.course) return;
     let o = slide.o;
     if (slide.mode === 'glide') {
+      slide.ov = 0;
       const G = slide.glide;
       G.t += Math.min(dt, 34); // (a slow frame doesn't skip part of the glide)
       const k = Math.min(1, G.t / G.dur);
@@ -714,16 +717,20 @@ export default function (root, api) {
         slide.mode = 'rest';
       }
     } else if (slide.mode === 'follow') {
-      let target = 0;
-      const L = slide.last;
-      if (slide.live && L) {
-        const age = Math.max(0, api.now() - L.at);
-        const ahead = age < 45 ? age : Math.max(0, 90 - age); // carried on for as long as a sample takes to come, no further
-        target = Math.max(-1.5, Math.min(1.5, L.offset + slide.v * ahead));
+      const target = slide.live && slide.last ? Math.max(-1.5, Math.min(1.5, slide.last.offset)) : 0;
+      // the finger's speed, smoothed over ~0.1 s (0 once it lets go)
+      slide.vs = (slide.vs ?? 0) + ((slide.live ? slide.v : 0) - (slide.vs ?? 0)) * (1 - Math.exp(-dt / 100));
+      const w = SPRING_W; // stiffness (rad/s): higher follows tighter, lower glides more
+      const h = dt / 1000;
+      const n = Math.max(1, Math.ceil(h / 0.008)); // small steps keep it steady through a slow frame
+      for (let i = 0; i < n; i++) {
+        const acc = w * w * (target - o) + 2 * w * (slide.vs * 1000 - (slide.ov ?? 0));
+        slide.ov = (slide.ov ?? 0) + acc * (h / n);
+        o += slide.ov * (h / n);
       }
-      o += (target - o) * (1 - Math.exp(-dt / (slide.live ? 14 : 60)));
-      if (!slide.live && Math.abs(o) < 0.001) {
+      if (!slide.live && Math.abs(o - target) < 0.001 && Math.abs(slide.ov) < 0.02) {
         o = 0;
+        slide.ov = 0;
         slide.mode = 'rest';
       }
     }
