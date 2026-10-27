@@ -587,19 +587,27 @@ function gearTexture(color) {
     g.lineTo(Math.cos(a) * 108, Math.sin(a) * 108);
     g.stroke();
   }
-  g.lineWidth = 6;
+  // an arc round most of the gear ending in a big solid arrowhead, so the way it turns reads at a glance
+  // (drawn clockwise; the counterclockwise gear is this mirrored)
+  const R = 66;
+  const a = Math.PI * 0.45; // where the arc ends and the head begins
+  g.lineWidth = 9;
   g.beginPath();
-  g.arc(0, 0, 70, -Math.PI * 0.9, Math.PI * 0.55);
+  g.arc(0, 0, R, -Math.PI * 0.95, a);
   g.stroke();
-  // arrowhead at the end of the arc (clockwise)
-  const a = Math.PI * 0.55;
-  const ex = Math.cos(a) * 70;
-  const ey = Math.sin(a) * 70;
+  const ex = Math.cos(a) * R;
+  const ey = Math.sin(a) * R;
+  const tx = -Math.sin(a); // the way the arc runs at its end
+  const ty = Math.cos(a);
+  const nx = Math.cos(a); // outward
+  const ny = Math.sin(a);
+  g.fillStyle = color;
   g.beginPath();
-  g.moveTo(ex + 18, ey - 6);
-  g.lineTo(ex, ey);
-  g.lineTo(ex + 4, ey - 20);
-  g.stroke();
+  g.moveTo(ex + tx * 38, ey + ty * 38);
+  g.lineTo(ex + nx * 24 - tx * 4, ey + ny * 24 - ty * 4);
+  g.lineTo(ex - nx * 24 - tx * 4, ey - ny * 24 - ty * 4);
+  g.closePath();
+  g.fill();
   return tex(c);
 }
 
@@ -1723,8 +1731,13 @@ export class Arena {
 
   makeMark(r) {
     const group = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.105, 18, 12), new THREE.MeshBasicMaterial({ color: hdr(r.color, 1.7), transparent: true, opacity: 0 }));
-    core.position.y = 0.11;
+    // an arrowhead pointing in at the flag: "heading here" (not a dot, which could mean "been here")
+    const head = new THREE.ConeGeometry(0.11, 0.26, 3);
+    head.rotateZ(-Math.PI / 2); // points along +x; the mark turns to face its flag
+    head.rotateX(Math.PI / 2); // a flat face up
+    head.scale(1, 0.55, 1);
+    const core = new THREE.Mesh(head, new THREE.MeshBasicMaterial({ color: hdr(r.color, 1.7), transparent: true, opacity: 0 }));
+    core.position.y = 0.08;
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(r.color, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
     glow.rotation.x = -Math.PI / 2;
     glow.position.y = 0.014;
@@ -1772,7 +1785,8 @@ export class Arena {
       const front = Math.atan2(eye.z - ctr.z, eye.x - ctr.x);
       const step = here.length > 6 ? 0.37 : 0.45;
       const a = front + (j - (here.length - 1) / 2) * step;
-      slot.set(ctr.x + Math.cos(a) * 0.58, 0, ctr.z + Math.sin(a) * 0.58);
+      slot.set(ctr.x + Math.cos(a) * 0.66, 0, ctr.z + Math.sin(a) * 0.66);
+      m.group.rotation.y = -(a + Math.PI); // pointing in at the flag
       if (m.hop) {
         const d = m.hop.from.distanceTo(slot);
         const dur = Math.min(2.2, 0.9 + d * 0.09);
@@ -3102,7 +3116,7 @@ export class Arena {
         g.extra = g.kick.from + (g.kick.to - g.kick.from) * ease(k);
         if (k >= 1) g.kick = null;
       }
-      g.mesh.rotation.z = g.extra * (g.spin < 0 ? -1 : 1) - t * 0.12 * g.spin * (g.spin < 0 ? -1 : 1);
+      g.mesh.rotation.z = (g.extra - t * 0.12) * (g.spin < 0 ? -1 : 1); // green turns clockwise, red counterclockwise
       const p = g.pulse ? Math.max(0, 1 - (t - g.pulse) / 1) : 0;
       g.mesh.material.color.setScalar((1.2 + p * 1.5) * (0.3 + 0.7 * lit));
     }
