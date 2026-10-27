@@ -55,6 +55,8 @@ if (mode === 'server') {
   socket.on('connect', () => banner(null));
   socket.on('disconnect', () => banner('Lost connection to the game server. Reconnecting…'));
 }
+// the QR card waits (breathing, see host.css) until the code has loaded, then the code fades in
+$('qr').addEventListener('load', () => document.querySelector('.join-qr').classList.add('ready'));
 socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {
   document.body.innerHTML = html`

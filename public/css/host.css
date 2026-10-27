@@ -43,6 +43,25 @@ html.host body { overflow: hidden; }
   box-shadow: 0 0 3rem rgba(244, 239, 228, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 .join-qr img { display: block; width: min(15rem, 22vw); aspect-ratio: 1; image-rendering: pixelated; border-radius: 0.4rem; }
+/* until the room's code is ready: no broken-image icon, just the card breathing with a faint shimmer, and the
+   code fades in when it arrives */
+.join-qr { position: relative; overflow: hidden; }
+.join-qr img { opacity: 0; transition: opacity 0.6s ease; }
+.join-qr.ready img { opacity: 1; }
+.join-qr:not(.ready) { animation: join-wait 2.4s ease-in-out infinite; }
+.join-qr:not(.ready)::after {
+  content: "";
+  position: absolute;
+  inset: 0.8rem;
+  border-radius: 0.4rem;
+  background:
+    linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%) 0 0 / 250% 100%,
+    repeating-linear-gradient(0deg, rgba(11, 14, 19, 0.05) 0 0.55rem, transparent 0.55rem 1.1rem),
+    repeating-linear-gradient(90deg, rgba(11, 14, 19, 0.05) 0 0.55rem, transparent 0.55rem 1.1rem);
+  animation: join-shimmer 1.8s linear infinite;
+}
+@keyframes join-wait { 50% { box-shadow: 0 0 2rem rgba(244, 239, 228, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3); } }
+@keyframes join-shimmer { from { background-position: 150% 0, 0 0, 0 0; } to { background-position: -100% 0, 0 0, 0 0; } }
 /* only the QR shows; the address appears under it on hover, or when it's held down on a touch screen */
 .join-scan { position: relative; z-index: 2; align-self: stretch; display: flex; flex-direction: column; align-items: center; }
 .join-qr { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
