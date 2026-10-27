@@ -622,6 +622,12 @@ export function mountGuide(root, o = {}) {
   };
   const onDown = (e) => {
     if (pointing || e.button > 0) return;
+    if (e.isPrimary === false) {
+      // a second finger (a pinch on the map) isn't a long press
+      clearTimeout(pressed?.t);
+      pressed = null;
+      return;
+    }
     const el = e.target.closest?.('[data-ask]');
     if (!el) return;
     clearTimeout(pressed?.t);

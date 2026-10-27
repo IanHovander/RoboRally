@@ -7,7 +7,7 @@
 // (briefing.js) before round 1 and calls out first-time moments in the race (teach.js).
 import { html, raw, loadCss } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
-import { drawCourse } from './minimap.js';
+import { drawCourse, ringBoard } from './minimap.js';
 import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle, GLYPHS } from './glyphs.js';
 import { sfx, unlock, onState as onSound, setMuted, setLevel, sceneSound, state as soundState } from './sound.js';
 import { voice } from './voice.js';
@@ -136,6 +136,15 @@ export default function (root, api) {
       const r = el.getBoundingClientRect();
       return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
     })?.dataset.id ?? null,
+    // asking about a reboot ring (or the dock) lights the whole ground it serves
+    onShow: (found) => {
+      const c = view ? getCourse(view.opts.course) : null;
+      if (!arena || !c || !found.cell) return;
+      const ring = found.ids[0] === 'reboot-ring' ? ringBoard(c, found.cell.x, found.cell.y) : -1;
+      const dock = found.ids[0] === 'dock' ? c.boards.findIndex((b) => b.dock) : -1;
+      arena.highlightArea(ring >= 0 ? ring : dock >= 0 ? dock : null);
+    },
+    onClose: () => arena?.highlightArea(null),
   });
 
   // ----- the Briefing (phase 'brief'): it borrows the arena, then hands it back -----
@@ -560,11 +569,18 @@ export default function (root, api) {
         const o = v.opts;
         const sel = COURSES.find((x) => x.id === o.course) ?? COURSES[0];
         const lvl = LEVELS[sel.level] ?? 1;
-        const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${key}">${raw(svgGlyph(glyph))}</button>`;
+        // a hover says what the option does, in a few words (the phones' "?" says more)
+        const TIPS = {
+          upgrades: 'Upgrade shop: spend energy on upgrades',
+          lessDeadly: 'Map perimeter: a wall all round, no falling off the edge',
+          lessSpam: 'SPAM in hand discards: junk cards leave your hand each round',
+          brief: 'Rules tutorial: before round 1, for everyone (off: only for newcomers)',
+        };
+        const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${TIPS[key] ?? key}">${raw(svgGlyph(glyph))}</button>`;
         return set(centerEl, html`
           <div class="lm-setup">
             <h1 class="lm-course-name">${courseTitle(sel.id)}</h1>
-            <div class="lm-course-meta"><span class="lm-dots">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span><span class="lm-flagcount">${raw(svgGlyph('flag'))}${sel.checkpoints.length}</span></div>
+            <div class="lm-course-meta"><span class="lm-level"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span class="lm-flagcount">${raw(svgGlyph('flag'))}${sel.checkpoints.length}</span></div>
             <div class="lm-courses">
               ${COURSES.map((x) => html`
                 <button class="lm-course ${x.id === o.course && 'on'}" data-host="course=${x.id}">
@@ -576,6 +592,7 @@ export default function (root, api) {
               ${toggle('upgrades', 'bolt')}
               ${toggle('lessDeadly', 'wall')}
               ${toggle('lessSpam', 'sp')}
+              ${toggle('brief', 'tutorial')}
               <span class="lm-seg-cap" aria-hidden="true">${raw(svgGlyph('timer'))}</span>
               <span class="lm-seg">${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-host="timer=${t}">${t ? t / 60 : raw(svgGlyph('inf'))}</button>`)}</span>
               <button class="lm-go" data-action="begin" title="Start">${raw(svgGlyph('play'))}</button>

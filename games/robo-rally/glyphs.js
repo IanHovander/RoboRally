@@ -40,6 +40,8 @@ export const GLYPHS = {
   eye: [{ d: 'M8 20 C13 12 27 12 32 20 C27 28 13 28 8 20 Z' }, { d: 'M20 20 m-3 0 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0', fill: true }],
   keep: [{ d: 'M12 10 H28 V31 L20 25 L12 31 Z' }],
   hand: [{ d: 'M11 13 h9 v18 h-9 z' }, { d: 'M20 13 h9 v18 h-9 z' }],
+  // the rules tutorial (Floor Control's narrated Briefing): a speech bubble with a play mark
+  tutorial: [{ d: 'M9 9 H31 A4 4 0 0 1 35 13 V24 A4 4 0 0 1 31 28 H18 L11 34 V28 H9 A4 4 0 0 1 5 24 V13 A4 4 0 0 1 9 9 Z' }, { d: 'M17 13.5 L25.5 18.5 L17 23.5 Z', fill: true }],
   sound: [{ d: 'M10 17 H15 L21 12 V28 L15 23 H10 Z', fill: true }, { d: 'M25 15 a7 7 0 0 1 0 10' }, { d: 'M28 11.5 a12 12 0 0 1 0 17' }],
   mute: [{ d: 'M10 17 H15 L21 12 V28 L15 23 H10 Z', fill: true }, { d: 'M25 16 L31 24 M31 16 L25 24' }],
   dots: [{ d: 'M12 20 h.01 M20 20 h.01 M28 20 h.01' }],

@@ -137,9 +137,10 @@
 .lm-setup { position: absolute; left: 0; right: 0; bottom: 3.5vh; display: grid; justify-items: center; gap: 1.4rem; }
 .lm-course-name { margin: 0; font-weight: 200; font-size: 3.4rem; letter-spacing: .42em; text-indent: .42em; text-transform: uppercase; text-shadow: 0 0 30px rgba(244, 239, 228, .3); }
 .lm-course-meta { display: flex; align-items: center; gap: 1.6rem; margin-top: -.6rem; color: var(--dim); }
-.lm-dots { display: flex; gap: .4rem; }
-.lm-dots i { width: .5rem; height: .5rem; border-radius: 50%; border: 1px solid var(--dim); }
-.lm-dots i.on { background: var(--light); border-color: var(--light); }
+/* difficulty: a rising meter and the rulebook's word, as on the phones (not dots, which mean other things) */
+.lm-level { display: inline-flex; align-items: center; gap: .6rem; font-size: .95rem; font-weight: 300; letter-spacing: .2em; text-transform: uppercase; }
+.lm-level .pl-meter { height: 1.1rem; gap: 3px; }
+.lm-level .pl-meter i { width: 4px; }
 .lm-flagcount { display: inline-flex; align-items: center; gap: .2rem; font-size: 1.2rem; font-weight: 300; }
 .lm-flagcount .lm-g { width: 1.3rem; height: 1.3rem; }
 .lm-courses { display: flex; gap: 1rem; }
@@ -429,7 +430,7 @@
 .pl.locked .pl-slot.full .lm-card { box-shadow: 0 0 1rem color-mix(in srgb, var(--me) 70%, transparent), 0 0 0 2px var(--me); }
 
 .pl-map { position: relative; min-height: 0; border-radius: 1rem; overflow: hidden; background: #0b0e13; border: 1px solid var(--hair); }
-.pl-map canvas { position: absolute; left: 0; top: 0; }
+.pl-map canvas { position: absolute; left: 0; top: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; } /* a drag pans it, a pinch zooms it */
 .pl-zoom { position: absolute; right: .3rem; top: .3rem; appearance: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--hair2); background: rgba(8, 10, 14, .7); color: var(--dim); }
 .pl-zoom .lm-g { width: 1.2rem; height: 1.2rem; }
 .pl-reboot { position: absolute; left: 50%; bottom: .5rem; transform: translateX(-50%); display: flex; gap: .45rem; }

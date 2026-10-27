@@ -443,7 +443,8 @@ const HOLD_MS = 450;
 
 /**
  * host: the big screen's root layer. o: { getView(), course(), pick(clientX, clientY) -> arena.pick result,
- * tokenAt(clientX, clientY) -> robot id of the roster token there, or null }. Returns { destroy() }.
+ * tokenAt(clientX, clientY) -> robot id of the roster token there, or null, onShow({ ids, robot, cell }) and onClose():
+ * an explanation opens and closes (the big screen lights what it's about) }. Returns { destroy() }.
  */
 export function createExplainer(host, o) {
   const panel = document.createElement('div');
@@ -470,7 +471,7 @@ export function createExplainer(host, o) {
     const cell = hit.x >= 0 && hit.y >= 0 && hit.x < c.w && hit.y < c.h ? c.cells[hit.y * c.w + hit.x] : null;
     if (cell?.k === 'start' && !ids.includes('pad')) ids.unshift('pad');
     // a plain square of a starting board says "dock" only after what's on it
-    return ids.length ? { ids } : null;
+    return ids.length ? { ids, cell: { x: hit.x, y: hit.y } } : null;
   }
 
   function resolve(id, robotId) {
@@ -514,6 +515,7 @@ export function createExplainer(host, o) {
       ${clips.length ? `<div class="tc-ex-clips n${clips.length}">${clips.map(([k, cap]) => `<figure><canvas data-demo="${esc(k)}"></canvas>${cap ? `<figcaption>${esc(cap)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
       ${t.fine ? `<p class="tc-ex-fine">${esc(t.fine)}</p>` : ''}`;
     panel.hidden = false;
+    o.onShow?.(found);
     panel.classList.remove('in');
     void panel.offsetWidth;
     panel.classList.add('in');
@@ -524,7 +526,7 @@ export function createExplainer(host, o) {
     for (const b of panel.querySelectorAll('[data-ex]')) {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
-        show({ ids: [b.dataset.ex, first, ...also.filter((a) => a !== b.dataset.ex)], robot: found.robot });
+        show({ ids: [b.dataset.ex, first, ...also.filter((a) => a !== b.dataset.ex)], robot: found.robot, cell: found.cell });
       });
     }
   }
@@ -543,6 +545,7 @@ export function createExplainer(host, o) {
   }
 
   function close() {
+    if (!panel.hidden) o.onClose?.();
     for (const stop of stops) stop?.();
     stops = [];
     panel.hidden = true;

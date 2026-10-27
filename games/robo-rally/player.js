@@ -6,7 +6,7 @@
 import { html, raw } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
-import { drawCourse, previewProgram, filledRun, rebootFor } from './minimap.js';
+import { drawCourse, previewProgram, filledRun, rebootFor, ringBoard } from './minimap.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
 import { mountDemo, hasDemo } from './demo.js';
 import { mountGuide } from './guide.js';
@@ -126,6 +126,10 @@ export default function (root, api) {
 
   let mapZoom = null; // 'all' | 'near'
   let mapKey = null;
+  // my own look round the map (a drag pans it, a pinch zooms it): { tile, cx, cy (the course point at the map's
+  // centre), line (the light line it was set for) }. null: the map frames my robot and my line by itself.
+  let mapView = null;
+  let mapLit = null; // a board piece whose reboot ground is lit (asked about with "?" or a long press), or null
   /** Where I'd start this round's program from (my robot, or my reboot spot facing the way I chose). */
   function programStart(m) {
     return m?.on ? m : m?.rb && m.rbAt ? { ...m.rbAt, d: prog.rebootDir } : null;
@@ -138,14 +142,20 @@ export default function (root, api) {
     const n = filledRun(slots.map((l) => l.length > 0));
     return previewProgram(course(), from, slots.slice(0, n).map((l) => l.flatMap(previewType)), { lessDeadly: view.opts.lessDeadly, hover: m.up.perm.includes('hover-unit') });
   }
-  function drawMap(canvas, { force = false, near = null } = {}) {
+  /**
+   * Draw my map. It frames my robot and my light line by itself, until I pan or pinch it (mapView); then it stays
+   * where I put it, unless a change to my program would take the line out of view. The course is drawn once into
+   * a cache and copied in at the pan's offset, so dragging is smooth; quick: a pinch in progress (the cache is
+   * stretched; a sharp redraw follows).
+   */
+  function drawMap(canvas, { force = false, near = null, quick = false } = {}) {
     if (!view || !canvas) return;
     const box = canvas.parentElement;
     const m = me();
     const width = box.clientWidth || 340;
     const height = box.clientHeight || 260;
-    const key = JSON.stringify([mapZoom, width, height, view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, view.robots.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
-    if (!force && key === mapKey && canvas.dataset.drawn) return;
+    const key = JSON.stringify([mapZoom, mapView, mapLit, width, height, view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, view.robots.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
+    if (!force && !quick && key === mapKey && canvas.dataset.drawn) return;
     mapKey = key;
     canvas.dataset.drawn = '1';
     const c = course();
@@ -159,8 +169,9 @@ export default function (root, api) {
     // the reboot ring I'd come back on: lit in my color (a planned fall links to it, and stays in view)
     const ring = view.phase === 'program' && from ? rebootFor(c, from, ghosts, m.archive) : null;
     let focus = { x: c.w / 2, y: c.h / 2 };
+    let pts = [];
     if (from) {
-      const pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])]), ...(ring?.fall ? [[ring.x, ring.y]] : [])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
+      pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])]), ...(ring?.fall ? [[ring.x, ring.y]] : [])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
       const x0 = Math.min(...pts.map((p) => p[0]));
       const x1 = Math.max(...pts.map((p) => p[0])) + 1;
       const y0 = Math.min(...pts.map((p) => p[1]));
@@ -168,28 +179,183 @@ export default function (root, api) {
       focus = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
       if (zoom === 'near') tile = Math.max(fit, Math.min(tile, width / (x1 - x0 + 1), height / (y1 - y0 + 1)));
     }
+    // the course never leaves the frame: smaller than the map, it's centred; bigger, no gap shows at its edges
+    const place = (o, size, extent) => (extent <= size ? (size - extent) / 2 : clamp(o, size - extent, 0));
+    let ox = place(width / 2 - focus.x * tile, width, tile * c.w);
+    let oy = place(height / 2 - focus.y * tile, height, tile * c.h);
+    const line = JSON.stringify(pts);
+    if (mapView) {
+      const t = clamp(mapView.tile, fit, mapMaxTile(fit));
+      const vx = place(width / 2 - mapView.cx * t, width, t * c.w);
+      const vy = place(height / 2 - mapView.cy * t, height, t * c.h);
+      const seen = pts.every(([x, y]) => vx + (x + 0.5) * t > 0 && vx + (x + 0.5) * t < width && vy + (y + 0.5) * t > 0 && vy + (y + 0.5) * t < height);
+      if (mapView.line !== line && !seen) mapView = null; // my new line would leave the frame: show it all again
+      else {
+        tile = t;
+        ox = vx;
+        oy = vy;
+        mapView = { tile, cx: (width / 2 - ox) / tile, cy: (height / 2 - oy) / tile, line };
+      }
+    }
+    if (!quick) {
+      ox = Math.round(ox);
+      oy = Math.round(oy);
+    }
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    let ox = (width - tile * c.w) / 2;
-    let oy = (height - tile * c.h) / 2;
-    if (zoom === 'near') {
-      ox = Math.round(clamp(width / 2 - focus.x * tile, width - tile * c.w, 0));
-      oy = Math.round(clamp(height / 2 - focus.y * tile, height - tile * c.h, 0));
+    if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
     }
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
-    drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), ...mapLook() });
-    canvas.dataset.zoom = zoom;
+    const look = { robots, ghosts, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), areaLit: mapLit, ...mapLook() };
+    // the whole course at this size, drawn once (with a square's margin for glows), then copied in where it sits
+    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color]), ghosts, ring, m?.cp, api.you?.color]);
+    let cache = mapCache.get(canvas);
+    if (!cache || (cache.key !== cacheKey && !(quick && cache.c === c))) {
+      const pad = Math.ceil(tile);
+      const w = tile * c.w + pad * 2;
+      const h = tile * c.h + pad * 2;
+      const s = Math.min(dpr, Math.sqrt(8e6 / (w * h))); // (a phone's canvases have a memory limit)
+      const cv = cache?.cv ?? document.createElement('canvas');
+      cv.width = Math.ceil(w * s);
+      cv.height = Math.ceil(h * s);
+      const g = cv.getContext('2d');
+      g.setTransform(s, 0, 0, s, 0, 0);
+      g.clearRect(0, 0, w, h);
+      drawCourse(g, c, { tile, ox: pad, oy: pad, ...look });
+      cache = { key: cacheKey, cv, tile, pad, w, h, c };
+      mapCache.set(canvas, cache);
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const k = tile / cache.tile; // 1, except while a pinch is under way
+    ctx.drawImage(cache.cv, ox - cache.pad * k, oy - cache.pad * k, cache.w * k, cache.h * k);
+    canvas.dataset.zoom = mapView ? (tile > fit * 1.05 ? 'near' : 'all') : zoom;
     canvas.dataset.ring = ring ? `${ring.x},${ring.y}${ring.archive ? ',archive' : ''}${ring.fall ? `,fall:${ring.fall.x},${ring.fall.y}` : ''}` : ''; // for test scripts
-    maps.set(canvas, { tile, ox, oy, robots, ghosts, ring });
+    maps.set(canvas, { tile, ox, oy, robots, ghosts, ring, fit, width, height, line });
     canvas.dataset.xform = `${tile},${ox},${oy}`; // for test scripts
+    // the flag ring (showGoal) moves with the map
+    for (const el of box.querySelectorAll('.pl-goal-ring')) {
+      el.style.left = `${canvas.offsetLeft + ox + Number(el.dataset.x) * tile}px`;
+      el.style.top = `${canvas.offsetTop + oy + Number(el.dataset.y) * tile}px`;
+      el.style.setProperty('--r', `${tile}px`);
+    }
     return { tile, ox, oy, zoom, fit };
+  }
+  const mapCache = new WeakMap(); // canvas -> its course drawn once at the current size
+  const mapMaxTile = (fit) => Math.max(fit * 1.5, 72);
+
+  // ----- my map: drag to pan, pinch to zoom, double-tap to frame my robot and line again -----
+  const pan = { pts: new Map(), start: null, moved: false, pinched: false, swallow: false, tap: null, raf: 0, sharp: 0 };
+  const mapCanvasOf = (e) => (e.target?.closest?.('.pl-map canvas') && !pl.classList.contains('gd-pointing') ? e.target.closest('.pl-map canvas') : null);
+  function panFrom() {
+    const cv = pan.start?.canvas;
+    const t = cv && maps.get(cv);
+    if (!t) return;
+    pan.start = { canvas: cv, tile: t.tile, ox: t.ox, oy: t.oy, pts: new Map([...pan.pts].map(([id, p]) => [id, { ...p }])) };
+  }
+  /** Show the map at this size and offset (CSS px), as my own view. */
+  function setMapView(cv, tile, ox, oy, quick) {
+    const t = maps.get(cv);
+    if (!t) return;
+    tile = clamp(tile, t.fit, mapMaxTile(t.fit));
+    mapView = { tile, cx: (t.width / 2 - ox) / tile, cy: (t.height / 2 - oy) / tile, line: t.line };
+    cancelAnimationFrame(pan.raf);
+    pan.raf = requestAnimationFrame(() => drawMap(cv, { quick }));
+    clearTimeout(pan.sharp);
+    if (quick) pan.sharp = setTimeout(() => drawMap(cv, { force: true }), 160);
+  }
+  root.addEventListener('pointerdown', (e) => {
+    const cv = mapCanvasOf(e);
+    if (!cv || !maps.get(cv)) return;
+    if (!pan.pts.size) {
+      pan.moved = false;
+      pan.pinched = false;
+    }
+    pan.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      cv.setPointerCapture(e.pointerId);
+    } catch {}
+    pan.start = { canvas: cv };
+    panFrom();
+  });
+  root.addEventListener('pointermove', (e) => {
+    if (!pan.pts.has(e.pointerId) || !pan.start) return;
+    pan.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const s = pan.start;
+    const ids = [...pan.pts.keys()];
+    if (ids.length === 1) {
+      const p0 = s.pts.get(ids[0]);
+      const p = pan.pts.get(ids[0]);
+      if (!p0) return;
+      const dx = p.x - p0.x;
+      const dy = p.y - p0.y;
+      if (!pan.moved && Math.hypot(dx, dy) <= 10) return; // still a tap (as the Guide's long press counts it)
+      pan.moved = true;
+      setMapView(s.canvas, s.tile, s.ox + dx, s.oy + dy, false);
+    } else {
+      const [a0, b0] = ids.slice(0, 2).map((id) => s.pts.get(id));
+      const [a, b] = ids.slice(0, 2).map((id) => pan.pts.get(id));
+      if (!a0 || !b0) return;
+      pan.moved = true;
+      pan.pinched = true;
+      const r = s.canvas.getBoundingClientRect();
+      const tile = s.tile * (Math.hypot(a.x - b.x, a.y - b.y) / Math.max(20, Math.hypot(a0.x - b0.x, a0.y - b0.y)));
+      // the spot between my fingers stays under them
+      const gx = ((a0.x + b0.x) / 2 - r.left - s.ox) / s.tile;
+      const gy = ((a0.y + b0.y) / 2 - r.top - s.oy) / s.tile;
+      setMapView(s.canvas, tile, (a.x + b.x) / 2 - r.left - gx * tile, (a.y + b.y) / 2 - r.top - gy * tile, true);
+    }
+  });
+  const panUp = (e) => {
+    if (!pan.pts.has(e.pointerId)) return;
+    const p = pan.pts.get(e.pointerId);
+    pan.pts.delete(e.pointerId);
+    if (pan.pts.size) return panFrom(); // a finger left a pinch: the other one carries on panning from here
+    const cv = pan.start?.canvas;
+    pan.start = null;
+    if (pan.moved) {
+      // a drag isn't a tap: the click it ends in does nothing
+      pan.swallow = true;
+      setTimeout(() => (pan.swallow = false), 350);
+      if (pan.pinched && cv) drawMap(cv, { force: true });
+      return;
+    }
+    // a double tap frames my robot and my line again
+    const now = performance.now();
+    if (e.type === 'pointerup' && pan.tap && now - pan.tap.t < 320 && Math.hypot(p.x - pan.tap.x, p.y - pan.tap.y) < 32) {
+      pan.tap = null;
+      pan.swallow = true;
+      setTimeout(() => (pan.swallow = false), 350);
+      mapView = null;
+      mapZoom = 'near';
+      api.vibrate(6);
+      return render();
+    }
+    pan.tap = { t: now, x: p.x, y: p.y };
+  };
+  root.addEventListener('pointerup', panUp);
+  root.addEventListener('pointercancel', panUp);
+
+  /** Light up the ground a reboot ring serves (or the dock, start-pad ground) while I'm asking about it. */
+  function lightArea(b) {
+    mapLit = b;
+    clearInterval(lightArea.t);
+    let seen = performance.now();
+    const cv = body.querySelector('.pl-map canvas');
+    if (cv) drawMap(cv);
+    lightArea.t = setInterval(() => {
+      if (document.querySelector('.gd-sheet')) seen = performance.now();
+      if (performance.now() - seen < 1500) return;
+      clearInterval(lightArea.t);
+      mapLit = null;
+      const c2 = body.querySelector('.pl-map canvas');
+      if (c2) drawMap(c2);
+    }, 250);
   }
 
   /**
@@ -221,6 +387,7 @@ export default function (root, api) {
     let at = maps.get(canvas) && seen(maps.get(canvas));
     if (!at) {
       mapZoom = 'all';
+      mapView = null;
       render();
       canvas = body.querySelector('.pl-map canvas');
       at = canvas && maps.get(canvas) && seen(maps.get(canvas));
@@ -228,6 +395,8 @@ export default function (root, api) {
     }
     const ring = document.createElement('i');
     ring.className = 'pl-goal-ring';
+    ring.dataset.x = cp.x + 0.5;
+    ring.dataset.y = cp.y + 0.5;
     ring.style.cssText = `left:${canvas.offsetLeft + at.x}px;top:${canvas.offsetTop + at.y}px;--r:${at.r}px`;
     canvas.parentElement.append(ring);
     setTimeout(() => ring.remove(), 2800);
@@ -243,8 +412,15 @@ export default function (root, api) {
     const cy = (y - r.top - t.oy) / t.tile;
     const gx = Math.floor(cx);
     const gy = Math.floor(cy);
-    const ids = topicAtCell(course(), gx, gy, cx - gx, cy - gy, { robots: t.robots, ghosts: t.ghosts, ring: t.ring });
+    const c = course();
+    const ids = topicAtCell(c, gx, gy, cx - gx, cy - gy, { robots: t.robots, ghosts: t.ghosts, ring: t.ring });
     const other = t.robots.find((q) => q.x === gx && q.y === gy && !q.me);
+    // asking about a reboot ring (or the dock) lights the whole ground it serves
+    if (ids[0] === 'reboot-ring' || ids[0] === 'dock') {
+      const b = ringBoard(c, gx, gy);
+      const dock = c.boards.findIndex((q) => q.dock);
+      if (canvas.closest('.pl-map')) lightArea(b >= 0 ? b : dock >= 0 ? dock : null);
+    }
     if (!ids.length) return ['me']; // plain floor: what the map is (the big screen, from above; yours has the outline)
     return ids.map((id) => (id === 'robot' && other?.id ? `robot:${other.id}` : id));
   }
@@ -431,6 +607,7 @@ export default function (root, api) {
         return lockIn();
       case 'zoom':
         mapZoom = (body.querySelector('.pl-map canvas')?.dataset.zoom ?? 'all') === 'all' ? 'near' : 'all';
+        mapView = null; // and frame my robot and my line again
         return render();
       case 'shutdown':
         return openSheet({
@@ -472,7 +649,8 @@ export default function (root, api) {
         return arg === api.you?.id ? openDeck() : openRobot(arg);
       case 'upinfo': // an upgrade someone has installed: the Guide's page for it
         return guide.open(arg);
-      case 'maptap': { // a robot on my map
+      case 'maptap': { // a robot on my map (a drag that pans the map isn't a tap)
+        if (pan.swallow) return;
         const id = robotAt(el, e.clientX, e.clientY);
         if (!id) return;
         api.vibrate(6);
@@ -739,7 +917,7 @@ export default function (root, api) {
     const tog = (key, glyph) => html`<button class="pl-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}" data-ask="${ask[key]}" aria-pressed="${String(!!o[key])}">${g(glyph)}</button>`;
     // the stopwatch labels the minutes choice: it sits outside the control, not in it
     set(body.querySelector('.pl-opts'), html`
-      <div class="pl-opt-row">${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}${tog('brief', 'sound')}</div>
+      <div class="pl-opt-row">${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}${tog('brief', 'tutorial')}</div>
       <div class="pl-timer-opt" data-ask="opt-timer"><span class="pl-seg-cap" aria-hidden="true">${g('timer')}</span>
         <span class="pl-seg" role="radiogroup" aria-label="Minutes to program">${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-ui="opt" data-arg="timer=${t}" role="radio" aria-checked="${String(o.timer === t)}">${t ? t / 60 : g('inf')}</button>`)}</span></div>`);
   }

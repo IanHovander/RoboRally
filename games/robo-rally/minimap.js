@@ -67,6 +67,10 @@ export function drawCourse(g, course, o = {}) {
     g.stroke();
   }
 
+  // whose ground is whose when you fall: each board piece faintly lit from its reboot ring, a thin border in the
+  // ring's blue round it (a seam where pieces meet); the dock, start-pad ground, has a dashed white one
+  if (o.areas ?? glow) drawAreas(g, course, { T, px, py, lit: o.areaLit });
+
   // laser paths, faintly, so the danger is visible
   g.save();
   g.setLineDash([lw(0.05), lw(0.1)]);
@@ -96,9 +100,7 @@ export function drawCourse(g, course, o = {}) {
       const cx = px(x + 0.5);
       const cy = py(y + 0.5);
       if (cell.k === 'pit') {
-        g.strokeStyle = 'rgba(244,239,228,.4)';
-        g.lineWidth = lw(0.03);
-        g.strokeRect(px(x) + T * 0.08, py(y) + T * 0.08, T * 0.84, T * 0.84);
+        drawPit(g, course, x, y, px(x), py(y), T);
       } else if (cell.k === 'belt') {
         drawBelt(g, course, x, y, cell, px(x), py(y), T, glow);
       } else if (cell.k === 'gear') {
@@ -228,6 +230,39 @@ export function drawCourse(g, course, o = {}) {
     g.restore();
   }
   for (const p of course.pushers) {
+    // the shove: a bold arrow of light out from the panel, across its square, the way it pushes
+    const to = turn(p.side, 2);
+    const mx = px(p.x + 0.5);
+    const my = py(p.y + 0.5);
+    const x0 = mx + DX[p.side] * T * 0.26;
+    const y0 = my + DY[p.side] * T * 0.26;
+    const hx = mx + DX[to] * T * 0.42; // the arrow's tip
+    const hy = my + DY[to] * T * 0.42;
+    const bx = mx + DX[to] * T * 0.12; // the head's back
+    const by = my + DY[to] * T * 0.12;
+    const nx = DY[to]; // across
+    const ny = DX[to];
+    g.save();
+    const grad = g.createLinearGradient(x0, y0, hx, hy);
+    grad.addColorStop(0, 'rgba(244,239,228,.15)');
+    grad.addColorStop(1, 'rgba(244,239,228,.8)');
+    g.fillStyle = grad;
+    if (glow) {
+      g.shadowColor = 'rgba(244,239,228,.6)';
+      g.shadowBlur = T * 0.12;
+    }
+    const sw = T * 0.05;
+    g.beginPath();
+    g.moveTo(x0 + nx * sw, y0 + ny * sw);
+    g.lineTo(bx + nx * sw, by + ny * sw);
+    g.lineTo(bx + nx * T * 0.2, by + ny * T * 0.2);
+    g.lineTo(hx, hy);
+    g.lineTo(bx - nx * T * 0.2, by - ny * T * 0.2);
+    g.lineTo(bx - nx * sw, by - ny * sw);
+    g.lineTo(x0 - nx * sw, y0 - ny * sw);
+    g.closePath();
+    g.fill();
+    g.restore();
     const cx = px(p.x + 0.5) + DX[p.side] * T * 0.36;
     const cy = py(p.y + 0.5) + DY[p.side] * T * 0.36;
     const horiz = p.side === 0 || p.side === 2;
@@ -447,6 +482,159 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
 }
 
 const ANG = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+const RING_RGB = '156,200,255'; // C.reboot
+const PAD_RGB = '244,239,228'; // C.light: the start pads' white
+
+/**
+ * Which ground each reboot ring serves (engine.js rebootSpot): a board piece with a ring is washed faintly in its
+ * blue from the ring outward and edged in it (two pieces meeting make a seam); the dock (and a piece without a
+ * ring) sends you to your start pad, so it's edged in the pads' white, dashed. lit: a board index, shown strongly.
+ */
+function drawAreas(g, course, { T, px, py, lit = null }) {
+  const at = (x, y) => (x >= 0 && y >= 0 && x < course.w && y < course.h ? course.cells[y * course.w + x] : null);
+  course.boards.forEach((b, i) => {
+    if (!(b?.w > 0 && b.h > 0)) return; // (a lesson's or a picture's little course may not say)
+    const on = lit === i;
+    const ring = !b.dock && b.reboot;
+    const rgb = ring ? RING_RGB : PAD_RGB;
+    g.save();
+    // the wash: only on this piece's floor (not its pits)
+    g.beginPath();
+    for (let y = b.y; y < b.y + b.h; y++) {
+      for (let x = b.x; x < b.x + b.w; x++) {
+        const c = at(x, y);
+        if (c && c.b === i && c.k !== 'pit') g.rect(px(x), py(y), T + 0.5, T + 0.5);
+      }
+    }
+    g.clip();
+    if (ring) {
+      const cx = px(b.reboot.x + 0.5);
+      const cy = py(b.reboot.y + 0.5);
+      const grad = g.createRadialGradient(cx, cy, T * 0.45, cx, cy, T * Math.hypot(b.w, b.h) * 0.6);
+      grad.addColorStop(0, `rgba(${rgb},${on ? 0.26 : 0.075})`);
+      grad.addColorStop(1, `rgba(${rgb},${on ? 0.12 : 0.012})`);
+      g.fillStyle = grad;
+      g.fillRect(px(b.x), py(b.y), b.w * T, b.h * T);
+    } else if (on) {
+      g.fillStyle = `rgba(${rgb},.1)`;
+      g.fillRect(px(b.x), py(b.y), b.w * T, b.h * T);
+    }
+    g.restore();
+    // the edge, just inside the piece
+    const k = T * 0.06;
+    g.save();
+    g.strokeStyle = `rgba(${rgb},${on ? 0.95 : ring ? 0.3 : 0.2})`;
+    g.lineWidth = Math.max(1, T * (on ? 0.055 : 0.025));
+    if (!ring) g.setLineDash([T * 0.16, T * 0.12]);
+    if (on) {
+      g.shadowColor = `rgb(${rgb})`;
+      g.shadowBlur = T * 0.3;
+    }
+    g.beginPath();
+    g.roundRect(px(b.x) + k, py(b.y) + k, b.w * T - 2 * k, b.h * T - 2 * k, T * 0.14);
+    g.stroke();
+    g.restore();
+  });
+}
+
+/** The board piece whose reboot ring is on (x, y), or -1. */
+export function ringBoard(course, x, y) {
+  return course.boards.findIndex((b) => !b.dock && b.reboot && b.reboot.x === x && b.reboot.y === y);
+}
+
+const hash = (n) => {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+
+/**
+ * A pit, seen from above: a hole, not an outline. Its walls fall away from each open rim (dim at the top, into
+ * black), and thin streaks of light pour over the rim and down into the dark.
+ */
+function drawPit(g, course, x, y, X, Y, T) {
+  const pitAt = (d) => {
+    const nx = x + DX[d];
+    const ny = y + DY[d];
+    return nx >= 0 && ny >= 0 && nx < course.w && ny < course.h && course.cells[ny * course.w + nx]?.k === 'pit';
+  };
+  const rim = [0, 1, 2, 3].map((d) => !pitAt(d)); // pits side by side are one hole
+  const k = T * 0.36;
+  const P = [[X, Y], [X + T, Y], [X + T, Y + T], [X, Y + T]]; // side d runs from corner d to corner d + 1
+  g.save();
+  for (let d = 0; d < 4; d++) {
+    if (!rim[d]) continue;
+    const a = P[d];
+    const b = P[(d + 1) % 4];
+    const ix = -DX[d];
+    const iy = -DY[d];
+    const ax = (b[0] - a[0]) / T;
+    const ay = (b[1] - a[1]) / T;
+    const prev = rim[(d + 3) % 4] ? k : 0;
+    const next = rim[(d + 1) % 4] ? k : 0;
+    // lit from the top left, like the big screen's room: the far walls (top, left) in shadow, the near ones bright
+    const lit = [0.5, 1, 1.15, 0.65][d];
+    const grad = g.createLinearGradient(a[0], a[1], a[0] + ix * k, a[1] + iy * k);
+    grad.addColorStop(0, `rgba(110,125,150,${0.44 * lit})`);
+    grad.addColorStop(0.45, `rgba(110,125,150,${0.13 * lit})`);
+    grad.addColorStop(1, 'rgba(110,125,150,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(a[0], a[1]);
+    g.lineTo(b[0], b[1]);
+    g.lineTo(b[0] + ix * k - ax * next, b[1] + iy * k - ay * next);
+    g.lineTo(a[0] + ix * k + ax * prev, a[1] + iy * k + ay * prev);
+    g.closePath();
+    g.fill();
+  }
+  g.lineCap = 'round';
+  // where two walls of the shaft meet: a faint crease running down into the dark
+  g.lineWidth = Math.max(0.75, T * 0.015);
+  for (let d = 0; d < 4; d++) {
+    if (!rim[d] || !rim[(d + 3) % 4]) continue;
+    const [cx, cy] = P[d];
+    const ox = (d === 1 || d === 2 ? -1 : 1) * k;
+    const oy = (d >= 2 ? -1 : 1) * k;
+    const gr = g.createLinearGradient(cx, cy, cx + ox, cy + oy);
+    gr.addColorStop(0, 'rgba(160,175,200,.35)');
+    gr.addColorStop(1, 'rgba(160,175,200,0)');
+    g.strokeStyle = gr;
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.lineTo(cx + ox, cy + oy);
+    g.stroke();
+  }
+  // streaks of light pouring over the rim and down the walls
+  if (T >= 14) {
+    g.lineWidth = Math.max(1, T * 0.026);
+    for (let d = 0; d < 4; d++) {
+      if (!rim[d]) continue;
+      const a = P[d];
+      const b = P[(d + 1) % 4];
+      const ix = -DX[d];
+      const iy = -DY[d];
+      for (let i = 0; i < 2; i++) {
+        const h = hash(x * 7.3 + y * 13.1 + d * 3.7 + i);
+        const f = 0.32 + i * 0.36 + (h - 0.5) * 0.12;
+        const sx = a[0] + (b[0] - a[0]) * f;
+        const sy = a[1] + (b[1] - a[1]) * f;
+        const len = T * (0.22 + h * 0.12);
+        const x0 = sx + ix * T * 0.02;
+        const y0 = sy + iy * T * 0.02;
+        const x1 = sx + ix * len;
+        const y1 = sy + iy * len;
+        const gr = g.createLinearGradient(x0, y0, x1, y1);
+        gr.addColorStop(0, 'rgba(244,239,228,.5)');
+        gr.addColorStop(1, 'rgba(244,239,228,0)');
+        g.strokeStyle = gr;
+        g.beginPath();
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
+        g.stroke();
+      }
+    }
+  }
+  g.restore();
+}
 
 /** A reboot ring: a circle, the reboot glyph, a pointer the way you'd face. Lit: thicker, glowing, filled faintly. */
 function rebootMark(g, cx, cy, d, T, color, alpha, lit = false) {

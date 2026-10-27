@@ -66,14 +66,14 @@ export const TOPICS = {
   'belt-green': { sec: 'board', pic: { cell: 'belt-green' }, clips: [['belt-green', 'One a slot'], ['belt-curve', 'Curves']], fine: 'Carries you 1 space after every slot. A curve turns you only if the belt carries you round it.' },
   'belt-blue': { sec: 'board', pic: { cell: 'belt-blue' }, clips: [['belt-blue', 'Two a slot']], fine: 'Carries you 2 spaces after every slot.' },
   gear: { sec: 'board', pic: { cell: 'gear' }, clips: [['gear', 'Turns you']], fine: 'Green turns you right, red turns you left, after every slot you end on it.' },
-  pusher: { sec: 'board', pic: { cell: 'pusher' }, clips: [['pusher', 'Lit slots only']], fine: 'Shoves you one space, but only in the slots whose dots are lit.' },
+  pusher: { sec: 'board', pic: { cell: 'pusher' }, clips: [['pusher', 'Lit slots only']], fine: 'Shoves you one space the way its arrow points, but only in the slots whose dots are lit.' },
   pit: { sec: 'board', pic: { cell: 'pit' }, clips: [['reboot', 'In it goes']], fine: 'Drive or get pushed in, and you fall (see Falling).' },
   edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless Map perimeter is on).' },
   wall: { sec: 'board', pic: { g: 'wall' }, clips: [['wall', 'Stops you'], ['wall-laser', 'Stops lasers']], fine: 'Walls stop robots, pushes and lasers. Hitting one doesn’t hurt.' },
   'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in its line: 1 SPAM per beam. Two lines side by side: a double laser, 2 SPAM.' },
   'double-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'Two beams: double damage. After every slot it hits the first robot in its line with 2 SPAM.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
-  dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. It has walls, edges and batteries like any board.' },
+  dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. Fall from here (inside its dashed edge): back on your start pad. Walls, edges and batteries work as anywhere.' },
   pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },
   // ----- robots -----
   robot: { sec: 'robots', pic: { robot: true }, clips: [['push', 'Shove'], ['robot-laser', 'Laser']], fine: 'Other robots’ cards are secret. Robots shove and shoot each other; damage never knocks anyone out.' },
@@ -86,7 +86,7 @@ export const TOPICS = {
   damage: { sec: 'damage', pic: { pair: ['sp', 'hw'] }, clips: [['damage-cards', 'No health'], ['shutdown', 'Clear it']], fine: 'There’s no health. Damage is junk cards. Clear it by playing SPAM or shutting down.' },
   // ----- falling -----
   fall: { sec: 'falling', pic: { g: 'reboot' }, clips: [['reboot', 'Pit'], ['edge', 'Edge']], fine: 'You sit out the rest of the round, take 2 junk cards, and return on the blue ring next round. Flags, energy and upgrades stay.' },
-  'reboot-ring': { sec: 'falling', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Fall on this board, come back here next round. Your map lights yours in your color (from the dock: your start pad).' },
+  'reboot-ring': { sec: 'falling', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Fall anywhere inside its blue edge, come back here next round. Your map lights yours in your color. From the dock: your start pad.' },
   'reboot-dir': { sec: 'falling', pic: { arrows: true }, clips: [['reboot-face', 'Pick a way']], fine: 'Choose which way you’ll face when you come back.' },
   // ----- shutdown -----
   shutdown: { sec: 'shutdown', pic: { g: 'power' }, clips: [['shutdown', 'Sit out']], fine: 'Instead of programming, sit out a round: all junk in your hand, slots and discard pile goes. Pushes and lasers still reach you.' },
@@ -103,7 +103,7 @@ export const TOPICS = {
   'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing (the rulebook’s lighter game).' },
   'opt-safe': { sec: 'options', name: 'Map perimeter', pic: { g: 'wall' }, clips: [['safe-edges', 'Map perimeter']], fine: 'A wall all the way round the map: nobody drives or gets pushed off the edge. Pits still swallow.' },
   'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'SPAM in your hand goes to your discard pile after programming instead of clogging your hand.' },
-  'opt-brief': { sec: 'options', pic: { g: 'sound' }, clips: [], cap: 'Briefing', fine: 'On: Floor Control explains the game on the big screen before round 1, even if everyone has raced before. Off: only when someone is new.' },
+  'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: a rules tutorial before round 1, for everyone. Off: only when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };
 

@@ -8,7 +8,7 @@ import { EffectComposer } from './lib/effect-composer.js';
 import { RenderPass } from './lib/render-pass.js';
 import { UnrealBloomPass } from './lib/unreal-bloom-pass.js';
 import { OutputPass } from './lib/output-pass.js';
-import { DX, DY, turn, getCourse, beltInputs, beamPath, wallEdges } from './board.js';
+import { DX, DY, turn, getCourse, beltInputs, beamPath, wallEdges, wallBetween } from './board.js';
 import { makeRobot, glowTexture } from './bots3d.js';
 import { drawCard, drawGlyph, formOf } from './glyphs.js';
 import { readBeat, clockU, clockTime, clockTotal, pathAt, lastTick } from './chaos.js';
@@ -236,30 +236,18 @@ function paintLight(course, S, { inert = false } = {}) {
       const Y = y * S;
       const dock = course.boards[cell.b]?.dock;
       if (cell.k === 'pit') {
-        // the hole itself is cut out of the glass, so its rim is lit on the glass around it: a bright edge
-        // where the glass breaks off, and a glow spilling back across the glass, so a pit reads from afar
+        // the hole is cut out of the glass. Its rim is only a faint, cool edge (a bright lit edge read as a wall):
+        // the light that says "hole" is the waterfall pouring over it (build: pitFalls)
         for (let d = 0; d < 4; d++) {
           const n = course.cells[(y + DY[d]) * W + x + DX[d]];
           if (x + DX[d] < 0 || x + DX[d] >= W || !n || n.k === 'pit') continue;
-          // the strip of neighbor glass along this side: from the hole's edge outward
           const ex = d === 1 ? X + S : X;
           const ey = d === 2 ? Y + S : Y;
           const along = d % 2 === 0;
-          const depth = S * 0.3;
-          const ox = DX[d];
-          const oy = DY[d];
-          const grad = g.createLinearGradient(ex, ey, ex + ox * depth, ey + oy * depth);
-          grad.addColorStop(0, 'rgba(244,239,228,.55)');
-          grad.addColorStop(0.35, 'rgba(244,239,228,.14)');
-          grad.addColorStop(1, 'rgba(244,239,228,0)');
-          g.fillStyle = grad;
-          if (along) g.fillRect(X, oy < 0 ? ey - depth : ey, S, depth);
-          else g.fillRect(ox < 0 ? ex - depth : ex, Y, depth, S);
-          // the edge
-          g.fillStyle = 'rgba(255,250,240,.95)';
-          const w = S * 0.035;
-          if (along) g.fillRect(X, oy < 0 ? ey - w : ey, S, w);
-          else g.fillRect(ox < 0 ? ex - w : ex, Y, w, S);
+          g.fillStyle = 'rgba(170,190,220,.22)';
+          const w = S * 0.018;
+          if (along) g.fillRect(X, DY[d] < 0 ? ey - w : ey, S, w);
+          else g.fillRect(DX[d] < 0 ? ex - w : ex, Y, w, S);
         }
         continue;
       }
@@ -342,6 +330,9 @@ function paintLight(course, S, { inert = false } = {}) {
     }
     g.restore();
   }
+  // whose ground is whose when you fall (as on the phones): each piece faintly lit from its reboot ring and edged
+  // in its blue (a seam where pieces meet); the dock, start-pad ground, edged in dashed white
+  paintAreas(g, course, S, null);
   // the edge of the glass catches the light
   g.strokeStyle = 'rgba(244,239,228,.38)';
   g.lineWidth = S * 0.022;
@@ -417,6 +408,78 @@ function paintLight(course, S, { inert = false } = {}) {
   return c;
 }
 
+/**
+ * The ground each reboot ring serves (engine.js rebootSpot), on a canvas S px a square: a wash from the ring and
+ * an edge just inside the piece, in the ring's blue (the dock: dashed white, start-pad ground). only: one board's
+ * index, painted strongly on its own (the highlight), else all of them, faintly.
+ */
+function paintAreas(g, course, S, only) {
+  course.boards.forEach((b, i) => {
+    if ((only != null && i !== only) || !(b?.w > 0 && b.h > 0)) return;
+    const on = only != null;
+    const ring = !b.dock && b.reboot;
+    const rgb = ring ? '156,200,255' : '244,239,228';
+    g.save();
+    g.beginPath();
+    for (let y = b.y; y < b.y + b.h; y++) {
+      for (let x = b.x; x < b.x + b.w; x++) {
+        const c = course.cells[y * course.w + x];
+        if (c && c.b === i && c.k !== 'pit') g.rect(x * S, y * S, S, S);
+      }
+    }
+    g.clip();
+    if (ring) {
+      const cx = (b.reboot.x + 0.5) * S;
+      const cy = (b.reboot.y + 0.5) * S;
+      const grad = g.createRadialGradient(cx, cy, S * 0.45, cx, cy, S * Math.hypot(b.w, b.h) * 0.6);
+      grad.addColorStop(0, `rgba(${rgb},${on ? 0.17 : 0.07})`);
+      grad.addColorStop(1, `rgba(${rgb},${on ? 0.06 : 0.01})`);
+      g.fillStyle = grad;
+      g.fillRect(b.x * S, b.y * S, b.w * S, b.h * S);
+    } else if (on) {
+      g.fillStyle = `rgba(${rgb},.07)`;
+      g.fillRect(b.x * S, b.y * S, b.w * S, b.h * S);
+    }
+    g.restore();
+    const k = S * 0.06;
+    g.save();
+    g.strokeStyle = `rgba(${rgb},${on ? 0.95 : ring ? 0.22 : 0.16})`;
+    g.lineWidth = S * (on ? 0.045 : 0.018);
+    if (!ring) g.setLineDash([S * 0.16, S * 0.12]);
+    g.beginPath();
+    g.roundRect(b.x * S + k, b.y * S + k, b.w * S - 2 * k, b.h * S - 2 * k, S * 0.14);
+    g.stroke();
+    g.restore();
+  });
+}
+
+/** A push panel's arrow, pointing up the texture (the plane is 0.8 of a square; the panel is at the bottom). */
+function pushArrowTexture() {
+  return sharedTex('push-arrow', () => {
+    const c = canvas(128, 128);
+    const g = c.getContext('2d');
+    const y = (a) => (0.4 - a) * 160; // a: along the push, in squares from the centre
+    const x = (w) => 64 + w * 160;
+    const grad = g.createLinearGradient(0, y(-0.27), 0, y(0.4));
+    grad.addColorStop(0, 'rgba(255,255,255,.12)');
+    grad.addColorStop(1, 'rgba(255,255,255,.95)');
+    g.fillStyle = grad;
+    g.shadowColor = 'rgba(255,255,255,.7)';
+    g.shadowBlur = 6;
+    g.beginPath();
+    g.moveTo(x(-0.05), y(-0.27));
+    g.lineTo(x(-0.05), y(0.1));
+    g.lineTo(x(-0.19), y(0.1));
+    g.lineTo(x(0), y(0.37));
+    g.lineTo(x(0.19), y(0.1));
+    g.lineTo(x(0.05), y(0.1));
+    g.lineTo(x(0.05), y(-0.27));
+    g.closePath();
+    g.fill();
+    return c;
+  });
+}
+
 /** The glass itself: smoky, a little lighter in the middle; holes where the pits are. */
 function paintGlass(course, S) {
   const c = canvas(course.w * S, course.h * S);
@@ -434,6 +497,27 @@ function paintGlass(course, S) {
       if (dock) {
         g.fillStyle = 'rgba(120,135,160,.10)';
         g.fillRect(x * S, y * S, S, S);
+      }
+    }
+  }
+  // round each pit the glass darkens toward the hole, as if it dips in at the edge (a wall's foot doesn't)
+  for (let y = 0; y < course.h; y++) {
+    for (let x = 0; x < course.w; x++) {
+      if (course.cells[y * course.w + x]?.k !== 'pit') continue;
+      for (let d = 0; d < 4; d++) {
+        const nx = x + DX[d];
+        const ny = y + DY[d];
+        const n = nx >= 0 && ny >= 0 && nx < course.w && ny < course.h ? course.cells[ny * course.w + nx] : null;
+        if (!n || n.k === 'pit') continue;
+        const ex = (d === 1 ? x + 1 : x) * S;
+        const ey = (d === 2 ? y + 1 : y) * S;
+        const depth = S * 0.24;
+        const grad = g.createLinearGradient(ex, ey, ex + DX[d] * depth, ey + DY[d] * depth);
+        grad.addColorStop(0, 'rgba(0,0,0,.55)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        if (d % 2 === 0) g.fillRect(x * S, DY[d] < 0 ? ey - depth : ey, S, depth);
+        else g.fillRect(DX[d] < 0 ? ex - depth : ex, y * S, depth, S);
       }
     }
   }
@@ -781,6 +865,114 @@ function studioEnvironment(renderer) {
 
 // ---------- the arena ----------
 
+// ---------- the pits: a waterfall of light ----------
+
+const PIT_LEAD = 0.22; // how far across the glass the streaks start before they pour over the rim
+
+/**
+ * One open rim of a pit (p: the pit's centre, d: the side): a strip on the glass running up to the rim (if lead),
+ * then down the shaft wall. uv.x runs along the rim in world units (rims in a line share their columns of
+ * streaks), uv.y along the streaks' path: negative on the glass, 0 at the rim, the depth below it.
+ */
+function pitFall(falls, p, d, depth, lead, seed) {
+  const tx = -DY[d];
+  const tz = DX[d];
+  const mx = p.x + DX[d] * 0.5;
+  const mz = p.z + DY[d] * 0.5;
+  const ax = mx - tx * 0.5;
+  const az = mz - tz * 0.5;
+  const u0 = ax * tx + az * tz;
+  const quad = (list, pts, uvs) => list.push({ pts, uvs, seed });
+  const inset = 0.006; // just in front of the shaft wall
+  const wx = -DX[d] * inset;
+  const wz = -DY[d] * inset;
+  quad(falls.wall,
+    [[ax + wx, 0, az + wz], [ax + tx + wx, 0, az + tz + wz], [ax + tx + wx, -depth, az + tz + wz], [ax + wx, -depth, az + wz]],
+    [[u0, 0], [u0 + 1, 0], [u0 + 1, depth], [u0, depth]]);
+  if (lead) {
+    const ox = DX[d] * PIT_LEAD;
+    const oz = DY[d] * PIT_LEAD;
+    quad(falls.glass,
+      [[ax + ox, 0.003, az + oz], [ax + tx + ox, 0.003, az + tz + oz], [ax + tx, 0.003, az + tz], [ax, 0.003, az]],
+      [[u0, -PIT_LEAD], [u0 + 1, -PIT_LEAD], [u0 + 1, 0], [u0, 0]]);
+  }
+}
+
+const FALL_VERT = `
+attribute float aSeed;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  vUv = uv;
+  vSeed = aSeed;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+// thin streaks of light, each in its own column at its own slow pace, a bright head and a fading tail, sliding
+// across the glass, over the rim and down into the dark
+const FALL_FRAG = `
+uniform float uTime;
+uniform float uBright;
+uniform vec3 uColor;
+varying vec2 vUv;
+varying float vSeed;
+float hash(float n) { return fract(sin(n) * 43758.5453123); }
+void main() {
+  float cu = vUv.x * 7.0;
+  float col = floor(cu);
+  float h1 = hash(col * 1.37 + vSeed * 0.173);
+  float h2 = hash(col * 2.11 + vSeed * 0.531 + 1.7);
+  float h3 = hash(col * 0.73 + vSeed * 0.389 + 4.2);
+  float v = vUv.y;
+  // on the glass a soft glow sliding to the rim; over it, a crisp thread of light falling
+  float off = abs(fract(cu) - (0.25 + 0.5 * h1));
+  float line = v < 0.0 ? 0.5 * (1.0 - smoothstep(0.0, 0.3, off)) : 1.0 - smoothstep(0.05, 0.13, off);
+  float present = step(0.38, h3);
+  float speed = 0.14 + 0.12 * h2;
+  float period = 1.2 + 1.0 * h3;
+  float q = fract((uTime * speed - vUv.y) / period + h1);
+  float behind = q * period;
+  float tail = 0.4 + 0.4 * h2;
+  float streak = behind < tail ? pow(1.0 - behind / tail, 1.5) : 0.0;
+  float fade = v < 0.0 ? smoothstep(-PIT_LEAD, 0.0, v) * 0.6 : exp(-v * 1.7);
+  float a = line * present * streak * fade;
+  gl_FragColor = vec4(uColor * a * uBright, 1.0);
+}`.replace('PIT_LEAD', PIT_LEAD.toFixed(2));
+
+/** The waterfall's two meshes (on the glass, and down the shafts, seen only through the holes). */
+function buildFalls(falls, throughHole) {
+  if (!falls.wall.length) return null;
+  const uniforms = { uTime: { value: 0 }, uBright: { value: 1 }, uColor: { value: hdr(PALETTE.light, 1.6) } };
+  const geo = (list) => {
+    const pos = [];
+    const uv = [];
+    const seed = [];
+    const idx = [];
+    list.forEach((q, i) => {
+      for (let k = 0; k < 4; k++) {
+        pos.push(...q.pts[k]);
+        uv.push(...q.uvs[k]);
+        seed.push(q.seed);
+      }
+      idx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1));
+    g.setIndex(idx);
+    return g;
+  };
+  const mat = (extra) => new THREE.ShaderMaterial({
+    uniforms, vertexShader: FALL_VERT, fragmentShader: FALL_FRAG,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, ...extra,
+  });
+  const glass = new THREE.Mesh(geo(falls.glass), mat({}));
+  glass.renderOrder = 2;
+  const wall = new THREE.Mesh(geo(falls.wall), mat(throughHole));
+  wall.renderOrder = 6;
+  return { glass, wall, uniforms };
+}
+
 export class Arena {
   constructor(container, { quality = 'auto' } = {}) {
     this.container = container;
@@ -1028,9 +1220,10 @@ export class Arena {
       const cv = canvas(8, 64);
       const g = cv.getContext('2d');
       const grad = g.createLinearGradient(0, 0, 0, 64);
-      grad.addColorStop(0, 'rgba(190,200,220,1)');
-      grad.addColorStop(0.03, 'rgba(70,82,100,1)');
-      grad.addColorStop(0.2, 'rgba(10,12,16,1)');
+      // dim from the very top: the light in the shaft is the waterfall's, not a bright lip
+      grad.addColorStop(0, 'rgba(52,60,74,1)');
+      grad.addColorStop(0.06, 'rgba(24,28,36,1)');
+      grad.addColorStop(0.25, 'rgba(6,7,9,1)');
       grad.addColorStop(0.45, 'rgba(0,0,0,1)');
       g.fillStyle = grad;
       g.fillRect(0, 0, 8, 64);
@@ -1045,6 +1238,7 @@ export class Arena {
     const throughHole = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp };
     const pitWallMat = new THREE.MeshBasicMaterial({ map: pitWallTex, side: THREE.DoubleSide, ...throughHole });
     const pitVoidMat = new THREE.MeshBasicMaterial({ color: 0x000000, ...throughHole });
+    const falls = { glass: [], wall: [] }; // the waterfall over each open rim (pitFall)
 
     // belts, gears, batteries
     const beltMats = {};
@@ -1097,6 +1291,9 @@ export class Arena {
             wall.rotation.y = Math.atan2(-DX[d], -DY[d]);
             wall.renderOrder = 6;
             this.board.add(wall);
+            // light pours over this rim from the glass beside it (not over a wall, a belt or a gear) and down
+            const lead = !!n && !['belt', 'gear'].includes(n.k) && !wallBetween(c, x, y, d) && x + DX[d] >= 0 && x + DX[d] < c.w;
+            pitFall(falls, p, d, depth, lead, x * 7 + y * 13 + d);
           }
         } else if (cell.k === 'belt') {
           const ins = beltInputs(c, x, y);
@@ -1127,6 +1324,22 @@ export class Arena {
       }
     }
     this.batteryMat = batteryGlow;
+    this.falls = buildFalls(falls, throughHole);
+    if (this.falls) this.board.add(this.falls.glass, this.falls.wall);
+
+    // a board piece's whole reboot ground, lit when asked about (highlightArea): one overlay per piece, unlit
+    const AS = 48;
+    this.areas = c.boards.map((b, i) => {
+      const cv = canvas(c.w * AS, c.h * AS);
+      paintAreas(cv.getContext('2d'), c, AS, i);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(c.w, c.h), new THREE.MeshBasicMaterial({ map: tex(cv), color: hdr(0xffffff, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = 0.009;
+      m.renderOrder = 3;
+      m.visible = false;
+      this.board.add(m);
+      return { mesh: m, k: 0, want: 0 };
+    });
 
     // walls: fins of frosted glass with a bright top edge
     const finMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 0.2, metalness: 0, emissive: 0xdfe6f0, emissiveIntensity: 0.12, transparent: true, opacity: 0.8 });
@@ -1211,7 +1424,15 @@ export class Arena {
       g.rotation.y = Math.atan2(DX[into], DY[into]);
       g.traverse((o) => (o.castShadow = true));
       this.board.add(g);
-      this.pushers.set(`${q.x},${q.y}`, { plate, kick: null });
+      // the shove: a bold arrow of light on the glass, out from the panel across its square, the way it pushes
+      const arrow = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ map: pushArrowTexture(), color: hdr(PALETTE.light, 0.75), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      arrow.rotation.x = -Math.PI / 2;
+      const turnTo = new THREE.Group();
+      turnTo.rotation.y = -into * (Math.PI / 2);
+      turnTo.position.set(p.x, 0.006, p.z);
+      turnTo.add(arrow);
+      this.board.add(turnTo);
+      this.pushers.set(`${q.x},${q.y}`, { plate, kick: null, arrow, phase: (q.x * 0.37 + q.y * 0.61) % 1 });
     }
 
     // checkpoints: a slender column of light standing on the far edge of the flag's ring, so from the camera
@@ -1242,6 +1463,20 @@ export class Arena {
       this.columns.push({ n: cp.n, col, inner, halo, mat, base: 0.9, flash: 0, flashColor: new THREE.Color(PALETTE.light), taken, takenKey: '', aura, aim: 0, tgt: 0, lead: 0 });
     }
     this.marks = new Map(); // robot id -> its mark at the flag it's heading for (setTargets)
+    this.markPlaces = new Map(); // `${flag}:${how many}` -> where its marks stand (markPlace)
+    // squares a flag's marks must keep off: anything drawn there (not plain floor), and, less so, walls
+    this.markCost = new Map();
+    const crowd = (x, y, k) => this.markCost.set(`${x},${y}`, Math.max(k, this.markCost.get(`${x},${y}`) ?? 0));
+    for (let y = 0; y < c.h; y++) {
+      for (let x = 0; x < c.w; x++) {
+        const cell = c.cells[y * c.w + x];
+        if (!cell) continue;
+        if (cell.k !== 'floor' || c.tokens.has(y * c.w + x)) crowd(x, y, 10);
+        else if ([0, 1, 2, 3].some((d) => wallBetween(c, x, y, d))) crowd(x, y, 4);
+      }
+    }
+    for (const L of c.lasers) for (const q of beamPath(c, L.x, L.y, L.d)) crowd(q.x, q.y, 10);
+    for (const q of c.pushers) crowd(q.x, q.y, 10);
     this.targeting = false;
 
     // the key light's shadows cover the course
@@ -1797,12 +2032,13 @@ export class Arena {
       const here = at.get(m.n) ?? [m];
       here.sort((a, b) => a.i - b.i);
       const j = Math.max(0, here.indexOf(m));
-      // in a row along the ring's near side, centred on the camera's line of sight
+      // in a row round the ring, on the side nearest the camera that keeps clear of whatever is drawn next door
       const front = Math.atan2(eye.z - ctr.z, eye.x - ctr.x);
-      const step = here.length > 6 ? 0.37 : 0.45;
-      const a = front + (j - (here.length - 1) / 2) * step;
-      slot.set(ctr.x + Math.cos(a) * 0.66, 0, ctr.z + Math.sin(a) * 0.66);
+      const place = this.markPlace(m.n, here.length, front);
+      const a = place.a0 + (j - (here.length - 1) / 2) * place.step;
+      slot.set(ctr.x + Math.cos(a) * place.r, 0, ctr.z + Math.sin(a) * place.r);
       m.group.rotation.y = -(a + Math.PI); // pointing in at the flag
+      m.size = place.s;
       if (m.hop) {
         const d = m.hop.from.distanceTo(slot);
         const dur = Math.min(2.2, 0.9 + d * 0.09);
@@ -1823,11 +2059,55 @@ export class Arena {
       const lit = 1 - this.dimCur;
       m.group.visible = m.k > 0.01;
       m.core.material.opacity = m.k;
-      m.core.scale.setScalar(0.5 + 0.5 * m.k);
+      m.core.scale.setScalar((0.5 + 0.5 * m.k) * (m.size ?? 1));
+      m.glow.scale.setScalar(m.size ?? 1);
       // the glow stays on the glass while the bead is in the air, fainter the higher it goes
       m.glow.position.y = 0.014 - m.group.position.y;
       m.glow.material.opacity = m.k * (0.35 + 0.65 * lit) / (1 + m.group.position.y * 2);
     }
+  }
+
+  /** Light up one board piece's reboot ground (a board index), or none (null). */
+  highlightArea(i) {
+    (this.areas ?? []).forEach((a, j) => (a.want = j === i ? 1 : 0));
+  }
+
+  /**
+   * Where a flag's n marks stand: { a0 (the row's middle, an angle round the flag), step, r (from its centre), s
+   * (their size) }. Nearest the camera's side (front) is best, but every mark must keep off neighbouring squares
+   * with something on them (this.markCost); failing that, a tighter, smaller ring inside the flag's own square.
+   */
+  markPlace(n, count, front) {
+    const key = `${n}:${count}`;
+    const had = this.markPlaces.get(key);
+    if (had && Math.abs(Math.atan2(Math.sin(front - had.front), Math.cos(front - had.front))) < 0.35) return had;
+    const cp = this.course.checkpoints.find((q) => q.n === n);
+    let best = null;
+    for (const [r, s] of [[0.66, 1], [0.52, 0.8]]) {
+      const step = (count > 6 ? 0.25 : 0.3) * s / r; // the same gap between marks along the ring
+      for (let k = -12; k <= 12; k++) {
+        const a0 = front + (k * Math.PI) / 12;
+        let cost = Math.abs(k) * 0.12 + (s < 1 ? 1.5 : 0);
+        for (let j = 0; j < count && cp; j++) {
+          const a = a0 + (j - (count - 1) / 2) * step;
+          const ca = Math.cos(a);
+          const sa = Math.sin(a);
+          // not behind the flag's column (it stands on the ring's far side)
+          if (Math.abs(Math.atan2(Math.sin(a - front - Math.PI), Math.cos(a - front - Math.PI))) < 0.3) cost += 3;
+          // the arrowhead's tip, back and sides
+          for (const [dr, dl] of [[0, 0], [0.14 * s, 0], [-0.13 * s, 0], [0.06 * s, 0.08 * s], [0.06 * s, -0.08 * s]]) {
+            const x = Math.floor(cp.x + 0.5 + ca * (r + dr) - sa * dl);
+            const y = Math.floor(cp.y + 0.5 + sa * (r + dr) + ca * dl);
+            if (x === cp.x && y === cp.y) continue;
+            const off = x < 0 || y < 0 || x >= this.course.w || y >= this.course.h || !this.course.cells[y * this.course.w + x];
+            cost += off ? 10 : this.markCost.get(`${x},${y}`) ?? 0;
+          }
+        }
+        if (!best || cost < best.cost) best = { cost, a0, step, r, s, front };
+      }
+    }
+    this.markPlaces.set(key, best);
+    return best;
   }
 
   /** A wave of light across the whole board (a new round). */
@@ -3139,6 +3419,12 @@ export class Arena {
     for (const p of this.pushers.values()) {
       const k = p.kick ? (t - p.kick) / 0.5 : 1;
       p.plate.position.z = 0.05 + (k < 1 ? Math.sin(k * Math.PI) * 0.32 : 0);
+      // its arrow: now and then a small calm nudge the way it pushes; when it fires, a real shove and a flash
+      const tick = ((this.realTime / 3.4 + p.phase) % 1) * 3.4;
+      const nudge = tick < 0.6 ? Math.sin((tick / 0.6) * Math.PI) : 0;
+      const shove = k < 1 ? Math.sin(k * Math.PI) : 0;
+      p.arrow.position.z = -(nudge * 0.035 + shove * 0.14); // (its group faces the push along -z)
+      p.arrow.material.color.set(PALETTE.light).multiplyScalar((0.7 + nudge * 0.2 + shove * 1.6) * (0.3 + 0.7 * lit));
     }
     // the flags robots are heading for breathe, ring and column together, all in one slow breath
     const breath = 0.5 - 0.5 * Math.cos((this.realTime * TAU) / 3.6);
@@ -3172,6 +3458,15 @@ export class Arena {
       } else col.col.rotation.y = Math.atan2(this.camera.position.x - col.col.position.x, this.camera.position.z - col.col.position.z);
     }
     if (this.batteryMat) this.batteryMat.color.set(PALETTE.energy).multiplyScalar((0.22 + Math.sin(t * 2.2) * 0.1) * lit);
+    for (const a of this.areas ?? []) {
+      a.k += (a.want - a.k) * Math.min(1, real * 5);
+      a.mesh.visible = a.k > 0.01;
+      a.mesh.material.opacity = a.k * (0.85 + 0.15 * Math.sin(this.realTime * 3));
+    }
+    if (this.falls) {
+      this.falls.uniforms.uTime.value = t;
+      this.falls.uniforms.uBright.value = (0.35 + 0.65 * lit) * traced;
+    }
     // free start spaces: their borders blink, all together, about once a second (as on the phones)
     const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
     for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
