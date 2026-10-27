@@ -66,6 +66,7 @@ export function drawCourse(g, course, o = {}) {
     }
     g.stroke();
   }
+  pitDark(g, course, px, py, T);
 
   // whose ground is whose when you fall: each board piece faintly lit from its reboot ring, a thin border in the
   // ring's blue round it (a seam where pieces meet); the dock, start-pad ground, has a dashed white one
@@ -548,90 +549,85 @@ const hash = (n) => {
 };
 
 /**
- * A pit, seen from above: a hole, not an outline. Its walls fall away from each open rim (dim at the top, into
- * black), and thin streaks of light pour over the rim and down into the dark.
+ * A pit, seen from above, as on the big screen: a hole into the dark. Light pours over its far rim (the top, the
+ * wall the big screen's camera looks at) as a soft sheet that breaks into fine threads, thinning into the black;
+ * the side walls catch a little of it; a fine lip marks where the glass breaks. Pits side by side are one hole,
+ * and their threads run on across it. Tiny maps get the hole and the sheet only.
  */
-function drawPit(g, course, x, y, X, Y, T) {
-  const pitAt = (d) => {
+function pitRims(course, x, y) {
+  return [0, 1, 2, 3].map((d) => {
     const nx = x + DX[d];
     const ny = y + DY[d];
-    return nx >= 0 && ny >= 0 && nx < course.w && ny < course.h && course.cells[ny * course.w + nx]?.k === 'pit';
-  };
-  const rim = [0, 1, 2, 3].map((d) => !pitAt(d)); // pits side by side are one hole
-  const k = T * 0.36;
-  const P = [[X, Y], [X + T, Y], [X + T, Y + T], [X, Y + T]]; // side d runs from corner d to corner d + 1
+    return !(nx >= 0 && ny >= 0 && nx < course.w && ny < course.h && course.cells[ny * course.w + nx]?.k === 'pit');
+  });
+}
+
+/** The pits' dark again, over the registration crosses: a pixel over into a pit beside it, so no seam shows. */
+function pitDark(g, course, px, py, T) {
+  g.fillStyle = C.pit;
+  for (let y = 0; y < course.h; y++) {
+    for (let x = 0; x < course.w; x++) {
+      if (course.cells[y * course.w + x]?.k !== 'pit') continue;
+      const o = pitRims(course, x, y).map((r) => (r ? 0 : 1));
+      g.fillRect(px(x) - o[3], py(y) - o[0], T + o[3] + o[1], T + o[0] + o[2]);
+    }
+  }
+}
+
+function drawPit(g, course, x, y, X, Y, T) {
+  const rim = pitRims(course, x, y); // pits side by side are one hole
+  if (T < 6) return;
+  const L = (a) => `rgba(244,239,228,${a})`;
   g.save();
-  for (let d = 0; d < 4; d++) {
-    if (!rim[d]) continue;
-    const a = P[d];
-    const b = P[(d + 1) % 4];
-    const ix = -DX[d];
-    const iy = -DY[d];
-    const ax = (b[0] - a[0]) / T;
-    const ay = (b[1] - a[1]) / T;
-    const prev = rim[(d + 3) % 4] ? k : 0;
-    const next = rim[(d + 1) % 4] ? k : 0;
-    // lit from the top left, like the big screen's room: the far walls (top, left) in shadow, the near ones bright
-    const lit = [0.5, 1, 1.15, 0.65][d];
-    const grad = g.createLinearGradient(a[0], a[1], a[0] + ix * k, a[1] + iy * k);
-    grad.addColorStop(0, `rgba(110,125,150,${0.44 * lit})`);
-    grad.addColorStop(0.45, `rgba(110,125,150,${0.13 * lit})`);
-    grad.addColorStop(1, 'rgba(110,125,150,0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(a[0], a[1]);
-    g.lineTo(b[0], b[1]);
-    g.lineTo(b[0] + ix * k - ax * next, b[1] + iy * k - ay * next);
-    g.lineTo(a[0] + ix * k + ax * prev, a[1] + iy * k + ay * prev);
-    g.closePath();
-    g.fill();
-  }
-  g.lineCap = 'round';
-  // where two walls of the shaft meet: a faint crease running down into the dark
-  g.lineWidth = Math.max(0.75, T * 0.015);
-  for (let d = 0; d < 4; d++) {
-    if (!rim[d] || !rim[(d + 3) % 4]) continue;
-    const [cx, cy] = P[d];
-    const ox = (d === 1 || d === 2 ? -1 : 1) * k;
-    const oy = (d >= 2 ? -1 : 1) * k;
-    const gr = g.createLinearGradient(cx, cy, cx + ox, cy + oy);
-    gr.addColorStop(0, 'rgba(160,175,200,.35)');
-    gr.addColorStop(1, 'rgba(160,175,200,0)');
-    g.strokeStyle = gr;
-    g.beginPath();
-    g.moveTo(cx, cy);
-    g.lineTo(cx + ox, cy + oy);
-    g.stroke();
-  }
-  // streaks of light pouring over the rim and down the walls
-  if (T >= 14) {
-    g.lineWidth = Math.max(1, T * 0.026);
-    for (let d = 0; d < 4; d++) {
-      if (!rim[d]) continue;
-      const a = P[d];
-      const b = P[(d + 1) % 4];
-      const ix = -DX[d];
-      const iy = -DY[d];
-      for (let i = 0; i < 2; i++) {
-        const h = hash(x * 7.3 + y * 13.1 + d * 3.7 + i);
-        const f = 0.32 + i * 0.36 + (h - 0.5) * 0.12;
-        const sx = a[0] + (b[0] - a[0]) * f;
-        const sy = a[1] + (b[1] - a[1]) * f;
-        const len = T * (0.22 + h * 0.12);
-        const x0 = sx + ix * T * 0.02;
-        const y0 = sy + iy * T * 0.02;
-        const x1 = sx + ix * len;
-        const y1 = sy + iy * len;
-        const gr = g.createLinearGradient(x0, y0, x1, y1);
-        gr.addColorStop(0, 'rgba(244,239,228,.5)');
-        gr.addColorStop(1, 'rgba(244,239,228,0)');
+  const h = T * 0.52; // how far down the hole the light is seen
+  if (rim[0]) {
+    // the sheet, brightest where it bends over the lip
+    const sheet = g.createLinearGradient(0, Y, 0, Y + h);
+    sheet.addColorStop(0, L(0.42));
+    sheet.addColorStop(0.16, L(0.14));
+    sheet.addColorStop(0.6, L(0.03));
+    sheet.addColorStop(1, L(0));
+    g.fillStyle = sheet;
+    g.fillRect(X, Y, T, h);
+    // the threads: evenly set (a little jittered), each its own length and brightness
+    if (T >= 14) {
+      const n = T >= 30 ? 6 : T >= 20 ? 5 : 4;
+      g.lineWidth = Math.max(1, T * 0.026);
+      for (let i = 0; i < n; i++) {
+        const c = x * n + i; // columns counted across the course: a wide hole's threads run on unbroken
+        const fx = X + ((i + 0.5 + (hash(c * 0.73 + 4.2) - 0.5) * 0.45) / n) * T;
+        const len = h * (0.4 + 0.6 * hash(c * 1.37 + 3.1));
+        const gr = g.createLinearGradient(0, Y, 0, Y + len);
+        gr.addColorStop(0, L(0.85 * (0.45 + 0.55 * hash(c * 2.11 + 1.7))));
+        gr.addColorStop(0.5, L(0.3 * (0.45 + 0.55 * hash(c * 2.11 + 1.7))));
+        gr.addColorStop(1, L(0));
         g.strokeStyle = gr;
         g.beginPath();
-        g.moveTo(x0, y0);
-        g.lineTo(x1, y1);
+        g.moveTo(fx, Y);
+        g.lineTo(fx, Y + len);
         g.stroke();
       }
     }
+  }
+  // the side walls, seen edge-on: only a soft glow along them, fading down as the far wall's does
+  for (const d of [1, 3]) {
+    if (!rim[d]) continue;
+    const ex = d === 1 ? X + T : X;
+    const w = T * 0.09;
+    const gr = g.createLinearGradient(ex, 0, ex - DX[d] * w, 0);
+    gr.addColorStop(0, L(rim[0] ? 0.2 : 0.12));
+    gr.addColorStop(1, L(0));
+    g.fillStyle = gr;
+    g.fillRect(d === 1 ? ex - w : ex, Y, w, T);
+  }
+  // the lip, just inside the rim (one solid color, so where two sides meet it doesn't double up)
+  if (T >= 10) {
+    const lw = Math.max(1, T * 0.025);
+    g.fillStyle = '#3b4453';
+    if (rim[0]) g.fillRect(X, Y, T, lw);
+    if (rim[2]) g.fillRect(X, Y + T - lw, T, lw);
+    if (rim[3]) g.fillRect(X, Y, lw, T);
+    if (rim[1]) g.fillRect(X + T - lw, Y, lw, T);
   }
   g.restore();
 }

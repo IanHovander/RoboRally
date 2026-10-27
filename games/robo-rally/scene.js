@@ -236,19 +236,7 @@ function paintLight(course, S, { inert = false } = {}) {
       const Y = y * S;
       const dock = course.boards[cell.b]?.dock;
       if (cell.k === 'pit') {
-        // the hole is cut out of the glass. Its rim is only a faint, cool edge (a bright lit edge read as a wall):
-        // the light that says "hole" is the waterfall pouring over it (build: pitFalls)
-        for (let d = 0; d < 4; d++) {
-          const n = course.cells[(y + DY[d]) * W + x + DX[d]];
-          if (x + DX[d] < 0 || x + DX[d] >= W || !n || n.k === 'pit') continue;
-          const ex = d === 1 ? X + S : X;
-          const ey = d === 2 ? Y + S : Y;
-          const along = d % 2 === 0;
-          g.fillStyle = 'rgba(170,190,220,.22)';
-          const w = S * 0.018;
-          if (along) g.fillRect(X, DY[d] < 0 ? ey - w : ey, S, w);
-          else g.fillRect(DX[d] < 0 ? ex - w : ex, Y, w, S);
-        }
+        // the hole is cut out of the glass; its lip and the light pouring over it are meshes (pitRim)
         continue;
       }
       // seams, and a small registration cross at each corner (like a light table)
@@ -736,6 +724,31 @@ function columnTexture() {
   return columnTex;
 }
 
+/** A column's light carried on down a pit's shaft: its foot's brightness at the top, fading into the dark below. */
+let shaftLightTex = null;
+function shaftLightTexture() {
+  if (shaftLightTex) return shaftLightTex;
+  const W = 128;
+  const H = 128;
+  const c = canvas(W, H);
+  const g = c.getContext('2d');
+  const img = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    const v = Math.pow(1 - y / H, 2.2); // canvas y grows down: from the glass (as bright as the column's foot) down
+    for (let x = 0; x < W; x++) {
+      const dx = (x - W / 2) / (W / 2);
+      const k = Math.min(1, (Math.exp(-dx * dx * 60) + Math.exp(-dx * dx * 5) * 0.35) * v);
+      const i = (y * W + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.round(k * 255);
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  shaftLightTex = tex(c);
+  shaftLightTex.userData.shared = true;
+  return shaftLightTex;
+}
+
 /** A start space's border, as paintLight draws it (a rounded square), but bolder: lit over it in the start phase. */
 let padTex = null;
 function padBorderTexture() {
@@ -867,110 +880,158 @@ function studioEnvironment(renderer) {
 
 // ---------- the pits: a waterfall of light ----------
 
-const PIT_LEAD = 0.22; // how far across the glass the streaks start before they pour over the rim
+const PIT_DEPTH = 1.5; // how deep a pit's shaft goes (closed far down, black long before that)
+const PIT_LIP = 0.03; // how far the lip's strip reaches either side of the rim (its line is drawn inside it)
+const PIT_SINKS = 2; // robots whose light can be sinking into the pits at once (animateBot: sinkGlow)
 
 /**
- * One open rim of a pit (p: the pit's centre, d: the side): a strip on the glass running up to the rim (if lead),
- * then down the shaft wall. uv.x runs along the rim in world units (rims in a line share their columns of
- * streaks), uv.y along the streaks' path: negative on the glass, 0 at the rim, the depth below it.
+ * One open rim of a pit (p: the pit's centre, d: the side): the shaft wall below it, and the lip along it.
+ * A wall's uv.x runs along the rim in world units (rims in a line share one pattern), uv.y down from the rim.
+ * creases: whether the shaft turns a corner at the wall's start and at its end (a soft crease there).
  */
-function pitFall(falls, p, d, depth, lead, seed) {
+function pitRim(rims, p, d, creases) {
   const tx = -DY[d];
   const tz = DX[d];
-  const mx = p.x + DX[d] * 0.5;
-  const mz = p.z + DY[d] * 0.5;
-  const ax = mx - tx * 0.5;
-  const az = mz - tz * 0.5;
+  const ax = p.x + DX[d] * 0.5 - tx * 0.5;
+  const az = p.z + DY[d] * 0.5 - tz * 0.5;
   const u0 = ax * tx + az * tz;
-  const quad = (list, pts, uvs) => list.push({ pts, uvs, seed });
-  const inset = 0.006; // just in front of the shaft wall
-  const wx = -DX[d] * inset;
-  const wz = -DY[d] * inset;
-  quad(falls.wall,
-    [[ax + wx, 0, az + wz], [ax + tx + wx, 0, az + tz + wz], [ax + tx + wx, -depth, az + tz + wz], [ax + wx, -depth, az + wz]],
-    [[u0, 0], [u0 + 1, 0], [u0 + 1, depth], [u0, depth]]);
-  if (lead) {
-    const ox = DX[d] * PIT_LEAD;
-    const oz = DY[d] * PIT_LEAD;
-    quad(falls.glass,
-      [[ax + ox, 0.003, az + oz], [ax + tx + ox, 0.003, az + tz + oz], [ax + tx, 0.003, az + tz], [ax, 0.003, az]],
-      [[u0, -PIT_LEAD], [u0 + 1, -PIT_LEAD], [u0 + 1, 0], [u0, 0]]);
-  }
+  const [c0, c1] = creases;
+  const quad = (list, pts, uvs, n) => list.push({ pts, uvs, n, edge: [[0, c0, c1], [1, c0, c1], [1, c0, c1], [0, c0, c1]] });
+  quad(rims.wall,
+    [[ax, 0, az], [ax + tx, 0, az + tz], [ax + tx, -PIT_DEPTH, az + tz], [ax, -PIT_DEPTH, az]],
+    [[u0, 0], [u0 + 1, 0], [u0 + 1, PIT_DEPTH], [u0, PIT_DEPTH]], [-DX[d], 0, -DY[d]]);
+  // the lip: a strip on the glass straddling the rim, a little past each end (uv: along the rim 0..1, across it)
+  const w = PIT_LIP;
+  const ox = DX[d] * w;
+  const oz = DY[d] * w;
+  const bx = ax - tx * w;
+  const bz = az - tz * w;
+  const ex = ax + tx * (1 + w);
+  const ez = az + tz * (1 + w);
+  quad(rims.lip,
+    [[bx + ox, 0.002, bz + oz], [ex + ox, 0.002, ez + oz], [ex - ox, 0.002, ez - oz], [bx - ox, 0.002, bz - oz]],
+    [[-w, w], [1 + w, w], [1 + w, -w], [-w, -w]], [0, 1, 0]);
 }
 
-const FALL_VERT = `
-attribute float aSeed;
+const PIT_VERT = `
+attribute vec3 aEdge;
 varying vec2 vUv;
-varying float vSeed;
+varying vec3 vEdge;
+varying vec3 vN;
+varying vec3 vW;
 void main() {
   vUv = uv;
-  vSeed = aSeed;
+  vEdge = aEdge;
+  vN = normalize(mat3(modelMatrix) * normal);
+  vW = (modelMatrix * vec4(position, 1.0)).xyz;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
-// thin streaks of light, each in its own column at its own slow pace, a bright head and a fading tail, sliding
-// across the glass, over the rim and down into the dark
-const FALL_FRAG = `
+// A shaft's walls. Light pours over the lip as a glassy sheet and, falling, breaks into fine threads, each easing
+// down at its own slow pace, thinning into the dark well before the shaft's floor could be seen. Every thread is
+// a smooth bump never thinner than a pixel or so (no specks, no shimmer). A robot sinking in lights the walls round
+// it in its color (uSink: where, uSinkCol: its light; animateBot's sinkGlow).
+const PIT_FRAG = `
 uniform float uTime;
 uniform float uBright;
 uniform vec3 uColor;
+uniform vec3 uSink[${PIT_SINKS}];
+uniform vec3 uSinkCol[${PIT_SINKS}];
 varying vec2 vUv;
-varying float vSeed;
+varying vec3 vEdge;
+varying vec3 vN;
+varying vec3 vW;
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
 void main() {
-  float cu = vUv.x * 7.0;
-  float col = floor(cu);
-  float h1 = hash(col * 1.37 + vSeed * 0.173);
-  float h2 = hash(col * 2.11 + vSeed * 0.531 + 1.7);
-  float h3 = hash(col * 0.73 + vSeed * 0.389 + 4.2);
+  float u = vUv.x;
   float v = vUv.y;
-  // on the glass a soft glow sliding to the rim; over it, a crisp thread of light falling
-  float off = abs(fract(cu) - (0.25 + 0.5 * h1));
-  float line = v < 0.0 ? 0.5 * (1.0 - smoothstep(0.0, 0.3, off)) : 1.0 - smoothstep(0.05, 0.13, off);
-  float present = step(0.38, h3);
-  float speed = 0.14 + 0.12 * h2;
-  float period = 1.2 + 1.0 * h3;
-  float q = fract((uTime * speed - vUv.y) / period + h1);
-  float behind = q * period;
-  float tail = 0.4 + 0.4 * h2;
-  float streak = behind < tail ? pow(1.0 - behind / tail, 1.5) : 0.0;
-  float fade = v < 0.0 ? smoothstep(-PIT_LEAD, 0.0, v) * 0.6 : exp(-v * 1.7);
-  float a = line * present * streak * fade;
-  gl_FragColor = vec4(uColor * a * uBright, 1.0);
-}`.replace('PIT_LEAD', PIT_LEAD.toFixed(2));
+  float t = uTime;
+  float cu = u * 11.0;
+  float col = floor(cu);
+  float h1 = hash(col * 1.37 + 3.1);
+  float h2 = hash(col * 2.11 + 1.7);
+  float h3 = hash(col * 0.73 + 4.2);
+  float f = fract(cu) - 0.5 - (h3 - 0.5) * 0.45;
+  float px = fwidth(cu);
+  float s = max(0.08, px * 0.6);
+  float thread = exp(-f * f / (2.0 * s * s)) * (0.08 / s);
+  float q = fract(t * (0.045 + 0.03 * h2) - v * 0.42 + h1);
+  float pulse = 0.2 + 0.8 * pow(0.5 + 0.5 * cos(6.2831853 * q), 3.0);
+  float threads = thread * (0.4 + 0.6 * h2) * pulse * smoothstep(0.0, 0.16, v);
+  float sheet = 0.16 * exp(-v * 9.0) * (0.85 + 0.15 * sin(u * 2.3 + t * 0.2));
+  float L = (0.95 * threads + 0.025) * exp(-v * 2.0) + sheet + 0.18 * exp(-v * 50.0);
+  // where two walls meet, a soft crease; a wall seen edge-on shows its light softly (its threads would crowd)
+  float crease = max(vEdge.y * (1.0 - smoothstep(0.0, 0.14, vEdge.x)), vEdge.z * (1.0 - smoothstep(0.0, 0.14, 1.0 - vEdge.x)));
+  vec3 n = normalize(vN);
+  L *= (1.0 - 0.45 * crease) * (0.3 + 0.7 * smoothstep(0.1, 0.55, abs(dot(n, normalize(cameraPosition - vW)))));
+  // the wall itself: the glass's cut face at the top catching a little light, then dark
+  vec3 wall = vec3(0.016, 0.019, 0.025) * exp(-v * 3.0) + vec3(0.05, 0.058, 0.075) * (1.0 - smoothstep(0.015, 0.05, v));
+  vec3 c = (wall * (1.0 - 0.6 * crease) + uColor * L) * (1.0 - smoothstep(0.45, 0.95, v));
+  for (int i = 0; i < ${PIT_SINKS}; i++) {
+    vec3 d = uSink[i] - vW;
+    c += uSinkCol[i] * max(0.0, dot(n, normalize(d)) * 0.7 + 0.3) / (1.0 + 14.0 * dot(d, d)) * (1.0 - smoothstep(0.7, 1.2, v));
+  }
+  gl_FragColor = vec4(c * uBright, 1.0);
+}`;
 
-/** The waterfall's two meshes (on the glass, and down the shafts, seen only through the holes). */
-function buildFalls(falls, throughHole) {
-  if (!falls.wall.length) return null;
-  const uniforms = { uTime: { value: 0 }, uBright: { value: 1 }, uColor: { value: hdr(PALETTE.light, 1.6) } };
+// the lip, where the glass breaks: a hairline at least a pixel and a half wide, its edges smoothed by its own
+// coverage (so the hole's outline doesn't stair-step). One color laid over itself stays that color, so where two
+// lips meet (at a corner, or between pits side by side) nothing doubles up
+const LIP_FRAG = `
+uniform float uBright;
+uniform vec3 uRim;
+varying vec2 vUv;
+void main() {
+  float over = max(max(-vUv.x, vUv.x - 1.0), 0.0);
+  float dist = length(vec2(over, vUv.y));
+  float px = max(fwidth(vUv.y), 1e-5);
+  float hw = max(0.0035, px * 0.75);
+  float cov = 1.0 - smoothstep(hw - px * 0.5, hw + px * 0.5, dist);
+  gl_FragColor = vec4(uRim * uBright, cov);
+}`;
+
+/** The pits' two meshes: every shaft's walls (seen only through the holes, throughHole) and every lip. */
+function buildPits(rims, throughHole) {
+  if (!rims.wall.length) return null;
+  const uniforms = {
+    uTime: { value: 0 }, uBright: { value: 1 }, uColor: { value: hdr(PALETTE.light, 1.6) },
+    uSink: { value: Array.from({ length: PIT_SINKS }, () => new THREE.Vector3()) },
+    uSinkCol: { value: Array.from({ length: PIT_SINKS }, () => new THREE.Color(0)) },
+  };
   const geo = (list) => {
     const pos = [];
     const uv = [];
-    const seed = [];
+    const edge = [];
+    const nrm = [];
     const idx = [];
     list.forEach((q, i) => {
       for (let k = 0; k < 4; k++) {
         pos.push(...q.pts[k]);
         uv.push(...q.uvs[k]);
-        seed.push(q.seed);
+        edge.push(...q.edge[k]);
+        nrm.push(...q.n);
       }
       idx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1));
+    g.setAttribute('aEdge', new THREE.Float32BufferAttribute(edge, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
     g.setIndex(idx);
     return g;
   };
-  const mat = (extra) => new THREE.ShaderMaterial({
-    uniforms, vertexShader: FALL_VERT, fragmentShader: FALL_FRAG,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, ...extra,
-  });
-  const glass = new THREE.Mesh(geo(falls.glass), mat({}));
-  glass.renderOrder = 2;
-  const wall = new THREE.Mesh(geo(falls.wall), mat(throughHole));
+  // the walls are solid (they close the shaft), so they draw like any surface, but only through the hole
+  const wall = new THREE.Mesh(geo(rims.wall), new THREE.ShaderMaterial({
+    uniforms, vertexShader: PIT_VERT, fragmentShader: PIT_FRAG, side: THREE.DoubleSide, ...throughHole,
+  }));
   wall.renderOrder = 6;
-  return { glass, wall, uniforms };
+  // the lip draws over the hole's edge after everything in it (a robot sinking, the light following it)
+  const lip = new THREE.Mesh(geo(rims.lip), new THREE.ShaderMaterial({
+    uniforms: { uBright: uniforms.uBright, uRim: { value: hdr(0x8a97ad, 0.09) } }, vertexShader: PIT_VERT, fragmentShader: LIP_FRAG,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  lip.renderOrder = 8;
+  return { wall, lip, uniforms };
 }
 
 export class Arena {
@@ -1216,19 +1277,6 @@ export class Arena {
     this.board.add(top);
 
     // pits: a shaft through the glass, lit at the rim and falling away into the dark
-    const pitWallTex = (() => {
-      const cv = canvas(8, 64);
-      const g = cv.getContext('2d');
-      const grad = g.createLinearGradient(0, 0, 0, 64);
-      // dim from the very top: the light in the shaft is the waterfall's, not a bright lip
-      grad.addColorStop(0, 'rgba(52,60,74,1)');
-      grad.addColorStop(0.06, 'rgba(24,28,36,1)');
-      grad.addColorStop(0.25, 'rgba(6,7,9,1)');
-      grad.addColorStop(0.45, 'rgba(0,0,0,1)');
-      g.fillStyle = grad;
-      g.fillRect(0, 0, 8, 64);
-      return tex(cv);
-    })();
     // The shaft is drawn only through its hole: an invisible lid marks where the hole is seen (the stencil), and
     // the shaft's walls and floor draw only there. From any other angle (under the board's edge) it isn't there.
     const pitMaskMat = new THREE.MeshBasicMaterial({
@@ -1236,9 +1284,9 @@ export class Arena {
       stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp,
     });
     const throughHole = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp };
-    const pitWallMat = new THREE.MeshBasicMaterial({ map: pitWallTex, side: THREE.DoubleSide, ...throughHole });
     const pitVoidMat = new THREE.MeshBasicMaterial({ color: 0x000000, ...throughHole });
-    const falls = { glass: [], wall: [] }; // the waterfall over each open rim (pitFall)
+    this.throughHole = throughHole; // (the light of a fall follows the robot down through the hole: fall())
+    const rims = { wall: [], lip: [] }; // each open rim's wall and lip (pitRim)
 
     // belts, gears, batteries
     const beltMats = {};
@@ -1271,7 +1319,6 @@ export class Arena {
         const p = this.pos(x, y);
         if (cell.k === 'pit') {
           // a deep shaft, black below its rim, closed far down: looking in shows only dark (not the floor's light)
-          const depth = 1.5;
           // the lid (drawn after the robots, so a robot in front of the hole hides it), then the shaft
           const lid = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), pitMaskMat);
           lid.rotation.x = -Math.PI / 2;
@@ -1280,21 +1327,15 @@ export class Arena {
           this.board.add(lid);
           const bottom = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), pitVoidMat);
           bottom.rotation.x = -Math.PI / 2;
-          bottom.position.set(p.x, -depth, p.z);
+          bottom.position.set(p.x, -PIT_DEPTH, p.z);
           bottom.renderOrder = 6;
           this.board.add(bottom);
-          for (let d = 0; d < 4; d++) {
-            const n = c.cells[(y + DY[d]) * c.w + x + DX[d]];
-            if (n?.k === 'pit' && x + DX[d] >= 0 && x + DX[d] < c.w) continue; // pits side by side make one hole
-            const wall = new THREE.Mesh(new THREE.PlaneGeometry(1, depth), pitWallMat);
-            wall.position.set(p.x + DX[d] * 0.5, -depth / 2, p.z + DY[d] * 0.5);
-            wall.rotation.y = Math.atan2(-DX[d], -DY[d]);
-            wall.renderOrder = 6;
-            this.board.add(wall);
-            // light pours over this rim from the glass beside it (not over a wall, a belt or a gear) and down
-            const lead = !!n && !['belt', 'gear'].includes(n.k) && !wallBetween(c, x, y, d) && x + DX[d] >= 0 && x + DX[d] < c.w;
-            pitFall(falls, p, d, depth, lead, x * 7 + y * 13 + d);
-          }
+          // pits side by side make one hole: a wall (and a lip) only where the next square isn't a pit
+          const open = [0, 1, 2, 3].map((d) => {
+            const inside = x + DX[d] >= 0 && x + DX[d] < c.w && y + DY[d] >= 0 && y + DY[d] < c.h;
+            return !(inside && c.cells[(y + DY[d]) * c.w + x + DX[d]]?.k === 'pit');
+          });
+          for (let d = 0; d < 4; d++) if (open[d]) pitRim(rims, p, d, [+open[(d + 3) % 4], +open[(d + 1) % 4]]);
         } else if (cell.k === 'belt') {
           const ins = beltInputs(c, x, y);
           const back = turn(cell.d, 2);
@@ -1324,8 +1365,8 @@ export class Arena {
       }
     }
     this.batteryMat = batteryGlow;
-    this.falls = buildFalls(falls, throughHole);
-    if (this.falls) this.board.add(this.falls.glass, this.falls.wall);
+    this.pits = buildPits(rims, throughHole);
+    if (this.pits) this.board.add(this.pits.wall, this.pits.lip);
 
     // a board piece's whole reboot ground, lit when asked about (highlightArea): one overlay per piece, unlit
     const AS = 48;
@@ -1821,8 +1862,13 @@ export class Arena {
       const age = (t - p.t) / life;
       const fade = Math.max(0, 1 - age) ** 1.6 * Math.min(1, i / 3);
       const w = 0.16 + 0.06 * (1 - age);
-      pos.set([p.x - dz * w, 0.008, p.z + dx * w, p.x + dz * w, 0.008, p.z - dx * w], i * 6);
-      const k = fade * 1.8;
+      // over the hole of a pit it's sinking into, the trail bends down after it (and stays down while it fades)
+      const sg = b.sinkGlow;
+      const inset = sg ? 0.5 - Math.max(Math.abs(p.x - sg.cx), Math.abs(p.z - sg.cz)) : 0;
+      if (inset > 0) p.y = Math.min(p.y ?? 0.008, 0.008 + sg.lift * smooth(0, 0.5, inset));
+      const y = p.y ?? 0.008;
+      pos.set([p.x - dz * w, y, p.z + dx * w, p.x + dz * w, y, p.z - dx * w], i * 6);
+      const k = fade * 1.8 * Math.exp(Math.min(0, y) * 2.5);
       col.set([color.r * k, color.g * k, color.b * k, color.r * k, color.g * k, color.b * k], i * 6);
     }
     mesh.geometry.attributes.position.needsUpdate = true;
@@ -2193,7 +2239,7 @@ export class Arena {
     if (!this.course) return;
     const c = this.course;
     if (!this.lightLine) {
-      const S = Math.max(40, Math.min(112, Math.floor(1800 / Math.max(c.w, c.h))));
+      const S = Math.max(40, Math.min(112, Math.floor(2600 / Math.max(c.w, c.h)))); // fine enough for thin type
       const cv = canvas(c.w * S, c.h * S);
       const t = tex(cv);
       const mat = new THREE.MeshBasicMaterial({ map: t, color: hdr(0xffffff, 1.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -2260,12 +2306,15 @@ export class Arena {
     const S = G.S;
     const X = (x) => (x + 0.5) * S;
     const Y = (y) => (y + 0.5) * S;
+    const col = G.color;
+    // the numerals: the board's own light, warmed by the line's color (as the flags' and start pads' numbers)
+    const soft = `#${new THREE.Color(col).lerp(new THREE.Color(PALETTE.light), 0.55).getHexString()}`;
     g.save();
-    g.shadowColor = G.color;
-    g.shadowBlur = S * 0.14;
-    g.strokeStyle = G.color;
+    g.shadowColor = col;
+    g.shadowBlur = S * 0.08;
+    g.strokeStyle = col;
     g.lineCap = 'round';
-    g.lineWidth = S * 0.075;
+    g.lineWidth = S * 0.058;
     g.setLineDash([0.001, S * 0.19]);
     g.beginPath();
     g.moveTo(X(G.pts[0]?.[0] ?? 0), Y(G.pts[0]?.[1] ?? 0));
@@ -2281,9 +2330,12 @@ export class Arena {
     }
     g.stroke();
     g.setLineDash([]);
-    // one mark per square. A slot that only moved there: its number inside the dot. Where the robot turned (or
-    // the line ends): an arrow out of the dot for each way it faced there, its slot numbers beside the arrow
-    // ("1,3"); the last dot is filled, with a chevron inside for the final facing.
+    g.restore();
+    // one mark per square, drawn by the same hand as the board: a hairline ring of light; arrows as the cards
+    // draw them (a fine stem, an open head); numerals in the game's thin type, with no halo. A slot that only
+    // moved there: its number inside the ring. Where the robot turned (or the line ends): an arrow out of the
+    // ring for each way it faced there, its slot numbers beside the arrow ("1,3"). The last dot is filled
+    // (softly, so a flag's number still reads through it) and points the way the robot will face.
     const seen = new Map();
     for (const mk of G.marks) {
       if (G.cum[mk.at] > G.shown + 1e-6) continue;
@@ -2296,90 +2348,100 @@ export class Arena {
     const lastMk = G.marks.at(-1);
     const lastKey = lastMk ? `${lastMk.x},${lastMk.y}` : '';
     const ANG = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
-    const ink = '#06080b';
-    const text = (label, x, y, size, halo) => {
-      g.font = `600 ${Math.round(size * (label.length > 2 ? 0.75 : 1))}px ${FONT}, sans-serif`;
+    const lit = (paint, blur) => {
+      g.save();
+      g.shadowColor = col;
+      g.shadowBlur = S * blur;
+      g.strokeStyle = col;
+      g.fillStyle = col;
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      paint();
+      g.restore();
+    };
+    const numeral = (label, x, y, size) => {
+      g.save();
+      g.font = `300 ${Math.round(size)}px ${FONT}, sans-serif`;
+      g.letterSpacing = `${size * 0.06}px`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.shadowBlur = 0;
-      if (halo) {
-        g.strokeStyle = ink;
-        g.lineWidth = Math.max(2.5, size * 0.3);
-        g.strokeText(label, x, y);
-      }
-      g.fillStyle = G.color;
-      g.fillText(label, x, y);
+      g.globalAlpha = 0.9;
+      g.fillStyle = soft;
+      g.fillText(label, x + size * 0.03, y); // (the tracking adds a space after the last figure too)
+      g.restore();
     };
     for (const [key, mk] of seen) {
       const end = key === lastKey && G.shown >= (G.cum.at(-1) ?? 0) - 1e-6;
       const cx = X(mk.x);
       const cy = Y(mk.y);
-      const r = S * (end ? 0.2 : 0.17);
-      g.shadowBlur = S * 0.12;
-      g.fillStyle = end ? G.color : 'rgba(6,8,11,.9)';
-      g.strokeStyle = G.color;
-      g.lineWidth = S * 0.04;
-      g.beginPath();
-      g.arc(cx, cy, r, 0, TAU);
-      g.fill();
-      g.stroke();
+      const r = S * (end ? 0.16 : 0.13);
       const facing = mk.all.filter((x) => x.d != null && x.n != null);
       const endD = end ? lastMk.d : null;
-      if ((mk.turn || end) && facing.length) {
+      const turned = (mk.turn || end) && facing.length;
+      const point = turned && end && endD != null; // the last dot points the way the robot will face
+      const tipR = r * 1.6;
+      // the dots under a mark are wiped (on this additive plane, dark would add nothing)
+      g.save();
+      g.globalCompositeOperation = 'destination-out';
+      g.beginPath();
+      g.arc(cx, cy, r + S * 0.035, 0, TAU);
+      g.fill();
+      g.restore();
+      lit(() => {
+        g.lineWidth = S * 0.02;
+        g.beginPath();
+        if (point) {
+          const a = ANG[endD];
+          const t = Math.acos(1 / 1.6); // where the sides leave the ring (they meet it tangentially)
+          g.arc(cx, cy, r, a + t, a - t + TAU);
+          g.lineTo(cx + Math.cos(a) * tipR, cy + Math.sin(a) * tipR);
+          g.closePath();
+        } else g.arc(cx, cy, r, 0, TAU);
+        g.stroke();
+        if (end) {
+          g.shadowBlur = 0; // the fill is a soft wash: only its rim glows
+          g.globalAlpha = 0.26;
+          g.fill();
+        }
+      }, 0.07);
+      if (turned) {
         const byD = new Map();
         for (const x of facing) byD.set(x.d, [...(byD.get(x.d) ?? []), x.n]);
         for (const [d, ns] of byD) {
           const a = ANG[d];
-          const sz = S * (end && d === endD ? 0.1 : 0.08);
-          const dist = r + sz * 1.05;
-          const px = cx + Math.cos(a) * dist;
-          const py = cy + Math.sin(a) * dist;
-          // the arrow, outlined in dark so it reads on top of the line
-          g.shadowBlur = 0;
-          g.beginPath();
-          g.moveTo(px + Math.cos(a) * sz, py + Math.sin(a) * sz);
-          g.lineTo(px + Math.cos(a + 2.3) * sz, py + Math.sin(a + 2.3) * sz);
-          g.lineTo(px + Math.cos(a - 2.3) * sz, py + Math.sin(a - 2.3) * sz);
-          g.closePath();
-          g.strokeStyle = ink;
-          g.lineWidth = Math.max(1.5, sz * 0.35);
-          g.stroke();
-          g.fillStyle = G.color;
-          g.fill();
+          const ca = Math.cos(a);
+          const sa = Math.sin(a);
+          let tip = tipR;
+          if (!(point && d === endD)) {
+            // the arrow: a fine stem out of the ring and an open head
+            const from = r + S * 0.05;
+            tip = from + S * 0.14;
+            const hx = cx + ca * tip;
+            const hy = cy + sa * tip;
+            const h = S * 0.065;
+            lit(() => {
+              g.lineWidth = S * 0.022;
+              g.beginPath();
+              g.moveTo(cx + ca * from, cy + sa * from);
+              g.lineTo(hx, hy);
+              g.moveTo(hx + Math.cos(a + 2.45) * h, hy + Math.sin(a + 2.45) * h);
+              g.lineTo(hx, hy);
+              g.lineTo(hx + Math.cos(a - 2.45) * h, hy + Math.sin(a - 2.45) * h);
+              g.stroke();
+            }, 0.05);
+          }
           // the slot numbers just beside it
-          const size = S * 0.2;
-          const k = dist + sz * 0.1;
-          const side = sz + size * 0.55;
-          text(ns.join(','), cx + Math.cos(a) * k + Math.cos(a + Math.PI / 2) * side, cy + Math.sin(a) * k + Math.sin(a + Math.PI / 2) * side + size * 0.04, size, true);
-        }
-        if (end && endD != null) {
-          // the final facing, a bold chevron inside the filled dot
-          const a = ANG[endD];
-          const c = r * 0.62;
-          g.shadowBlur = 0;
-          g.strokeStyle = ink;
-          g.lineWidth = Math.max(1.5, c * 0.34);
-          g.lineCap = 'round';
-          g.lineJoin = 'round';
-          g.beginPath();
-          g.moveTo(cx + Math.cos(a + 2.4) * c, cy + Math.sin(a + 2.4) * c);
-          g.lineTo(cx + Math.cos(a) * c * 0.75, cy + Math.sin(a) * c * 0.75);
-          g.lineTo(cx + Math.cos(a - 2.4) * c, cy + Math.sin(a - 2.4) * c);
-          g.stroke();
+          const label = ns.join(',');
+          const size = S * (label.length > 1 ? 0.22 : 0.27);
+          const k = tip - S * 0.06;
+          const side = S * 0.08 + size * 0.42 * Math.max(1, label.length * 0.75);
+          numeral(label, cx + ca * k + Math.cos(a + Math.PI / 2) * side, cy + sa * k + Math.sin(a + Math.PI / 2) * side + size * 0.05, size);
         }
       } else if (!end) {
         const label = mk.all.map((x) => x.n).filter((n) => n != null).join('');
-        if (label) {
-          g.shadowBlur = 0;
-          g.fillStyle = G.color;
-          g.font = `500 ${Math.round(S * (label.length > 1 ? 0.16 : 0.22))}px ${FONT}, sans-serif`;
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText(label, cx, cy + S * 0.01);
-        }
+        if (label) numeral(label, cx, cy + S * 0.012, S * (label.length > 1 ? 0.14 : 0.19));
       }
     }
-    g.restore();
     G.t.needsUpdate = true;
   }
 
@@ -3016,7 +3078,7 @@ export class Arena {
       this.later(ta + teeter, () => this.emit('gulp', { id: b.id }));
       this.later(ta + teeter + sink * 0.8, () => {
         this.ring(at, b.color, 0.55, 0.05, 1.1);
-        this.pillar(at, b.color, 1.3, 1.0);
+        this.pillar(at, b.color, 1.3, 1.0, PIT_DEPTH * 0.8);
         this.motes3(at, b.color, 18, 1.4);
         this.ghost(at, b.color);
         this.emit('poof', { id: b.id });
@@ -3267,12 +3329,25 @@ export class Arena {
     });
   }
 
-  /** A column of light that rises and fades (reboots, the winner). */
-  pillar(at, color, height = 2, dur = 1.2) {
+  /**
+   * A column of light that rises and fades (reboots, the winner). below: out of a pit, it goes on down the shaft
+   * this far too, seen only through the hole, fading into the dark (no edge where the light meets the hole).
+   */
+  pillar(at, color, height = 2, dur = 1.2, below = 0) {
     const geo = new THREE.PlaneGeometry(1.8, height).translate(0, height / 2, 0);
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: columnTexture(), color: hdr(color, 2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     m.position.copy(at).setY(0);
     this.fxGroup.add(m);
+    let down = null;
+    if (below > 0 && this.throughHole) {
+      // (not hidden by the shaft's walls: it's light filling the shaft, and it shows only through the hole anyway)
+      down = new THREE.Mesh(new THREE.PlaneGeometry(1.8, below).translate(0, -below / 2, 0), new THREE.MeshBasicMaterial({
+        map: shaftLightTexture(), color: hdr(color, 2.2), transparent: true, blending: THREE.AdditiveBlending,
+        depthWrite: false, depthTest: false, side: THREE.DoubleSide, ...this.throughHole,
+      }));
+      down.renderOrder = 7.5;
+      m.add(down);
+    }
     const long = dur < 1; // the winner's column stays lit for as long as the result is shown
     const total = long ? 90 : dur;
     this.effects.push({
@@ -3283,11 +3358,14 @@ export class Arena {
         m.rotation.y = Math.atan2(this.camera.position.x - m.position.x, this.camera.position.z - m.position.z);
         m.scale.y = long ? Math.min(1, s / 1.2) : easeOut(Math.min(1, k * 2));
         m.material.opacity = long ? (s < 1.5 ? 1 : 0.55 + Math.sin(s * 1.3) * 0.1) * (k < 0.97 ? 1 : (1 - k) / 0.03) : 1 - k;
+        if (down) down.material.opacity = m.material.opacity;
       },
       end: () => {
         this.fxGroup.remove(m);
         geo.dispose();
         m.material.dispose();
+        down?.geometry.dispose();
+        down?.material.dispose();
       },
     });
   }
@@ -3463,9 +3541,18 @@ export class Arena {
       a.mesh.visible = a.k > 0.01;
       a.mesh.material.opacity = a.k * (0.85 + 0.15 * Math.sin(this.realTime * 3));
     }
-    if (this.falls) {
-      this.falls.uniforms.uTime.value = t;
-      this.falls.uniforms.uBright.value = (0.35 + 0.65 * lit) * traced;
+    if (this.pits) {
+      const u = this.pits.uniforms;
+      u.uTime.value = t;
+      u.uBright.value = (0.35 + 0.65 * lit) * traced;
+      // a robot sinking into a pit lights the shaft round it in its color, all the way down (animateBot: sinkGlow)
+      let i = 0;
+      for (const b of this.bots.values()) {
+        if (!b.sinkGlow || i >= PIT_SINKS) continue;
+        u.uSink.value[i].copy(b.sinkGlow.at);
+        u.uSinkCol.value[i++].set(b.color).multiplyScalar(b.sinkGlow.k);
+      }
+      for (; i < PIT_SINKS; i++) u.uSinkCol.value[i].setScalar(0);
     }
     // free start spaces: their borders blink, all together, about once a second (as on the phones)
     const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
@@ -3519,6 +3606,7 @@ export class Arena {
     let jitter = 0;
     let wide = 0; // its light, wide-eyed
     let falling = false;
+    let sinking = 0; // 0..1 down a pit's shaft (gulp): its light goes down with it
     b.anims = b.anims.filter((an) => {
       if (t < an.t0) return true;
       const k = an.dur > 0 ? Math.min(1, (t - an.t0) / an.dur) : 1;
@@ -3659,6 +3747,7 @@ export class Arena {
             squash -= 0.3 * Math.min(1, f * 3);
             fade = 1 - f ** 2.4;
             inPit = lift < -0.45;
+            sinking = Math.max(1e-3, f);
           }
           if (k >= 1) {
             b.visible = false;
@@ -3701,6 +3790,9 @@ export class Arena {
       const last = b.trail[b.trail.length - 1];
       if (Math.hypot(last.x - p.x, last.z - p.z) > 0.6) b.trail = []; // it was placed elsewhere
     }
+    // sinking into a pit, its light goes down with it: the shaft's walls round it lit in its color (the pits'
+    // shader), fading as it goes into the dark, and the trail it left bending over the rim after it (updateTrail)
+    b.sinkGlow = visible && sinking ? { at: new THREE.Vector3(p.x, lift + 0.3, p.z), k: 1.4 * (1 - sinking ** 1.5), lift, cx: p.x, cz: p.z } : null;
     this.updateTrail(b, t);
     this.updateStars(b, p, lift, visible, t);
     if (!visible) {
@@ -3718,7 +3810,7 @@ export class Arena {
       // drawn after the pits' lids, and only where a hole is seen (so it can't show under the board's edge)
       b.inPit = inPit;
       g.traverse((o) => {
-        if (!o.isMesh) return;
+        if (!o.isMesh || o.material === b.model.poolMat) return; // (its pool of light stays on the glass)
         o.renderOrder = inPit ? 7 : 0;
         for (const m of [].concat(o.material)) {
           m.stencilWrite = inPit;
@@ -3740,6 +3832,13 @@ export class Arena {
     const pop = Math.max(0, Math.min(1, (t - b.pop) / 0.55));
     const popS = pop < 1 ? easeOut(pop) * (1 + Math.sin(pop * Math.PI) * 0.12) : 1;
     g.scale.setScalar(BOT_SCALE * scale * popS);
+    // its pool of light is on the glass: never over a pit's hole (where the stencil says a hole is seen: the
+    // lids draw before it), and as it sinks the pool stays up there, draining away (not a lit square in the hole)
+    if (!b.pool) {
+      g.traverse((o) => o.material === b.model.poolMat && (b.pool = o));
+      Object.assign(b.model.poolMat, { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc });
+    }
+    if (b.pool) b.pool.position.y = sinking ? (0.004 - lift) / g.scale.y : 0.004;
     const recoil = b.recoil ? Math.max(0, 1 - (t - b.recoil) / 0.25) : 0;
     body.position.z = recoil * 0.05 + (jitter ? (Math.random() - 0.5) * 0.06 * jitter : 0);
 
@@ -3760,7 +3859,7 @@ export class Arena {
     if (boot < 0) eye = 0;
     else if (boot < 1) eye *= Math.random() < 0.35 + boot * 0.6 ? 1 : 0.05;
     b.model.eyeMat.color.setRGB(3.2 * eye, 3.1 * eye, 2.9 * eye);
-    b.model.poolMat.opacity = 0.75 * glow * (0.6 + 0.4 * (1 - this.dimCur * (b.id === this.focusOn ? 0 : 1)));
+    b.model.poolMat.opacity = 0.75 * glow * (0.6 + 0.4 * (1 - this.dimCur * (b.id === this.focusOn ? 0 : 1))) * Math.max(0, 1 - sinking * 2.5);
     b.model.ringMat.opacity = 0.9 * Math.min(1, glow);
     if (hurt > 0) {
       b.model.paint.emissive.copy(b.hurtColor).multiplyScalar(1);
@@ -3771,9 +3870,11 @@ export class Arena {
       b.model.paint.emissiveIntensity = 0.16 * (b.away ? 0.3 : 1) * (b.shut ? 0.35 : 1);
       body.position.x = jitter ? (Math.random() - 0.5) * 0.06 * jitter : 0;
     }
-    if (soot > 0 || b.shut) {
+    // down a pit, the dark closes over it: the room's light doesn't reach it there, only its own
+    const dark = sinking ? Math.max(0.1, 1 + Math.min(0, lift) * 1.8) : 1;
+    if (soot > 0 || b.shut || dark < 1) {
       // sooty from a laser hit, or shut down: its paint goes dark too
-      b.model.paint.color.set(b.color).multiplyScalar(Math.min(1 - 0.8 * soot, b.shut ? 0.4 : 1));
+      b.model.paint.color.set(b.color).multiplyScalar(Math.min(1 - 0.8 * soot, b.shut ? 0.4 : 1) * dark);
       b.sooted = true;
     } else if (b.sooted) {
       b.model.paint.color.set(b.color);
