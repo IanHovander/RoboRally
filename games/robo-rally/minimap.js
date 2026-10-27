@@ -447,13 +447,33 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
     }
     const end = gh.end && !gh.unknown;
     const solid = end && !o.dashed;
-    const r = T * (end ? 0.27 : 0.2);
-    g.fillStyle = solid ? gc : '#0b0e13'; // a "?" stays readable: light on dark
+    const r = T * (end ? 0.25 : 0.2);
+    // the last dot (as on the big screen): a ring drawn out to a point the way the robot will face, filled
+    // softly so a flag's number under it still reads
+    const point = end && gh.d != null;
+    const tipR = r * 1.6;
+    const outline = () => {
+      g.beginPath();
+      if (point) {
+        const a = ANG[gh.d];
+        const t = Math.acos(1 / 1.6); // where the sides leave the ring (they meet it tangentially)
+        g.arc(cx, cy, r, a + t, a - t + Math.PI * 2);
+        g.lineTo(cx + Math.cos(a) * tipR, cy + Math.sin(a) * tipR);
+        g.closePath();
+      } else g.arc(cx, cy, r, 0, Math.PI * 2);
+    };
+    g.fillStyle = '#0b0e13'; // (the line doesn't show through; a "?" stays readable: light on dark)
+    outline();
+    g.fill();
+    if (solid) {
+      g.save();
+      g.globalAlpha *= 0.35;
+      g.fillStyle = gc;
+      g.fill();
+      g.restore();
+    }
     g.strokeStyle = gc;
     g.lineWidth = lw(0.05, 1.5);
-    g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2);
-    g.fill();
     g.stroke();
     const words = o.numbers !== false && T >= 14;
     if (gh.unknown) {
@@ -463,20 +483,18 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
       const byD = new Map();
       for (const x of gh.all) byD.set(x.d, [...(byD.get(x.d) ?? []), x.n]);
       for (const [d, ns] of byD) {
-        const isEnd = end && d === gh.d;
-        const s = T * (isEnd ? 0.13 : 0.1);
+        const isEnd = point && d === gh.d; // the dot's own point is this arrow
+        const s = T * 0.1;
         const dist = r + s * 1.05;
-        pointer(g, cx, cy, d, dist, s, gc, true);
+        if (!isEnd) pointer(g, cx, cy, d, dist, s, gc, true);
         if (words) {
           const a = ANG[d];
           const size = Math.max(10, T * 0.27);
-          const k = dist + s * 0.1;
+          const k = isEnd ? tipR - T * 0.04 : dist + s * 0.1;
           const side = s + size * 0.55;
           label(ns.join(','), cx + Math.cos(a) * k + Math.cos(a + Math.PI / 2) * side, cy + Math.sin(a) * k + Math.sin(a + Math.PI / 2) * side + size * 0.04, size, true);
         }
       }
-      // the end: which way the robot will face, inside the dot too
-      if (end) chevronIn(g, cx, cy, gh.d, r * 0.62, solid ? '#0b0e13' : gc);
     } else if (words) label(gh.all.map((x) => x.n).join(''), cx, cy + T * 0.01, T * 0.24);
   }
   g.restore();
@@ -705,22 +723,6 @@ function pointer(g, cx, cy, d, dist, s, color, outline = false) {
     g.restore();
   }
   g.fill();
-}
-
-/** A bold chevron inside a dot, pointing the way d. */
-function chevronIn(g, cx, cy, d, s, color) {
-  const a = ANG[d];
-  g.save();
-  g.strokeStyle = color;
-  g.lineWidth = Math.max(1.5, s * 0.34);
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  g.beginPath();
-  g.moveTo(cx + Math.cos(a + 2.4) * s, cy + Math.sin(a + 2.4) * s);
-  g.lineTo(cx + Math.cos(a) * s * 0.75, cy + Math.sin(a) * s * 0.75);
-  g.lineTo(cx + Math.cos(a - 2.4) * s, cy + Math.sin(a - 2.4) * s);
-  g.stroke();
-  g.restore();
 }
 
 function drawBelt(g, course, x, y, cell, X, Y, T, glow) {

@@ -1197,7 +1197,19 @@ export class Arena {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.motes = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xcfd8e6, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const moteMat = new THREE.PointsMaterial({ color: 0xcfd8e6, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending });
+    // ...but never over the board: there they'd read as specks on the glass (or in a pit). A mote whose spot in the
+    // room lies above the board (or near its edge) isn't drawn; the rest drift round it as before.
+    this.moteClear = { uBoardInv: { value: new THREE.Matrix4() }, uHalf: { value: new THREE.Vector2(0, 0) } };
+    moteMat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, this.moteClear);
+      sh.vertexShader = sh.vertexShader
+        .replace('void main() {', 'uniform mat4 uBoardInv;\nuniform vec2 uHalf;\nvarying float vOver;\nvoid main() {')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n  vec3 bl = (uBoardInv * modelMatrix * vec4(transformed, 1.0)).xyz;\n  vOver = step(abs(bl.x), uHalf.x) * step(abs(bl.z), uHalf.y);');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('void main() {', 'varying float vOver;\nvoid main() {\n  if (vOver > 0.5) discard;');
+    };
+    this.motes = new THREE.Points(geo, moteMat);
     s.add(this.motes);
   }
 
@@ -1222,6 +1234,7 @@ export class Arena {
     const c = typeof idOrCourse === 'string' ? getCourse(idOrCourse) : idOrCourse;
     if (this.course === c && !fresh) return;
     this.course = c;
+    this.moteClear?.uHalf.value.set(c.w / 2 + 1.5, c.h / 2 + 1.5); // the room's motes keep this far off the board
     // a new board: whatever was still glowing on the old one goes out
     this.epoch = (this.epoch ?? 0) + 1;
     for (const e of this.effects) e.end?.();
@@ -3558,6 +3571,7 @@ export class Arena {
     const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
     for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
     this.motes.rotation.y = t * 0.006;
+    this.moteClear.uBoardInv.value.copy(this.board.matrixWorld).invert();
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
 
     this.updateMarks(real);
