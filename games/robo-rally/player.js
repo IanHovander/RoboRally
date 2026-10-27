@@ -269,63 +269,92 @@ export default function (root, api) {
     clearTimeout(pan.sharp);
     if (quick) pan.sharp = setTimeout(() => drawMap(cv, { force: true }), 160);
   }
-  // ----- choosing a map: the arrows, or a swipe on the map itself -----
-  let courseSlide = null; // { dir, from }: the next map comes in from this side
-  function stepCourse(step) {
-    const i = COURSES.findIndex((x) => x.id === view.opts.course);
-    const next = COURSES[(i + step + COURSES.length) % COURSES.length];
-    courseSlide = { dir: step, from: view.opts.course };
-    api.vibrate(6);
-    return send('setOpt', { key: 'course', value: next.id });
+  // ----- choosing a map: a carousel. The maps either side are already drawn, just off the card; a drag (or an
+  // arrow) slides them in, and the new one is chosen when it has arrived -----
+  let shownCourse = null; // the map the carousel is centred on (ahead of the room's view while a choice travels)
+  let gliding = false;
+  const courseAt = (id, step) => {
+    const i = Math.max(0, COURSES.findIndex((x) => x.id === id));
+    return COURSES[(i + step + COURSES.length) % COURSES.length];
+  };
+  function slideHtml(sel) {
+    const lvl = LEVELS[sel.level] ?? 1;
+    // difficulty: the rulebook's own word, over a rising meter (not dots: dots mean other things here)
+    return html`<div class="pl-course-slide">
+      <img alt="" src="${thumb(sel.id)}" draggable="false">
+      <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
+      <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>
+    </div>`;
   }
-  /** The card shows a new map: it slides in from the side the old one left by (swipe left: in from the right). */
-  function slideIn(card, id) {
-    if (!card || !courseSlide || courseSlide.from === id) return;
-    const { dir } = courseSlide;
-    courseSlide = null;
-    card.animate([{ transform: `translateX(${dir * 38}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  /** The previous, current and next maps, side by side; the track sits centred on the current one. */
+  function renderCarousel() {
+    const card = body.querySelector('.pl-course-card');
+    if (!card || gliding) return;
+    if (shownCourse && shownCourse !== view.opts.course && !courseAt(shownCourse, 0)) shownCourse = null;
+    const id = shownCourse ?? view.opts.course;
+    if (shownCourse === view.opts.course) shownCourse = null; // the room has caught up
+    const key = `${id}|${JSON.stringify(mapLook())}`;
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
+    card.innerHTML = String(html`<div class="pl-course-track">${[-1, 0, 1].map((k) => slideHtml(courseAt(id, k)))}</div>`);
+  }
+  /** Slide one map along (step -1 or 1), from wherever a drag left the track, then choose it. */
+  function glide(step, fromPx = 0) {
+    const card = body.querySelector('.pl-course-card');
+    const track = card?.querySelector('.pl-course-track');
+    if (!track || gliding) return;
+    gliding = true;
+    const w = card.clientWidth + parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.5; // a map's width and the 1.5rem gap
+    const from = shownCourse ?? view.opts.course;
+    const next = courseAt(from, step);
+    api.vibrate(6);
+    const dur = Math.max(140, 300 * (1 - Math.abs(fromPx) / w));
+    track.style.transition = 'none';
+    track.style.transform = `translateX(${fromPx}px)`;
+    track.animate([{ transform: `translateX(${fromPx}px)` }, { transform: `translateX(${-step * w}px)` }], { duration: dur, easing: 'cubic-bezier(.2,.8,.25,1)' }).finished.then(() => {
+      gliding = false;
+      shownCourse = next.id;
+      track.style.transform = '';
+      renderCarousel(); // recentred on the new map: it was already showing there, so nothing jumps
+      send('setOpt', { key: 'course', value: next.id });
+    }, () => (gliding = false));
+  }
+  function stepCourse(step) {
+    glide(step);
   }
   let swipe = null;
   let swipedAt = 0;
   root.addEventListener('pointerdown', (e) => {
     const card = e.target.closest?.('.pl-course-card');
-    if (!card || !api.you?.isVip || view?.phase !== 'setup') return;
-    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, card, on: false };
+    if (!card || !api.you?.isVip || view?.phase !== 'setup' || gliding) return;
+    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, card, on: false };
   });
   root.addEventListener('pointermove', (e) => {
     if (!swipe || e.pointerId !== swipe.id) return;
     const dx = e.clientX - swipe.x;
     const dy = e.clientY - swipe.y;
-    if (!swipe.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) swipe.on = true; // sideways: a swipe
+    if (!swipe.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) swipe.on = true; // sideways: a swipe
     if (!swipe.on) return;
     swipe.dx = dx;
-    swipe.card.style.transition = 'none';
-    swipe.card.style.transform = `translateX(${dx}px)`;
-    swipe.card.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 400));
+    const track = swipe.card.querySelector('.pl-course-track');
+    if (track) {
+      track.style.transition = 'none';
+      track.style.transform = `translateX(${dx}px)`; // the map follows the finger; the next one comes in with it
+    }
   });
   const endSwipe = (e) => {
     if (!swipe || e.pointerId !== swipe.id) return;
-    const { card, dx, on } = swipe;
+    const { card, dx, on, t } = swipe;
     swipe = null;
     if (!on) return;
     swipedAt = performance.now();
-    if (Math.abs(dx) > Math.min(90, card.clientWidth * 0.22)) {
-      // off it goes; the next map comes in from the other side
-      const dir = dx < 0 ? 1 : -1;
-      card.style.transition = 'transform .16s ease-in, opacity .16s ease-in';
-      card.style.transform = `translateX(${-dir * 60}%)`;
-      card.style.opacity = '0';
-      setTimeout(() => {
-        card.style.transition = 'none';
-        card.style.transform = '';
-        card.style.opacity = '';
-        stepCourse(dir);
-      }, 160);
-    } else {
-      // not far enough: it springs back
-      card.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
-      card.style.transform = '';
-      card.style.opacity = '';
+    const track = card.querySelector('.pl-course-track');
+    const fast = Math.abs(dx) / Math.max(1, performance.now() - t) > 0.45; // a flick counts even if short
+    if (Math.abs(dx) > card.clientWidth * 0.25 || (fast && Math.abs(dx) > 24)) glide(dx < 0 ? 1 : -1, dx);
+    else if (track) {
+      // not far enough: it settles back
+      track.style.transition = 'transform .22s cubic-bezier(.2,.8,.25,1)';
+      track.style.transform = '';
     }
   };
   root.addEventListener('pointerup', endSwipe);
@@ -968,14 +997,7 @@ export default function (root, api) {
         <button class="pl-cta" data-action="begin" data-ask="start" aria-label="Start">${g('play')}</button>
       </div>`);
     const o = view.opts;
-    const sel = COURSES.find((x) => x.id === o.course) ?? COURSES[0];
-    const lvl = LEVELS[sel.level] ?? 1;
-    // difficulty: the rulebook's own word, over a rising meter (not dots: dots mean other things here)
-    set(body.querySelector('.pl-course-card'), html`
-      <img alt="" src="${thumb(sel.id)}">
-      <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
-      <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>`);
-    slideIn(body.querySelector('.pl-course-card'), sel.id);
+    renderCarousel();
     const ask = { upgrades: 'opt-upgrades', lessDeadly: 'opt-safe', lessSpam: 'opt-lessspam', brief: 'opt-brief' };
     const tog = (key, glyph) => html`<button class="pl-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}" data-ask="${ask[key]}" aria-pressed="${String(!!o[key])}">${g(glyph)}</button>`;
     // the stopwatch labels the minutes choice: it sits outside the control, not in it
