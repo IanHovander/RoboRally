@@ -522,7 +522,22 @@ function drawCurve(g, color, fromLeft, fast, s) {
     const u = (((1 - ((i + 0.5) * (128 / n) + 9) / 128 - s) % 1) + 1) % 1; // 0 entering .. 1 leaving
     for (const w of [u - 1, u, u + 1]) {
       if (w < -0.3 || w > 1.3) continue;
-      drawChevronOnCurve(g, r, Math.PI / 2 - (w * len) / r);
+      // on the curve's middle line; at the square's edges (where a chevron pokes into the next square) it eases
+      // onto the straight line the neighbouring belt draws, so the two halves meet exactly
+      const th = Math.PI / 2 - (Math.min(1, Math.max(0, w)) * len) / r;
+      let x = r * Math.cos(th);
+      let y = r * Math.sin(th);
+      let rot = th;
+      const inS = smooth(-0.02, 0.22, w); // 0 at the entry edge (straight) .. 1 (on the curve)
+      const outS = smooth(1.02, 0.78, w); // .. 0 at the exit edge
+      const k = Math.min(inS, outS);
+      const sx = w < 0.5 ? w * len : r; // the straight lines: entering along y = r, leaving along x = r
+      const sy = w < 0.5 ? r : -(w - 1) * len;
+      const srot = w < 0.5 ? Math.PI / 2 : 0;
+      x = sx + (x - sx) * k;
+      y = sy + (y - sy) * k;
+      rot = srot + (rot - srot) * k;
+      drawChevronAt(g, x, y, rot);
     }
   }
   // the side rails of light, bent round
@@ -548,11 +563,11 @@ function laserDashTexture() {
   return dashTex;
 }
 
-/** One chevron on a corner's middle line, at angle th, pointing the way the belt runs (as beltTexture draws it). */
-function drawChevronOnCurve(g, r, th) {
+/** One chevron at x, y turned by rot, pointing the way the belt runs (as beltTexture draws it). */
+function drawChevronAt(g, x, y, rot) {
   g.save();
-  g.translate(r * Math.cos(th), r * Math.sin(th));
-  g.rotate(th);
+  g.translate(x, y);
+  g.rotate(rot);
   g.beginPath();
   g.moveTo(-30, 15);
   g.lineTo(0, -15);
