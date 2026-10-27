@@ -102,7 +102,7 @@ export const TOPICS = {
   course: { sec: 'options', pic: { course: true }, clips: [], cap: 'Course', fine: 'Dots: difficulty. Flag number: how many flags (more is longer).' },
   'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing (the rulebook’s lighter game).' },
   'opt-safe': { sec: 'options', name: 'Map perimeter', pic: { g: 'wall' }, clips: [['safe-edges', 'Map perimeter']], fine: 'A wall all the way round the map: nobody drives or gets pushed off the edge. Pits still swallow.' },
-  'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'SPAM in your hand goes to your discard pile after programming instead of clogging your hand.' },
+  'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'Each round, when you lock in, any SPAM left in your hand is discarded instead of staying there.' },
   'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: a rules tutorial before round 1, for everyone. Off: only when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };

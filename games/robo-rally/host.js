@@ -573,7 +573,7 @@ export default function (root, api) {
         const TIPS = {
           upgrades: 'Upgrade shop: spend energy on upgrades',
           lessDeadly: 'Map perimeter: a wall all round, no falling off the edge',
-          lessSpam: 'SPAM in hand discards: junk cards leave your hand each round',
+          lessSpam: 'SPAM in hand discards: each round, unplayed SPAM leaves your hand',
           brief: 'Rules tutorial: before round 1, for everyone (off: only for newcomers)',
         };
         const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${TIPS[key] ?? key}">${raw(svgGlyph(glyph))}</button>`;
