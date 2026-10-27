@@ -35,7 +35,6 @@ html.host body { overflow: hidden; }
   .join-qr img { width: min(15rem, 42vw); }
   .lobby-players { flex: 0 1 auto; overflow: hidden; margin-top: 0.4rem; grid-template-columns: 1fr 1fr; }
   .go { position: fixed; right: 1.6rem; bottom: 1.6rem; }
-  .join-mini { display: none; } /* no room beside the buttons */
 }
 .join-qr {
   padding: 0.8rem;
@@ -220,7 +219,6 @@ html.host body { overflow: hidden; }
 }
 body.pointer .game-menu { opacity: 1; }
 @media (hover: none) { .game-menu { opacity: 0.85; } } /* a touch screen has no mouse to wake it */
-.join-mini { font-size: 0.95rem; letter-spacing: 0.04em; color: var(--dim); margin-right: 0.4rem; }
 .menu-btn {
   appearance: none;
   width: 3.2rem;

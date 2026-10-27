@@ -92,7 +92,6 @@ function render() {
   $('game').hidden = !inGame;
   film.setActive(!inGame, room.players);
 
-  $('join-mini').textContent = joinAddress(room.join);
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
 
