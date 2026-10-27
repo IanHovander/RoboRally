@@ -324,7 +324,7 @@ const at = (R) => `${R.x},${R.y},${'NESW'[R.d]}`;
 // ---------------------------------------------------------------------------------------------
 
 /** A game through rules.js with fake phones: the real actions, views and timers (fired by hand). */
-function room(n, { raced = [], opts = {} } = {}) {
+function room(n, { raced = [], opts = {}, begin = true } = {}) {
   const players = Array.from({ length: n }, (_, i) => ({ id: `q${i}`, name: `Q${i}`, color: '#336699', connected: true, isVip: i === 0 }));
   const timers = new Map();
   const ctx = {
@@ -366,7 +366,7 @@ function room(n, { raced = [], opts = {} } = {}) {
   };
   for (const i of raced) t.act(i, 'hello', { raced: true });
   for (const [key, value] of Object.entries(opts)) t.act(0, 'setOpt', { key, value });
-  t.act(0, 'begin');
+  if (begin) t.act(0, 'begin');
   return t;
 }
 const pickAll = (t) => t.players.forEach((p, i) => t.act(i, 'pick', { n: i + 1 }));
@@ -402,6 +402,35 @@ function plain(v) {
   const t = room(3, { raced: [0, 1, 2] });
   pickAll(t);
   check(t.s.phase === 'program' && t.s.round === 1 && !t.hv().teach && t.hv().brief === null, 'no newcomer: no Briefing, programming starts');
+}
+{
+  // setting up: upgrades start off while anyone is new; otherwise the leader's last-game settings
+  const t = room(3, { begin: false });
+  check(t.s.opts.upgrades === false, 'setting up with newcomers: upgrades start off');
+  t.act(0, 'hello', { raced: true, prefs: { upgrades: true, timer: 60, lessDeadly: true, lessSpam: false } });
+  t.act(1, 'hello', { raced: true, prefs: { upgrades: false, timer: 180 } });
+  check(t.s.opts.upgrades === false && t.s.opts.timer === 60 && t.s.opts.lessDeadly === true, "the leader's last settings, but one phone is still new: upgrades off");
+  t.act(2, 'hello', { raced: true });
+  check(t.s.opts.upgrades === true, "everyone has raced: upgrades as the leader's last game had them");
+  t.act(2, 'hello', { raced: false });
+  check(t.s.opts.upgrades === false, 'a newcomer: upgrades off again');
+  t.act(0, 'setOpt', { key: 'upgrades', value: true });
+  check(t.s.opts.upgrades === true, 'the leader turns upgrades on by hand, newcomer or not');
+  t.act(2, 'hello', { raced: true });
+  // the leader leaves: the settings stay (the new leader's own last game doesn't replace them)
+  t.players[0].connected = false;
+  t.players[0].isVip = false;
+  t.players[1].isVip = true;
+  rules.onDisconnect(t.ctx, t.players[0]);
+  check(t.s.opts.timer === 60 && t.s.opts.upgrades === true, 'the leader leaves while setting up: the settings stay as they were');
+}
+{
+  // a phone sees what's in its own piles (counts, not order), and everyone's installed upgrades
+  const t = room(2, { raced: [0, 1] });
+  pickAll(t);
+  const me = t.pv(0).me;
+  const inDeck = Object.values(me.deckCards).reduce((a, b) => a + b, 0);
+  check(inDeck === me.deck && me.discardCards && Array.isArray(t.pv(0).robots[1].ups), "a phone's view: what's in its deck and discard, and every robot's installed upgrades");
 }
 {
   const t = room(3, { raced: [0, 1, 2] });
@@ -673,7 +702,9 @@ try {
   check(host.self.view.opts.course === 'closing-time', 'only the leader can change the course');
   await act(players[0], 'setOpt', { key: 'course', value: 'blue-light-special' });
   await act(players[0], 'setOpt', { key: 'timer', value: 60 });
-  check(await until(() => host.self.view.opts.course === 'blue-light-special'), 'the leader picks the course');
+  check(host.self.view.opts.upgrades === false, 'newcomers racing: upgrades start off');
+  await act(players[0], 'setOpt', { key: 'upgrades', value: true });
+  check(await until(() => host.self.view.opts.course === 'blue-light-special' && host.self.view.opts.upgrades === true), 'the leader picks the course, and turns upgrades on');
   await act(players[0], 'begin');
   check(await until(() => players[0].self?.view?.phase === 'start'), 'then everyone picks a start space');
   await act(players[0], 'pick', { n: 1 });

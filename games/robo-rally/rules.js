@@ -303,6 +303,28 @@ function setOpt(ctx, payload) {
   if (key === 'course' && COURSES.some((c) => c.id === value)) s.opts.course = value;
   if (['upgrades', 'lessDeadly', 'lessSpam', 'brief'].includes(key) && typeof value === 'boolean') s.opts[key] = value;
   if (key === 'timer' && TIMERS.includes(value)) s.opts.timer = value;
+  if (s.touched) s.touched[key] = true;
+}
+
+const PREF_KEYS = ['upgrades', 'timer', 'lessDeadly', 'lessSpam'];
+/**
+ * Setting up: the options start where the leader left them last game (taken once, from the first leader whose
+ * phone has them, so a leader leaving doesn't switch them), and upgrades start off while anyone is new.
+ * Whatever the leader sets by hand stays as they set it.
+ */
+function autoOpts(ctx) {
+  const s = ctx.state;
+  if (s.phase !== 'setup' || !s.touched) return;
+  if (!s.optsBase) {
+    const vip = ctx.players.find((p) => p.isVip);
+    if (vip && s.prefs[vip.id]) s.optsBase = s.prefs[vip.id];
+  }
+  const base = s.optsBase ?? {};
+  for (const k of PREF_KEYS) if (!s.touched[k] && base[k] !== undefined) s.opts[k] = base[k];
+  if (!s.touched.upgrades) {
+    const someoneNew = fresh(s).some((id) => ctx.player(id));
+    s.opts.upgrades = someoneNew ? false : base.upgrades ?? true;
+  }
 }
 
 function begin(ctx) {
@@ -330,13 +352,18 @@ export default {
       story: null, // what happened to each robot last round: { round, regs: { id: [5 lists of steps] } }
       auto: {}, // id -> the slots time filled at random last programming phase
       beatDue: 0, // when the current beat of the race ends
+      prefs: {}, // id -> that phone's settings from its last game (hello)
+      optsBase: null, // the leader's last-game settings, once taken (a new leader doesn't replace them)
+      touched: {}, // options the leader has set by hand this game: never changed for them
     };
+    autoOpts(ctx);
   },
 
   onJoin(ctx, player) {
     const s = ctx.state;
     if ((s.phase !== 'setup' && s.phase !== 'start') || s.order.length >= 8) return false;
     if (!s.order.includes(player.id)) s.order.push(player.id);
+    autoOpts(ctx);
   },
 
   onDisconnect(ctx, player) {
@@ -346,6 +373,7 @@ export default {
       E.timeoutPrompt(s, env(ctx));
       return pump(ctx);
     }
+    autoOpts(ctx); // (a newcomer left while setting up: upgrades can come back on)
     drive(ctx);
   },
 
@@ -355,6 +383,14 @@ export default {
       const s = ctx.state;
       s.raced = s.raced.filter((id) => id !== player.id);
       if (payload?.raced === true) s.raced.push(player.id);
+      const p = payload?.prefs;
+      if (p && typeof p === 'object') {
+        const ok = {};
+        for (const k of ['upgrades', 'lessDeadly', 'lessSpam']) if (typeof p[k] === 'boolean') ok[k] = p[k];
+        if (TIMERS.includes(p.timer)) ok.timer = p.timer;
+        s.prefs[player.id] = ok;
+      }
+      autoOpts(ctx);
     },
 
     // ----- setting up (the leader's phone) -----
@@ -551,7 +587,7 @@ function publicRobot(ctx, id, seat, forHost) {
   if (forHost) base.auto = s.auto[id] ?? []; // the slots time filled at random
   if (!R) return { ...base, pick: s.picks[id] ?? null };
   const out = { ...base, x: R.x, y: R.y, d: R.d, on: R.on, rb: !!R.reboot, sd: R.shutdown, cp: R.cp, en: R.energy, ready: R.done };
-  if (!forHost) return out;
+  if (!forHost) return { ...out, ups: [...R.up.perm, ...R.up.temp] }; // installed upgrades are face up for all to see
   // each register: the revealed card types, or 1 for a face-down card (placed, or a waiting Haywire), or 0
   out.regs = R.regs.map((r, i) => {
     if (r.up) return r.cards.map(cardType);
@@ -563,6 +599,16 @@ function publicRobot(ctx, id, seat, forHost) {
   out.hand = R.hand.length;
   out.wantSd = s.phase === 'program' && R.done && R.wantShutdown;
   out.stats = s.phase === 'over' ? R.stats : undefined;
+  return out;
+}
+
+/** { cardType: how many } for a pile of cards. */
+function countTypes(cards) {
+  const out = {};
+  for (const c of cards) {
+    const t = cardType(c);
+    out[t] = (out[t] ?? 0) + 1;
+  }
   return out;
 }
 
@@ -580,6 +626,9 @@ function privateRobot(R) {
     regs: R.regs.map((r) => ({ cards: r.cards, locked: r.locked, up: r.up, next: r.next })),
     deck: R.deck.length,
     discard: R.discard.length,
+    // what's in each pile (as in the board game: you may look through your own cards, but not their order)
+    deckCards: countTypes(R.deck),
+    discardCards: countTypes(R.discard),
     spam: [...R.deck, ...R.discard, ...R.hand].filter((c) => cardType(c) === 'sp').length,
     peek: R.peek,
     up: R.up,
