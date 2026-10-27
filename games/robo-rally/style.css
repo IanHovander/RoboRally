@@ -162,8 +162,10 @@
 .lm-opt .lm-g { width: 1.85rem; height: 1.85rem; }
 .lm-opt.on { color: var(--light); border-color: rgba(244, 239, 228, .6); box-shadow: 0 0 1rem rgba(244, 239, 228, .15); }
 .lm-opt:not(.on) { opacity: .5; }
-.lm-seg { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .3rem 0 .7rem; height: 3rem; border-radius: 1.5rem; border: 1px solid var(--hair); color: var(--dim); }
-.lm-seg > .lm-g { width: 1.5rem; height: 1.5rem; margin-right: .2rem; }
+.lm-seg { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .3rem; height: 3rem; border-radius: 1.5rem; border: 1px solid rgba(244, 239, 228, .26); color: var(--dim); }
+/* the stopwatch names the choice beside it; it isn't one of the choices */
+.lm-seg-cap { display: grid; place-items: center; margin: 0 -.2rem 0 .3rem; color: var(--faint); }
+.lm-seg-cap .lm-g { width: 1.5rem; height: 1.5rem; }
 .lm-seg button { width: 2.3rem; height: 2.3rem; border-radius: 50%; border-color: transparent; background: none; font-size: 1.1rem; font-weight: 300; }
 .lm-seg button .lm-g { width: 1.4rem; height: 1.4rem; }
 .lm-seg button.on { color: var(--ink); background: var(--light); }
@@ -336,7 +338,7 @@
 .pl-opt { appearance: none; display: grid; place-items: center; width: 3.1rem; height: 3.1rem; border-radius: 50%; border: 1px solid var(--hair2); background: none; color: var(--dim); opacity: .45; cursor: pointer; transition: all .3s; }
 .pl-opt .lm-g { width: 1.6rem; height: 1.6rem; }
 .pl-opt.on { opacity: 1; color: var(--light); border-color: rgba(244, 239, 228, .6); box-shadow: 0 0 1rem rgba(244, 239, 228, .15); }
-.pl-seg { display: inline-flex; gap: .15rem; padding: .2rem; border-radius: 2rem; border: 1px solid var(--hair); }
+.pl-seg { display: inline-flex; gap: .15rem; padding: .2rem; border-radius: 2rem; border: 1px solid rgba(244, 239, 228, .26); }
 .pl-seg button { appearance: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; border: 0; background: none; color: var(--dim); font-size: 1.05rem; cursor: pointer; }
 .pl-seg button .lm-g { width: 1.3rem; height: 1.3rem; }
 .pl-seg button.on { background: var(--light); color: var(--ink); }

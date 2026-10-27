@@ -333,13 +333,10 @@ function paintLight(course, S, { inert = false } = {}) {
         g.lineTo((b.x + 0.5 + DX[L.d] * 0.47) * S + ox, (b.y + 0.5 + DY[L.d] * 0.47) * S + oy);
         g.stroke();
       };
+      // (the beam itself hangs in the air at its lens's height, built with the emitters; this is its glow on the glass)
       g.setLineDash([]);
-      g.strokeStyle = 'rgba(255,74,58,.2)';
-      g.lineWidth = S * 0.09;
-      line();
-      g.setLineDash([S * 0.13, S * 0.09]);
-      g.strokeStyle = 'rgba(255,110,92,.95)';
-      g.lineWidth = S * 0.032;
+      g.strokeStyle = 'rgba(255,74,58,.16)';
+      g.lineWidth = S * 0.08;
       line();
     }
     g.restore();
@@ -514,19 +511,18 @@ function drawCurve(g, color, fromLeft, fast, s) {
   g.lineCap = 'round';
   g.lineJoin = 'round';
   g.lineWidth = 7;
+  // `s` is the straight belts' scroll (their texture offset): a chevron sits at the same fraction of the way
+  // through a corner as it would through a straight piece, so chevrons pass from straight to curve and back
+  // without a jump. (In beltTexture a chevron's middle is at canvas y = (i + .5) * 128 / n + 9.)
   const r = 64;
-  const step = 128 / (fast ? 2 : 1);
-  for (let d = (((s % step) + step) % step) - step; d < r * (Math.PI / 2) + step; d += step) {
-    const th = Math.PI / 2 - d / r;
-    g.save();
-    g.translate(r * Math.cos(th), r * Math.sin(th));
-    g.rotate(th);
-    g.beginPath();
-    g.moveTo(-30, 15);
-    g.lineTo(0, -15);
-    g.lineTo(30, 15);
-    g.stroke();
-    g.restore();
+  const n = fast ? 2 : 1;
+  const len = r * (Math.PI / 2);
+  for (let i = 0; i < n; i++) {
+    const u = (((1 - ((i + 0.5) * (128 / n) + 9) / 128 - s) % 1) + 1) % 1; // 0 entering .. 1 leaving
+    for (const w of [u - 1, u, u + 1]) {
+      if (w < -0.3 || w > 1.3) continue;
+      drawChevronOnCurve(g, r, Math.PI / 2 - (w * len) / r);
+    }
   }
   // the side rails of light, bent round
   g.shadowBlur = 6;
@@ -538,6 +534,30 @@ function drawCurve(g, color, fromLeft, fast, s) {
   g.arc(0, 0, 116, 0, Math.PI / 2);
   g.stroke();
   g.globalAlpha = 1;
+}
+/** A resting laser beam's dashes: lit, gap, repeated along the beam. */
+let dashTex = null;
+function laserDashTexture() {
+  if (dashTex) return dashTex;
+  const c = canvas(4, 32);
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, 4, 19);
+  dashTex = tex(c, { repeat: true });
+  return dashTex;
+}
+
+/** One chevron on a corner's middle line, at angle th, pointing the way the belt runs (as beltTexture draws it). */
+function drawChevronOnCurve(g, r, th) {
+  g.save();
+  g.translate(r * Math.cos(th), r * Math.sin(th));
+  g.rotate(th);
+  g.beginPath();
+  g.moveTo(-30, 15);
+  g.lineTo(0, -15);
+  g.lineTo(30, 15);
+  g.stroke();
+  g.restore();
 }
 function curveTexture(color, fromLeft, fast) {
   const c = canvas(128, 128);
@@ -1113,6 +1133,26 @@ export class Arena {
       g.rotation.y = -L.d * (Math.PI / 2);
       this.board.add(g);
       this.emitters.push(L);
+      // its beams, dashed lines of light at the lens height, from each lens to where the beam stops
+      this.board.updateMatrixWorld(true);
+      const path = beamPath(c, L.x, L.y, L.d);
+      const last = this.pos(path.at(-1).x, path.at(-1).y);
+      for (const lens of g.children.slice(1)) {
+        const from = this.board.worldToLocal(lens.getWorldPosition(new THREE.Vector3()));
+        const to = new THREE.Vector3(L.d % 2 ? last.x + DX[L.d] * 0.47 : from.x, from.y, L.d % 2 ? from.z : last.z + DY[L.d] * 0.47);
+        const len = from.distanceTo(to);
+        if (len < 0.05) continue;
+        const dashes = laserDashTexture().clone();
+        dashes.repeat.set(1, len / 0.24);
+        dashes.needsUpdate = true;
+        const beam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.012, 0.012, len, 6, 1, true),
+          new THREE.MeshBasicMaterial({ map: dashes, color: hdr(PALETTE.laser, 2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+        );
+        beam.position.copy(from).add(to).multiplyScalar(0.5);
+        beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+        this.board.add(beam);
+      }
     }
 
     // push panels: a pale plate on the wall; five dots show the registers it pushes on
@@ -3049,11 +3089,9 @@ export class Arena {
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
     for (const cm of this.curveMats ?? []) {
-      // the bend's chevrons flow at the same speed as its straight belts' (and hurry when the belts move)
+      // the bend's chevrons move in step with its straight belts' (the same scroll), so they pass between them seamlessly
       const belt = this.belts.find((b) => b.fast === cm.fast);
-      const speed = cm.fast ? 1.0 : 0.5;
-      const hurry = belt?.pulse && t - belt.pulse < 1.2 ? 2.2 : 1;
-      cm.s += dt * speed * hurry * 128;
+      cm.s = belt ? belt.tex.offset.y : (cm.s - dt * (cm.fast ? 1.0 : 0.5)) % 1;
       cm.tex.draw(cm.s);
       const p = belt?.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       cm.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));

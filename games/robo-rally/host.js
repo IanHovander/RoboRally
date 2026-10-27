@@ -576,7 +576,8 @@ export default function (root, api) {
               ${toggle('upgrades', 'bolt')}
               ${toggle('lessDeadly', 'wall')}
               ${toggle('lessSpam', 'sp')}
-              <span class="lm-seg">${raw(svgGlyph('timer'))}${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-host="timer=${t}">${t ? t / 60 : raw(svgGlyph('inf'))}</button>`)}</span>
+              <span class="lm-seg-cap" aria-hidden="true">${raw(svgGlyph('timer'))}</span>
+              <span class="lm-seg">${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-host="timer=${t}">${t ? t / 60 : raw(svgGlyph('inf'))}</button>`)}</span>
               <button class="lm-go" data-action="begin" title="Start">${raw(svgGlyph('play'))}</button>
             </div>
           </div>`);
