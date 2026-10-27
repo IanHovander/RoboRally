@@ -151,3 +151,12 @@
 .lf-dot:active i { scale: .9; }
 
 @media (prefers-reduced-motion: reduce) { .lf-finger { display: none; } }
+
+/* a phone held upright as the big screen: the film's phone is narrower, so the board fits beside it */
+@media (orientation: portrait) {
+  .lf-phone { left: 4vw; width: 30vw; padding: 1.6rem .55rem .8rem; gap: .6rem; border-radius: 1.6rem; }
+  .lf-phone::before { top: .65rem; }
+  .lf-slots { gap: .2rem; }
+  .lf-hand { gap: .25rem; }
+  .lf-lock { height: 1.9rem; }
+}

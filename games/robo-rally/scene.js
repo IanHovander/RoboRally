@@ -1139,7 +1139,8 @@ export class Arena {
     const f = this.frame;
     // on a tall screen (a phone held upright) a wide board turns a quarter: its long side runs up the screen,
     // seen from a little higher so the far end still reads
-    this.turned = this.size.w / this.size.h < 0.8 && c.w > c.h * 1.1;
+    const room = (this.size.w * (2 - f.left - f.right)) / (this.size.h * (2 - f.top - f.bottom)); // the frame's shape
+    this.turned = room < 0.8 && c.w > c.h * 1.1;
     const az = this.turned ? -Math.PI / 2 : 0;
     const elev = THREE.MathUtils.degToRad(this.turned ? 70 : c.w > c.h * 1.7 ? 50 : 54);
     const target = new THREE.Vector3(0, 0, 0);
