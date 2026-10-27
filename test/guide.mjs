@@ -26,7 +26,7 @@ for (const [id, t] of Object.entries(TOPICS)) {
     check(hasDemo(key), `${id}: clip ${key} exists`);
     check(words(cap) <= 4, `${id}: caption "${cap}" is at most 4 words`);
   }
-  check(words(t.fine ?? '') <= 25, `${id}: fine print is at most 25 words (${words(t.fine)})`);
+  check(words(t.fine ?? '') <= (t.long ? 40 : 25), `${id}: fine print is at most ${t.long ? 40 : 25} words (${words(t.fine)})`); // (a few map features explain more)
   check(SECTIONS.some((s) => s.id === t.sec), `${id}: section ${t.sec} exists`);
   check(words(tileCaption(id)) <= (OWNER_NAMED.has(id) ? 4 : 3) || (t.sec === 'haywire' && !t.name), `${id}: tile caption "${tileCaption(id)}" is at most 3 words`);
 }

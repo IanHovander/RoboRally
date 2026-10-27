@@ -71,7 +71,7 @@ export const TOPICS = {
   edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless Map perimeter is on).' },
   wall: { sec: 'board', pic: { g: 'wall' }, clips: [['wall', 'Stops you'], ['wall-laser', 'Stops lasers']], fine: 'Walls stop robots, pushes and lasers. Hitting one doesn’t hurt.' },
   'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in its line: 1 SPAM per beam. Two lines side by side: a double laser, 2 SPAM.' },
-  'double-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'Two beams: double damage. After every slot it hits the first robot in its line with 2 SPAM.' },
+  'double-laser': { sec: 'board', long: true, pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'A double laser: two beams, so double damage. After every slot it fires along its line and hits the first robot in the way with 2 SPAM. Walls and robots block it.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
   dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. Fall from here (inside its dashed edge): back on your start pad. Walls, edges and batteries work as anywhere.' },
   pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },
@@ -86,7 +86,7 @@ export const TOPICS = {
   damage: { sec: 'damage', pic: { pair: ['sp', 'hw'] }, clips: [['damage-cards', 'No health'], ['shutdown', 'Clear it']], fine: 'There’s no health. Damage is junk cards. Clear it by playing SPAM or shutting down.' },
   // ----- falling -----
   fall: { sec: 'falling', pic: { g: 'reboot' }, clips: [['reboot', 'Pit'], ['edge', 'Edge']], fine: 'You sit out the rest of the round, take 2 junk cards, and return on the blue ring next round. Flags, energy and upgrades stay.' },
-  'reboot-ring': { sec: 'falling', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Fall anywhere inside its blue edge, come back here next round. Your map lights yours in your color. From the dock: your start pad.' },
+  'reboot-ring': { sec: 'falling', long: true, name: 'Respawn point', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Respawn point. Fall off the map or into a pit and you return here next round, facing its arrow. With several: the one whose blue area you fell in (dock: your start pad). Yours glows in your color.' },
   'reboot-dir': { sec: 'falling', pic: { arrows: true }, clips: [['reboot-face', 'Pick a way']], fine: 'Choose which way you’ll face when you come back.' },
   // ----- shutdown -----
   shutdown: { sec: 'shutdown', pic: { g: 'power' }, clips: [['shutdown', 'Sit out']], fine: 'Instead of programming, sit out a round: all junk in your hand, slots and discard pile goes. Pushes and lasers still reach you.' },
