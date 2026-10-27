@@ -235,10 +235,31 @@ function paintLight(course, S) {
       const Y = y * S;
       const dock = course.boards[cell.b]?.dock;
       if (cell.k === 'pit') {
-        // the glass edge of the hole catches the light
-        g.strokeStyle = 'rgba(244,239,228,.55)';
-        g.lineWidth = S * 0.025;
-        g.strokeRect(X + S * 0.06, Y + S * 0.06, S * 0.88, S * 0.88);
+        // the hole itself is cut out of the glass, so its rim is lit on the glass around it: a bright edge
+        // where the glass breaks off, and a glow spilling back across the glass, so a pit reads from afar
+        for (let d = 0; d < 4; d++) {
+          const n = course.cells[(y + DY[d]) * W + x + DX[d]];
+          if (x + DX[d] < 0 || x + DX[d] >= W || !n || n.k === 'pit') continue;
+          // the strip of neighbor glass along this side: from the hole's edge outward
+          const ex = d === 1 ? X + S : X;
+          const ey = d === 2 ? Y + S : Y;
+          const along = d % 2 === 0;
+          const depth = S * 0.3;
+          const ox = DX[d];
+          const oy = DY[d];
+          const grad = g.createLinearGradient(ex, ey, ex + ox * depth, ey + oy * depth);
+          grad.addColorStop(0, 'rgba(244,239,228,.55)');
+          grad.addColorStop(0.35, 'rgba(244,239,228,.14)');
+          grad.addColorStop(1, 'rgba(244,239,228,0)');
+          g.fillStyle = grad;
+          if (along) g.fillRect(X, oy < 0 ? ey - depth : ey, S, depth);
+          else g.fillRect(ox < 0 ? ex - depth : ex, Y, depth, S);
+          // the edge
+          g.fillStyle = 'rgba(255,250,240,.95)';
+          const w = S * 0.035;
+          if (along) g.fillRect(X, oy < 0 ? ey - w : ey, S, w);
+          else g.fillRect(ox < 0 ? ex - w : ex, Y, w, S);
+        }
         continue;
       }
       // seams, and a small registration cross at each corner (like a light table)
@@ -631,7 +652,8 @@ function studioEnvironment(renderer) {
 export class Arena {
   constructor(container, { quality = 'auto' } = {}) {
     this.container = container;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // (a stencil buffer: the pits' shafts are drawn only where a hole is seen, see build())
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true, powerPreference: 'high-performance' });
     this.pixelRatio = Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 1.75);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = true;
@@ -645,7 +667,7 @@ export class Arena {
     this.scene.environment = studioEnvironment(this.renderer);
     this.scene.environmentIntensity = 0.9;
     this.camera = new THREE.PerspectiveCamera(30, 16 / 9, 0.1, 300);
-    this.composer = new EffectComposer(this.renderer);
+    this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, stencilBuffer: true }));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.55, 0.92);
     this.composer.addPass(this.bloom);
@@ -841,11 +863,12 @@ export class Arena {
     this.emitters = [];
     const S = Math.min(112, Math.floor(4096 / Math.max(c.w, c.h)));
 
-    // the slab of glass under each board piece: dark top (the bottom of the pits), glowing edges
+    // the slab of glass under each board piece: glowing edges, and no top, so a pit is a hole right through it
+    // (the glass top covers the rest; under a pit there's only the drop to the floor far below)
     const edgeMat = new THREE.MeshStandardMaterial({ color: 0x10141a, roughness: 0.25, metalness: 0, emissive: 0x6c7a90, emissiveIntensity: 0.32 });
-    const pitMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const openTop = new THREE.MeshBasicMaterial({ visible: false });
     for (const b of c.boards) {
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.36, b.h), [edgeMat, edgeMat, pitMat, edgeMat, edgeMat, edgeMat]);
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.36, b.h), [edgeMat, edgeMat, openTop, edgeMat, edgeMat, edgeMat]);
       slab.position.set(b.x + b.w / 2 - c.w / 2, -0.184, b.y + b.h / 2 - c.h / 2);
       slab.receiveShadow = true;
       this.board.add(slab);
@@ -866,19 +889,28 @@ export class Arena {
     top.receiveShadow = true;
     this.board.add(top);
 
-    // pits: walls fading into the dark
+    // pits: a shaft through the glass, lit at the rim and falling away into the dark
     const pitWallTex = (() => {
       const cv = canvas(8, 64);
       const g = cv.getContext('2d');
       const grad = g.createLinearGradient(0, 0, 0, 64);
-      grad.addColorStop(0, 'rgba(70,82,100,1)');
-      grad.addColorStop(0.35, 'rgba(14,17,22,1)');
-      grad.addColorStop(1, 'rgba(0,0,0,1)');
+      grad.addColorStop(0, 'rgba(190,200,220,1)');
+      grad.addColorStop(0.03, 'rgba(70,82,100,1)');
+      grad.addColorStop(0.2, 'rgba(10,12,16,1)');
+      grad.addColorStop(0.45, 'rgba(0,0,0,1)');
       g.fillStyle = grad;
       g.fillRect(0, 0, 8, 64);
       return tex(cv);
     })();
-    const pitWallMat = new THREE.MeshBasicMaterial({ map: pitWallTex, side: THREE.DoubleSide });
+    // The shaft is drawn only through its hole: an invisible lid marks where the hole is seen (the stencil), and
+    // the shaft's walls and floor draw only there. From any other angle (under the board's edge) it isn't there.
+    const pitMaskMat = new THREE.MeshBasicMaterial({
+      colorWrite: false, depthWrite: false,
+      stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp,
+    });
+    const throughHole = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp };
+    const pitWallMat = new THREE.MeshBasicMaterial({ map: pitWallTex, side: THREE.DoubleSide, ...throughHole });
+    const pitVoidMat = new THREE.MeshBasicMaterial({ color: 0x000000, ...throughHole });
 
     // belts, gears, batteries
     const beltMats = {};
@@ -909,11 +941,26 @@ export class Arena {
         if (!cell) continue;
         const p = this.pos(x, y);
         if (cell.k === 'pit') {
-          const depth = 0.36;
+          // a deep shaft, black below its rim, closed far down: looking in shows only dark (not the floor's light)
+          const depth = 1.5;
+          // the lid (drawn after the robots, so a robot in front of the hole hides it), then the shaft
+          const lid = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), pitMaskMat);
+          lid.rotation.x = -Math.PI / 2;
+          lid.position.set(p.x, 0, p.z);
+          lid.renderOrder = 5;
+          this.board.add(lid);
+          const bottom = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), pitVoidMat);
+          bottom.rotation.x = -Math.PI / 2;
+          bottom.position.set(p.x, -depth, p.z);
+          bottom.renderOrder = 6;
+          this.board.add(bottom);
           for (let d = 0; d < 4; d++) {
-            const wall = new THREE.Mesh(new THREE.PlaneGeometry(0.88, depth), pitWallMat);
-            wall.position.set(p.x + DX[d] * 0.44, -depth / 2, p.z + DY[d] * 0.44);
-            wall.rotation.y = d % 2 ? Math.PI / 2 : 0;
+            const n = c.cells[(y + DY[d]) * c.w + x + DX[d]];
+            if (n?.k === 'pit' && x + DX[d] >= 0 && x + DX[d] < c.w) continue; // pits side by side make one hole
+            const wall = new THREE.Mesh(new THREE.PlaneGeometry(1, depth), pitWallMat);
+            wall.position.set(p.x + DX[d] * 0.5, -depth / 2, p.z + DY[d] * 0.5);
+            wall.rotation.y = Math.atan2(-DX[d], -DY[d]);
+            wall.renderOrder = 6;
             this.board.add(wall);
           }
         } else if (cell.k === 'belt') {
@@ -2665,6 +2712,7 @@ export class Arena {
     let scale = 1;
     let visible = b.visible;
     let fade = 1;
+    let inPit = false; // sunk below the glass into a pit: seen only through its hole
     let moving = false;
     let ox = 0; // extra offset in the world, on top of the space it's on
     let oz = 0;
@@ -2805,14 +2853,15 @@ export class Arena {
             rot += Math.sin(s * 32) * 0.14;
             squash -= 0.1 * Math.sin(h * Math.PI);
           } else {
-            // sucked down, spinning
+            // sucked down through the hole, spinning, and gone into the dark below
             const f = Math.min(1, (s - an.teeter) / an.sink);
             const e = f * f;
             rot += e * 9;
-            lift = -0.8 * e;
-            scale *= 1 - 0.7 * e;
+            lift = -1.5 * e;
+            scale *= 1 - 0.45 * e;
             squash -= 0.3 * Math.min(1, f * 3);
-            fade = 1 - f ** 1.6;
+            fade = 1 - f ** 2.4;
+            inPit = lift < -0.45;
           }
           if (k >= 1) {
             b.visible = false;
@@ -2868,6 +2917,19 @@ export class Arena {
     lift += b.raise;
     g.position.set(p.x, lift, p.z);
     g.rotation.set(0, rot, 0);
+    if (inPit !== !!b.inPit) {
+      // drawn after the pits' lids, and only where a hole is seen (so it can't show under the board's edge)
+      b.inPit = inPit;
+      g.traverse((o) => {
+        if (!o.isMesh) return;
+        o.renderOrder = inPit ? 7 : 0;
+        for (const m of [].concat(o.material)) {
+          m.stencilWrite = inPit;
+          m.stencilRef = 1;
+          m.stencilFunc = inPit ? THREE.EqualStencilFunc : THREE.AlwaysStencilFunc;
+        }
+      });
+    }
     const body = b.model.body;
     body.position.y = hover + Math.sin(t * 2.6 + b.phase) * 0.006;
     // lean toward a world direction: turn it into the robot's own frame
