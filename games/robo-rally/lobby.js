@@ -41,7 +41,16 @@ export function mountLumenLobby(stage, ui) {
   const dotsEl = document.createElement('div');
   dotsEl.className = 'lf-dots';
   dotsEl.innerHTML = LESSONS.map((_, i) => `<button class="lf-dot" data-i="${i}" aria-label="Scene ${i + 1}"><i><b></b></i></button>`).join('');
-  ui.append(regsEl, dotsEl);
+  // when the browser won't make a 3D view (too many open, graphics off): say so, and try again later
+  const no3d = document.createElement('button');
+  no3d.className = 'lf-no3d';
+  no3d.hidden = true;
+  no3d.innerHTML = '<b>3D graphics are off in this browser.</b><span>Close other tabs or restart the browser. Click to try again.</span>';
+  no3d.addEventListener('click', () => start());
+  ui.append(regsEl, dotsEl, no3d);
+  const retry = () => document.visibilityState === 'visible' && !no3d.hidden && start();
+  document.addEventListener('visibilitychange', retry);
+  addEventListener('focus', retry);
   const dots = [...dotsEl.children];
 
   dotsEl.addEventListener('click', (e) => {
@@ -74,10 +83,12 @@ export function mountLumenLobby(stage, ui) {
       arena.on((kind, d) => hush || sceneSound(kind, d, (id) => Number(String(id).slice(1)) || 0));
       arena.camMode = 'lesson';
       arena.calmWin = true; // a flag reached in a lesson: rings of light, no camera move
+      no3d.hidden = true;
       layout();
       play(version);
     } catch (err) {
       console.warn('Rule film unavailable:', err);
+      if (active && version === gen) no3d.hidden = false;
     } finally {
       loading = false;
     }
@@ -202,6 +213,7 @@ export function mountLumenLobby(stage, ui) {
     stage.replaceChildren();
     mimic.reset();
     showRegs(null);
+    no3d.hidden = true;
   }
 
   return {

@@ -129,6 +129,17 @@
 
 /* The scenes: one dot each, under the board. The lit one is a bar that fills as its scene plays.
    They're buttons (mouse, touch, keys): hovering one lifts it, clicking jumps to that scene. */
+/* the browser wouldn't make a 3D view: a note where the film plays (click to try again) */
+.lf-no3d {
+  position: absolute; left: 50%; top: 50%; transform: translate(calc(-50% - 13vw), -50%); max-width: 28rem; pointer-events: auto;
+  display: grid; gap: .5rem; padding: 1.2rem 1.6rem; text-align: center; cursor: pointer; font: inherit;
+  border: 1px solid var(--hair2); border-radius: 1rem; background: rgba(12, 15, 20, .7); color: var(--dim);
+}
+.lf-no3d[hidden] { display: none; }
+.lf-no3d b { font-weight: 400; font-size: 1.15rem; color: var(--light); }
+.lf-no3d:hover { border-color: rgba(244, 239, 228, .5); }
+@media (orientation: portrait) { .lf-no3d { transform: translate(-50%, -50%); max-width: 80vw; } }
+
 .lf-dots {
   position: absolute; left: 50%; bottom: 1.5rem; display: flex; align-items: center;
   transform: translateX(calc(-50% - 13vw)); pointer-events: auto;
