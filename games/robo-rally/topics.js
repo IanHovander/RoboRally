@@ -69,7 +69,7 @@ export const TOPICS = {
   pit: { sec: 'board', pic: { cell: 'pit' }, clips: [['reboot', 'In it goes']], fine: 'Drive or get pushed in, and you fall (see Falling).' },
   edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless Map perimeter is on).' },
   wall: { sec: 'board', pic: { g: 'wall' }, clips: [['wall', 'Stops you'], ['wall-laser', 'Stops lasers']], fine: 'Walls stop robots, pushes and lasers. Hitting one doesn’t hurt.' },
-  'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in the line: 1 SPAM per beam.' },
+  'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in its line: 1 SPAM per beam. Two lines side by side: a double laser, 2 SPAM.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
   dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. It has walls, edges and batteries like any board.' },
   pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },

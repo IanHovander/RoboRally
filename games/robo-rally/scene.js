@@ -14,6 +14,7 @@ import { drawCard, drawGlyph, formOf } from './glyphs.js';
 import { readBeat, clockU, clockTime, clockTotal, pathAt, lastTick } from './chaos.js';
 
 const TAU = Math.PI * 2;
+const LASER_GAP = 0.17; // how far apart a double laser's two beams (and its two lenses) sit, in squares
 const FONT = 'Lumen';
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
@@ -314,23 +315,32 @@ function paintLight(course, S, { inert = false } = {}) {
       }
     }
   }
-  // laser paths: a faint dotted line, so the danger is visible before it fires
+  // laser paths: a dashed red beam with a soft glow, visible from across the room before it fires. A double laser
+  // (2 damage) is two beams, set clearly apart, like its two lenses
   for (const L of course.lasers) {
     const path = beamPath(course, L.x, L.y, L.d);
     const a = path[0];
     const b = path[path.length - 1];
     g.save();
-    g.strokeStyle = 'rgba(255,74,58,.55)';
-    g.lineWidth = S * 0.02;
-    g.setLineDash([S * 0.04, S * 0.1]);
+    g.lineCap = 'round';
     for (let i = 0; i < L.n; i++) {
-      const off = (i - (L.n - 1) / 2) * S * 0.09;
+      const off = (i - (L.n - 1) / 2) * S * LASER_GAP;
       const ox = DY[L.d] * off;
       const oy = DX[L.d] * off;
-      g.beginPath();
-      g.moveTo((a.x + 0.5 - DX[L.d] * 0.38) * S + ox, (a.y + 0.5 - DY[L.d] * 0.38) * S + oy);
-      g.lineTo((b.x + 0.5 + DX[L.d] * 0.47) * S + ox, (b.y + 0.5 + DY[L.d] * 0.47) * S + oy);
-      g.stroke();
+      const line = () => {
+        g.beginPath();
+        g.moveTo((a.x + 0.5 - DX[L.d] * 0.38) * S + ox, (a.y + 0.5 - DY[L.d] * 0.38) * S + oy);
+        g.lineTo((b.x + 0.5 + DX[L.d] * 0.47) * S + ox, (b.y + 0.5 + DY[L.d] * 0.47) * S + oy);
+        g.stroke();
+      };
+      g.setLineDash([]);
+      g.strokeStyle = 'rgba(255,74,58,.2)';
+      g.lineWidth = S * 0.09;
+      line();
+      g.setLineDash([S * 0.13, S * 0.09]);
+      g.strokeStyle = 'rgba(255,110,92,.95)';
+      g.lineWidth = S * 0.032;
+      line();
     }
     g.restore();
   }
@@ -1034,7 +1044,7 @@ export class Arena {
       for (let i = 0; i < L.n; i++) {
         const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 12), lensMat);
         lens.rotation.x = Math.PI / 2;
-        lens.position.set((i - (L.n - 1) / 2) * 0.1, 0, -0.07);
+        lens.position.set((i - (L.n - 1) / 2) * LASER_GAP, 0, -0.07);
         g.add(lens);
       }
       g.position.set(p.x + DX[side] * 0.4, 0.2, p.z + DY[side] * 0.4);
