@@ -16,12 +16,28 @@ import { marksFor, markHtml, mountFallen, ranCards } from './replay.js';
 const TIMERS = [0, 60, 120, 180];
 const ARROWS = ['m1', 'rr', 'bk', 'rl']; // a direction relative to you, as a card picture
 const DICE_FACES = ['m1', 'm2', 'rr', 'rl', 'ut', 'm3', 'bk', 'pu'];
+// what this phone remembers between games: the browser's storage, and a year-long cookie as a second copy
+// (some browsers clear or refuse one but not the other)
+const cookie = {
+  get(key) {
+    try {
+      const m = document.cookie.match(new RegExp(`(?:^|; )${key.replace(/\./g, '\\.')}=([^;]*)`));
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch { return null; }
+  },
+  set(key, value) {
+    try { document.cookie = `${key}=${encodeURIComponent(value)}; max-age=31536000; path=/; SameSite=Lax`; } catch {}
+  },
+};
 const store = {
   get(key) {
-    try { return localStorage.getItem(key); } catch { return null; }
+    let v = null;
+    try { v = localStorage.getItem(key); } catch {}
+    return v ?? cookie.get(key);
   },
   set(key, value) {
     try { localStorage.setItem(key, value); } catch {}
+    cookie.set(key, value);
   },
 };
 
@@ -1010,7 +1026,10 @@ export default function (root, api) {
       case 'brief': return renderBrief();
       case 'upgrade': return renderUpgrade(m);
       case 'program': return renderProgram(m);
-      case 'activate': return renderRun(m);
+      case 'activate':
+        // this phone has raced: no Briefing for it next time, and if it leads, its settings are the defaults
+        if (view.inRace && store.get('rr.raced') !== '1') store.set('rr.raced', '1');
+        return renderRun(m);
       case 'over': return renderOver(m);
     }
   }
@@ -1436,7 +1455,6 @@ export default function (root, api) {
 
   // ----- the end -----
   function renderOver(m) {
-    if (view.inRace) store.set('rr.raced', '1');
     layout('over', () => html`<div class="pl-over"></div>`);
     const w = robotById(view.winner);
     const won = view.winner === api.you?.id;

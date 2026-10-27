@@ -20,12 +20,26 @@ const TOKEN = `gamenight.token${scope}`; // per tab (sessionStorage), so several
 const LAST_TOKEN = `gamenight.lastToken${scope}`; // per phone (localStorage): lets a new tab take back this phone's seat
 const NAME = 'gamenight.name';
 
+// The name (and the phone's seat) live in the browser's storage; the name also goes in a year-long cookie, a
+// second copy for browsers that clear or refuse one but not the other.
+const KEEP = ['gamenight.name'];
+const cookieGet = (key) => {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${key.replace(/\./g, '\\.')}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch { return null; }
+};
 const store = {
   get: (area, key) => {
-    try { return window[area].getItem(key); } catch { return null; }
+    let v = null;
+    try { v = window[area].getItem(key); } catch {}
+    return v ?? (area === 'localStorage' && KEEP.includes(key) ? cookieGet(key) : null);
   },
   set: (area, key, value) => {
     try { value == null ? window[area].removeItem(key) : window[area].setItem(key, value); } catch {}
+    if (area === 'localStorage' && KEEP.includes(key) && value != null) {
+      try { document.cookie = `${key}=${encodeURIComponent(value)}; max-age=31536000; path=/; SameSite=Lax`; } catch {}
+    }
   },
 };
 
