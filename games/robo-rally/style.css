@@ -316,7 +316,7 @@
 .pl-course { display: grid; grid-template-columns: 3rem minmax(0, 1fr) 3rem; align-items: center; gap: .3rem; min-height: 0; }
 .pl-arrow { appearance: none; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--hair2); background: none; color: var(--dim); cursor: pointer; }
 .pl-arrow .lm-g { width: 1.5rem; height: 1.5rem; }
-.pl-course-card { display: grid; justify-items: center; gap: .7rem; min-height: 0; min-width: 0; }
+.pl-course-card { display: grid; justify-items: center; gap: .7rem; min-height: 0; min-width: 0; touch-action: pan-y; } /* sideways drags are swipes to the next map */
 .pl-course-card img { width: 100%; max-height: 40vh; object-fit: contain; filter: drop-shadow(0 0 1.5rem rgba(140, 160, 190, .15)); }
 .pl-course-card b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: 200; font-size: clamp(1.25rem, 6.4vw, 1.7rem); letter-spacing: .26em; text-indent: .26em; text-transform: uppercase; white-space: nowrap; }
 .pl-course-meta { display: flex; align-items: center; gap: 1.2rem; color: var(--dim); font-size: 1rem; }

@@ -269,6 +269,72 @@ export default function (root, api) {
     clearTimeout(pan.sharp);
     if (quick) pan.sharp = setTimeout(() => drawMap(cv, { force: true }), 160);
   }
+  // ----- choosing a map: the arrows, or a swipe on the map itself -----
+  let courseSlide = null; // { dir, from }: the next map comes in from this side
+  function stepCourse(step) {
+    const i = COURSES.findIndex((x) => x.id === view.opts.course);
+    const next = COURSES[(i + step + COURSES.length) % COURSES.length];
+    courseSlide = { dir: step, from: view.opts.course };
+    api.vibrate(6);
+    return send('setOpt', { key: 'course', value: next.id });
+  }
+  /** The card shows a new map: it slides in from the side the old one left by (swipe left: in from the right). */
+  function slideIn(card, id) {
+    if (!card || !courseSlide || courseSlide.from === id) return;
+    const { dir } = courseSlide;
+    courseSlide = null;
+    card.animate([{ transform: `translateX(${dir * 38}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+  let swipe = null;
+  let swipedAt = 0;
+  root.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest?.('.pl-course-card');
+    if (!card || !api.you?.isVip || view?.phase !== 'setup') return;
+    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, card, on: false };
+  });
+  root.addEventListener('pointermove', (e) => {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    if (!swipe.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) swipe.on = true; // sideways: a swipe
+    if (!swipe.on) return;
+    swipe.dx = dx;
+    swipe.card.style.transition = 'none';
+    swipe.card.style.transform = `translateX(${dx}px)`;
+    swipe.card.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 400));
+  });
+  const endSwipe = (e) => {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const { card, dx, on } = swipe;
+    swipe = null;
+    if (!on) return;
+    swipedAt = performance.now();
+    if (Math.abs(dx) > Math.min(90, card.clientWidth * 0.22)) {
+      // off it goes; the next map comes in from the other side
+      const dir = dx < 0 ? 1 : -1;
+      card.style.transition = 'transform .16s ease-in, opacity .16s ease-in';
+      card.style.transform = `translateX(${-dir * 60}%)`;
+      card.style.opacity = '0';
+      setTimeout(() => {
+        card.style.transition = 'none';
+        card.style.transform = '';
+        card.style.opacity = '';
+        stepCourse(dir);
+      }, 160);
+    } else {
+      // not far enough: it springs back
+      card.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
+      card.style.transform = '';
+      card.style.opacity = '';
+    }
+  };
+  root.addEventListener('pointerup', endSwipe);
+  root.addEventListener('pointercancel', endSwipe);
+  // a swipe ends with a click on the card: that isn't a tap
+  root.addEventListener('click', (e) => {
+    if (e.target.closest?.('.pl-course-card') && performance.now() - swipedAt < 400) e.stopPropagation();
+  }, true);
+
   root.addEventListener('pointerdown', (e) => {
     const cv = mapCanvasOf(e);
     if (!cv || !maps.get(cv)) return;
@@ -559,12 +625,8 @@ export default function (root, api) {
         api.vibrate(6);
         return send('setOpt', { key, value });
       }
-      case 'course': {
-        const i = COURSES.findIndex((x) => x.id === view.opts.course);
-        const next = COURSES[(i + Number(arg) + COURSES.length) % COURSES.length];
-        api.vibrate(6);
-        return send('setOpt', { key: 'course', value: next.id });
-      }
+      case 'course':
+        return stepCourse(Number(arg));
       case 'card':
         if (view.phase === 'program' && m.mustReturn) {
           const i = prog.pick.indexOf(arg);
@@ -913,6 +975,7 @@ export default function (root, api) {
       <img alt="" src="${thumb(sel.id)}">
       <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
       <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>`);
+    slideIn(body.querySelector('.pl-course-card'), sel.id);
     const ask = { upgrades: 'opt-upgrades', lessDeadly: 'opt-safe', lessSpam: 'opt-lessspam', brief: 'opt-brief' };
     const tog = (key, glyph) => html`<button class="pl-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}" data-ask="${ask[key]}" aria-pressed="${String(!!o[key])}">${g(glyph)}</button>`;
     // the stopwatch labels the minutes choice: it sits outside the control, not in it
