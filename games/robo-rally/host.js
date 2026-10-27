@@ -11,9 +11,10 @@ import { drawCourse } from './minimap.js';
 import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle, GLYPHS } from './glyphs.js';
 import { sfx, unlock, onState as onSound, setMuted, setLevel, sceneSound, state as soundState } from './sound.js';
 import { voice } from './voice.js';
-import { createVoiceLine, createCallouts, flyJunk, junkCards, topMargin } from './teach.js';
+import { createVoiceLine, createCallouts, createExplainer, flyJunk, junkCards, topMargin } from './teach.js';
 import { createMimic } from './mimic.js';
 import { startBriefing } from './briefing.js';
+import { LEADER } from './lobby.js';
 
 const TIMERS = [0, 60, 120, 180];
 const PHASE_MS = { start: 40_000, upgrade: 60_000 };
@@ -126,6 +127,16 @@ export default function (root, api) {
     course: () => (view ? getCourse(view.opts.course) : null),
   });
   const mimic = createMimic(host);
+  // press and hold the mouse on a square, a robot or a token: what it is, as the phone's Guide shows it
+  const explainer = createExplainer(host, {
+    getView: () => view,
+    course: () => (view ? getCourse(view.opts.course) : null),
+    pick: (x, y) => (arena && !briefing ? arena.pick(x, y) : null),
+    tokenAt: (x, y) => [...rosterEl.querySelectorAll('.lm-tok')].find((el) => {
+      const r = el.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    })?.dataset.id ?? null,
+  });
 
   // ----- the Briefing (phase 'brief'): it borrows the arena, then hands it back -----
   let briefing = null;
@@ -351,7 +362,10 @@ export default function (root, api) {
     if (v.phase !== 'brief') briefOver = false;
     const robots = sceneRobots(v);
     if (arena) {
+      // no upgrades: batteries do nothing (drawn inert); "Map perimeter": a wall right round the course
+      arena.setBatteriesInert(!v.opts.upgrades);
       arena.setCourse(v.opts.course);
+      arena.setPerimeter(v.opts.lessDeadly ? getCourse(v.opts.course) : null);
       arena.setFrame(frameFor(v.phase));
       arena.camMode = v.phase === 'setup' ? 'orbit' : ['start', 'upgrade', 'program'].includes(v.phase) ? 'drift' : 'race';
       if (!first && prev && prev.phase !== v.phase && (v.phase === 'program' || v.phase === 'activate')) arena.pulse();
@@ -471,6 +485,13 @@ export default function (root, api) {
     return '';
   }
 
+  /** Has this robot's player done what the phase waits for (picked a start space, finished shopping, locked in)? null: not a waiting phase. */
+  function doneOf(v, r) {
+    if (v.phase === 'start') return r.pick != null;
+    if (v.phase === 'upgrade' || v.phase === 'program') return !!r.ready;
+    return null;
+  }
+
   function renderRoster(v) {
     const ids = v.robots.map((r) => r.id).join();
     if (rosterEl.dataset.ids !== ids) {
@@ -479,6 +500,14 @@ export default function (root, api) {
       rosterEl.style.setProperty('--n', v.robots.length);
     }
     const acting = v.phase === 'activate' ? v.beat.what?.id : null;
+    const leader = api.players?.find((p) => p.isVip)?.id ?? null;
+    // who the room is waiting on: they pulse; once only one or two are left (and someone is done), they rise
+    // and the ones who are done step back, so the room sees whose phone it is
+    const waitPhase = !briefing && ['start', 'upgrade', 'program'].includes(v.phase);
+    const waiting = waitPhase ? v.robots.filter((r) => !doneOf(v, r) && !r.away) : [];
+    const doneCount = waitPhase ? v.robots.filter((r) => doneOf(v, r)).length : 0;
+    rosterEl.classList.toggle('waiting', waiting.length > 0);
+    rosterEl.classList.toggle('few', waiting.length > 0 && waiting.length <= 2 && doneCount > 0);
     for (const r of v.robots) {
       const el = rosterEl.querySelector(`[data-id="${CSS.escape(r.id)}"]`);
       if (!el) continue;
@@ -489,8 +518,12 @@ export default function (root, api) {
       el.classList.toggle('acting', acting === r.id);
       el.classList.toggle('prio', r.id === v.prio && !['setup', 'start', 'over'].includes(v.phase));
       el.classList.toggle('winner', v.phase === 'over' && r.id === v.winner);
+      el.classList.toggle('leader', r.id === leader);
+      const done = waitPhase ? doneOf(v, r) : null;
+      el.classList.toggle('wait', done === false && !r.away);
+      el.classList.toggle('done', done === true);
       set(el.children[0], tokenTop(v, r));
-      set(el.children[1], robotSvg(r, { dim: r.away }));
+      set(el.children[1], `${robotSvg(r, { dim: r.away })}${r.id === leader ? `<span class="lm-leader" title="Leader">${LEADER}</span>` : ''}${done ? `<span class="lm-done">${svgGlyph('check')}</span>` : ''}`);
       set(el.children[2], html`${r.name}`);
       const ups = (r.perm?.length ?? 0) + (r.temp ?? 0);
       set(el.children[3], html`${flagBars(v, r)}${v.opts.upgrades && r.en != null && html`<span class="lm-en">${G('bolt')}${r.en}</span>`}${ups > 0 && html`<span class="lm-ups">${(r.perm ?? []).map(() => html`<i></i>`)}${Array.from({ length: r.temp ?? 0 }, () => html`<i class="t"></i>`)}</span>`}`);
@@ -643,6 +676,7 @@ export default function (root, api) {
       window.removeEventListener('keydown', gesture);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKey);
+      explainer.destroy();
       briefing?.stop();
       briefing = null;
       callouts.stop();

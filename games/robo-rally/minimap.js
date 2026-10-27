@@ -23,7 +23,8 @@ const FONT = 'Lumen, Roboto, sans-serif';
 
 /**
  * Draw a course. o: { tile, ox, oy, robots: [{x,y,d,color,on,me,avatar}], ghosts: [{x,y,d,n,fell,path}],
- * ghostColor, starts: {n: color}, cpNext, cpDone(n), glow (soft light effects; off for tiny previews) }
+ * ghostColor, starts: {n: color}, cpNext, cpDone(n), glow (soft light effects; off for tiny previews),
+ * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, drawn dim) }
  */
 export function drawCourse(g, course, o = {}) {
   const T = o.tile ?? 32;
@@ -128,7 +129,8 @@ export function drawCourse(g, course, o = {}) {
         g.restore();
       } else if (cell.k === 'battery') {
         g.save();
-        if (glow) {
+        if (o.inert) g.globalAlpha = 0.22;
+        if (glow && !o.inert) {
           g.shadowColor = C.energy;
           g.shadowBlur = T * 0.15;
         }
@@ -188,6 +190,19 @@ export function drawCourse(g, course, o = {}) {
     const [x0, y0, x1, y1] = w.side === 0 ? [w.x, w.y, w.x + 1, w.y] : [w.x, w.y, w.x, w.y + 1];
     g.moveTo(px(x0), py(y0));
     g.lineTo(px(x1), py(y1));
+  }
+  if (o.perimeter) {
+    // Map perimeter: every side of the floor that has no floor beyond it is a wall
+    const floor = (x, y) => x >= 0 && y >= 0 && x < course.w && y < course.h && !!course.cells[y * course.w + x];
+    for (let y = 0; y < course.h; y++) {
+      for (let x = 0; x < course.w; x++) {
+        if (!floor(x, y)) continue;
+        if (!floor(x, y - 1)) { g.moveTo(px(x), py(y)); g.lineTo(px(x + 1), py(y)); }
+        if (!floor(x + 1, y)) { g.moveTo(px(x + 1), py(y)); g.lineTo(px(x + 1), py(y + 1)); }
+        if (!floor(x, y + 1)) { g.moveTo(px(x), py(y + 1)); g.lineTo(px(x + 1), py(y + 1)); }
+        if (!floor(x - 1, y)) { g.moveTo(px(x), py(y)); g.lineTo(px(x), py(y + 1)); }
+      }
+    }
   }
   g.stroke();
   g.restore();
@@ -316,16 +331,40 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
   }
   g.stroke();
   g.restore();
+  // one mark per square. A slot that only moved there: its number inside the dot. Where the robot turned (or
+  // the line ends): an arrow out of the dot for each way it faced there, its slot number beside the arrow.
   const marks = new Map();
+  const last = ghosts.at(-1);
   for (const gh of ghosts) {
     const key = `${gh.x},${gh.y}`;
-    const m = marks.get(key) ?? { ...gh, ns: [] };
-    m.ns.push(gh.n);
-    Object.assign(m, { d: gh.d, fell: gh.fell, unknown: gh.unknown });
+    const m = marks.get(key) ?? { x: gh.x, y: gh.y, all: [], end: false, fell: false, unknown: false, turn: false };
+    if (gh.fell) m.fell = true;
+    else if (gh.unknown) m.unknown = true;
+    else m.all.push(gh);
+    if (gh.turned) m.turn = true;
+    if (gh === last) {
+      m.end = true;
+      m.d = gh.d;
+    }
     marks.set(key, m);
   }
-  const lastKey = `${ghosts.at(-1).x},${ghosts.at(-1).y}`;
-  for (const [key, gh] of marks) {
+  const label = (text, x, y, size, halo = false) => {
+    g.font = `600 ${Math.round(size * (text.length > 2 ? 0.75 : 1))}px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    if (halo) {
+      // outside the dot it may sit on the line: a dark rim keeps it readable
+      g.save();
+      g.shadowBlur = 0;
+      g.strokeStyle = '#0b0e13';
+      g.lineWidth = Math.max(2.5, size * 0.3);
+      g.strokeText(text, x, y);
+      g.restore();
+    }
+    g.fillStyle = gc;
+    g.fillText(text, x, y);
+  };
+  for (const gh of marks.values()) {
     const cx = px(Math.max(-0.4, Math.min(course.w - 0.6, gh.x)) + 0.5);
     const cy = py(Math.max(-0.4, Math.min(course.h - 0.6, gh.y)) + 0.5);
     if (gh.fell) {
@@ -340,31 +379,48 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
       g.stroke();
       continue;
     }
-    const end = key === lastKey;
+    const end = gh.end && !gh.unknown;
+    const solid = end && !o.dashed;
     const r = T * (end ? 0.27 : 0.2);
-    g.fillStyle = end && !o.dashed && !gh.unknown ? gc : '#0b0e13'; // a "?" stays readable: light on dark
+    g.fillStyle = solid ? gc : '#0b0e13'; // a "?" stays readable: light on dark
     g.strokeStyle = gc;
     g.lineWidth = lw(0.05, 1.5);
     g.beginPath();
     g.arc(cx, cy, r, 0, Math.PI * 2);
     g.fill();
     g.stroke();
-    if (end && !gh.unknown) pointer(g, cx, cy, gh.d, r + T * 0.15, T * 0.1, gc);
-    const label = gh.unknown ? '?' : end || o.numbers === false ? '' : gh.ns.join('');
-    if (label && T >= 16) {
-      g.fillStyle = gc;
-      g.font = `600 ${Math.round(T * (label.length > 2 ? 0.17 : 0.24))}px ${FONT}`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(label, cx, cy + T * 0.01);
-    }
+    const words = o.numbers !== false && T >= 14;
+    if (gh.unknown) {
+      if (T >= 16) label('?', cx, cy + T * 0.01, T * 0.24);
+    } else if (gh.turn || gh.end) {
+      // the way it faces, slot by slot: an arrow per heading, the slot numbers beside it
+      const byD = new Map();
+      for (const x of gh.all) byD.set(x.d, [...(byD.get(x.d) ?? []), x.n]);
+      for (const [d, ns] of byD) {
+        const isEnd = end && d === gh.d;
+        const s = T * (isEnd ? 0.13 : 0.1);
+        const dist = r + s * 1.05;
+        pointer(g, cx, cy, d, dist, s, gc, true);
+        if (words) {
+          const a = ANG[d];
+          const size = Math.max(10, T * 0.27);
+          const k = dist + s * 0.1;
+          const side = s + size * 0.55;
+          label(ns.join(','), cx + Math.cos(a) * k + Math.cos(a + Math.PI / 2) * side, cy + Math.sin(a) * k + Math.sin(a + Math.PI / 2) * side + size * 0.04, size, true);
+        }
+      }
+      // the end: which way the robot will face, inside the dot too
+      if (end) chevronIn(g, cx, cy, gh.d, r * 0.62, solid ? '#0b0e13' : gc);
+    } else if (words) label(gh.all.map((x) => x.n).join(''), cx, cy + T * 0.01, T * 0.24);
   }
   g.restore();
 }
 
-/** A little triangle just outside a circle, pointing the way d. */
-function pointer(g, cx, cy, d, dist, s, color) {
-  const a = [-Math.PI / 2, 0, Math.PI / 2, Math.PI][d];
+const ANG = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+
+/** A little triangle just outside a circle, pointing the way d (outlined in dark so it reads on top of the line). */
+function pointer(g, cx, cy, d, dist, s, color, outline = false) {
+  const a = ANG[d];
   const x = cx + Math.cos(a) * dist;
   const y = cy + Math.sin(a) * dist;
   g.fillStyle = color;
@@ -373,7 +429,31 @@ function pointer(g, cx, cy, d, dist, s, color) {
   g.lineTo(x + Math.cos(a + 2.3) * s, y + Math.sin(a + 2.3) * s);
   g.lineTo(x + Math.cos(a - 2.3) * s, y + Math.sin(a - 2.3) * s);
   g.closePath();
+  if (outline) {
+    g.save();
+    g.shadowBlur = 0;
+    g.strokeStyle = '#0b0e13';
+    g.lineWidth = Math.max(1.5, s * 0.35);
+    g.stroke();
+    g.restore();
+  }
   g.fill();
+}
+
+/** A bold chevron inside a dot, pointing the way d. */
+function chevronIn(g, cx, cy, d, s, color) {
+  const a = ANG[d];
+  g.save();
+  g.strokeStyle = color;
+  g.lineWidth = Math.max(1.5, s * 0.34);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.beginPath();
+  g.moveTo(cx + Math.cos(a + 2.4) * s, cy + Math.sin(a + 2.4) * s);
+  g.lineTo(cx + Math.cos(a) * s * 0.75, cy + Math.sin(a) * s * 0.75);
+  g.lineTo(cx + Math.cos(a - 2.4) * s, cy + Math.sin(a - 2.4) * s);
+  g.stroke();
+  g.restore();
 }
 
 function drawBelt(g, course, x, y, cell, X, Y, T, glow) {
@@ -469,7 +549,8 @@ export function previewProgram(course, start, regs, opts = {}) {
     }
     return out;
   };
-  for (let r = 0; r < 5 && !fell; r++) {
+  for (let r = 0; r < Math.min(5, regs.length) && !fell; r++) {
+    const d0 = d;
     let list = regs[r] ?? [];
     if (list.length === 1 && list[0] === 'ag') list = r === 0 ? ['?'] : last ?? [];
     if (list.includes('sp') || list.includes('?')) {
@@ -508,8 +589,18 @@ export function previewProgram(course, start, regs, opts = {}) {
       const c = active(x, y);
       if (c?.k === 'gear') d = turn(d, c.spin);
     }
-    ghosts.push({ x, y, d, n: r + 1, fell, path });
+    ghosts.push({ x, y, d, n: r + 1, fell, path, turned: d !== d0 });
     path = [[x, y]];
   }
   return ghosts;
+}
+
+/**
+ * How many slots, from slot 1, are filled without a gap (the light line goes no further than that).
+ * filled: five booleans (a locked Haywire slot counts as filled).
+ */
+export function filledRun(filled) {
+  let n = 0;
+  while (n < 5 && filled[n]) n++;
+  return n;
 }

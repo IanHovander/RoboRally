@@ -143,5 +143,27 @@ check(LESSONS.map((l) => l.id).join() === 'lesson-program,lesson-board,lesson-da
   check(said.join() === 'call-win', `callouts: a second race in the session repeats nothing but the winner (${said.join()})`);
 }
 
+// Sounds: a robot moving or turning makes none (the race, the film and the Briefing all go through sceneSound);
+// damage, a fall, a reboot, a flag and the win each make one
+{
+  const { sfx, sceneSound } = await import('../games/robo-rally/sound.js');
+  const heard = [];
+  for (const k of Object.keys(sfx)) sfx[k] = () => heard.push(k);
+  const soundOf = (kind, d = {}) => {
+    heard.length = 0;
+    sceneSound(kind, { id: 'L0', n: 1, ...d });
+    return heard.join();
+  };
+  const quiet = ['move', 'turn', 'bump', 'bonk', 'belt', 'gear', 'push', 'laser', 'reveal', 'play', 'teeter', 'plunge', 'thud', 'gulp', 'poof', 'land', 'combo', 'slowmo', 'strain'];
+  const loud = quiet.filter((k) => soundOf(k));
+  check(!loud.length, `sounds: nothing for movement or the board's motion (${loud.join() || 'all quiet'})`);
+  await new Promise((r) => setTimeout(r, 200));
+  check(soundOf('fizzle') === 'hurt', 'sounds: a laser hit sounds like damage');
+  await new Promise((r) => setTimeout(r, 200));
+  const want = { damage: 'hurt', fall: 'fall', reboot: 'reboot', checkpoint: 'checkpoint', win: 'win' };
+  const got = Object.entries(want).filter(([kind, s]) => soundOf(kind) === s);
+  check(got.length === Object.keys(want).length, `sounds: damage, a fall, a reboot, a flag and the win each have one (${got.map(([k]) => k).join()})`);
+}
+
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
 process.exit(failures ? 1 : 0);

@@ -319,13 +319,12 @@ function autoOpts(ctx) {
     const vip = ctx.players.find((p) => p.isVip);
     if (vip && s.prefs[vip.id]) s.optsBase = s.prefs[vip.id];
   }
-  const base = s.optsBase ?? {};
-  for (const k of PREF_KEYS) if (!s.touched[k] && base[k] !== undefined) s.opts[k] = base[k];
-  if (!s.touched.upgrades) {
-    const someoneNew = fresh(s).some((id) => ctx.player(id));
-    s.opts.upgrades = someoneNew ? false : base.upgrades ?? true;
-  }
+  // a first game (anyone new): no shop, edges deadly, SPAM stays in hand, 2 minutes
+  const someoneNew = fresh(s).some((id) => ctx.player(id));
+  const base = someoneNew ? FIRST_GAME : { ...FIRST_GAME, upgrades: true, ...(s.optsBase ?? {}) };
+  for (const k of PREF_KEYS) if (!s.touched[k]) s.opts[k] = base[k];
 }
+const FIRST_GAME = { upgrades: false, timer: 120, lessDeadly: false, lessSpam: false };
 
 function begin(ctx) {
   const s = ctx.state;

@@ -5,8 +5,8 @@
 //   decisions: a sheet. The "?" at the top right answers questions about anything on the screen (guide.js).
 import { html, raw } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
-import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE } from './cards.js';
-import { drawCourse, previewProgram } from './minimap.js';
+import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
+import { drawCourse, previewProgram, filledRun } from './minimap.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
 import { mountDemo, hasDemo } from './demo.js';
 import { mountGuide } from './guide.js';
@@ -29,6 +29,7 @@ export default function (root, api) {
   root.innerHTML = `
     <div class="pl">
       <header class="pl-top"></header>
+      <div class="pl-task" aria-live="polite"></div>
       <div class="pl-body"></div>
       <div class="pl-sheet" hidden></div>
       <div class="pl-toast" hidden></div>
@@ -36,6 +37,7 @@ export default function (root, api) {
   const $ = (sel) => root.querySelector(sel);
   const pl = $('.pl');
   const top = $('.pl-top');
+  const task = $('.pl-task');
   const body = $('.pl-body');
   const sheet = $('.pl-sheet');
   const toast = $('.pl-toast');
@@ -66,8 +68,22 @@ export default function (root, api) {
 
   // this phone tells the rules whether it has finished a race before (newcomers get the Briefing). Each game
   // keeps its own list, so it's said again at every phase change (saying it twice is harmless).
-  const hello = () => api.send('hello', { raced: store.get('rr.raced') === '1' });
+  // It also brings the settings of the last race it was in: if this phone leads, they're the defaults.
+  const hello = () => api.send('hello', { raced: store.get('rr.raced') === '1', prefs: lastOpts() });
   hello();
+  function lastOpts() {
+    try {
+      const p = JSON.parse(store.get('rr.lastOpts') ?? 'null');
+      return p && typeof p === 'object' ? p : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  /** A race has begun: remember its settings. */
+  function saveOpts(o) {
+    if (!o) return;
+    store.set('rr.lastOpts', JSON.stringify({ upgrades: !!o.upgrades, timer: o.timer, lessDeadly: !!o.lessDeadly, lessSpam: !!o.lessSpam }));
+  }
 
   // ---------- helpers ----------
 
@@ -104,6 +120,9 @@ export default function (root, api) {
 
   // ---------- the light table (my map) ----------
 
+  /** How the race's settings change the map: Map perimeter walls it in; without upgrades batteries are inert. */
+  const mapLook = () => ({ perimeter: !!view?.opts.lessDeadly, inert: view?.opts ? !view.opts.upgrades : false });
+
   let mapZoom = null; // 'all' | 'near'
   let mapKey = null;
   /** Where I'd start this round's program from (my robot, or my reboot spot facing the way I chose). */
@@ -113,7 +132,10 @@ export default function (root, api) {
   function ghostsFor(m) {
     const from = programStart(m);
     if (!from || m.mustReturn) return [];
-    return previewProgram(course(), from, [0, 1, 2, 3, 4].map((i) => (m.regs[i].locked ? m.regs[i].cards : prog.regs[i]).flatMap(previewType)), { lessDeadly: view.opts.lessDeadly, hover: m.up.perm.includes('hover-unit') });
+    // the line only runs through slots filled from slot 1 without a gap (a locked Haywire slot is filled)
+    const slots = [0, 1, 2, 3, 4].map((i) => (m.regs[i].locked ? m.regs[i].cards : prog.regs[i]));
+    const n = filledRun(slots.map((l) => l.length > 0));
+    return previewProgram(course(), from, slots.slice(0, n).map((l) => l.flatMap(previewType)), { lessDeadly: view.opts.lessDeadly, hover: m.up.perm.includes('hover-unit') });
   }
   function drawMap(canvas, { force = false, near = null } = {}) {
     if (!view || !canvas) return;
@@ -121,7 +143,7 @@ export default function (root, api) {
     const m = me();
     const width = box.clientWidth || 340;
     const height = box.clientHeight || 260;
-    const key = JSON.stringify([mapZoom, width, height, view.phase, view.opts.course, view.robots.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
+    const key = JSON.stringify([mapZoom, width, height, view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, view.robots.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
     if (!force && key === mapKey && canvas.dataset.drawn) return;
     mapKey = key;
     canvas.dataset.drawn = '1';
@@ -150,7 +172,7 @@ export default function (root, api) {
     const ghosts = view.phase === 'program' && from ? ghostsFor(m) : [];
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
-    drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false) });
+    drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), ...mapLook() });
     canvas.dataset.zoom = zoom;
     maps.set(canvas, { tile, ox, oy, robots, ghosts });
     canvas.dataset.xform = `${tile},${ox},${oy}`; // for test scripts
@@ -289,6 +311,11 @@ export default function (root, api) {
   // ---------- taps ----------
 
   root.addEventListener('click', async (e) => {
+    // my own sheets (not a decision the race is waiting on) close on a tap outside them
+    if (e.target === sheet && localSheet && !view?.prompt) {
+      localSheet = null;
+      return render();
+    }
     const el = e.target.closest('[data-ui]');
     if (!el || !root.contains(el)) return;
     const { ui, arg } = el.dataset;
@@ -381,6 +408,20 @@ export default function (root, api) {
         render();
         return opt?.run();
       }
+      case 'deck': // my cards: what's in my draw pile and discard pile (not their order), my upgrades, the others
+        api.vibrate(6);
+        return openDeck();
+      case 'robot': // another robot: what everyone can see of it
+        api.vibrate(6);
+        return arg === api.you?.id ? openDeck() : openRobot(arg);
+      case 'upinfo': // an upgrade someone has installed: the Guide's page for it
+        return guide.open(arg);
+      case 'maptap': { // a robot on my map
+        const id = robotAt(el, e.clientX, e.clientY);
+        if (!id) return;
+        api.vibrate(6);
+        return id === api.you?.id ? openDeck() : openRobot(id);
+      }
       case 'hold': // press and hold (see below); a plain tap only wiggles it
         return;
       case 'close':
@@ -458,6 +499,83 @@ export default function (root, api) {
     openSheet({ head: html`<b class="pl-up-title" data-ask="${key}">${u.name}</b>${kindMark(u)}`, demo: key, note: u.text, options: opts });
   }
 
+  // ---------- looking closer: my cards, another robot ----------
+
+  // card faces in a fixed order: program cards, then SPAM, then Haywires
+  const CARD_ORDER = [...Object.keys(PROGRAM).filter((t) => t !== 'sp'), 'sp', ...Object.keys(HAYWIRE)];
+  const byOrder = (a, b) => CARD_ORDER.indexOf(a) - CARD_ORDER.indexOf(b);
+  /** A pile as card faces, each with how many (the order stays secret, as in the board game). */
+  function pileHtml(counts) {
+    const types = Object.keys(counts ?? {}).filter((t) => counts[t] > 0).sort(byOrder);
+    if (!types.length) return html`<div class="pl-pile empty"><span class="pl-pile-none"></span></div>`;
+    return html`<div class="pl-pile">${types.map((k) => html`<span class="pl-pile-card" data-ask="${k}" data-tap="ask">${card(k, 'xs')}${counts[k] > 1 && html`<b>×${counts[k]}</b>`}</span>`)}</div>`;
+  }
+  const upTiles = (keys, ui) => html`<div class="pl-uptiles">${keys.map((k) => html`<button class="pl-uptile ${UPGRADES[k].kind}" data-ui="${ui}" data-arg="${k}">${demo(k, 'tiny')}<span>${UPGRADES[k].name}</span></button>`)}</div>`;
+  const robotFlags = (r) => html`<span class="pl-flags glyphs">${Array.from({ length: view.cps }, (_, i) => html`<i class="${i < (r?.cp ?? 0) ? 'on' : i === (r?.cp ?? 0) ? 'next' : ''}" style="--me:${r.color}">${g('flag')}</i>`)}</span>`;
+
+  function openDeck() {
+    openSheet({
+      cls: 'pl-deck-sheet',
+      head: () => html`<span class="pl-pile-head big" data-ask="deck" data-tap="ask">${g('deck')}<b>${me()?.deck ?? 0}</b></span>`,
+      row: true,
+      body: () => {
+        const m = me();
+        if (!m) return '';
+        const others = view.robots.filter((r) => r.id !== api.you?.id && r.x != null);
+        const mine = [...m.up.perm, ...m.up.temp];
+        return html`
+          ${pileHtml(m.deckCards)}
+          <div class="pl-pile-head discard" data-ask="discard" data-tap="ask">${card('back', 'xs')}<b>${m.discard}</b></div>
+          ${pileHtml(m.discardCards)}
+          ${mine.length > 0 && html`<div class="pl-pile-head" data-ask="your-upgrades" data-tap="ask"><i class="pl-diamond"></i></div>${upTiles(mine, 'inst')}`}
+          ${others.length > 0 && html`<div class="pl-pile-head" data-ask="rival" data-tap="ask">${g('eye')}</div>
+            <div class="pl-rivals">${others.map((r) => html`<button class="pl-rival" data-ui="robot" data-arg="${r.id}" style="--c:${r.color}">${bot(r)}<span class="pl-rival-n">${r.cp ?? 0}${g('flag')}</span>${(r.ups ?? []).length > 0 && html`<span class="pl-rival-n">${r.ups.length}<i class="pl-diamond"></i></span>`}</button>`)}</div>`}`;
+      },
+      options: [{ label: g('cross'), run: () => {} }],
+    });
+  }
+
+  function openRobot(id) {
+    if (!robotById(id)) return;
+    openSheet({
+      cls: 'pl-robot-sheet',
+      head: (() => {
+        const r = robotById(id);
+        return html`<span class="pl-sheet-bot" data-ask="rival">${bot(r)}</span><b class="pl-up-title">${r.name}</b>`;
+      })(),
+      body: () => {
+        const r = robotById(id);
+        if (!r) return '';
+        const ups = r.ups ?? [];
+        return html`
+          <div class="pl-rival-stats">
+            <span data-ask="goal" data-tap="ask">${robotFlags(r)}</span>
+            ${view.opts.upgrades && html`<span class="pl-en big" data-ask="energy" data-tap="ask">${g('bolt')}${r.en ?? 0}</span>`}
+            ${r.rb && html`<span class="pl-rival-state" data-ask="fall" data-tap="ask">${g('reboot')}</span>`}
+            ${r.sd && html`<span class="pl-rival-state" data-ask="shutdown" data-tap="ask">${g('power')}</span>`}
+          </div>
+          ${ups.length ? upTiles(ups, 'upinfo') : view.opts.upgrades ? html`<div class="pl-uptiles none"><i class="pl-diamond"></i></div>` : ''}`;
+      },
+      row: true,
+      options: [{ label: g('left'), run: () => openDeck() }, { label: g('cross'), run: () => {} }],
+    });
+  }
+
+  /** Which robot (if any) a tap on a map canvas landed on: the nearest within about a square. */
+  function robotAt(canvas, x, y) {
+    const t = maps.get(canvas);
+    if (!t) return null;
+    const r = canvas.getBoundingClientRect();
+    const cx = (x - r.left - t.ox) / t.tile - 0.5;
+    const cy = (y - r.top - t.oy) / t.tile - 0.5;
+    let best = null;
+    for (const q of t.robots) {
+      const dist = Math.hypot(q.x - cx, q.y - cy);
+      if (dist < 0.75 && (!best || dist < best.dist)) best = { id: q.id ?? (q.me ? api.you?.id : null), dist };
+    }
+    return best?.id ?? null;
+  }
+
   // ---------- drawing ----------
 
   function render() {
@@ -467,6 +585,7 @@ export default function (root, api) {
     pl.dataset.phase = view.phase;
     pl.classList.toggle('vip', !!api.you?.isVip);
     renderTop(m);
+    renderTask(m);
     renderBody(m);
     renderSheet();
     guide.refresh();
@@ -479,9 +598,38 @@ export default function (root, api) {
       ${m && flagsHtml(m)}
       <span class="pl-spacer"></span>
       ${m && view.opts.upgrades && view.phase === 'program' && html`<span class="pl-en" data-ask="energy" data-tap="ask">${g('bolt')}${m.en}</span>`}
-      ${m && m.spam > 0 && ['upgrade', 'program'].includes(view.phase) && html`<span class="pl-spam" data-ask="spam-count" data-tap="ask"><span class="pl-stack">${card('sp', 'xs')}${card('sp', 'xs')}</span><b>${m.spam}</b></span>`}
+      ${m && view.inRace && ['upgrade', 'program', 'activate'].includes(view.phase) && html`<button class="pl-deck" data-ui="deck" data-ask="deck" aria-label="Your cards">${g('deck')}<b>${m.deck}</b>${m.spam > 0 && view.phase !== 'activate' && html`<span class="pl-spam" data-ask="spam-count"><span class="pl-stack">${card('sp', 'xs')}${card('sp', 'xs')}</span><b>${m.spam}</b></span>`}</button>`}
       ${timed && html`<span class="pl-timer timer" data-ask="timer" data-deadline="${view.deadline}"></span>`}
       <button class="pl-ask" data-guide="ask" aria-label="Help">${g('ask')}</button>`);
+  }
+
+  /** A quiet line under the top bar: what this screen wants from you, in a few words. */
+  function taskText(m) {
+    const waitOthers = 'Waiting for the others';
+    if (!view.inRace && view.phase !== 'setup') return 'Next race soon';
+    switch (view.phase) {
+      case 'setup': return api.you?.isVip ? 'Select a map' : 'The leader is choosing';
+      case 'start': return view.robots.find((r) => r.id === api.you?.id)?.pick != null ? waitOthers : 'Pick a start spot';
+      case 'brief': return 'Watch the big screen';
+      case 'upgrade': return m?.done ? waitOthers : 'Upgrades';
+      case 'program':
+        if (!m) return '';
+        if (m.mustReturn) return 'Give back cards';
+        if (m.done) return m.wantSd ? 'Shutting down' : waitOthers;
+        return programFull() ? 'Lock in' : 'Fill five slots';
+      case 'activate': return m && !m.on ? 'Back next round' : 'Watch the big screen';
+      case 'over': return view.winner === api.you?.id ? 'You win' : 'Race over';
+    }
+    return '';
+  }
+  function renderTask(m) {
+    const text = taskText(m);
+    if (task.textContent !== text) {
+      task.textContent = text;
+      task.classList.remove('in');
+      void task.offsetWidth;
+      task.classList.add('in');
+    }
   }
 
   function renderBody(m) {
@@ -509,74 +657,50 @@ export default function (root, api) {
   }
 
   // ----- setup: the first player chooses the course -----
-  let shownOpts = null;
-  let optClipTimer = null;
   function renderSetup() {
     if (!api.you?.isVip) {
       return layout('setup-wait', () => html`<div class="pl-watch"><span data-ask="watch">${g('eye')}</span></div>`);
     }
-    const fresh = layout('setup', () => html`
+    layout('setup', () => html`
       <div class="pl-setup">
         <div class="pl-course">
           <button class="pl-arrow" data-ui="course" data-arg="-1" data-ask="course" aria-label="Previous course">${g('left')}</button>
           <div class="pl-course-card" data-ask="course"></div>
           <button class="pl-arrow next" data-ui="course" data-arg="1" data-ask="course" aria-label="Next course">${g('right')}</button>
         </div>
-        <div class="pl-opts-wrap"><div class="pl-optclip" hidden></div><div class="pl-opts"></div></div>
+        <div class="pl-opts"></div>
         <button class="pl-cta" data-action="begin" data-ask="start" aria-label="Start">${g('play')}</button>
       </div>`);
     const o = view.opts;
     const sel = COURSES.find((x) => x.id === o.course) ?? COURSES[0];
     const lvl = LEVELS[sel.level] ?? 1;
+    // difficulty: the rulebook's own word, over a rising meter (not dots: dots mean other things here)
     set(body.querySelector('.pl-course-card'), html`
       <img alt="" src="${thumb(sel.id)}">
       <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
-      <span class="pl-course-meta"><span class="pl-dots">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>`);
+      <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>`);
     const ask = { upgrades: 'opt-upgrades', lessDeadly: 'opt-safe', lessSpam: 'opt-lessspam', brief: 'opt-brief' };
     const tog = (key, glyph) => html`<button class="pl-opt ${o[key] && 'on'}" data-ui="opt" data-arg="${key}=${String(!o[key])}" data-ask="${ask[key]}" aria-pressed="${String(!!o[key])}">${g(glyph)}</button>`;
+    // the stopwatch labels the minutes choice: it sits outside the control, not in it
     set(body.querySelector('.pl-opts'), html`
-      ${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}${tog('brief', 'sound')}
-      <span class="pl-seg" data-ask="opt-timer"><span class="pl-seg-ic">${g('timer')}</span>${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-ui="opt" data-arg="timer=${t}">${t ? t / 60 : g('inf')}</button>`)}</span>`);
-    // an option just changed: its clip plays above the row for a few seconds
-    if (shownOpts && !fresh) {
-      const changedKey = ['upgrades', 'lessDeadly', 'lessSpam', 'timer'].find((k) => shownOpts[k] !== o[k]);
-      if (changedKey) showOptClip(changedKey, o[changedKey]);
-    }
-    shownOpts = { ...o };
-  }
-  function showOptClip(key, value) {
-    const box = body.querySelector('.pl-optclip');
-    if (!box) return;
-    const clip = {
-      upgrades: ['upgrades', !value, null],
-      lessDeadly: [value ? 'safe-edges' : 'edge', false, null],
-      lessSpam: ['less-spam', !value, null],
-      timer: ['timeout', false, value ? String(value / 60) : '∞'],
-    }[key];
-    if (!clip) return; // (the Briefing toggle has no clip: the Briefing itself is the explanation)
-    const [k, crossed, numeral] = clip;
-    box.innerHTML = String(html`<canvas data-demo="${k}"></canvas>${crossed && html`<i class="pl-optx">${g('cross')}</i>`}${numeral && html`<b class="pl-optnum">${numeral === '∞' ? g('inf') : numeral}</b>`}`);
-    box.hidden = false;
-    box.classList.remove('out');
-    startDemos(box);
-    clearTimeout(optClipTimer);
-    optClipTimer = setTimeout(() => {
-      box.classList.add('out');
-      setTimeout(() => (box.hidden = true), 400);
-    }, 4000);
+      <div class="pl-opt-row">${tog('upgrades', 'bolt')}${tog('lessDeadly', 'wall')}${tog('lessSpam', 'sp')}${tog('brief', 'sound')}</div>
+      <div class="pl-timer-opt" data-ask="opt-timer"><span class="pl-seg-cap" aria-hidden="true">${g('timer')}</span>
+        <span class="pl-seg" role="radiogroup" aria-label="Minutes to program">${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-ui="opt" data-arg="timer=${t}" role="radio" aria-checked="${String(o.timer === t)}">${t ? t / 60 : g('inf')}</button>`)}</span></div>`);
   }
 
   const thumbs = new Map();
   function thumb(id) {
-    if (thumbs.has(id)) return thumbs.get(id);
+    const look = mapLook();
+    const tk = `${id}:${look.perimeter}:${look.inert}`;
+    if (thumbs.has(tk)) return thumbs.get(tk);
     const c = getCourse(id);
     const tile = Math.max(8, Math.floor(320 / Math.max(c.w, c.h * 1.3)));
     const cv = document.createElement('canvas');
     cv.width = c.w * tile;
     cv.height = c.h * tile;
-    drawCourse(cv.getContext('2d'), c, { tile, glow: true });
-    thumbs.set(id, cv.toDataURL());
-    return thumbs.get(id);
+    drawCourse(cv.getContext('2d'), c, { tile, glow: true, ...look });
+    thumbs.set(tk, cv.toDataURL());
+    return thumbs.get(tk);
   }
 
   // ----- start: tap a glowing pad on the dock (the whole course above, so you know where you're going) -----
@@ -601,7 +725,7 @@ export default function (root, api) {
     const ch = tile * view0.h;
     const ox = -view0.x * tile;
     const oy = -view0.y * tile;
-    const key = JSON.stringify([W, H, c.id]);
+    const key = JSON.stringify([W, H, c.id, mapLook()]);
     if (cv.dataset.key !== key) {
       cv.dataset.key = key;
       cv.style.width = `${cw}px`;
@@ -610,15 +734,15 @@ export default function (root, api) {
       cv.height = Math.round(ch * dpr);
       const ctx = cv.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawCourse(ctx, c, { tile, ox, oy, noStarts: true });
+      drawCourse(ctx, c, { tile, ox, oy, noStarts: true, ...mapLook() });
     }
     maps.set(cv, { tile, ox, oy, robots: [], ghosts: [] });
     // each start space is a button: free ones glow, taken ones show their robot
     const taken = new Map(view.robots.filter((r) => r.pick != null).map((r) => [r.pick, r]));
-    set(body.querySelector('.pl-pads'), html`${c.starts.map((st) => {
+    set(body.querySelector('.pl-pads'), html`${c.starts.map((st, idx) => {
       const r = taken.get(st.n);
       const isMe = r && r.id === api.you?.id;
-      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;${r ? `--c:${r.color}` : ''}`;
+      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;--i:${idx};${r ? `--c:${r.color}` : ''}`;
       return html`<button class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'} ${mine != null && !r && 'quiet'}" style="${style}" ${r && !isMe ? 'disabled' : ''} data-action="pick" data-ask="pad" data-payload="${JSON.stringify({ n: st.n })}" aria-label="Start ${st.n}">
         ${r ? bot(r) : html`<span>${st.n}</span>`}
       </button>`;
@@ -633,7 +757,7 @@ export default function (root, api) {
     const tile = Math.min(W / c.w, maxH / c.h);
     const w = Math.round(tile * c.w);
     const h = Math.round(tile * c.h);
-    const key = JSON.stringify([W, maxH, c.id, mine, api.you?.color]);
+    const key = JSON.stringify([W, maxH, c.id, mine, api.you?.color, mapLook()]);
     if (cv.dataset.key === key) return;
     cv.dataset.key = key;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -643,7 +767,7 @@ export default function (root, api) {
     cv.height = Math.round(h * dpr);
     const ctx = cv.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawCourse(ctx, c, { tile, glow: tile >= 8 });
+    drawCourse(ctx, c, { tile, glow: tile >= 8, ...mapLook() });
     const dock = c.boards.find((b) => b.dock);
     if (dock) {
       ctx.strokeStyle = 'rgba(244,239,228,.8)';
@@ -741,7 +865,7 @@ export default function (root, api) {
     const fresh = layout('program', () => html`
       <div class="pl-prog">
         <div class="pl-regs"></div>
-        <div class="pl-map" data-ask="map"><canvas></canvas><div class="pl-reboot" data-ask="reboot-dir"></div><button class="pl-zoom" data-ui="zoom" aria-label="Zoom">${g('zoom')}</button></div>
+        <div class="pl-map" data-ask="map"><canvas data-ui="maptap"></canvas><div class="pl-reboot" data-ask="reboot-dir"></div><button class="pl-zoom" data-ui="zoom" aria-label="Zoom">${g('zoom')}</button></div>
         <div class="pl-extra"></div>
         <div class="pl-hand"></div>
         <div class="pl-actions">
@@ -860,7 +984,7 @@ export default function (root, api) {
         <div class="pl-regs run"></div>
         <div class="pl-look-box"></div>
         <div class="pl-run-foot">
-          <div class="pl-deckstack" data-ask="spam-count" data-tap="ask"></div>
+          <div class="pl-deckstack" data-ask="spam-count" data-ui="deck"></div>
           <div class="pl-run-extra"></div>
         </div>
       </div>`);
@@ -905,7 +1029,7 @@ export default function (root, api) {
       if (m.on) lookBox.innerHTML = String(html`<div class="pl-look" data-ask="look-up">${g('eye')}</div>`);
       else {
         lookBox.innerHTML = String(html`<div class="pl-fallen" data-ask="fall" data-tap="ask"><canvas></canvas></div>`);
-        mountFallen(lookBox.querySelector('canvas'), { course: course(), at: m.rbAt ?? { x: m.x ?? 0, y: m.y ?? 0, d: m.d ?? 0 }, color: api.you?.color ?? '#fff', form: formOf(api.you) });
+        mountFallen(lookBox.querySelector('canvas'), { course: course(), at: m.rbAt ?? { x: m.x ?? 0, y: m.y ?? 0, d: m.d ?? 0 }, color: api.you?.color ?? '#fff', form: formOf(api.you), ...mapLook() });
       }
     }
     // my junk, bottom left: a SPAM card drops in when one arrives
@@ -985,11 +1109,12 @@ export default function (root, api) {
       sheet.hidden = false;
       const n = localSheet.options.length;
       set(sheet, html`
-        <div class="pl-sheet-box">
-          <div class="pl-sheet-head">${localSheet.head}</div>
+        <div class="pl-sheet-box ${localSheet.cls}">
+          <div class="pl-sheet-head">${typeof localSheet.head === 'function' ? localSheet.head() : localSheet.head}</div>
           ${localSheet.demo && demo(localSheet.demo, 'wide')}
           ${localSheet.note && html`<p class="pl-note">${localSheet.note}</p>`}
-          <div class="pl-sheet-opts ${n > 3 && 'grid'}">
+          ${localSheet.body && html`<div class="pl-sheet-body">${localSheet.body()}</div>`}
+          <div class="pl-sheet-opts ${(n > 3 || (localSheet.row && n > 1)) && 'grid'}">
             ${localSheet.options.map((o, i) => html`<button class="pl-choice ${o.primary && 'main'} ${o.hold && 'pl-hold'} ${i === n - 1 && n > 1 && 'quiet'}" data-ui="${o.hold ? 'hold' : 'sheet'}" data-arg="${i}" ${o.disabled ? 'disabled' : ''}>${o.hold && html`<span class="pl-hold-ring"></span>`}${o.label}</button>`)}
           </div>
         </div>`);
@@ -1057,6 +1182,7 @@ export default function (root, api) {
       const before = view;
       view = next;
       if (before?.phase !== next.phase) {
+        if (next.inRace && (next.phase === 'start' || next.phase === 'brief' || (next.phase === 'program' && next.round === 1))) saveOpts(next.opts);
         if (before) hello();
         localSheet = null;
         pl.classList.remove('locked');

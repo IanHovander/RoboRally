@@ -44,7 +44,8 @@ export const TOPICS = {
   clear: { sec: 'program', pic: { g: 'undo' }, clips: [['clear', 'All back']], fine: 'Empties all five slots.' },
   timer: { sec: 'program', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'At zero, empty slots get random cards from your hand. Cards you placed stay. On by default.' },
   me: { sec: 'program', pic: { me: true }, clips: [['facing', 'Your front']], fine: 'Yours has the white outline. The point is its front. The map is the big screen, seen from above.' },
-  deck: { sec: 'program', pic: { g: 'deck' }, clips: [], cap: 'Your deck', fine: 'Your 20 cards: Move 1 ×4, Move 2 ×3, Move 3, Turn Right ×4, Turn Left ×4, U-Turn, Back, Power Up, Again, plus SPAM.' },
+  deck: { sec: 'program', pic: { g: 'deck' }, clips: [], cap: 'Your deck', fine: 'Your draw pile. Tap the deck up top to see what’s in it, not the order. Empty: your discard pile is shuffled in.' },
+  discard: { sec: 'program', pic: { card: 'back' }, clips: [], cap: 'Discard pile', fine: 'Cards you’ve played or not used this round. When your draw pile runs out, these are shuffled into it.' },
   // ----- cards -----
   m1: { sec: 'cards', pic: { card: 'm1' }, clips: [['card-move', 'Forward'], ['push', 'Into a robot']], fine: MOVE_FINE(1) },
   m2: { sec: 'cards', pic: { card: 'm2' }, clips: [['card-move', 'Forward'], ['push', 'Into a robot']], fine: MOVE_FINE(2) },
@@ -53,7 +54,7 @@ export const TOPICS = {
   rr: { sec: 'cards', pic: { card: 'rr' }, clips: [['card-turn', 'Stays put'], ['turn-own-left', 'Whose left?']], fine: TURN_FINE('right') },
   rl: { sec: 'cards', pic: { card: 'rl' }, clips: [['turn-own-left', 'Whose left?'], ['card-turn', 'Stays put']], fine: TURN_FINE('left') },
   ut: { sec: 'cards', pic: { card: 'ut' }, clips: [['card-ut', 'Turn around']], fine: 'Turn around, on the spot.' },
-  pu: { sec: 'cards', pic: { card: 'pu' }, clips: [['card-pu', 'Energy']], fine: 'Gain 1 energy. You don’t move.' },
+  pu: { sec: 'cards', pic: { card: 'pu' }, clips: [['card-pu', 'Energy']], fine: 'Gain 1 energy. You don’t move. (With upgrades off it does nothing.)' },
   ag: { sec: 'cards', pic: { card: 'ag' }, clips: [['again', 'Repeat'], ['again-first', 'In slot 1']], fine: 'Repeats what your previous slot did. In slot 1 there’s nothing to repeat: it becomes a random card.' },
   // ----- order -----
   registers: { sec: 'order', pic: { strip: true }, clips: [['order-registers', 'Slot by slot']], fine: 'Every robot plays slot 1, then the board moves, then everyone plays slot 2, and so on.' },
@@ -66,7 +67,7 @@ export const TOPICS = {
   gear: { sec: 'board', pic: { cell: 'gear' }, clips: [['gear', 'Turns you']], fine: 'Green turns you right, red turns you left, after every slot you end on it.' },
   pusher: { sec: 'board', pic: { cell: 'pusher' }, clips: [['pusher', 'Lit slots only']], fine: 'Shoves you one space, but only in the slots whose dots are lit.' },
   pit: { sec: 'board', pic: { cell: 'pit' }, clips: [['reboot', 'In it goes']], fine: 'Drive or get pushed in, and you fall (see Falling).' },
-  edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless safe edges is on).' },
+  edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless Map perimeter is on).' },
   wall: { sec: 'board', pic: { g: 'wall' }, clips: [['wall', 'Stops you'], ['wall-laser', 'Stops lasers']], fine: 'Walls stop robots, pushes and lasers. Hitting one doesn’t hurt.' },
   'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in the line: 1 SPAM per beam.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
@@ -74,6 +75,7 @@ export const TOPICS = {
   pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },
   // ----- robots -----
   robot: { sec: 'robots', pic: { robot: true }, clips: [['push', 'Shove'], ['robot-laser', 'Laser']], fine: 'Other robots’ cards are secret. Robots shove and shoot each other; damage never knocks anyone out.' },
+  rival: { sec: 'robots', pic: { robot: true }, clips: [], cap: 'Look closer', fine: 'Tap a robot on your map, or in your deck’s sheet, to see its flags, energy and installed upgrades. Its cards stay secret.' },
   decide: { sec: 'robots', pic: { robot: true, dots: true }, clips: [], cap: 'Choosing', fine: 'That player’s upgrade is asking them something. The race waits up to 12 seconds.' },
   // ----- damage -----
   sp: { sec: 'damage', name: 'SPAM', pic: { card: 'sp' }, clips: [['damage-spam', 'Where from'], ['spam-play', 'Play it?']], fine: 'Junk from being hit. Played, it’s gone for good, but that slot runs a random card from your deck. Unplayed, it stays in your hand.' },
@@ -96,9 +98,9 @@ export const TOPICS = {
   // ----- options (the leader's toggles) -----
   start: { sec: 'options', pic: { g: 'play' }, clips: [], cap: 'Start', fine: 'Starts the race. Nobody can join once start pads are being picked.' },
   course: { sec: 'options', pic: { course: true }, clips: [], cap: 'Course', fine: 'Dots: difficulty. Flag number: how many flags (more is longer).' },
-  'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing. A lighter first game.' },
-  'opt-safe': { sec: 'options', pic: { g: 'wall' }, clips: [['safe-edges', 'Safe edges']], fine: 'The outer edge acts as a wall. Pits still swallow.' },
-  'opt-lessspam': { sec: 'options', pic: { card: 'sp' }, clips: [['less-spam', 'Less SPAM']], fine: 'SPAM in your hand goes to your discard pile after programming instead of clogging your hand.' },
+  'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing (the rulebook’s lighter game).' },
+  'opt-safe': { sec: 'options', name: 'Map perimeter', pic: { g: 'wall' }, clips: [['safe-edges', 'Map perimeter']], fine: 'A wall all the way round the map: nobody drives or gets pushed off the edge. Pits still swallow.' },
+  'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'SPAM in your hand goes to your discard pile after programming instead of clogging your hand.' },
   'opt-brief': { sec: 'options', pic: { g: 'sound' }, clips: [], cap: 'Briefing', fine: 'On: Floor Control explains the game on the big screen before round 1, even if everyone has raced before. Off: only when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };
@@ -147,7 +149,7 @@ export function sectionTopics(sec) {
   return Object.keys(TOPICS).filter((id) => TOPICS[id].sec === sec && !TOPICS[id].generated && !HIDDEN_IN_BOOK.has(id));
 }
 // contextual topics: they make sense only for something on your screen (they're in "Now" when they apply)
-const HIDDEN_IN_BOOK = new Set(['your-upgrades', 'deck', 'decide', 'watch', 'start', 'course', 'lock', 'kind', 'look-up']);
+const HIDDEN_IN_BOOK = new Set(['your-upgrades', 'deck', 'discard', 'decide', 'watch', 'start', 'course', 'lock', 'kind', 'look-up']);
 
 /** The Book tile's caption: the first clip's caption, or the name (upgrades, named Haywires), or its own cap. */
 export function tileCaption(id) {

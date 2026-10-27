@@ -5,11 +5,15 @@
 //     damage, the first fall... each gets one short spoken line, once per big-screen session, and the race
 //     holds for a moment so the room can take it in;
 //   - the junk-card flight: every time a robot takes damage, its junk cards fly from the robot to that
-//     player's token at the bottom (always on, for everyone).
+//     player's token at the bottom (always on, for everyone);
+//   - explanations: press and hold the mouse on anything on the board or the roster (createExplainer).
 import { readBeat } from './chaos.js';
-import { HAYWIRE } from './cards.js';
-import { cardSvgHtml } from './glyphs.js';
+import { HAYWIRE, UPGRADES } from './cards.js';
+import { cardSvgHtml, svgGlyph, robotSvg, formOf } from './glyphs.js';
 import { flyCard, hwBack } from './mimic.js';
+import { TOPICS, topicAtCell } from './topics.js';
+import { mountDemo, hasDemo, miniCourse } from './demo.js';
+import { drawCourse } from './minimap.js';
 
 const TAU = Math.PI * 2;
 export const NUMBER = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
@@ -410,4 +414,205 @@ export function rebootSpot(c, fall, robot) {
   if (board?.reboot) return { x: board.reboot.x, y: board.reboot.y };
   const pad = c.starts.find((s) => s.n === robot?.pick);
   return pad ? { x: pad.x, y: pad.y } : null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The big screen's explanations: press and hold the mouse on something (a square of the board, a robot, a
+// player's token) and a panel in the corner explains it, as the phone's Guide entry does: the picture,
+// 1-3 looping clips, one line of fine print. It reads the phone guide's catalog (topics.js) and plays its
+// clips (demo.js). Clicking anywhere else, or Esc, closes it.
+// ---------------------------------------------------------------------------------------------
+
+// a square's own picture, as the Guide draws it (a tiny course made of that one thing)
+const CELL_PICS = {
+  'belt-green': { grid: ['g>'] },
+  'belt-blue': { grid: ['b>'] },
+  gear: { grid: ['G+'] },
+  pit: { grid: ['XX'] },
+  battery: { grid: ['EE'] },
+  pusher: { size: [1, 1], pushers: [[0, 0, 'W', [1, 3, 5]]] },
+  laser: { size: [1, 1], lasers: [[0, 0, 'W', 1]] },
+  flag: { size: [1, 1], flags: [[0, 0]] },
+  reboot: { size: [1, 1], reboot: [0, 0, 'N'] },
+  dock: { grid: ['DD'] },
+  pad: { grid: ['S1'] },
+};
+const HOLD_MS = 450;
+
+/**
+ * host: the big screen's root layer. o: { getView(), course(), pick(clientX, clientY) -> arena.pick result,
+ * tokenAt(clientX, clientY) -> robot id of the roster token there, or null }. Returns { destroy() }.
+ */
+export function createExplainer(host, o) {
+  const panel = document.createElement('div');
+  panel.className = 'tc-explain';
+  panel.hidden = true;
+  host.append(panel);
+  let hold = 0;
+  let down = null;
+  let swallowClick = false;
+  let stops = [];
+
+  const view = () => o.getView();
+  function topicsAt(e) {
+    const v = view();
+    const tokenId = o.tokenAt(e.clientX, e.clientY);
+    if (tokenId) return { ids: ['robot'], robot: tokenId };
+    const hit = o.pick(e.clientX, e.clientY);
+    if (!hit) return null;
+    if (hit.robot) return { ids: ['robot'], robot: hit.robot };
+    const c = o.course();
+    if (!c) return null;
+    const robots = (v?.robots ?? []).filter((r) => r.x != null).map((r) => ({ x: r.x, y: r.y, on: r.on }));
+    const ids = topicAtCell(c, hit.x, hit.y, hit.fx, hit.fy, { robots });
+    const cell = hit.x >= 0 && hit.y >= 0 && hit.x < c.w && hit.y < c.h ? c.cells[hit.y * c.w + hit.x] : null;
+    if (cell?.k === 'start' && !ids.includes('pad')) ids.unshift('pad');
+    // a plain square of a starting board says "dock" only after what's on it
+    return ids.length ? { ids } : null;
+  }
+
+  function resolve(id, robotId) {
+    const t = TOPICS[id];
+    if (!t) return null;
+    const v = view();
+    const out = { ...t, id, clips: [...t.clips] };
+    if (id === 'robot' && robotId) {
+      const r = v?.robots?.find((q) => q.id === robotId);
+      if (r) {
+        out.name = r.name;
+        out.robot = r;
+        out.clips = [...(r.perm ?? r.ups ?? []).slice(0, 2).filter((k) => UPGRADES[k]).map((k) => [k, UPGRADES[k].name]), ...out.clips];
+      }
+    }
+    if (id === 'battery' && v?.opts && !v.opts.upgrades) out.fine = 'With upgrades off there’s no energy: batteries do nothing.';
+    if (id === 'edge' && v?.opts?.lessDeadly) out.fine = 'Map perimeter is on: a wall runs all the way round, so nobody falls off the edge.';
+    return out;
+  }
+
+  function picHtml(t) {
+    const p = t.pic ?? {};
+    if (t.robot) return robotSvg(t.robot);
+    if (p.cell && CELL_PICS[p.cell]) return `<canvas class="tc-ex-cell" data-cell="${p.cell}"></canvas>`;
+    if (p.card) return cardSvgHtml(p.card);
+    if (p.g) return svgGlyph(p.g);
+    if (p.robot) return robotSvg({ color: '#7aa8ff', avatar: 2 });
+    return '';
+  }
+
+  function show(found) {
+    close();
+    const [first, ...also] = found.ids;
+    const t = resolve(first, found.robot);
+    if (!t) return;
+    const clips = t.clips.filter(([k]) => hasDemo(k)).slice(0, 3);
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+    panel.innerHTML = `
+      <div class="tc-ex-head"><span class="tc-ex-pic">${picHtml(t)}</span>${t.name ? `<b class="tc-ex-name">${esc(t.name)}</b>` : ''}
+        ${also.length ? `<span class="tc-ex-also">${also.map((a) => `<button data-ex="${esc(a)}">${picHtml(resolve(a) ?? {})}</button>`).join('')}</span>` : ''}</div>
+      ${clips.length ? `<div class="tc-ex-clips n${clips.length}">${clips.map(([k, cap]) => `<figure><canvas data-demo="${esc(k)}"></canvas>${cap ? `<figcaption>${esc(cap)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+      ${t.fine ? `<p class="tc-ex-fine">${esc(t.fine)}</p>` : ''}`;
+    panel.hidden = false;
+    panel.classList.remove('in');
+    void panel.offsetWidth;
+    panel.classList.add('in');
+    const color = t.robot?.color ?? '#ff4d6d';
+    const safe = !!view()?.opts?.lessDeadly;
+    for (const cv of panel.querySelectorAll('canvas[data-demo]')) stops.push(mountDemo(cv, cv.dataset.demo, color, { safeEdges: safe, form: t.robot ? formOf(t.robot) : 0 }));
+    for (const cv of panel.querySelectorAll('canvas[data-cell]')) drawCell(cv);
+    for (const b of panel.querySelectorAll('[data-ex]')) {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        show({ ids: [b.dataset.ex, first, ...also.filter((a) => a !== b.dataset.ex)], robot: found.robot });
+      });
+    }
+  }
+
+  function drawCell(cv) {
+    const c = miniCourse(CELL_PICS[cv.dataset.cell]);
+    const w = cv.clientWidth || 48;
+    const h = cv.clientHeight || 48;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const T = Math.min(w / c.w, h / c.h);
+    drawCourse(g, c, { tile: T, ox: (w - T * c.w) / 2, oy: (h - T * c.h) / 2, glow: true, cpNext: 1 });
+  }
+
+  function close() {
+    for (const stop of stops) stop?.();
+    stops = [];
+    panel.hidden = true;
+    panel.innerHTML = '';
+  }
+
+  // ----- press and hold -----
+  const cancel = () => {
+    clearTimeout(hold);
+    hold = 0;
+    host.classList.remove('tc-holding');
+  };
+  const onDown = (e) => {
+    if (e.button !== 0) return;
+    if (!panel.hidden && !panel.contains(e.target)) {
+      close(); // a click anywhere else closes it (and does nothing else)
+      swallowClick = true;
+      return;
+    }
+    if (panel.contains(e.target) || e.target.closest('button, a, input, .lm-corner')) return;
+    // what's under the pointer as it goes down (the camera drifts: by the time the hold is long enough, the
+    // board may have moved a little under a still pointer)
+    const found = topicsAt(e);
+    if (!found) return;
+    down = { x: e.clientX, y: e.clientY };
+    cancel();
+    host.classList.add('tc-holding');
+    hold = setTimeout(() => {
+      host.classList.remove('tc-holding');
+      hold = 0;
+      swallowClick = true;
+      show(found);
+    }, HOLD_MS);
+  };
+  const onMove = (e) => {
+    if (hold && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) cancel();
+  };
+  const onUp = () => cancel();
+  const onClick = (e) => {
+    if (!swallowClick) return;
+    swallowClick = false;
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape' && !panel.hidden) {
+      e.stopImmediatePropagation();
+      close();
+    }
+  };
+  host.addEventListener('pointerdown', onDown);
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', onUp);
+  addEventListener('pointercancel', onUp);
+  host.addEventListener('click', onClick, true);
+  addEventListener('keydown', onKey, true);
+  host.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  return {
+    close,
+    get open() {
+      return !panel.hidden;
+    },
+    destroy() {
+      cancel();
+      close();
+      host.removeEventListener('pointerdown', onDown);
+      removeEventListener('pointermove', onMove);
+      removeEventListener('pointerup', onUp);
+      removeEventListener('pointercancel', onUp);
+      removeEventListener('keydown', onKey, true);
+      panel.remove();
+    },
+  };
 }

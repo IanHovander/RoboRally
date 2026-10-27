@@ -160,6 +160,18 @@
 .lf-dot.on:hover i, .lf-dot.on:focus-visible i { scale: 1 1.35; }
 .lf-dot:focus-visible { box-shadow: inset 0 0 0 1px var(--hair2); }
 .lf-dot:active i { scale: .9; }
+/* the lit dot is a scrub bar: with the mouse about it lengthens (finer aim); hovering it shows a hairline where
+   a click would go, and the bar thickens a little; while held it follows the pointer */
+.lf-dot.on { cursor: ew-resize; touch-action: none; }
+.pointer .lf-dot.on i, .lf-dot.on.scrub i { width: 7rem; }
+.lf-dot.on i::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--h, 0) * 100%); width: 2px; margin-left: -1px;
+  background: var(--light); opacity: 0; transition: opacity .2s;
+}
+.lf-dot.on:hover i::after { opacity: .7; }
+.lf-dot.on:hover i, .lf-dot.on:focus-visible i, .lf-dot.on.scrub i { scale: 1 1.6; box-shadow: none; background: rgba(244, 239, 228, .34); }
+.lf-dot.on.scrub i::after { opacity: 0; }
+.lf-dot.on:active i { scale: 1 1.6; }
 
 @media (prefers-reduced-motion: reduce) { .lf-finger { display: none; } }
 

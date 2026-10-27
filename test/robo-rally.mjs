@@ -409,11 +409,11 @@ function plain(v) {
   check(t.s.opts.upgrades === false, 'setting up with newcomers: upgrades start off');
   t.act(0, 'hello', { raced: true, prefs: { upgrades: true, timer: 60, lessDeadly: true, lessSpam: false } });
   t.act(1, 'hello', { raced: true, prefs: { upgrades: false, timer: 180 } });
-  check(t.s.opts.upgrades === false && t.s.opts.timer === 60 && t.s.opts.lessDeadly === true, "the leader's last settings, but one phone is still new: upgrades off");
+  check(t.s.opts.upgrades === false && t.s.opts.timer === 120 && t.s.opts.lessDeadly === false && t.s.opts.lessSpam === false, 'one phone is still new: a first game (no shop, deadly edges, SPAM stays, 2 minutes)');
   t.act(2, 'hello', { raced: true });
-  check(t.s.opts.upgrades === true, "everyone has raced: upgrades as the leader's last game had them");
+  check(t.s.opts.upgrades === true && t.s.opts.timer === 60 && t.s.opts.lessDeadly === true, "everyone has raced: the leader's last game's settings");
   t.act(2, 'hello', { raced: false });
-  check(t.s.opts.upgrades === false, 'a newcomer: upgrades off again');
+  check(t.s.opts.upgrades === false && t.s.opts.timer === 120, 'a newcomer: back to a first game');
   t.act(0, 'setOpt', { key: 'upgrades', value: true });
   check(t.s.opts.upgrades === true, 'the leader turns upgrades on by hand, newcomer or not');
   t.act(2, 'hello', { raced: true });

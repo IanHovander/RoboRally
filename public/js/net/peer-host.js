@@ -44,7 +44,7 @@ export async function hostInBrowser({ onStatus }) {
       retryDelay = 1000;
       writeSaved({ code, token });
       room.setJoin(joinInfo(code, qrcode));
-      onStatus(relay ? null : 'No relay login, so phones on mobile data may not be able to join. Set one up with the Relay button.');
+      onStatus(relay ? null : 'No relay login, so phones on mobile data may not be able to join.');
     });
     peer.on('connection', (dc) => acceptPhone(dc));
     peer.on('disconnected', () => {

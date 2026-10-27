@@ -88,6 +88,35 @@
 .tc-shopfloat .lm-g { width: 100%; height: 100%; }
 @keyframes tc-float { 0% { opacity: 0; transform: translateY(1rem) scale(.6); } 25% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.2rem); } }
 
+/* ----- the leader (can start the game from their phone): a small crown of light on their token ----- */
+.lm-leader {
+  position: absolute; top: -.7rem; right: -.85rem; z-index: 2; width: 1.35rem; height: 1.35rem; color: var(--light);
+  filter: drop-shadow(0 0 .35rem rgba(244, 239, 228, .7)); transform: rotate(12deg); pointer-events: auto;
+}
+.lm-leader svg { display: block; width: 100%; height: 100%; }
+
+/* ----- who the room is waiting on (start spaces, the shop, programming) ----- */
+/* done: a small check at the robot's foot, and it settles */
+.lm-done {
+  position: absolute; right: -.7rem; bottom: -.35rem; z-index: 2; display: grid; place-items: center;
+  width: 1.3rem; height: 1.3rem; border-radius: 50%; background: var(--c); color: #06080b;
+  box-shadow: 0 0 .6rem color-mix(in srgb, var(--c) 70%, transparent); animation: lm-pop .45s cubic-bezier(.2, 1.4, .3, 1);
+}
+.lm-done .lm-g { width: 1rem; height: 1rem; }
+/* waiting: a ring of the player's color breathes out from the robot */
+.lm-tok.wait .lm-tok-bot::before {
+  content: ""; position: absolute; inset: -.45rem; border-radius: 50%; border: 1.5px solid var(--c);
+  opacity: 0; animation: tc-wait 2.2s ease-out infinite; pointer-events: none;
+}
+@keyframes tc-wait { 0% { transform: scale(.75); opacity: .75; } 100% { transform: scale(1.45); opacity: 0; } }
+/* one or two left: they rise, full strength, pulsing faster; the ones who are done step back */
+.lm-roster.few .lm-tok.wait { transform: translateY(-.8rem) scale(1.12); }
+.lm-roster.few .lm-tok.wait .lm-tok-bot .lm-bot { opacity: 1; filter: drop-shadow(0 0 .9rem var(--c)); animation: tc-wait-bot 1.1s ease-in-out infinite; }
+.lm-roster.few .lm-tok.wait .lm-tok-bot::before { border-width: 2px; animation-duration: 1.1s; }
+.lm-roster.few .lm-tok.wait .lm-tok-name { text-shadow: 0 0 .9rem var(--c); }
+.lm-roster.few .lm-tok.done { opacity: .5; }
+@keyframes tc-wait-bot { 50% { filter: drop-shadow(0 0 1.6rem var(--c)) brightness(1.3); } }
+
 /* the phone beside the board during the Briefing sits above the roster */
 .lm-host .lf-phone { z-index: 3; }
 
@@ -96,5 +125,44 @@
   .tc-sub { top: 5.8rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tc-shopfloat, .tc-prio.pulse { animation: none; }
+  .tc-shopfloat, .tc-prio.pulse, .lm-roster.few .lm-tok.wait .lm-tok-bot .lm-bot { animation: none; }
+  .lm-tok.wait .lm-tok-bot::before { animation: none; opacity: .6; }
 }
+
+/* ----- explanations: press and hold the mouse on the board or a token; a panel in the corner ----- */
+.tc-explain {
+  position: absolute; left: 1.2rem; top: 4.6rem; z-index: 6; width: clamp(16rem, 20vw, 24rem);
+  max-height: calc(100vh - 6rem); overflow: hidden; display: grid; gap: .8rem; padding: 1.1rem 1.2rem 1.2rem;
+  border-radius: 1.1rem; border: 1px solid rgba(244, 239, 228, .18); background: rgba(10, 13, 18, .9);
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, .55); backdrop-filter: blur(10px); color: var(--light);
+  pointer-events: auto;
+}
+.tc-explain[hidden] { display: none; }
+.tc-explain.in { animation: tc-ex-in .35s cubic-bezier(.2, .8, .2, 1); }
+@keyframes tc-ex-in { from { opacity: 0; transform: translateX(-1rem); } }
+.tc-ex-head { display: flex; align-items: center; gap: .8rem; min-height: 3.2rem; }
+.tc-ex-pic { display: grid; place-items: center; width: 3.2rem; height: 3.2rem; flex: none; }
+.tc-ex-pic > svg, .tc-ex-pic .lm-bot, .tc-ex-pic .lm-g { width: 100%; height: 100%; }
+.tc-ex-pic .lm-g { color: var(--light); }
+.tc-ex-pic canvas { width: 3.2rem; height: 3.2rem; }
+.tc-ex-name { font-weight: 500; font-size: 1.2rem; letter-spacing: .14em; text-transform: uppercase; }
+.tc-ex-also { display: flex; gap: .4rem; margin-left: auto; }
+.tc-ex-also button {
+  appearance: none; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; padding: .25rem; cursor: pointer;
+  border-radius: .6rem; border: 1px solid rgba(244, 239, 228, .2); background: none; color: var(--light); opacity: .7;
+}
+.tc-ex-also button:hover { opacity: 1; border-color: rgba(244, 239, 228, .5); }
+.tc-ex-also button > *, .tc-ex-also canvas { width: 100% !important; height: 100% !important; }
+.tc-ex-clips { display: grid; gap: .6rem; }
+.tc-ex-clips.n2, .tc-ex-clips.n3 { grid-template-columns: 1fr 1fr; }
+.tc-ex-clips.n3 figure:first-child { grid-column: 1 / -1; }
+.tc-ex-clips figure { position: relative; margin: 0; }
+.tc-ex-clips canvas { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: .7rem; background: #0b0e13; border: 1px solid rgba(244, 239, 228, .12); }
+.tc-ex-clips figcaption {
+  position: absolute; left: .55rem; bottom: .45rem; font-size: .8rem; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(244, 239, 228, .75); text-shadow: 0 0 .4rem #000;
+}
+.tc-ex-fine { margin: 0; font-size: .95rem; line-height: 1.45; color: rgba(244, 239, 228, .72); }
+/* while the mouse is held down: a hint that something will open */
+.lm-host.tc-holding { cursor: progress; }
+@media (max-height: 800px) { .tc-explain { gap: .6rem; padding: .9rem 1rem 1rem; } .tc-ex-fine { font-size: .85rem; } }

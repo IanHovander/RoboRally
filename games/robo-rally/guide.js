@@ -202,8 +202,17 @@ export function mountGuide(root, o = {}) {
       out.clips = list.slice(0, 6).map((k) => [k, UPGRADES[k].name]);
       out.fine = list.length === 1 ? UPGRADES[list[0]].text : '';
     } else if (id === 'course') out.name = COURSE_TITLES[v?.opts?.course] ?? '';
-    else if (id === 'deck' && m) out.counts = { deck: m.deck, discard: m.discard };
+    else if ((id === 'deck' || id === 'discard') && m) out.counts = { deck: m.deck, discard: m.discard };
+    else if (id === 'robot' && arg) {
+      // a robot on the map: its name, and its installed upgrades (face up for everyone, as in the board game)
+      const r = v?.robots?.find((q) => q.id === arg);
+      if (r) {
+        out.name = r.name;
+        out.clips = [...(r.ups ?? []).slice(0, 6).map((k) => [k, UPGRADES[k].name]), ...out.clips];
+      }
+    }
     else if (id === 'flag' && arg) out.fine = t.fine;
+    else if (id === 'battery' && v?.opts && !v.opts.upgrades) out.fine = 'With upgrades off there’s no energy: batteries do nothing.';
     return out;
   }
 
@@ -407,7 +416,7 @@ export function mountGuide(root, o = {}) {
     layer.append(el);
     sheet = { el, kind: 'replay', from, reg };
     const ghosts = plannedFor(story?.round, reg);
-    mountReplay(el.querySelector('canvas'), { course: getCourse(v.opts.course), steps, planned: ghosts, color: color(), form: formOf(you() ?? {}), robots });
+    mountReplay(el.querySelector('canvas'), { course: getCourse(v.opts.course), steps, planned: ghosts, color: color(), form: formOf(you() ?? {}), robots, perimeter: !!v.opts.lessDeadly, inert: !v.opts.upgrades });
     setDemoFocus(el);
     swipeToClose(el.querySelector('.gd-sheet-box'));
     if (!replacing) pushLayer('sheet');
@@ -504,7 +513,7 @@ export function mountGuide(root, o = {}) {
       const robots = v.robots.map((r) => ({ ...r, form: formOf(r) }));
       for (const cv of el.querySelectorAll('canvas[data-replay]')) {
         const i = Number(cv.dataset.replay);
-        mountReplay(cv, { course: getCourse(v.opts.course), steps: story.regs?.[i] ?? [], planned: plannedFor(story.round, i), color: color(), form: formOf(you() ?? {}), robots, lazy: true, root: body });
+        mountReplay(cv, { course: getCourse(v.opts.course), steps: story.regs?.[i] ?? [], planned: plannedFor(story.round, i), color: color(), form: formOf(you() ?? {}), robots, lazy: true, root: body, perimeter: !!v.opts.lessDeadly, inert: !v.opts.upgrades });
       }
     }
     drawCellPics(el);
@@ -546,6 +555,11 @@ export function mountGuide(root, o = {}) {
 
   // ----- clicks inside the guide's own layers -----
   layer.addEventListener('click', (e) => {
+    // a tap anywhere outside the sheet (on the dimmed backdrop) closes it
+    if (sheet && e.target === sheet.el) {
+      e.stopPropagation();
+      return closeSheet();
+    }
     const b = e.target.closest('[data-gd]');
     if (!b) return;
     e.stopPropagation();

@@ -221,7 +221,7 @@ function burstTexture() {
 // ---------- the board's textures ----------
 
 /** The light drawn into the glass: seams, start pads, checkpoints, the reboot mark, laser paths. */
-function paintLight(course, S) {
+function paintLight(course, S, { inert = false } = {}) {
   const c = canvas(course.w * S, course.h * S);
   const g = c.getContext('2d');
   g.fillStyle = '#000';
@@ -292,17 +292,19 @@ function paintLight(course, S) {
         g.textBaseline = 'middle';
         g.fillText(String(cell.n), cx, cy + S * 0.03);
       } else if (cell.k === 'battery') {
+        // no upgrades, no energy (the rulebook's lighter game): the battery is drawn faint and neutral, inert
+        const ink = inert ? 'rgba(244,239,228,.16)' : PALETTE.energy;
         g.save();
-        g.shadowColor = PALETTE.energy;
-        g.shadowBlur = S * 0.12;
-        g.strokeStyle = PALETTE.energy;
+        g.shadowColor = inert ? 'transparent' : PALETTE.energy;
+        g.shadowBlur = inert ? 0 : S * 0.12;
+        g.strokeStyle = ink;
         g.lineWidth = S * 0.028;
         for (let i = 0; i < 3; i++) {
           g.beginPath();
           g.arc(cx, cy, S * 0.3, (i / 3) * TAU + 0.25, ((i + 1) / 3) * TAU - 0.25);
           g.stroke();
         }
-        drawGlyph(g, 'bolt', cx, cy, S * 0.34, PALETTE.energy);
+        drawGlyph(g, 'bolt', cx, cy, S * 0.34, ink);
         g.restore();
       } else if (cell.k === 'gear') {
         g.fillStyle = 'rgba(0,0,0,.35)';
@@ -564,7 +566,24 @@ function columnTexture() {
   return columnTex;
 }
 
-/** A checkpoint's column of light: dark at the foot, brightest a little way up, fading towards the top. */
+/** A start space's border, as paintLight draws it (a rounded square), but bolder: lit over it in the start phase. */
+let padTex = null;
+function padBorderTexture() {
+  if (padTex) return padTex;
+  const S = 256;
+  const c = canvas(S, S);
+  const g = c.getContext('2d');
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = S * 0.04;
+  g.beginPath();
+  g.roundRect(S * 0.16, S * 0.16, S * 0.68, S * 0.68, S * 0.1);
+  g.stroke();
+  padTex = tex(c);
+  padTex.userData.shared = true;
+  return padTex;
+}
+
+/** A checkpoint's column of light: lit from its foot (a short soft start), fading towards the top. */
 let liftedTex = null;
 function liftedTexture() {
   if (liftedTex) return liftedTex;
@@ -575,7 +594,7 @@ function liftedTexture() {
   const img = g.createImageData(W, H);
   for (let y = 0; y < H; y++) {
     const up = 1 - y / H; // 0 at the foot
-    const v = Math.min(1, up / 0.3) ** 2 * Math.pow(1 - up, 1.4); // fades in over the bottom, out towards the top
+    const v = Math.min(1, 0.55 + up / 0.12) * Math.pow(1 - up, 1.4); // lit right from the foot, fading out towards the top
     for (let x = 0; x < W; x++) {
       const dx = (x - W / 2) / (W / 2);
       const k = Math.min(1, (Math.exp(-dx * dx * 60) + Math.exp(-dx * dx * 5) * 0.35) * v * 1.6);
@@ -878,7 +897,7 @@ export class Arena {
 
     // the glass top: smoky color, light drawn into it, holes for the pits
     const glass = tex(paintGlass(c, S));
-    const light = tex(paintLight(c, S));
+    const light = tex(paintLight(c, S, { inert: !!this.inertBatteries }));
     this.topMat = new THREE.MeshStandardMaterial({
       map: glass, alphaTest: 0.5, transparent: false, roughness: 0.2, metalness: 0.0,
       emissive: 0xffffff, emissiveMap: light, emissiveIntensity: 1.0, envMapIntensity: 0.9,
@@ -982,7 +1001,7 @@ export class Arena {
           if (cell.spin < 0) m.scale.x = -1;
           this.board.add(m);
           this.gears.set(`${x},${y}`, { mesh: m, spin: cell.spin, extra: 0, pulse: 0 });
-        } else if (cell.k === 'battery') {
+        } else if (cell.k === 'battery' && !this.inertBatteries) {
           const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), batteryGlow);
           glow.rotation.x = -Math.PI / 2;
           glow.position.set(p.x, 0.006, p.z);
@@ -996,21 +1015,11 @@ export class Arena {
     // walls: fins of frosted glass with a bright top edge
     const finMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 0.2, metalness: 0, emissive: 0xdfe6f0, emissiveIntensity: 0.12, transparent: true, opacity: 0.8 });
     const capMat = new THREE.MeshBasicMaterial({ color: hdr(PALETTE.light, 1.25) });
-    for (const w of wallEdges(c)) {
-      const g = new THREE.Group();
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.26, 0.035), finMat);
-      fin.position.y = 0.13;
-      fin.castShadow = true;
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.012, 0.038), capMat);
-      cap.position.y = 0.262;
-      g.add(fin, cap);
-      if (w.side === 0) g.position.set(w.x + 0.5 - c.w / 2, 0, w.y - c.h / 2);
-      else {
-        g.position.set(w.x - c.w / 2, 0, w.y + 0.5 - c.h / 2);
-        g.rotation.y = Math.PI / 2;
-      }
-      this.board.add(g);
-    }
+    this.wallMats = { finMat, capMat };
+    for (const w of wallEdges(c)) this.board.add(this.wallFin(w));
+    this.perimeterGroup = null;
+    this.perimeterShown = null;
+    this.buildPerimeter();
 
     // wall lasers: a small dark housing with a red eye
     const housingMat = new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: 0.3, metalness: 0.3 });
@@ -1069,14 +1078,15 @@ export class Arena {
       this.pushers.set(`${q.x},${q.y}`, { plate, kick: null });
     }
 
-    // checkpoints: a slender column of light, rising from just above the number (which stays clear) and
-    // fading in, so it never meets the glass
-    const colGeo = new THREE.PlaneGeometry(1.1, 3.8).translate(0, 0.75 + 1.9, 0);
+    // checkpoints: a slender column of light standing on the far edge of the flag's ring, so from the camera
+    // its foot just touches the top of the circle (the number below stays clear). frameLoop keeps it there.
+    const colGeo = new THREE.PlaneGeometry(1.1, 3.8).translate(0, 1.9, 0);
     for (const cp of c.checkpoints) {
       const p = this.pos(cp.x, cp.y);
       const mat = new THREE.MeshBasicMaterial({ map: liftedTexture(), color: hdr(PALETTE.light, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
       const col = new THREE.Mesh(colGeo, mat);
       col.position.set(p.x, 0, p.z);
+      col.userData.center = p.clone();
       col.renderOrder = 5;
       this.board.add(col);
       const inner = null;
@@ -1464,6 +1474,71 @@ export class Arena {
     for (const b of this.bots.values()) b.deciding = b.id === id;
   }
 
+  /** Upgrades off: batteries do nothing, so they're drawn inert (faint, no glow). Rebuilds the board if it changes. */
+  setBatteriesInert(on) {
+    if (!!this.inertBatteries === !!on) return;
+    this.inertBatteries = !!on;
+    if (this.course?.cells.some((cell) => cell?.k === 'battery')) this.setCourse(this.course, { fresh: true });
+  }
+
+  /** One wall: a fin of frosted glass with a bright top edge, on edge {x, y, side} (side 0: north, 3: west of x,y). */
+  wallFin(w) {
+    const c = this.course;
+    const { finMat, capMat } = this.wallMats;
+    const g = new THREE.Group();
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.26, 0.035), finMat);
+    fin.position.y = 0.13;
+    fin.castShadow = true;
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.012, 0.038), capMat);
+    cap.position.y = 0.262;
+    g.add(fin, cap);
+    if (w.side === 0) g.position.set(w.x + 0.5 - c.w / 2, 0, w.y - c.h / 2);
+    else {
+      g.position.set(w.x - c.w / 2, 0, w.y + 0.5 - c.h / 2);
+      g.rotation.y = Math.PI / 2;
+    }
+    return g;
+  }
+
+  /**
+   * "Map perimeter" (the lessDeadly option): a wall all the way round the course's outer edge, like any other
+   * wall. course: the course it's on for (only that course gets it, not a lesson board borrowing the arena), or null.
+   */
+  setPerimeter(course) {
+    this.perimeterFor = course ?? null;
+    this.buildPerimeter();
+  }
+
+  buildPerimeter() {
+    const c = this.course;
+    const want = !!c && !!this.wallMats && this.perimeterFor === c;
+    if (this.perimeterShown === want && (!want || this.perimeterGroup)) return;
+    if (this.perimeterGroup) {
+      this.board.remove(this.perimeterGroup);
+      this.perimeterGroup.traverse((o) => o.geometry?.dispose());
+      this.perimeterGroup = null;
+    }
+    this.perimeterShown = want;
+    if (!want) return;
+    const g = new THREE.Group();
+    const has = (x, y) => x >= 0 && y >= 0 && x < c.w && y < c.h && !!c.cells[y * c.w + x];
+    for (let y = 0; y < c.h; y++) {
+      for (let x = 0; x < c.w; x++) {
+        const cell = c.cells[y * c.w + x];
+        if (!cell) continue;
+        for (let d = 0; d < 4; d++) {
+          if (has(x + DX[d], y + DY[d]) || cell.walls & (1 << d)) continue; // inside, or a wall there already
+          if (d === 0) g.add(this.wallFin({ x, y, side: 0 }));
+          else if (d === 3) g.add(this.wallFin({ x, y, side: 3 }));
+          else if (d === 1) g.add(this.wallFin({ x: x + 1, y, side: 3 }));
+          else g.add(this.wallFin({ x, y: y + 1, side: 0 }));
+        }
+      }
+    }
+    this.perimeterGroup = g;
+    this.board.add(g);
+  }
+
   /** Which checkpoints each robot has (colored rings at the foot of each column). */
   setTaken(robots) {
     for (const col of this.columns) {
@@ -1506,6 +1581,44 @@ export class Arena {
     return { x: ((p.x + 1) / 2) * this.size.w, y: ((1 - p.y) / 2) * this.size.h };
   }
 
+  /**
+   * What's under a point on the screen (client px): { robot: id } for a robot's body, otherwise the square
+   * { x, y, fx, fy } (fx, fy: where in the square, 0..1; x, y may be off the course), or null off the glass.
+   */
+  pick(clientX, clientY) {
+    if (!this.course || !this.size) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    // a robot first: the nearest body within about half a space of the point
+    let best = null;
+    for (const [id, b] of this.bots) {
+      if (!b.group.visible) continue;
+      const c = b.group.position.clone();
+      c.y += 0.3;
+      const p = this.project(c);
+      const edge = this.project(c.clone().add(new THREE.Vector3(0.42, 0, 0)));
+      const r = Math.max(14, Math.hypot(edge.x - p.x, edge.y - p.y));
+      const d = Math.hypot(p.x - sx, p.y - sy);
+      if (d < r && (!best || d < best.d)) best = { id, d };
+    }
+    if (best) return { robot: best.id };
+    const ndc = new THREE.Vector2((sx / rect.width) * 2 - 1, -(sy / rect.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    this.camera.updateMatrixWorld();
+    ray.setFromCamera(ndc, this.camera);
+    const hit = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return null;
+    this.board.updateMatrixWorld();
+    const local = this.board.worldToLocal(hit);
+    const gx = local.x + this.course.w / 2;
+    const gy = local.z + this.course.h / 2;
+    const x = Math.floor(gx);
+    const y = Math.floor(gy);
+    if (x < -1 || y < -1 || x > this.course.w || y > this.course.h) return null;
+    return { x, y, fx: gx - x, fy: gy - y };
+  }
+
   /** Where a robot is on screen (its body), or null. */
   screenPos(id) {
     const b = this.bots.get(id);
@@ -1542,15 +1655,25 @@ export class Arena {
       this.lightLine = { m, cv, t, S, mat, pts: [], cum: [0], marks: [], shown: 0, drawn: -1, fadeT: null };
     }
     const G = this.lightLine;
+    // as the phones draw it (minimap.drawGhostLine): only the slots filled in a row from slot 1, up to the first
+    // empty one (numbered ghosts; plain dots, n null, are all kept)
+    const run = [];
+    for (const gh of ghosts) {
+      if (gh.n != null && gh.n !== run.length + 1) break;
+      run.push(gh);
+    }
     const pts = [];
     const marks = [];
-    for (const gh of ghosts) {
+    run.forEach((gh, i) => {
       for (const [x, y] of gh.path?.length ? gh.path : [[gh.x, gh.y]]) {
         const last = pts.at(-1);
         if (!last || last[0] !== x || last[1] !== y) pts.push([x, y]);
       }
-      marks.push({ x: gh.x, y: gh.y, n: gh.n ?? null, at: pts.length - 1 });
-    }
+      // where it turned: given (previewProgram), or worked out (a new facing; the first slot: it didn't move)
+      const prev = run[i - 1];
+      const turned = gh.d == null ? false : gh.turned ?? (prev ? prev.d !== gh.d : (gh.path?.length ?? 1) <= 1);
+      marks.push({ x: gh.x, y: gh.y, n: gh.n ?? null, d: gh.d ?? null, turned, at: pts.length - 1 });
+    });
     const cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
     Object.assign(G, { pts, cum, marks, color, fadeT: null, drawn: -1 });
@@ -1608,31 +1731,102 @@ export class Arena {
     }
     g.stroke();
     g.setLineDash([]);
+    // one mark per square. A slot that only moved there: its number inside the dot. Where the robot turned (or
+    // the line ends): an arrow out of the dot for each way it faced there, its slot numbers beside the arrow
+    // ("1,3"); the last dot is filled, with a chevron inside for the final facing.
     const seen = new Map();
     for (const mk of G.marks) {
       if (G.cum[mk.at] > G.shown + 1e-6) continue;
       const key = `${mk.x},${mk.y}`;
-      seen.set(key, { ...mk, ns: [...(seen.get(key)?.ns ?? []), mk.n].filter((n) => n != null) });
+      const m = seen.get(key) ?? { x: mk.x, y: mk.y, all: [], turn: false };
+      m.all.push(mk);
+      if (mk.turned) m.turn = true;
+      seen.set(key, m);
     }
-    const lastKey = G.marks.length ? `${G.marks.at(-1).x},${G.marks.at(-1).y}` : '';
+    const lastMk = G.marks.at(-1);
+    const lastKey = lastMk ? `${lastMk.x},${lastMk.y}` : '';
+    const ANG = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+    const ink = '#06080b';
+    const text = (label, x, y, size, halo) => {
+      g.font = `600 ${Math.round(size * (label.length > 2 ? 0.75 : 1))}px ${FONT}, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.shadowBlur = 0;
+      if (halo) {
+        g.strokeStyle = ink;
+        g.lineWidth = Math.max(2.5, size * 0.3);
+        g.strokeText(label, x, y);
+      }
+      g.fillStyle = G.color;
+      g.fillText(label, x, y);
+    };
     for (const [key, mk] of seen) {
       const end = key === lastKey && G.shown >= (G.cum.at(-1) ?? 0) - 1e-6;
+      const cx = X(mk.x);
+      const cy = Y(mk.y);
       const r = S * (end ? 0.2 : 0.17);
       g.shadowBlur = S * 0.12;
       g.fillStyle = end ? G.color : 'rgba(6,8,11,.9)';
+      g.strokeStyle = G.color;
       g.lineWidth = S * 0.04;
       g.beginPath();
-      g.arc(X(mk.x), Y(mk.y), r, 0, TAU);
+      g.arc(cx, cy, r, 0, TAU);
       g.fill();
       g.stroke();
-      const label = mk.ns.join('');
-      if (label && !end) {
-        g.shadowBlur = 0;
-        g.fillStyle = G.color;
-        g.font = `500 ${Math.round(S * (label.length > 1 ? 0.16 : 0.22))}px ${FONT}, sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(label, X(mk.x), Y(mk.y) + S * 0.01);
+      const facing = mk.all.filter((x) => x.d != null && x.n != null);
+      const endD = end ? lastMk.d : null;
+      if ((mk.turn || end) && facing.length) {
+        const byD = new Map();
+        for (const x of facing) byD.set(x.d, [...(byD.get(x.d) ?? []), x.n]);
+        for (const [d, ns] of byD) {
+          const a = ANG[d];
+          const sz = S * (end && d === endD ? 0.1 : 0.08);
+          const dist = r + sz * 1.05;
+          const px = cx + Math.cos(a) * dist;
+          const py = cy + Math.sin(a) * dist;
+          // the arrow, outlined in dark so it reads on top of the line
+          g.shadowBlur = 0;
+          g.beginPath();
+          g.moveTo(px + Math.cos(a) * sz, py + Math.sin(a) * sz);
+          g.lineTo(px + Math.cos(a + 2.3) * sz, py + Math.sin(a + 2.3) * sz);
+          g.lineTo(px + Math.cos(a - 2.3) * sz, py + Math.sin(a - 2.3) * sz);
+          g.closePath();
+          g.strokeStyle = ink;
+          g.lineWidth = Math.max(1.5, sz * 0.35);
+          g.stroke();
+          g.fillStyle = G.color;
+          g.fill();
+          // the slot numbers just beside it
+          const size = S * 0.2;
+          const k = dist + sz * 0.1;
+          const side = sz + size * 0.55;
+          text(ns.join(','), cx + Math.cos(a) * k + Math.cos(a + Math.PI / 2) * side, cy + Math.sin(a) * k + Math.sin(a + Math.PI / 2) * side + size * 0.04, size, true);
+        }
+        if (end && endD != null) {
+          // the final facing, a bold chevron inside the filled dot
+          const a = ANG[endD];
+          const c = r * 0.62;
+          g.shadowBlur = 0;
+          g.strokeStyle = ink;
+          g.lineWidth = Math.max(1.5, c * 0.34);
+          g.lineCap = 'round';
+          g.lineJoin = 'round';
+          g.beginPath();
+          g.moveTo(cx + Math.cos(a + 2.4) * c, cy + Math.sin(a + 2.4) * c);
+          g.lineTo(cx + Math.cos(a) * c * 0.75, cy + Math.sin(a) * c * 0.75);
+          g.lineTo(cx + Math.cos(a - 2.4) * c, cy + Math.sin(a - 2.4) * c);
+          g.stroke();
+        }
+      } else if (!end) {
+        const label = mk.all.map((x) => x.n).filter((n) => n != null).join('');
+        if (label) {
+          g.shadowBlur = 0;
+          g.fillStyle = G.color;
+          g.font = `500 ${Math.round(S * (label.length > 1 ? 0.16 : 0.22))}px ${FONT}, sans-serif`;
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText(label, cx, cy + S * 0.01);
+        }
       }
     }
     g.restore();
@@ -2601,7 +2795,11 @@ export class Arena {
     this.particles(p, [color, '#ffffff'], n, { speed: 0.7, up: 1.6, gravity: -0.3, size: 0.05, dur });
   }
 
-  /** The start phase: which start spaces are taken (picks: { n: color }), or null to hide. */
+  /**
+   * The start phase: which start spaces are taken (picks: { n: color }), or null to hide. A free space's border
+   * flashes fast (its number stays crisp: it's the glass's own drawing); a taken one's border is steady, in
+   * its robot's color.
+   */
   showStarts(picks) {
     if (!this.course) return;
     const key = JSON.stringify(picks);
@@ -2610,18 +2808,20 @@ export class Arena {
     for (const s of this.startTags ?? []) {
       this.board.remove(s);
       s.geometry?.dispose();
-      s.material.map?.dispose();
       s.material.dispose();
     }
     this.startTags = [];
     if (!picks) return;
     for (const st of this.course.starts) {
-      if (picks[st.n]) continue;
-      // free start spaces glow, inviting a pick
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(PALETTE.light, 0.55), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const taken = picks[st.n];
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+        map: padBorderTexture(), color: taken ? hdr(taken, 1.7) : hdr(PALETTE.light, 1.5), transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
       m.rotation.x = -Math.PI / 2;
-      m.position.copy(this.pos(st.x, st.y)).setY(0.01);
-      m.userData.pulse = st.n;
+      m.position.copy(this.pos(st.x, st.y)).setY(0.012);
+      m.renderOrder = 2;
+      if (!taken) m.userData.flash = st.n;
       this.board.add(m);
       this.startTags.push(m);
     }
@@ -2670,10 +2870,21 @@ export class Arena {
       const stutter = col.flicker != null && t - col.flicker < 1 ? (Math.sin((t - col.flicker) * 38) > 0 ? 1.3 : 0.15) : 1;
       col.mat.color.copy(base).multiplyScalar((breathe + flash * 2.2 * (col.flashK ?? 1)) * (0.45 + 0.55 * lit) * stutter * traced);
       col.col.scale.set(1 + flash * 0.8, 1 + flash * 0.15, 1);
-      col.col.rotation.y = Math.atan2(this.camera.position.x - col.col.position.x, this.camera.position.z - col.col.position.z);
+      // stand on the ring's far edge (radius .4 of a space, as paintLight draws it), facing the camera
+      const ctr = col.col.userData.center;
+      if (ctr) {
+        const eye = this.board.worldToLocal(this.camera.position.clone());
+        const ax = ctr.x - eye.x;
+        const az = ctr.z - eye.z;
+        const len = Math.hypot(ax, az) || 1;
+        col.col.position.set(ctr.x + (ax / len) * 0.4, 0, ctr.z + (az / len) * 0.4);
+        col.col.rotation.y = Math.atan2(-ax, -az);
+      } else col.col.rotation.y = Math.atan2(this.camera.position.x - col.col.position.x, this.camera.position.z - col.col.position.z);
     }
     if (this.batteryMat) this.batteryMat.color.set(PALETTE.energy).multiplyScalar((0.22 + Math.sin(t * 2.2) * 0.1) * lit);
-    for (const s of this.startTags ?? []) s.material.color.set(PALETTE.light).multiplyScalar(0.35 + 0.3 * Math.sin(t * 3 + s.userData.pulse));
+    // free start spaces: their borders flash fast, all together (on, off, on...)
+    const blink = (this.realTime * 2.4) % 1 < 0.55 ? 1 : 0.08;
+    for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
     this.motes.rotation.y = t * 0.006;
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
 

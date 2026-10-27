@@ -33,7 +33,6 @@
     </aside>
     <div class="lobby-corner">
       <button id="sound-btn" class="corner-btn" title="Sound"></button>
-      <button id="relay-btn" class="corner-btn" title="Connection" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 27 a8 8 0 0 1 0 -14 M27 13 a8 8 0 0 1 0 14 M17 20 H23" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
     </div>
   </section>
 
@@ -45,24 +44,6 @@
       <button class="menu-btn" data-lobby="end" title="Back to the lobby"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 20 L20 11 L30 20 M14 18 V30 H26 V18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </section>
-
-  <dialog id="relay-dialog" class="relay-dialog">
-    <form method="dialog" class="stack">
-      <h2>Relay login</h2>
-      <p class="muted small">
-        Phones on mobile data usually reach this big screen through a relay server (Metered). A login is built in.
-        To use a different one on this computer, enter it here (kept in this browser only). "Forget it" goes back
-        to the built-in login.
-      </p>
-      <label>Username <input id="relay-user" autocomplete="off" spellcheck="false"></label>
-      <label>Password <input id="relay-pass" type="password" autocomplete="off"></label>
-      <div class="row">
-        <button class="btn primary" value="save">Save</button>
-        <button class="btn" value="forget">Forget it</button>
-        <button class="btn ghost" value="cancel">Cancel</button>
-      </div>
-    </form>
-  </dialog>
 
   <div id="error" class="error-toast" hidden>
     <span id="error-text"></span>

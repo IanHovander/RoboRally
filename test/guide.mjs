@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { TOPICS, SECTIONS, sectionTopics, tileCaption, topicAtCell, cardTopic, words, UPGRADE_ORDER, bookTiles } from '../games/robo-rally/topics.js';
 import { hasDemo, demoKeys, compileDemo, lessonFrames } from '../games/robo-rally/demo.js';
-import { previewProgram } from '../games/robo-rally/minimap.js';
+import { previewProgram, filledRun } from '../games/robo-rally/minimap.js';
 import { haywireParts } from '../games/robo-rally/glyphs.js';
 import { marksFor, causesFor, replayPlan, ranCards, cropFor } from '../games/robo-rally/replay.js';
 import { COURSES, getCourse } from '../games/robo-rally/board.js';
@@ -18,6 +18,8 @@ const check = (cond, msg) => {
 };
 
 // ----- every topic: its clips exist, its words stay few -----
+// settings the owner named themselves (their names are the captions, even at 4 words)
+const OWNER_NAMED = new Set(['opt-lessspam']);
 for (const [id, t] of Object.entries(TOPICS)) {
   for (const [key, cap] of t.clips) {
     check(hasDemo(key), `${id}: clip ${key} exists`);
@@ -25,7 +27,7 @@ for (const [id, t] of Object.entries(TOPICS)) {
   }
   check(words(t.fine ?? '') <= 25, `${id}: fine print is at most 25 words (${words(t.fine)})`);
   check(SECTIONS.some((s) => s.id === t.sec), `${id}: section ${t.sec} exists`);
-  check(words(tileCaption(id)) <= 3 || (t.sec === 'haywire' && !t.name), `${id}: tile caption "${tileCaption(id)}" is at most 3 words`);
+  check(words(tileCaption(id)) <= (OWNER_NAMED.has(id) ? 4 : 3) || (t.sec === 'haywire' && !t.name), `${id}: tile caption "${tileCaption(id)}" is at most 3 words`);
 }
 check(SECTIONS.length === 13, '13 mechanics sections');
 check(sectionTopics('upgrades').length === 40 && sectionTopics('haywire').length === 17, '57 generated tiles (40 upgrades, 17 Haywires)');
@@ -39,7 +41,7 @@ for (const s of SECTIONS) check(sectionTopics(s.id).length > 0, `section ${s.id}
     const tiles = bookTiles(sectionTopics(s.id));
     check(noRepeats(tiles), `the Book's ${s.id} section shows each clip once`);
     check(tiles.length > 0, `the Book's ${s.id} section isn't empty after that`);
-    for (const x of tiles) check((x.cap && words(x.cap) <= 3) || (s.id === 'haywire' && !TOPICS[x.id].name), `${s.id}: tile ${x.id} has a caption of 1-3 words ("${x.cap}")`);
+    for (const x of tiles) check((x.cap && words(x.cap) <= (OWNER_NAMED.has(x.id) ? 4 : 3)) || (s.id === 'haywire' && !TOPICS[x.id].name), `${s.id}: tile ${x.id} has a caption of 1-3 words ("${x.cap}")`);
   }
   // "Now" while programming with a hand where several cards share a clip
   const now = bookTiles(['slots', 'line', 'lock', 'timer', 'm1', 'm2', 'm3', 'rr', 'rl', 'ut', 'ag', 'sp', 'h01', 'haywire-slot:h01', 'deck']);
@@ -109,6 +111,31 @@ check(haywireParts('h13').join(' ') === 'pu +3 dmg', `Power Surge's face is bolt
   const ghosts = previewProgram(c, st, [['m1'], ['?'], ['m1']]);
   check(ghosts.length === 2 && ghosts[1].unknown, 'the line stops at "?"');
 }
+// the light line goes only as far as the slots filled from slot 1 without a gap; turns are marked
+{
+  check(filledRun([true, true, false, true, true]) === 2, 'a gap in slot 3: the line stops after slot 2');
+  check(filledRun([false, true, true, true, true]) === 0, 'slot 1 empty: no line');
+  check(filledRun([true, true, true, true, true]) === 5, 'all five: the whole line');
+  const c = getCourse('closing-time');
+  const st = c.starts[0];
+  const two = previewProgram(c, st, [['rr'], ['m1']]);
+  check(two.length === 2, `two slots given: two marks (${two.length})`);
+  check(two[0].turned && !two[1].turned, 'a turn card is marked as a turn; a move is not');
+  check(previewProgram(c, st, []).length === 0, 'no slots: no line');
+}
+// the settings' names, as the owner wants them
+check(TOPICS['opt-safe'].name === 'Map perimeter' && TOPICS['opt-safe'].clips[0][1] === 'Map perimeter', 'lessDeadly is called "Map perimeter"');
+check(TOPICS['opt-lessspam'].name === 'Spam in hand discards' && TOPICS['opt-lessspam'].clips[0][1] === 'Spam in hand discards', 'lessSpam is called "Spam in hand discards"');
+check(/does nothing/.test(TOPICS.pu.fine), 'Power Up says it does nothing without upgrades');
+{
+  const src2 = fs.readFileSync(new URL('../games/robo-rally/player.js', import.meta.url), 'utf8');
+  check(!/showOptClip|pl-optclip/.test(src2), 'no clip pops up when a setting changes');
+  check(!/pl-dots/.test(src2), 'difficulty is not drawn as dots');
+}
+// the deck sheet and the other robots have Guide entries
+for (const id of ['deck', 'discard', 'rival']) check(TOPICS[id] && TOPICS[id].fine && words(TOPICS[id].fine) <= 25, `topic ${id} exists and is short`);
+check(sectionTopics('robots').includes('rival'), 'the Book lists "Look closer" under Robots');
+check(/data-ui="deck"/.test(fs.readFileSync(new URL('../games/robo-rally/player.js', import.meta.url), 'utf8')), 'the phone has a way into its deck');
 // E4: Hover Unit crosses pits on its own moves, but not when it stops on one, nor on belts or pushes
 {
   const def = { w: 5, h: 1, cells: ['floor', 'pit', 'floor', 'pit', 'floor'].map((k) => ({ k, walls: 0, b: 0 })), lasers: [], pushers: [], checkpoints: [], boards: [{}], tokens: new Map() };

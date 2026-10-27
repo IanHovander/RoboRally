@@ -1,6 +1,6 @@
 // The big screen (laptop / TV): the lobby (the rule film, the QR code, who's here), then the game.
 import { html, raw } from './ui.js';
-import { mountLumenLobby } from '../games/robo-rally/lobby.js';
+import { mountLumenLobby, LEADER } from '../games/robo-rally/lobby.js';
 import { robotSvg, svgGlyph } from '../games/robo-rally/glyphs.js';
 import { sfx, unlock, onState as onSound, setMuted, state as soundState } from '../games/robo-rally/sound.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 let state = null;
 let dismissedError = null;
 const seenPlayers = new Set();
-// the relay button's picture, also beside each player whose phone comes through the relay
+// shown beside each player whose phone comes through the relay server (information, not a control)
 const RELAY_ICON = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 27 a8 8 0 0 1 0 -14 M27 13 a8 8 0 0 1 0 14 M17 20 H23" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 const film = mountLumenLobby($('lesson-stage'), $('lesson-ui'));
 
@@ -54,32 +54,6 @@ const lobby = (cmd, extra) => socket.emit('lobby', { cmd, ...extra });
 if (mode === 'server') {
   socket.on('connect', () => banner(null));
   socket.on('disconnect', () => banner('Lost connection to the game server. Reconnecting…'));
-} else {
-  setUpRelayButton();
-}
-
-/** Website only: the relay login is built in (config.js); this button lets one computer use another one. */
-async function setUpRelayButton() {
-  const { getRelay, saveRelay, forgetRelay } = await import('./net/relay.js');
-  const relay = getRelay();
-  const button = $('relay-btn');
-  const dialog = $('relay-dialog');
-  button.hidden = false;
-  button.classList.toggle('warn', !relay);
-  button.addEventListener('click', () => {
-    $('relay-user').value = '';
-    $('relay-pass').value = '';
-    dialog.showModal();
-  });
-  dialog.addEventListener('close', () => {
-    const user = $('relay-user').value.trim();
-    const pass = $('relay-pass').value.trim();
-    $('relay-pass').value = '';
-    if (dialog.returnValue === 'save' && user && pass) saveRelay(user, pass);
-    else if (dialog.returnValue === 'forget') forgetRelay();
-    else return;
-    location.reload(); // connections are set up when the page loads
-  });
 }
 socket.on('join-info', (join) => ($('qr').src = join.qr));
 socket.on('host-denied', () => {
@@ -209,8 +183,8 @@ function renderLobby(room) {
   list.classList.toggle('two', room.players.length > 4);
   list.innerHTML = room.players.length
     ? String(html`${room.players.map((p) => html`
-        <div class="lp ${!p.connected && 'away'}" style="--c:${p.color}">
-          ${raw(robotSvg(p, { dim: !p.connected }))}
+        <div class="lp ${!p.connected && 'away'} ${p.isVip && 'leader'}" style="--c:${p.color}">
+          <span class="lp-bot">${raw(robotSvg(p, { dim: !p.connected }))}${p.isVip && html`<span class="lp-leader" title="Leader: starts the game">${raw(LEADER)}</span>`}</span>
           <span class="lp-name">${p.name}</span>
           ${p.connected && p.link === 'relay' && html`<span class="lp-link" title="Connected through a relay server">${raw(RELAY_ICON)}</span>`}
           <button class="lp-kick" data-kick="${p.id}" data-name="${p.name}" title="Remove ${p.name}">✕</button>

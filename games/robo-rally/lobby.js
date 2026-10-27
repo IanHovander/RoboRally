@@ -8,10 +8,14 @@
 // Every scene shows the race's 1-5 strip while its cards run, and numerals of light under the robots in
 // the order they act. Players who have joined star in it: their colors, their robots, their names.
 // The dots under the board are the scenes: the lit one fills as its scene plays. Clicking a dot (or ← →)
-// jumps to that scene; the film carries on from there by itself.
-import { LESSONS, lessonCourse, runLesson, playRun, runLength } from './lessons.js';
+// jumps to that scene; the film carries on from there by itself. The lit one is also a scrub bar: click or
+// drag along it to go back or ahead within the scene (the scene is rebuilt at the step at that moment).
+import { LESSONS, lessonCourse, runLesson, playRun, runLength, beatHold } from './lessons.js';
 import { createMimic } from './mimic.js';
 import { sceneSound, setLevel } from './sound.js';
+
+/** The leader's mark (the player who can start the game from their phone): a small crown of light. */
+export const LEADER = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8.5 29 L6.5 13.5 L14.5 20.5 L20 9.5 L25.5 20.5 L33.5 13.5 L31.5 29 Z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 33.5 H31" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
 
 const DEMO = [
   { id: 'demo-a', name: '', color: '#ff4d6d', avatar: 0 },
@@ -55,8 +59,47 @@ export function mountLumenLobby(stage, ui) {
 
   dotsEl.addEventListener('click', (e) => {
     const dot = e.target.closest('.lf-dot');
-    if (dot) jumpTo(Number(dot.dataset.i));
+    // the lit dot's bar seeks on the pointer (below); a key press on it (Enter) starts its scene over
+    if (dot && (!dot.classList.contains('on') || e.detail === 0)) jumpTo(Number(dot.dataset.i));
   });
+
+  // Scrubbing: press on the lit bar, drag, let go. While held, the film holds still and the bar follows the
+  // pointer; on release the scene is rebuilt at that moment and plays on.
+  let scrub = null;
+  const barAt = (dot, x) => {
+    const r = dot.querySelector('i').getBoundingClientRect();
+    return Math.max(0, Math.min(1, (x - r.left) / r.width));
+  };
+  dotsEl.addEventListener('pointerdown', (e) => {
+    const dot = e.target.closest('.lf-dot.on');
+    if (!dot || !arena || e.button > 0) return;
+    e.preventDefault();
+    try { dot.setPointerCapture(e.pointerId); } catch {}
+    scrub = { dot, p: barAt(dot, e.clientX) };
+    dot.classList.add('scrub');
+    ++gen; // the scene stops at its next wait
+    hush = true;
+    showDot(index, scrub.p);
+  });
+  dotsEl.addEventListener('pointermove', (e) => {
+    const dot = scrub?.dot ?? e.target.closest('.lf-dot.on');
+    if (!dot) return;
+    const p = barAt(dot, e.clientX);
+    dot.style.setProperty('--h', p);
+    if (!scrub) return;
+    scrub.p = p;
+    showDot(index, p);
+  });
+  const endScrub = (e) => {
+    if (!scrub) return;
+    const { dot, p } = scrub;
+    scrub = null;
+    dot.classList.remove('scrub');
+    try { dot.releasePointerCapture(e.pointerId); } catch {}
+    seek(p);
+  };
+  dotsEl.addEventListener('pointerup', endScrub);
+  dotsEl.addEventListener('pointercancel', endScrub);
   addEventListener('keydown', (e) => {
     if (!active || e.altKey || e.ctrlKey || e.metaKey || e.target.closest?.('input, textarea, select, dialog')) return;
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
@@ -116,6 +159,13 @@ export function mountLumenLobby(stage, ui) {
     play(++gen);
   }
 
+  /** Go to fraction p (0..1) of the scene playing now: rebuilt at the step under that moment, playing on. */
+  function seek(p) {
+    if (!arena) return;
+    hush = true;
+    play(++gen, p);
+  }
+
   /** Light dot i; its bar fills to p (0..1) over `ms`. */
   function showDot(i, p, ms = 0) {
     dots.forEach((d, k) => {
@@ -137,7 +187,7 @@ export function mountLumenLobby(stage, ui) {
     });
   }
 
-  async function play(version) {
+  async function play(version, seekP = null) {
     const alive = () => active && version === gen && arena;
     let planned = 0;
     let total = 1;
@@ -153,7 +203,11 @@ export function mountLumenLobby(stage, ui) {
       for (;;) {
         planned = 0;
         total = lessonLength(LESSONS[index], runs[index]);
-        await playLesson(LESSONS[index], runs[index], pause);
+        if (seekP != null) {
+          const at = seekP * total;
+          seekP = null;
+          await seekLesson(LESSONS[index], runs[index], at, (ms) => (planned = ms), pause, alive);
+        } else await playLesson(LESSONS[index], runs[index], pause);
         index = (index + 1) % LESSONS.length;
       }
     } catch (err) {
@@ -169,6 +223,90 @@ export function mountLumenLobby(stage, ui) {
     const slow = slowStep(lesson);
     const ms = FADE_MS + 1400 + runLength(run, { programMs: (st) => mimic.programMs(st.cards[0].filter(Boolean).length, slow(st)) });
     return ms + (run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
+  }
+
+  /** When each step of a scene starts (ms from the scene's start, as lessonLength counts), and when the steps end. */
+  function stepTimes(lesson, run) {
+    const slow = slowStep(lesson);
+    let t = FADE_MS + 1400;
+    const starts = run.steps.map((st) => {
+      const at = t;
+      t += st.kind === 'program'
+        ? mimic.programMs(st.cards[0].filter(Boolean).length, slow(st)) + 400
+        : st.beat.what?.k === 'reveal' && st.robots.length < 2 ? 300 : beatHold(st.beat);
+      return at;
+    });
+    return { starts, end: t };
+  }
+
+  /**
+   * Play a scene from `at` ms in: build it as it stands at the start of the step under that moment (robots
+   * where they are, the phone's cards in their slots, the register lit), then play on from that step.
+   */
+  async function seekLesson(lesson, run, at, setPlanned, pause, alive) {
+    const { starts, end } = stepTimes(lesson, run);
+    let i = 0;
+    while (i < starts.length && starts[i] <= at) i++;
+    i = Math.max(0, i - 1);
+    if (at >= end) i = run.steps.length;
+    if (at < FADE_MS + 1400) i = 0;
+    const instant = async () => {
+      if (!alive()) throw STOP;
+    };
+    mimic.reset();
+    mimic.showDeck(!!lesson.deck);
+    arena.reset(lessonCourse(lesson));
+    stage.style.opacity = '1';
+    showRegs(null);
+    let before = run.start;
+    for (let k = i - 1; k >= 0; k--) if (run.steps[k].robots) { before = run.steps[k].robots; break; }
+    arena.syncRobots(robotsAt(before));
+    // the phone: the last program before this step, its cards placed at once (and its line of light)
+    let prog = -1;
+    for (let k = i - 1; k >= 0 && prog < 0; k--) if (run.steps[k].kind === 'program') prog = k;
+    if (prog >= 0) {
+      await playRun(arena, run, { pause: instant, cast, mimic, slow: () => false, line: !!lesson.line, from: prog, to: prog + 1 });
+      // what happened since: the register running, junk cards on the phone, a flag already reached
+      let reg = null;
+      for (let k = prog + 1; k < i; k++) {
+        const st = run.steps[k];
+        if (st.beat?.what?.k === 'reveal') reg = st.reg;
+        for (const f of st.beat?.fx ?? []) {
+          if (f.k === 'damage' && f.id === 'L0') mimic.junkNow({ sp: f.sp ?? 0, hw: f.hw ?? 0, reg: reg ?? 0 });
+          if (f.k === 'win' && lesson.line) arena.clearGhost();
+        }
+      }
+      arena.syncRobots(robotsAt(before));
+      if (reg != null && i < run.steps.length && run.steps[i].kind !== 'program') {
+        const program = run.steps[prog];
+        const robots = robotsAt(before);
+        arena.showCards(robots.map((r, k) => ({ id: r.id, types: r.on ? [program.shown[k][reg]].filter(Boolean) : [] })));
+        mimic.lit(reg, program.locked[0]?.[reg]);
+        showRegs(reg);
+      }
+    }
+    hush = false;
+    setPlanned(i < starts.length ? starts[i] : at);
+    if (i < run.steps.length) {
+      await pause(250);
+      await playRun(arena, run, {
+        pause,
+        cast,
+        mimic,
+        slow: slowStep(lesson),
+        line: !!lesson.line,
+        regs: showRegs,
+        from: i,
+        onBeat: (st) => {
+          lastBeatAt = performance.now();
+          if (lesson.line && st.beat.fx.some((f) => f.k === 'win')) arena.clearGhost();
+        },
+      });
+    }
+    showRegs(null);
+    mimic.lit(-1);
+    const tail = run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200;
+    await pause(Math.max(300, end + tail - Math.max(at, end)));
   }
 
   async function playLesson(lesson, run, pause) {

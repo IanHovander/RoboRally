@@ -247,7 +247,7 @@ export function mountReplay(canvas, o) {
       bg.setTransform(dpr, 0, 0, dpr, 0, 0);
       bg.fillStyle = '#0b0e13';
       bg.fillRect(0, 0, W, H);
-      drawCourse(bg, o.course, { tile: T, ox, oy, glow: true });
+      drawCourse(bg, o.course, { tile: T, ox, oy, glow: true, perimeter: o.perimeter, inert: o.inert });
       if (o.planned?.length) drawGhostLine(bg, o.course, o.planned, { tile: T, ox, oy, color: o.color, alpha: 0.45, dashed: true, numbers: false });
     }
     const g = canvas.getContext('2d');
@@ -491,7 +491,7 @@ export function mountFallen(canvas, o) {
       bg.setTransform(dpr, 0, 0, dpr, 0, 0);
       bg.fillStyle = '#0b0e13';
       bg.fillRect(0, 0, W, H);
-      drawCourse(bg, o.course, { tile: T, ox, oy, glow: true });
+      drawCourse(bg, o.course, { tile: T, ox, oy, glow: true, perimeter: o.perimeter, inert: o.inert });
       // the rest of the course fades out at the edges
       const grad = bg.createRadialGradient(cx, cy, Math.min(W, H) * 0.25, cx, cy, Math.max(W, H) * 0.62);
       grad.addColorStop(0, 'rgba(11,14,19,0)');

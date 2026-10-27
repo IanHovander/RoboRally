@@ -273,6 +273,27 @@ export function createMimic(parent) {
       }
     },
 
+    /**
+     * The same junk, already there (no flight): for the lobby film jumping into the middle of a scene.
+     * Waits for cards still settling into their slots, so a Haywire's slot isn't covered again.
+     */
+    junkNow({ sp = 0, hw = 0, reg = 0 }) {
+      const version = gen;
+      setTimeout(() => {
+        if (version !== gen) return;
+        if (sp) {
+          phone.classList.add('deck');
+          deckTop.innerHTML = cardSvgHtml('sp');
+        }
+        if (hw) {
+          const slot = slots[Math.max(0, Math.min(4, reg))];
+          slot.className = 'locked';
+          slot.innerHTML = hwBack();
+          slot.dataset.hw = slot.dataset.hw ?? 'h01';
+        }
+      }, 460);
+    },
+
     /** The empty slots fill at random when the timer runs out: the clock line shrinks, they flicker, they settle. */
     async timeout(pause = sleep, { filled = ['m1', 'rr', null, 'm2', null], fills = ['rl', 'm1'] } = {}) {
       phone.classList.remove('locked', 'run');

@@ -729,7 +729,7 @@ function tick(now) {
  */
 export function mountDemo(canvas, key, color = '#ff4d6d', opts = {}) {
   if (!hasDemo(key)) return () => {};
-  const demo = { canvas, color, form: opts.form ?? 0, comp: null, board: null, lazy: !!opts.lazy };
+  const demo = { canvas, color, form: opts.form ?? 0, comp: null, board: null, lazy: !!opts.lazy, perimeter: !!(D[key]?.safeEdges || opts.safeEdges) };
   const anim = { lazy: demo.lazy, root: opts.root ?? null, total: 0, paint: (t) => draw(demo, t), onStill: () => (demo.board = null) };
   if (demo.lazy) canvas.width = canvas.height = 1;
   if (D[key]) {
@@ -907,7 +907,7 @@ function draw(demo, t) {
     demo.board.height = canvas.height;
     const bg = demo.board.getContext('2d');
     bg.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawCourse(bg, c, { tile: T, ox, oy });
+    drawCourse(bg, c, { tile: T, ox, oy, perimeter: demo.perimeter });
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, canvas.width, canvas.height);

@@ -120,7 +120,7 @@ Edit `public/js/config.js`:
      - **Agent:** put its username and password ("credential") in `turnLogin`, and the relay addresses from the dashboard in `turnUrls`.
      - Whatever is in `config.js` is public (it ships in the website). The worst case is someone using up that
        allowance; the fix is a new credential in Metered.
-     - A single big screen can also use a private login with its **Relay** button (kept in that browser only).
+     - The big screen always uses the login in `config.js`; there's no way to change it from the big screen.
 
 Also replace `ianhovander.github.io` in `README.md` with the owner's address: `https://<owner>.github.io/game-night/`.
 If you renamed the repo, use that name; all paths are relative, so any repo name works.
@@ -447,7 +447,7 @@ git push
 
 **Verify:**
 
-- The big screen shows a room code, and its Relay button says built in (or it warns).
+- The big screen shows a room code.
 - `check.html` is green.
 - `tools/bots.html` bots can join.
 - One real phone joins.
