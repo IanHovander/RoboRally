@@ -40,6 +40,8 @@ collects marks for what happened to you, and tapping it replays it. The full des
 
 - **Round 1 has no shop.** The race starts with programming; your 3 upgrades and 3 Energy wait for round 2's
   shop. (It meant nothing before a robot had moved. The only cost is one upgrade draw.)
+- **No upgrades (the rulebook's "Lighter Game"): no Power Up card.** Without energy it would do nothing, so the
+  deck has 19 cards; batteries aren't shown.
 - **The programming timer (Act Fast) is on, at 2 minutes,** by default; the rulebook calls it a variant for
   experienced players. At zero, empty slots get random cards from your hand. "No timer" still ends after 5 minutes.
 - **Rebooting onto an occupied spot:** the robot there is shoved one space along the token's arrow, or right, left

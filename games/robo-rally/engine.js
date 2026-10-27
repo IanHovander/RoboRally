@@ -91,7 +91,9 @@ export function startRace(s, env) {
 }
 
 function newRobot(s, id, st) {
-  const deck = shuffle(s, DECK.flatMap(([t, n]) => Array.from({ length: n }, () => `${t}.${++s.serial}`)));
+  // no upgrades, no energy: Power Up would do nothing, so it isn't in the deck (19 cards)
+  const cards = DECK.filter(([t]) => s.opts.upgrades !== false || t !== 'pu');
+  const deck = shuffle(s, cards.flatMap(([t, n]) => Array.from({ length: n }, () => `${t}.${++s.serial}`)));
   return {
     id,
     x: st.x,

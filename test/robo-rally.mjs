@@ -425,6 +425,16 @@ function plain(v) {
   check(t.s.opts.timer === 60 && t.s.opts.upgrades === true, 'the leader leaves while setting up: the settings stay as they were');
 }
 {
+  // upgrades off: no Power Up in anyone's deck (it would do nothing without energy)
+  const off = room(2, { raced: [0, 1], opts: { upgrades: false } });
+  pickAll(off);
+  const all = (R) => [...R.deck, ...R.discard, ...R.hand].map(cardType);
+  check(Object.values(off.s.robots).every((R) => !all(R).includes('pu') && all(R).length === 19), 'upgrades off: no Power Up, 19 cards');
+  const on = room(2, { raced: [0, 1], opts: { upgrades: true } });
+  pickAll(on);
+  check(Object.values(on.s.robots).every((R) => all(R).includes('pu')), 'upgrades on: Power Up is in the deck');
+}
+{
   // a phone sees what's in its own piles (counts, not order), and everyone's installed upgrades
   const t = room(2, { raced: [0, 1] });
   pickAll(t);

@@ -55,7 +55,7 @@ export const TOPICS = {
   rr: { sec: 'cards', pic: { card: 'rr' }, clips: [['card-turn', 'Stays put'], ['turn-own-left', 'Whose left?']], fine: TURN_FINE('right') },
   rl: { sec: 'cards', pic: { card: 'rl' }, clips: [['turn-own-left', 'Whose left?'], ['card-turn', 'Stays put']], fine: TURN_FINE('left') },
   ut: { sec: 'cards', pic: { card: 'ut' }, clips: [['card-ut', 'Turn around']], fine: 'Turn around, on the spot.' },
-  pu: { sec: 'cards', pic: { card: 'pu' }, clips: [['card-pu', 'Energy']], fine: 'Gain 1 energy. You don’t move. (With upgrades off it does nothing.)' },
+  pu: { sec: 'cards', pic: { card: 'pu' }, clips: [['card-pu', 'Energy']], fine: 'Gain 1 energy. You don’t move. (With upgrades off, it isn’t in the deck.)' },
   ag: { sec: 'cards', pic: { card: 'ag' }, clips: [['again', 'Repeat'], ['again-first', 'In slot 1']], fine: 'Repeats what your previous slot did. In slot 1 there’s nothing to repeat: it becomes a random card.' },
   // ----- order -----
   registers: { sec: 'order', pic: { strip: true }, clips: [['order-registers', 'Slot by slot']], fine: 'Every robot plays slot 1, then the board moves, then everyone plays slot 2, and so on.' },

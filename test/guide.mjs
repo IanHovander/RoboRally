@@ -127,7 +127,7 @@ check(haywireParts('h13').join(' ') === 'pu +3 dmg', `Power Surge's face is bolt
 // the settings' names, as the owner wants them
 check(TOPICS['opt-safe'].name === 'Map perimeter' && TOPICS['opt-safe'].clips[0][1] === 'Map perimeter', 'lessDeadly is called "Map perimeter"');
 check(TOPICS['opt-lessspam'].name === 'Spam in hand discards' && TOPICS['opt-lessspam'].clips[0][1] === 'Spam in hand discards', 'lessSpam is called "Spam in hand discards"');
-check(/does nothing/.test(TOPICS.pu.fine), 'Power Up says it does nothing without upgrades');
+check(/upgrades off/i.test(TOPICS.pu.fine) && /deck/.test(TOPICS.pu.fine), 'Power Up says it leaves the deck without upgrades');
 {
   const src2 = fs.readFileSync(new URL('../games/robo-rally/player.js', import.meta.url), 'utf8');
   check(!/showOptClip|pl-optclip/.test(src2), 'no clip pops up when a setting changes');
