@@ -196,7 +196,14 @@ export function mountGuide(root, o = {}) {
     const out = { ...t, id, arg, clips: [...t.clips] };
     if (id === 'haywire-slot') {
       const hw = arg && HAYWIRE[cardType(arg)] ? cardType(arg) : null;
-      if (hw) out.clips.push([hw, 'What it does']);
+      if (hw) {
+        // the card in this slot: exactly what it will do, first; what a Haywire slot is, in the small print
+        out.clips.unshift([hw, 'What it does']);
+        out.name = TOPICS[hw].name;
+        out.does = TOPICS[hw].does;
+        // during the race it's the card waiting under a slot: it runs there next round
+        if (v?.phase === 'activate') out.fine = 'It landed under this slot when you were hit. Next round it runs here and can’t be moved.';
+      }
     } else if (id === 'your-upgrades') {
       const list = m ? [...m.up.perm, ...m.up.temp] : [];
       out.clips = list.slice(0, 6).map((k) => [k, UPGRADES[k].name]);
@@ -343,6 +350,7 @@ export function mountGuide(root, o = {}) {
           ${t.counts && html`<span class="gd-counts"><span>${g('deck')}<b>${t.counts.deck}</b></span><span class="discard">${card('back', 'mini')}<b>${t.counts.discard}</b></span></span>`}</div>
         ${also.length > 0 && html`<div class="gd-also">${also.map((a) => html`<button class="gd-also-chip" data-gd="also" data-arg="${a}" data-also="${JSON.stringify([ask, ...also.filter((b) => b !== a)])}">${pic(TOPICS[a.split(':')[0]]?.pic, a.split(':')[1])}</button>`)}</div>`}
         ${clips.length > 0 && html`<div class="gd-clips n${Math.min(clips.length, 3)} ${many && 'many'}">${clips.map(([key, cap]) => html`<figure class="gd-clip"><canvas data-demo="${key}"></canvas>${cap && html`<figcaption>${cap}</figcaption>`}</figure>`)}</div>`}
+        ${t.does && html`<p class="gd-does">${t.does.replace(/ (?=\d)/g, '\u00a0')}</p>`}
         ${t.fine && html`<p class="gd-fine">${t.fine}</p>`}
         <div class="gd-row"><button class="gd-pill" data-gd="book" data-arg="${id}" aria-label="Book">${g('book')}</button><button class="gd-x" data-gd="close-sheet" aria-label="Close">${g('cross')}</button><span></span></div>
       </div>`);

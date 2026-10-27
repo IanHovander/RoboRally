@@ -6,7 +6,7 @@
 import { html, raw } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
-import { drawCourse, previewProgram, filledRun } from './minimap.js';
+import { drawCourse, previewProgram, filledRun, rebootFor } from './minimap.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
 import { mountDemo, hasDemo } from './demo.js';
 import { mountGuide } from './guide.js';
@@ -156,9 +156,11 @@ export default function (root, api) {
     // view zooms out just enough (never past the whole course) to keep all of that line on the phone.
     const from = programStart(m);
     const ghosts = view.phase === 'program' && from ? ghostsFor(m) : [];
+    // the reboot ring I'd come back on: lit in my color (a planned fall links to it, and stays in view)
+    const ring = view.phase === 'program' && from ? rebootFor(c, from, ghosts, m.archive) : null;
     let focus = { x: c.w / 2, y: c.h / 2 };
     if (from) {
-      const pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
+      const pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])]), ...(ring?.fall ? [[ring.x, ring.y]] : [])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
       const x0 = Math.min(...pts.map((p) => p[0]));
       const x1 = Math.max(...pts.map((p) => p[0])) + 1;
       const y0 = Math.min(...pts.map((p) => p[1]));
@@ -182,9 +184,10 @@ export default function (root, api) {
     }
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
-    drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), ...mapLook() });
+    drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), ...mapLook() });
     canvas.dataset.zoom = zoom;
-    maps.set(canvas, { tile, ox, oy, robots, ghosts });
+    canvas.dataset.ring = ring ? `${ring.x},${ring.y}${ring.archive ? ',archive' : ''}${ring.fall ? `,fall:${ring.fall.x},${ring.fall.y}` : ''}` : ''; // for test scripts
+    maps.set(canvas, { tile, ox, oy, robots, ghosts, ring });
     canvas.dataset.xform = `${tile},${ox},${oy}`; // for test scripts
     return { tile, ox, oy, zoom, fit };
   }
@@ -240,7 +243,7 @@ export default function (root, api) {
     const cy = (y - r.top - t.oy) / t.tile;
     const gx = Math.floor(cx);
     const gy = Math.floor(cy);
-    const ids = topicAtCell(course(), gx, gy, cx - gx, cy - gy, { robots: t.robots, ghosts: t.ghosts });
+    const ids = topicAtCell(course(), gx, gy, cx - gx, cy - gy, { robots: t.robots, ghosts: t.ghosts, ring: t.ring });
     const other = t.robots.find((q) => q.x === gx && q.y === gy && !q.me);
     if (!ids.length) return ['me']; // plain floor: what the map is (the big screen, from above; yours has the outline)
     return ids.map((id) => (id === 'robot' && other?.id ? `robot:${other.id}` : id));

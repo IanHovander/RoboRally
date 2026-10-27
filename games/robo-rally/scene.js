@@ -487,36 +487,68 @@ function beltTexture(color, fast) {
   return tex(c, { repeat: true });
 }
 
-/** A belt that turns: comes in from the left (or right) and leaves through the top. */
-function curveTexture(color, fromLeft) {
-  const c = canvas(128, 128);
-  const g = c.getContext('2d');
+/**
+ * A belt that turns: the same lane as a straight belt, bent. It comes in from the left (or right) and leaves through
+ * the top; the rails bend round with it and the same chevrons follow the curve, so a robot riding it plainly turns
+ * with it. `s` (pixels along the lane) moves the chevrons, redrawn every frame at the belt's speed.
+ */
+function drawCurve(g, color, fromLeft, fast, s) {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, 128, 128);
   if (!fromLeft) {
     g.translate(128, 0);
     g.scale(-1, 1);
   }
+  g.shadowBlur = 0;
+  g.globalAlpha = 1;
   g.fillStyle = 'rgba(4,6,9,.3)';
   g.beginPath();
-  g.moveTo(0, 10);
-  g.arc(0, 0, 118, Math.PI / 2, 0, true);
-  g.lineTo(10, 0);
-  g.arc(0, 0, 10, 0, Math.PI / 2);
+  g.arc(0, 0, 118, 0, Math.PI / 2);
+  g.arc(0, 0, 10, Math.PI / 2, 0, true);
   g.closePath();
   g.fill();
+  // the chevrons, as on a straight belt (one a space, two on an express belt), along the lane's middle
   g.shadowColor = color;
   g.shadowBlur = 14;
   g.strokeStyle = color;
-  g.lineWidth = 7;
   g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.lineWidth = 7;
+  const r = 64;
+  const step = 128 / (fast ? 2 : 1);
+  for (let d = (((s % step) + step) % step) - step; d < r * (Math.PI / 2) + step; d += step) {
+    const th = Math.PI / 2 - d / r;
+    g.save();
+    g.translate(r * Math.cos(th), r * Math.sin(th));
+    g.rotate(th);
+    g.beginPath();
+    g.moveTo(-30, 15);
+    g.lineTo(0, -15);
+    g.lineTo(30, 15);
+    g.stroke();
+    g.restore();
+  }
+  // the side rails of light, bent round
+  g.shadowBlur = 6;
+  g.lineWidth = 2;
+  g.globalAlpha = 0.5;
   g.beginPath();
-  g.arc(0, 0, 64, 0.35, Math.PI / 2 - 0.2);
+  g.arc(0, 0, 12, 0, Math.PI / 2);
+  g.moveTo(116, 0);
+  g.arc(0, 0, 116, 0, Math.PI / 2);
   g.stroke();
-  g.beginPath();
-  g.moveTo(40, 30);
-  g.lineTo(64, 6);
-  g.lineTo(88, 30);
-  g.stroke();
-  return tex(c);
+  g.globalAlpha = 1;
+}
+function curveTexture(color, fromLeft, fast) {
+  const c = canvas(128, 128);
+  const g = c.getContext('2d');
+  drawCurve(g, color, fromLeft, fast, 0);
+  const t = tex(c);
+  t.draw = (s) => {
+    drawCurve(g, color, fromLeft, fast, s);
+    t.needsUpdate = true;
+  };
+  return t;
 }
 
 function gearTexture(color) {
@@ -956,8 +988,9 @@ export class Arena {
     const curveMat = (fast, left) => {
       const k = `${fast}${left}`;
       if (!curveMats[k]) {
-        curveMats[k] = new THREE.MeshBasicMaterial({ map: curveTexture(fast ? PALETTE.express : PALETTE.belt, left), transparent: true, depthWrite: false, color: hdr(0xffffff, 1.25) });
-        this.curveMats.push({ mat: curveMats[k], fast });
+        const t = curveTexture(fast ? PALETTE.express : PALETTE.belt, left, fast);
+        curveMats[k] = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, color: hdr(0xffffff, 1.25) });
+        this.curveMats.push({ mat: curveMats[k], fast, tex: t, s: 0 });
       }
       return curveMats[k];
     };
@@ -2858,7 +2891,16 @@ export class Arena {
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
-    for (const cm of this.curveMats ?? []) cm.mat.color.setScalar(1.15 * (0.3 + 0.7 * lit));
+    for (const cm of this.curveMats ?? []) {
+      // the bend's chevrons flow at the same speed as its straight belts' (and hurry when the belts move)
+      const belt = this.belts.find((b) => b.fast === cm.fast);
+      const speed = cm.fast ? 1.0 : 0.5;
+      const hurry = belt?.pulse && t - belt.pulse < 1.2 ? 2.2 : 1;
+      cm.s += dt * speed * hurry * 128;
+      cm.tex.draw(cm.s);
+      const p = belt?.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
+      cm.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
+    }
     for (const g of this.gears.values()) {
       if (g.kick) {
         const k = Math.min(1, (t - g.kick.t0) / 0.5);

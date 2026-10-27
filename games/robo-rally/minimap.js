@@ -24,7 +24,8 @@ const FONT = 'Lumen, Roboto, sans-serif';
 /**
  * Draw a course. o: { tile, ox, oy, robots: [{x,y,d,color,on,me,avatar}], ghosts: [{x,y,d,n,fell,path}],
  * ghostColor, starts: {n: color}, cpNext, cpDone(n), glow (soft light effects; off for tiny previews),
- * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, drawn dim) }
+ * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, drawn dim),
+ * reboot (rebootFor(): the ring I'd come back on, lit in ghostColor; a planned fall gets a dotted link to it) }
  */
 export function drawCourse(g, course, o = {}) {
   const T = o.tile ?? 32;
@@ -161,21 +162,13 @@ export function drawCourse(g, course, o = {}) {
     }
   }
 
-  // reboot marks
+  // reboot marks. With o.reboot (the ring I'd come back on), that one is lit in my color and the rest step back.
+  const mine = o.reboot;
   for (const b of course.boards) {
-    if (!b.reboot) continue;
-    const cx = px(b.reboot.x + 0.5);
-    const cy = py(b.reboot.y + 0.5);
-    g.strokeStyle = C.reboot;
-    g.lineWidth = lw(0.03);
-    g.globalAlpha = 0.8;
-    g.beginPath();
-    g.arc(cx, cy, T * 0.36, 0, Math.PI * 2);
-    g.stroke();
-    drawGlyph(g, 'reboot', cx, cy, T * 0.5, C.reboot, 2.8);
-    pointer(g, cx, cy, b.reboot.d, T * 0.48, T * 0.09, C.reboot);
-    g.globalAlpha = 1;
+    if (!b.reboot || (mine && b.reboot.x === mine.x && b.reboot.y === mine.y)) continue;
+    rebootMark(g, px(b.reboot.x + 0.5), py(b.reboot.y + 0.5), b.reboot.d, T, C.reboot, mine ? 0.3 : 0.8);
   }
+  if (mine) rebootMark(g, px(mine.x + 0.5), py(mine.y + 0.5), mine.d, T, o.ghostColor ?? C.reboot, 1, glow);
 
   // walls: bright lines of light
   g.save();
@@ -270,6 +263,31 @@ export function drawCourse(g, course, o = {}) {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(String(cp.n), cx, cy + T * 0.03);
+  }
+
+  // a planned fall: a faint dotted link from its cross to the ring I'd come back on
+  if (mine?.fall) {
+    const fx = px(Math.max(-0.4, Math.min(course.w - 0.6, mine.fall.x)) + 0.5);
+    const fy = py(Math.max(-0.4, Math.min(course.h - 0.6, mine.fall.y)) + 0.5);
+    const rx = px(mine.x + 0.5);
+    const ry = py(mine.y + 0.5);
+    const len = Math.hypot(rx - fx, ry - fy);
+    const gap = T * 0.5; // start clear of the cross, stop at the ring
+    if (len > gap * 2) {
+      const ux = (rx - fx) / len;
+      const uy = (ry - fy) / len;
+      g.save();
+      g.strokeStyle = o.ghostColor ?? C.reboot;
+      g.globalAlpha = 0.6;
+      g.lineWidth = lw(0.05, 2);
+      g.lineCap = 'round';
+      g.setLineDash([0.1, lw(0.16, 6)]);
+      g.beginPath();
+      g.moveTo(fx + ux * gap * 0.6, fy + uy * gap * 0.6);
+      g.lineTo(rx - ux * gap, ry - uy * gap);
+      g.stroke();
+      g.restore();
+    }
   }
 
   // where my program would take me: a line of light through the spaces, a dot per register
@@ -418,6 +436,59 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
 }
 
 const ANG = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+
+/** A reboot ring: a circle, the reboot glyph, a pointer the way you'd face. Lit: thicker, glowing, filled faintly. */
+function rebootMark(g, cx, cy, d, T, color, alpha, lit = false) {
+  g.save();
+  if (lit) {
+    g.shadowColor = color;
+    g.shadowBlur = T * 0.35;
+    g.fillStyle = color;
+    g.globalAlpha = 0.18;
+    g.beginPath();
+    g.arc(cx, cy, T * 0.44, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = alpha;
+  g.strokeStyle = color;
+  g.lineWidth = Math.max(lit ? 2 : 1, T * (lit ? 0.06 : 0.03));
+  g.beginPath();
+  g.arc(cx, cy, T * (lit ? 0.42 : 0.36), 0, Math.PI * 2);
+  g.stroke();
+  g.shadowBlur = 0;
+  drawGlyph(g, 'reboot', cx, cy, T * 0.5, color, lit ? 3.4 : 2.8);
+  pointer(g, cx, cy, d, T * (lit ? 0.54 : 0.48), T * (lit ? 0.11 : 0.09), color);
+  g.restore();
+}
+
+/**
+ * The reboot ring I'd come back on (engine.js rebootSpot): the ring of the board my robot is on, or, when my
+ * planned line ends in a fall, of the board where it falls (off the edge: the last board it was over). The
+ * docking bay, or a board without a ring: my archive spot (my start pad).
+ * Returns { x, y, d, archive, fall: {x, y} | null }, or null.
+ */
+export function rebootFor(course, from, ghosts = [], archive = null) {
+  if (!from) return null;
+  const at = (x, y) => (x >= 0 && y >= 0 && x < course.w && y < course.h ? course.cells[y * course.w + x] : null);
+  const last = ghosts.at(-1);
+  const fall = last?.fell ? last : null;
+  let b = at(from.x, from.y)?.b;
+  if (fall) {
+    const pts = [[from.x, from.y], ...ghosts.flatMap((gh) => gh.path ?? [[gh.x, gh.y]]), [fall.x, fall.y]];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const c = at(pts[i][0], pts[i][1]);
+      if (c) {
+        b = c.b;
+        break;
+      }
+    }
+  }
+  const board = course.boards[b];
+  const ring = board && !board.dock ? board.reboot : null;
+  const spot = ring ?? archive;
+  if (!spot) return null;
+  return { x: spot.x, y: spot.y, d: spot.d ?? 0, archive: !ring, fall: fall ? { x: fall.x, y: fall.y } : null };
+}
 
 /** A little triangle just outside a circle, pointing the way d (outlined in dark so it reads on top of the line). */
 function pointer(g, cx, cy, d, dist, s, color, outline = false) {

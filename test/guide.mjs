@@ -2,8 +2,9 @@
 //   node test/guide.mjs
 import fs from 'node:fs';
 import { TOPICS, SECTIONS, sectionTopics, tileCaption, topicAtCell, cardTopic, words, UPGRADE_ORDER, bookTiles } from '../games/robo-rally/topics.js';
-import { hasDemo, demoKeys, compileDemo, lessonFrames } from '../games/robo-rally/demo.js';
-import { previewProgram, filledRun } from '../games/robo-rally/minimap.js';
+import { hasDemo, demoKeys, compileDemo, lessonFrames, demoDef, miniCourse } from '../games/robo-rally/demo.js';
+import { previewProgram, filledRun, rebootFor } from '../games/robo-rally/minimap.js';
+import * as E from '../games/robo-rally/engine.js';
 import { haywireParts } from '../games/robo-rally/glyphs.js';
 import { marksFor, causesFor, replayPlan, ranCards, cropFor } from '../games/robo-rally/replay.js';
 import { COURSES, getCourse } from '../games/robo-rally/board.js';
@@ -145,6 +146,123 @@ check(/data-ui="deck"/.test(fs.readFileSync(new URL('../games/robo-rally/player.
   check(into[0].fell, 'hover: stopping on a pit falls');
   const plain = previewProgram(def, { x: 0, y: 0, d: 1 }, [['m2']], {});
   check(plain[0].fell, 'no hover: Move 2 falls into the pit');
+}
+
+// ----- every Haywire says exactly what it does: a plain sentence, and a clip that matches the real rules -----
+{
+  const sayOf = { rt: { 1: 'turn right', '-1': 'turn left', 2: 'turn around' } };
+  for (const [t, hw] of Object.entries(HAYWIRE)) {
+    const T = TOPICS[t];
+    check(T?.does && words(T.does) >= 3 && words(T.does) <= 25, `${t}: says what it does in 3-25 words ("${T?.does}")`);
+    check(T.clips.length && T.clips.every(([k]) => hasDemo(k)) && T.clips[0][0] === t, `${t}: has its own clip`);
+    // its moves, in order, in the words: Move n / back up n / step 1 right / slide 2 sideways / turn ...
+    if (hw.ops.every(([k]) => k === 'mv' || k === 'rt')) {
+      const parts = hw.ops.map(([k, a, b]) => (k === 'rt' ? sayOf.rt[a] : a === 0 ? `move ${b}` : a === 2 ? `back up ${b}` : a === 'side' ? `${b} spaces sideways` : `step ${b} ${a === 1 ? 'right' : 'left'}`));
+      const text = T.does.toLowerCase();
+      let from = 0;
+      const inOrder = parts.every((p) => {
+        const i = text.indexOf(p, from);
+        if (i < 0) return false;
+        from = i + p.length;
+        return true;
+      });
+      check(inOrder, `${t}: "${T.does}" says ${parts.join(', ')}, in that order`);
+    }
+  }
+  // the clip ends where the engine puts the robots, on the clip's own little board
+  const L = { N: 0, E: 1, S: 2, W: 3 };
+  const runReal = (t) => {
+    const def = demoDef(t);
+    const course = miniCourse(def);
+    course.starts = Object.values(def.bots).map(([x, y, d], i) => ({ x, y, d: L[d], n: i + 1 }));
+    const ids = Object.keys(def.bots);
+    const s = E.newGame({ order: ids, seed: 3, opts: { upgrades: true } });
+    const env = { course, connected: () => true, now: () => 0, name: (id) => id };
+    ids.forEach((id, i) => (s.picks[id] = i + 1));
+    E.startRace(s, env);
+    s.prio = 0;
+    for (const id of ids) {
+      Object.assign(s.robots[id], { hand: [], done: true, draft: { regs: [[], [], [], [], []], keep: [] }, energy: 3 });
+      s.robots[id].up = { perm: [], temp: [], hand: id === 'a' ? ['brakes'] : [] };
+    }
+    const A = s.robots.a;
+    Object.assign(A.regs[0], { cards: [`${t}.1`], locked: true });
+    A.deck = ['m1.501', 'rr.502', ...A.deck]; // Double Program's clip runs Move 1, then Rotate Right
+    s.damage = Array.from({ length: 20 }, (_, i) => `sp.${700 + i}`);
+    s.phase = 'program';
+    E.beginActivation(s, env);
+    for (let i = 0; i < 3000 && s.reg < 1 && s.phase === 'activate'; i++) {
+      E.step(s, env);
+      if (s.prompt) E.answerPrompt(s, env, s.prompt.id, s.prompt.def);
+    }
+    return { s, R: s.robots, hurt: (id) => s.robots[id].discard.filter((c) => c.startsWith('sp')).length };
+  };
+  for (const t of Object.keys(HAYWIRE)) {
+    if (t === 'h11') continue; // Spin Out faces a random way
+    const { R } = runReal(t);
+    const end = compileDemo(t).frames.at(-1).bots;
+    for (const id of Object.keys(end)) {
+      const a = end[id];
+      const b = R[id];
+      check(a.x === b.x && a.y === b.y && a.d === b.d, `${t}: the clip leaves robot ${id} where the rules do (clip ${a.x},${a.y},${a.d}; rules ${b.x},${b.y},${b.d})`);
+    }
+  }
+  check(runReal('h04').hurt('a') === 1, 'h04: a wall stops Move 5: 1 damage');
+  check(runReal('h05').R.a.up.perm.includes('brakes'), 'h05: a permanent upgrade from the collection is installed');
+  { const r = runReal('h09'); check(r.hurt('b') === 1 && r.hurt('c') === 1, 'h09: the laser hits a robot to the left and one behind'); }
+  { const r = runReal('h13'); check(r.R.a.energy === 6 && r.hurt('a') === 1, 'h13: +3 energy, then 1 damage'); }
+  { const r = runReal('h14'); check(r.hurt('b') === 1 && r.hurt('c') === 1, 'h14: both neighbours take 1 damage'); }
+  check(runReal('h17').hurt('b') === 3, 'h17: the laser deals 3 damage');
+  // the clip shows each move and turn as a little card over the robot
+  for (const t of ['h01', 'h08', 'h16']) {
+    const cards = compileDemo(t).frames.flatMap((f) => f.fx.filter((x) => x.k === 'card'));
+    check(cards.length === HAYWIRE[t].ops.length, `${t}: a little card for each step (${cards.length})`);
+  }
+}
+
+// ----- the reboot ring I'd come back on -----
+{
+  const c = getCourse('closing-time');
+  const boardOf = (x, y) => c.cells[y * c.w + x]?.b;
+  const ringBoard = c.boards.findIndex((b) => b.reboot && !b.dock);
+  const ring = c.boards[ringBoard].reboot;
+  const archive = { ...c.starts[0] };
+  // a square on that board, and one on the dock
+  const onBoard = c.cells.findIndex((q, i) => q && q.b === ringBoard && q.k === 'floor' && i !== ring.y * c.w + ring.x);
+  const sq = { x: onBoard % c.w, y: Math.floor(onBoard / c.w), d: 0 };
+  const here = rebootFor(c, sq, [], archive);
+  check(here && here.x === ring.x && here.y === ring.y && !here.fall && !here.archive, 'ring: the board I am on');
+  const dock = rebootFor(c, archive, [], archive);
+  check(dock && dock.archive && dock.x === archive.x && dock.y === archive.y, 'ring: on the dock it is my start pad');
+  // a planned line that falls off an edge of that board: its ring, and the fall to link from
+  let fallCase = null;
+  for (let i = 0; i < c.cells.length && !fallCase; i++) {
+    const q = c.cells[i];
+    if (!q || q.b !== ringBoard || q.k !== 'floor') continue;
+    for (let d = 0; d < 4 && !fallCase; d++) {
+      const st = { x: i % c.w, y: Math.floor(i / c.w), d };
+      const gh = previewProgram(c, st, [['m1']]);
+      if (gh[0]?.fell) fallCase = { st, gh };
+    }
+  }
+  check(!!fallCase, 'closing-time has a square on a ring board one step from a fall');
+  if (fallCase) {
+    const r = rebootFor(c, sq, fallCase.gh, archive);
+    check(r.fall && r.fall.x === fallCase.gh[0].x && r.fall.y === fallCase.gh[0].y, 'ring: a planned fall links from its cross');
+    const fb = boardOf(fallCase.gh[0].x, fallCase.gh[0].y) ?? boardOf(fallCase.st.x, fallCase.st.y);
+    const want = c.boards[fb]?.reboot && !c.boards[fb].dock ? c.boards[fb].reboot : archive;
+    check(r.x === want.x && r.y === want.y, 'ring: a planned fall uses the board where it falls');
+  }
+  // from the dock, a planned fall onto a ring board's pit uses that board's ring (not my start pad)
+  const pit = c.cells.findIndex((q) => q?.k === 'pit' && c.boards[q.b]?.reboot && !c.boards[q.b].dock);
+  if (pit >= 0) {
+    const gh = [{ x: pit % c.w, y: Math.floor(pit / c.w), d: 0, n: 1, fell: true, path: [[archive.x, archive.y], [pit % c.w, Math.floor(pit / c.w)]] }];
+    const r = rebootFor(c, archive, gh, archive);
+    const b = c.boards[c.cells[pit].b].reboot;
+    check(r.x === b.x && r.y === b.y && !r.archive, 'ring: falling into a pit on another board uses that board’s ring');
+  }
+  check(topicAtCell(c, archive.x, archive.y, 0.5, 0.5, { ring: { x: archive.x, y: archive.y } }).includes('reboot-ring'), 'the map: my lit start pad answers "reboot ring"');
+  check(/your color/.test(TOPICS['reboot-ring'].fine), 'the Guide: the reboot ring says yours is lit in your color');
 }
 
 // ----- the map hit-test, on every course -----

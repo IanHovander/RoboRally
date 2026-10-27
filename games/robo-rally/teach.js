@@ -22,7 +22,9 @@ export const NUMBER = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'se
  * The race's top margin (a fraction of the screen, as scene.js's setFrame takes it): room for the 1-5 strip
  * and the narrator's line, and, while subtitles show, for them too, so they never sit on the board.
  */
-export const topMargin = (voice) => (voice.captions ? 0.3 : 0.2);
+// The board's top margin: room for subtitles in a game that teaches (the Briefing, callouts), whether or not the
+// voice is heard right now, so switching the sound or captions never moves the board.
+export const topMargin = (teach) => (teach ? 0.3 : 0.2);
 
 /** A name as the narrator says it: as typed, without emoji; an empty one is "Unit n". */
 export function spoken(name, seat = 0) {

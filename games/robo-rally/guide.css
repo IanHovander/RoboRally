@@ -63,6 +63,7 @@
 .gd-clips { display: grid; gap: .55rem; }
 .gd-clips.n1 .gd-clip canvas { aspect-ratio: 16 / 9; }
 .gd-clips.n2 .gd-clip canvas { aspect-ratio: 16 / 10; max-height: 30vh; }
+.gd-sheet-box:has(.gd-does) .gd-clips.n2 .gd-clip canvas { max-height: 23vh; } /* a Haywire slot: both clips and its sentence fit */
 .gd-clips.n3 { grid-template-columns: 1fr 1fr; }
 .gd-clips.n3 .gd-clip:first-child { grid-column: 1 / -1; }
 .gd-clips.n3 .gd-clip canvas { aspect-ratio: 16 / 10; }
@@ -70,6 +71,8 @@
 .gd-clip { position: relative; margin: 0; }
 .gd-clip canvas { display: block; width: 100%; border-radius: .8rem; background: #0b0e13; border: 1px solid var(--hair); }
 .gd-clip figcaption { position: absolute; left: .55rem; top: .4rem; font-size: .78rem; font-weight: 300; letter-spacing: .04em; color: var(--dim); pointer-events: none; text-shadow: 0 0 .4rem #000; }
+.gd-does { margin: .8rem .1rem 0; font-size: 1.05rem; line-height: 1.4; font-weight: 400; letter-spacing: .01em; }
+.gd-does + .gd-fine { margin-top: .4rem; }
 .gd-fine { margin: .8rem .1rem 0; font-size: .85rem; line-height: 1.45; font-weight: 300; color: var(--faint); }
 .gd-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .6rem; margin-top: 1rem; }
 .gd-row .gd-pill { justify-self: end; }

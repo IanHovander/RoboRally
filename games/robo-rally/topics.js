@@ -1,6 +1,7 @@
 // What the phone's Guide knows: every "?" topic (a picture, 1-3 looping clips, one sentence of fine
 // print), the Book's sections, and what's on a square of the map. No DOM here, so tests can read it.
-//   topic: { sec, pic, name?, clips: [[demoKey, caption]], fine, cap? (the Book tile's caption when there's no clip) }
+//   topic: { sec, pic, name?, clips: [[demoKey, caption]], fine, does? (what a Haywire does, step by step: said big),
+//            cap? (the Book tile's caption when there's no clip) }
 //   pic: { card: t } { g: glyph } { up: key } { cell: kind } { me: true } { robot: true } { slots: true }
 //        { line: true } { badge: '1' } { strip: true } { stack: true } { pair: [t, t] } { arrows: true } { course: true }
 import { UPGRADES, HAYWIRE, cardType, isHaywire } from './cards.js';
@@ -84,7 +85,7 @@ export const TOPICS = {
   damage: { sec: 'damage', pic: { pair: ['sp', 'hw'] }, clips: [['damage-cards', 'No health'], ['shutdown', 'Clear it']], fine: 'There’s no health. Damage is junk cards. Clear it by playing SPAM or shutting down.' },
   // ----- falling -----
   fall: { sec: 'falling', pic: { g: 'reboot' }, clips: [['reboot', 'Pit'], ['edge', 'Edge']], fine: 'You sit out the rest of the round, take 2 junk cards, and return on the blue ring next round. Flags, energy and upgrades stay.' },
-  'reboot-ring': { sec: 'falling', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Robots that fall on this board come back here next round.' },
+  'reboot-ring': { sec: 'falling', pic: { cell: 'reboot' }, clips: [['reboot', 'Back here']], fine: 'Fall on this board, come back here next round. Your map lights yours in your color (from the dock: your start pad).' },
   'reboot-dir': { sec: 'falling', pic: { arrows: true }, clips: [['reboot-face', 'Pick a way']], fine: 'Choose which way you’ll face when you come back.' },
   // ----- shutdown -----
   shutdown: { sec: 'shutdown', pic: { g: 'power' }, clips: [['shutdown', 'Sit out']], fine: 'Instead of programming, sit out a round: all junk in your hand, slots and discard pile goes. Pushes and lasers still reach you.' },
@@ -121,6 +122,29 @@ const UPGRADE_EXTRA = {
 export const words = (text) => String(text).trim().split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w) || w === '+').length;
 // Haywires with a proper name (the rest are named by what they do, which the card face already shows).
 const named = (t) => !!HAYWIRE[t].text;
+/**
+ * What each Haywire does, step by step, checked against engine.js (runOp, moveRobot, fireAll) and its clip.
+ * does: the plain sentence the Guide shows big; fine: the small print under it.
+ */
+export const HAYWIRE_DOES = {
+  h01: { does: 'Move 1, turn right, move 1.' },
+  h02: { does: 'Slide 2 spaces sideways, still facing the same way.', fine: 'You pick left or right while programming (right if you don’t).' },
+  h03: { does: 'Move 3, then turn around.' },
+  h04: { does: 'Move 5. If a wall stops you, take 1 damage.', fine: 'Robots in the way are shoved. Stopped by a stuck robot instead: no damage.' },
+  h05: { does: 'Install a permanent upgrade from your collection, free, even past 3.', fine: 'You pick it while programming. At the round’s end it’s discarded. No permanent upgrade in your collection: nothing happens.' },
+  h06: { does: 'Move 1, turn left, move 1.' },
+  h07: { does: 'Turn around, then move 2.' },
+  h08: { does: 'Back up 3 spaces, still facing the same way.' },
+  h09: { does: 'At this slot’s end your laser fires 4 ways: front, back, left and right.', fine: 'Each beam hits the first robot in its line.' },
+  h10: { does: 'Run the top 2 cards of your deck here, one after the other.', fine: 'Again in the next slot repeats only the second.' },
+  h11: { does: 'Turn to a random facing (maybe the same one), then move 2.' },
+  h12: { does: 'Swap places with the first robot in front of you. Nobody turns.', fine: 'The robot your laser would hit; walls block it. Nobody there: nothing happens.' },
+  h13: { does: 'Gain 3 energy, then take 1 damage.', fine: 'Energy stops at 10. With upgrades off there’s no energy: only the damage.' },
+  h14: { does: 'Every robot right next to yours takes 1 damage.', fine: 'Not through walls.' },
+  h15: { does: 'Move 2, turn left, move 1.' },
+  h16: { does: 'Move 1, step 1 right without turning, move 1.' },
+  h17: { does: 'At this slot’s end your laser deals 2 extra damage: 3 instead of 1.', fine: 'Only your main laser, not a weapon upgrade.' },
+};
 
 const ups = Object.keys(UPGRADES);
 const perm = ups.filter((k) => UPGRADES[k].kind === 'perm').sort((a, b) => UPGRADES[a].cost - UPGRADES[b].cost || ups.indexOf(a) - ups.indexOf(b));
@@ -133,7 +157,8 @@ for (const k of UPGRADE_ORDER) {
   TOPICS[k] = { sec: 'upgrades', name: u.name, pic: { up: k }, clips: [[k, '']], fine: u.text + extra, generated: true };
 }
 for (const [t, hw] of Object.entries(HAYWIRE)) {
-  TOPICS[t] = { sec: 'haywire', name: named(t) ? hw.name : undefined, pic: { card: t }, clips: [[t, '']], fine: hw.text ?? `${hw.name}.`, generated: true };
+  const say = HAYWIRE_DOES[t] ?? { does: hw.text ?? `${hw.name}.` };
+  TOPICS[t] = { sec: 'haywire', name: named(t) ? hw.name : undefined, pic: { card: t }, clips: [[t, '']], does: say.does, fine: say.fine ?? '', generated: true };
 }
 
 /** A topic by id (an upgrade key, a Haywire type, a card type…), or null. */
@@ -185,7 +210,7 @@ export function bookTiles(asks, clipsOf = (ask) => TOPICS[ask.split(':')[0]]?.cl
 
 /**
  * What's on square (x, y) of a course, for a tap at (fx, fy) inside it (0..1): topic ids, the first one
- * first (the rest are "also here"). o: { robots: [{x, y, on, me}], ghosts: [{x, y, path}] }
+ * first (the rest are "also here"). o: { robots: [{x, y, on, me}], ghosts: [{x, y, path}], ring: {x, y} (my lit reboot spot) }
  */
 export function topicAtCell(course, x, y, fx = 0.5, fy = 0.5, o = {}) {
   const out = [];
@@ -211,6 +236,7 @@ export function topicAtCell(course, x, y, fx = 0.5, fy = 0.5, o = {}) {
   // 4. a flag, the reboot ring
   if (course.checkpoints.some((cp) => cp.x === x && cp.y === y)) add('flag');
   if (course.boards.some((b) => b.reboot && b.reboot.x === x && b.reboot.y === y)) add('reboot-ring');
+  if (o.ring && o.ring.x === x && o.ring.y === y) add('reboot-ring'); // my start pad, lit as the spot I'd come back on
   // 5. on a board laser's line
   if (inside && course.lasers.some((L) => beamPath(course, L.x, L.y, L.d).some((p) => p.x === x && p.y === y))) add('board-laser');
   // 6-8. the square itself

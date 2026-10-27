@@ -335,7 +335,7 @@ export default function (root, api) {
     phase === 'setup' ? { top: 0.12, bottom: 0.8, left: 0.1, right: 0.1, headroom: null }
       : phase === 'over' ? { top: 0.1, bottom: 0.3, left: 0.05, right: 0.05, headroom: null }
         : phase === 'start' ? { top: 0.34, bottom: 0.4, left: 0.04, right: 0.04, headroom: null }
-        : { ...RACE_FRAME, top: topMargin(voice) + (tall() ? 0.1 : 0), bottom: tall() && (view?.robots.length ?? 0) > 4 ? 0.8 : RACE_FRAME.bottom };
+        : { ...RACE_FRAME, top: topMargin(!!view?.teach) + (tall() ? 0.1 : 0), bottom: tall() && (view?.robots.length ?? 0) > 4 ? 0.8 : RACE_FRAME.bottom };
   // a phone held upright as the big screen: the 1-5 strip sits lower, and more than four robots take two rows
   const tall = () => innerWidth < innerHeight;
   /** Subtitles came or went (sound on or off, C): the board makes room for them, or takes it back. */

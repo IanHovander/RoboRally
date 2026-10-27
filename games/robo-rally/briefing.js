@@ -123,7 +123,7 @@ export function startBriefing(ctx) {
     box3d.style.opacity = '1';
   }
   // the real course: framed as in the race (lower still while subtitles show, so they never sit on it)
-  const realFrame = (phone) => ({ ...(phone ? FRAMES.realPhone : FRAMES.real), ...(phone && tall() ? FRAMES.tallPhone : {}), top: topMargin(voice) });
+  const realFrame = (phone) => ({ ...(phone ? FRAMES.realPhone : FRAMES.real), ...(phone && tall() ? FRAMES.tallPhone : {}), top: topMargin(true) });
   const realBoard = (o = {}) => board({ course: real, robots: ctx.robots(), frame: realFrame(o.phone), cam: o.cam ?? 'drift', keep: o.keep ?? true });
   const lessonBoard = (def, run, from, o = {}) =>
     board({ course: lessonCourse(def), robots: snapshot(run, from), frame: o.phone ? { ...FRAMES.lessonPhone, ...(tall() ? FRAMES.tallPhone : {}) } : FRAMES.lesson, cam: 'lesson', calm: true, keep: o.keep });

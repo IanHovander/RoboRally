@@ -23,7 +23,7 @@ const ENERGY = '#ffc56e';
 //   strip [t ×5]: a five-slot strip along the bottom (a card type, 'hw' face down, or null) · hand: a phone
 //   outline at the bottom right (where cards fly) · pushers [[x, y, side, [regs]]]
 // Steps: ['move', id, dir, n]  dir: F B L R (relative) or N E S W
-//        ['turn', id, q]  ['face', id, dir]  ['card', id, glyph]  ['pop', id, text]
+//        ['turn', id, q]  ['face', id, dir]  ['card', id, glyph, type?]  ['pop', id, text]
 //        ['shoot', id, { dirs: 'F'|'FB'|'all', through, color }]  ['zap', x, y, dir]  ['hit', id]
 //        ['shield', id]  ['fall', id]  ['tp', id, x, y]  ['swap', a, b]  ['off', id]  ['on', id]
 //        ['belts', 'blue'|'green'|'only:<id>'?]  ['gears']  ['wait', ms]  [[step], [step]] runs steps together
@@ -148,13 +148,20 @@ const HW_SETUP = {
   h16: { size: [5, 4], bots: { a: [1, 3, 'N'] } },
   h17: { bots: { a: [0, 1, 'E'], b: [3, 1, 'W'] } },
 };
+// Each move or turn shows its own little card over the robot as it happens, so the card's marks match the motion.
+const stepCard = (k, a, b) => {
+  if (k === 'rt') return ['', a === 1 ? 'rr' : a === -1 ? 'rl' : 'ut'];
+  if (a === 0) return b <= 3 ? ['', `m${b}`] : [`↑×${b}`];
+  if (a === 2) return b === 1 ? ['', 'bk'] : [`↓×${b}`];
+  return [a === 3 ? '⇤' : '⇥'];
+};
 for (const [t, hw] of Object.entries(HAYWIRE)) {
   const steps = [];
   for (const [k, a, b, flag] of hw.ops) {
     if (k === 'mv') {
-      steps.push(['move', 'a', a === 'side' ? 'R' : ['F', 'R', 'B', 'L'][a], b]);
+      steps.push([['card', 'a', ...stepCard(k, a === 'side' ? 1 : a, b)], ['move', 'a', a === 'side' ? 'R' : ['F', 'R', 'B', 'L'][a], b]]);
       if (flag === 'wallhurt') steps.push(['hit', 'a']);
-    } else if (k === 'rt') steps.push(['turn', 'a', a]);
+    } else if (k === 'rt') steps.push([['card', 'a', ...stepCard(k, a)], ['turn', 'a', a]]);
     else if (k === 'spin') steps.push(['spin', 'a']);
     else if (k === 'en') steps.push(['pop', 'a', `⚡+${a}`]);
     else if (k === 'dmg') steps.push(['hit', 'a']);
@@ -171,6 +178,8 @@ for (const [t, hw] of Object.entries(HAYWIRE)) {
 const FILMS = ['film-1', 'film-2', 'film-3', 'film-4'];
 export const hasDemo = (key) => !!D[key] || FILMS.includes(key);
 export const demoKeys = () => [...Object.keys(D), ...FILMS];
+/** A demo's own definition (its board and robots), e.g. to run the real rules on the same spot. */
+export const demoDef = (key) => D[key] ?? null;
 export const compileDemo = (key, opts = {}) => compile(D[key], !!(D[key]?.safeEdges || opts.safeEdges));
 
 // ---------- building ----------
@@ -296,7 +305,7 @@ function compile(def, safeEdges) {
           break;
         }
         case 'card':
-          fx.push({ k: 'card', id, text: p });
+          fx.push({ k: 'card', id, text: p, type: q });
           sms = 700;
           break;
         case 'pop':
