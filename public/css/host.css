@@ -28,7 +28,7 @@ html.host body { overflow: hidden; }
 .join .wordmark { font-size: 1.35rem; margin-bottom: 1.4rem; }
 /* a phone held upright: joining is a band across the top, the rule film plays below it */
 @media (orientation: portrait) {
-  .lesson-stage, .lesson-ui { top: 44vh; }
+  .lesson-stage, .lesson-ui { top: 30vh; }
   .lesson-stage { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 6rem); mask-image: linear-gradient(to bottom, transparent, #000 6rem); }
   .join { z-index: 1; left: 0; width: auto; bottom: auto; max-height: 62vh; padding: 2.4rem 1.6rem 2rem; background: linear-gradient(to bottom, rgba(6, 8, 11, 0.9) 75%, rgba(6, 8, 11, 0)); }
   .join .wordmark { margin-bottom: 0.4rem; }

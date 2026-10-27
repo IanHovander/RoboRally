@@ -85,7 +85,7 @@ export function mountLumenLobby(stage, ui) {
 
   // board between the phone (left) and the join column (right); on a phone held upright the join band is
   // above, so the board takes the space right of the (narrower) phone
-  const frame = () => (innerWidth < innerHeight ? { left: 0.74, right: 0.16, top: 0.3, bottom: 0.36 } : innerWidth / innerHeight > 1.5 ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 });
+  const frame = () => (innerWidth < innerHeight ? { left: 0.06, right: 0.06, top: 0.24, bottom: 0.95 } : innerWidth / innerHeight > 1.5 ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 });
   function layout() {
     const f = frame();
     // the strip sits centered over the board's frame, just above it

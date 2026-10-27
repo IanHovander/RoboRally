@@ -38,7 +38,10 @@ const FRAMES = {
   realPhone: { top: 0.2, bottom: 0.4, left: 0.42, right: 0.04, headroom: 2.95 },
   lesson: { top: 0.34, bottom: 0.52, left: 0.5, right: 0.5, headroom: null },
   lessonPhone: { top: 0.34, bottom: 0.52, left: 0.78, right: 0.26, headroom: null },
+  // a phone held upright: the phone lies under the board, above the robots along the bottom
+  tallPhone: { bottom: 0.84, left: 0.04, right: 0.04 },
 };
+const tall = () => innerWidth < innerHeight;
 
 /**
  * Start the Briefing. ctx:
@@ -120,10 +123,10 @@ export function startBriefing(ctx) {
     box3d.style.opacity = '1';
   }
   // the real course: framed as in the race (lower still while subtitles show, so they never sit on it)
-  const realFrame = (phone) => ({ ...(phone ? FRAMES.realPhone : FRAMES.real), top: topMargin(voice) });
+  const realFrame = (phone) => ({ ...(phone ? FRAMES.realPhone : FRAMES.real), ...(phone && tall() ? FRAMES.tallPhone : {}), top: topMargin(voice) });
   const realBoard = (o = {}) => board({ course: real, robots: ctx.robots(), frame: realFrame(o.phone), cam: o.cam ?? 'drift', keep: o.keep ?? true });
   const lessonBoard = (def, run, from, o = {}) =>
-    board({ course: lessonCourse(def), robots: snapshot(run, from), frame: o.phone ? FRAMES.lessonPhone : FRAMES.lesson, cam: 'lesson', calm: true, keep: o.keep });
+    board({ course: lessonCourse(def), robots: snapshot(run, from), frame: o.phone ? { ...FRAMES.lessonPhone, ...(tall() ? FRAMES.tallPhone : {}) } : FRAMES.lesson, cam: 'lesson', calm: true, keep: o.keep });
   /** Show the real course if the arena isn't on it (a fade), without rebuilding it if it is. */
   const toReal = async (o = {}) => {
     if (arena.course !== real) return realBoard({ ...o, keep: false });
