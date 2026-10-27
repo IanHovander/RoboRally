@@ -75,7 +75,8 @@
 .gd-does + .gd-fine { margin-top: .4rem; }
 .gd-fine { margin: .8rem .1rem 0; font-size: .85rem; line-height: 1.45; font-weight: 300; color: var(--faint); }
 .gd-row { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; }
-.gd-row .gd-x { margin-left: auto; } /* close sits at the bottom right; the book (or the replay's arrows) on the left */
+.gd-row { position: relative; justify-content: center; } /* the book (or the replay's arrows) in the middle */
+.gd-row .gd-x { position: absolute; right: 0; } /* close at the bottom right */
 
 /* the replay */
 .gd-num { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 1px solid var(--light); font-weight: 300; font-size: 1.2rem; }

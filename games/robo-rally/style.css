@@ -18,14 +18,14 @@
 .lm-timer { position: absolute; top: 0; left: 0; right: 0; height: 3.4rem; pointer-events: none; opacity: 0; transition: opacity .6s; }
 .lm-timer.on { opacity: 1; }
 .lm-timer i {
-  position: absolute; top: 0; left: 0; right: 0; height: 2px; transform-origin: 50% 50%;
+  position: absolute; top: 0; left: 0; right: 0; height: 3px; transform-origin: 50% 50%;
   background: linear-gradient(90deg, transparent, var(--light) 12%, var(--light) 88%, transparent);
   box-shadow: 0 0 12px rgba(244, 239, 228, .6);
   transition: background .4s;
 }
 .lm-timer b {
-  position: absolute; top: .7rem; left: 50%; transform: translateX(-50%);
-  font-weight: 200; font-size: 1.6rem; letter-spacing: .08em; font-variant-numeric: tabular-nums; color: var(--dim);
+  position: absolute; top: .6rem; left: 50%; transform: translateX(-50%);
+  font-weight: 200; font-size: 2.4rem; letter-spacing: .08em; font-variant-numeric: tabular-nums; color: var(--dim);
 }
 .lm-timer.low i { background: linear-gradient(90deg, transparent, var(--energy) 12%, var(--energy) 88%, transparent); box-shadow: 0 0 14px rgba(255, 197, 110, .8); }
 .lm-timer.low b { color: var(--energy); font-weight: 300; }

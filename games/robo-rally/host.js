@@ -318,7 +318,59 @@ export default function (root, api) {
     }
   })();
 
+  // setup: drag across the big screen (not on a button or the strip) to slide to the next map, as on the phone
+  let drag = null;
+  let draggedAt = 0;
+  root.addEventListener('pointerdown', (e) => {
+    if (view?.phase !== 'setup' || !slide.course || e.button > 0) return;
+    if (e.target.closest('button, [data-host], .lm-courses, .lm-opts, .lm-corner, a, input')) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, from: slide.o, trail: [] };
+  });
+  addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - drag.y)) {
+      drag.on = true;
+      drag.x = e.clientX; // (moves from here, so it doesn't hop)
+      slide.mode = 'drag';
+      slide.glide = null;
+      slide.live = false;
+    }
+    if (!drag.on) return;
+    const now = performance.now();
+    drag.trail.push([now, e.clientX]);
+    while (drag.trail.length > 2 && now - drag.trail[0][0] > 100) drag.trail.shift();
+    const per = slide.px || innerWidth * 0.6; // screen px per map
+    slide.o = Math.max(-1.4, Math.min(1.4, drag.from + (e.clientX - drag.x) / per));
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    if (!d.on) return;
+    draggedAt = performance.now();
+    const [t0, x0] = d.trail[0] ?? [0, 0];
+    const [t1, x1] = d.trail.at(-1) ?? [1, 0];
+    const v = (x1 - x0) / Math.max(16, t1 - t0); // px per ms, + to the right
+    const flick = Math.abs(v) > 0.5 && Math.sign(v) === -Math.sign(slide.o || -v);
+    if (Math.abs(slide.o) > 0.25 || (flick && Math.abs(slide.o) > 0.04)) {
+      // far enough (or flicked): the map it was moving toward is chosen, and glides home from here
+      const step = slide.o < 0 ? 1 : -1;
+      slide.mode = 'hold'; // stays put until the room has the new map (then glides home from here)
+      slide.holdUntil = performance.now() + 1200;
+      slide.ov = 0;
+      api.send('setOpt', { key: 'course', value: courseAt(slide.course, step) });
+    } else {
+      // not far enough: it springs back
+      slide.mode = 'follow';
+      slide.ov = 0;
+    }
+  };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+
   root.addEventListener('click', (e) => {
+    if (performance.now() - draggedAt < 300) return; // (the end of a drag isn't a click)
     const el = e.target.closest('[data-host]');
     if (!el) return;
     const [key, rawValue] = el.dataset.host.split('=');
@@ -625,7 +677,7 @@ export default function (root, api) {
     course: null, // the map on stage
     left: null, // the maps shown either side (the neighbours; while a jump glides in, the one it left)
     right: null,
-    mode: 'rest', // 'follow' (the leader's finger), 'glide' (a timed slide home), 'rest'
+    mode: 'rest', // 'follow' (the leader's finger), 'drag' (a drag here), 'hold' (waiting for the chosen map), 'glide' (a timed slide home), 'rest'
     glide: null, // { from, t (ms so far), dur }
     live: false, // the leader is sliding it now
     last: null, // the newest sample from the phone: { offset, at } (at: the server's clock)
@@ -709,6 +761,7 @@ export default function (root, api) {
     slide.t = now;
     if (view?.phase !== 'setup' || !slide.course) return;
     let o = slide.o;
+    if (slide.mode === 'hold' && now > slide.holdUntil) slide.mode = 'follow'; // (the change never came: home)
     if (slide.mode === 'glide') {
       slide.ov = 0;
       const G = slide.glide;

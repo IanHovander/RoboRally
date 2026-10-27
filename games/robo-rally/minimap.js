@@ -83,8 +83,8 @@ export function drawCourse(g, course, o = {}) {
     const path = beamPath(course, L.x, L.y, L.d);
     const a = path[0];
     const b = path[path.length - 1];
-    g.strokeStyle = L.n > 1 ? 'rgba(255,84,66,.9)' : 'rgba(255,74,58,.7)';
-    g.lineWidth = L.n > 1 ? lw(0.045, 1.4) : lw(0.03);
+    g.strokeStyle = 'rgba(255,80,62,.8)';
+    g.lineWidth = lw(0.038, 1.2);
     // one line per beam: a double laser is two lines, clearly apart (as its two lenses)
     for (let i = 0; i < L.n; i++) {
       const off = (i - (L.n - 1) / 2) * laserGap(T);
