@@ -297,9 +297,21 @@ export default function (root, api) {
     if (card.dataset.key === key) return;
     card.dataset.key = key;
     card.innerHTML = String(html`<div class="pl-course-track">${[-1, 0, 1].map((k) => slideHtml(courseAt(id, k)))}</div>`);
+    // every map's picture, drawn ahead in idle time, so a glide never waits to draw the next one
+    const later = window.requestIdleCallback ?? ((fn) => setTimeout(fn, 200));
+    for (const c of COURSES) later(() => thumb(c.id));
   }
-  /** Slide one map along (step -1 or 1), from wherever a drag left the track, then choose it. */
-  function glide(step, fromPx = 0) {
+  /** A carousel slide for a map, as an element. */
+  const slideNode = (sel) => {
+    const t = document.createElement('template');
+    t.innerHTML = String(slideHtml(sel)).trim();
+    return t.content.firstElementChild;
+  };
+  /**
+   * Slide one map along (step -1 or 1), from wherever a drag left the track, then choose it. It leaves at the
+   * speed the finger was moving (v, px/ms) and eases to a stop, so the hand-off from finger to glide is seamless.
+   */
+  function glide(step, fromPx = 0, v = 0) {
     const card = body.querySelector('.pl-course-card');
     const track = card?.querySelector('.pl-course-track');
     if (!track || gliding) return;
@@ -308,14 +320,27 @@ export default function (root, api) {
     const from = shownCourse ?? view.opts.course;
     const next = courseAt(from, step);
     api.vibrate(6);
-    const dur = Math.max(140, 300 * (1 - Math.abs(fromPx) / w));
+    const to = -step * w;
+    const left = Math.abs(to - fromPx);
+    // an ease-out whose starting slope is 3: starting speed = 3 * distance / duration
+    const dur = Math.max(170, Math.min(420, Math.abs(v) > 0.05 ? (3 * left) / Math.abs(v) : 340 * (left / w) + 80));
     track.style.transition = 'none';
     track.style.transform = `translateX(${fromPx}px)`;
-    track.animate([{ transform: `translateX(${fromPx}px)` }, { transform: `translateX(${-step * w}px)` }], { duration: dur, easing: 'cubic-bezier(.2,.8,.25,1)' }).finished.then(() => {
+    track.animate([{ transform: `translateX(${fromPx}px)` }, { transform: `translateX(${to}px)` }], { duration: dur, easing: 'cubic-bezier(.25,.75,.35,1)' }).finished.then(() => {
       gliding = false;
       shownCourse = next.id;
+      // recentre without rebuilding: the slides already showing move up one place (their images are decoded and
+      // stay), and only the hidden far side gets a new map
+      const slides = [...track.children];
+      if (step > 0) {
+        slides[0].remove();
+        track.append(slideNode(courseAt(next.id, 1)));
+      } else {
+        slides[2].remove();
+        track.prepend(slideNode(courseAt(next.id, -1)));
+      }
       track.style.transform = '';
-      renderCarousel(); // recentred on the new map: it was already showing there, so nothing jumps
+      card.dataset.key = `${next.id}|${JSON.stringify(mapLook())}`;
       send('setOpt', { key: 'course', value: next.id });
     }, () => (gliding = false));
   }
@@ -327,34 +352,54 @@ export default function (root, api) {
   root.addEventListener('pointerdown', (e) => {
     const card = e.target.closest?.('.pl-course-card');
     if (!card || !api.you?.isVip || view?.phase !== 'setup' || gliding) return;
-    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, card, on: false };
+    swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, card, on: false, slop: 0, trail: [] };
   });
+  let swipeFrame = 0;
   root.addEventListener('pointermove', (e) => {
     if (!swipe || e.pointerId !== swipe.id) return;
     const dx = e.clientX - swipe.x;
     const dy = e.clientY - swipe.y;
-    if (!swipe.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) swipe.on = true; // sideways: a swipe
+    if (!swipe.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      swipe.on = true; // sideways: a swipe. (The map starts moving from here, so it doesn't hop.)
+      swipe.slop = Math.sign(dx) * 8;
+    }
     if (!swipe.on) return;
-    swipe.dx = dx;
-    const track = swipe.card.querySelector('.pl-course-track');
-    if (track) {
-      track.style.transition = 'none';
-      track.style.transform = `translateX(${dx}px)`; // the map follows the finger; the next one comes in with it
+    swipe.dx = dx - swipe.slop;
+    // the last ~100 ms of movement, for the speed at release
+    const now = performance.now();
+    swipe.trail.push([now, e.clientX]);
+    while (swipe.trail.length > 2 && now - swipe.trail[0][0] > 100) swipe.trail.shift();
+    // one transform per frame, however many moves arrive
+    if (!swipeFrame) {
+      swipeFrame = requestAnimationFrame(() => {
+        swipeFrame = 0;
+        const track = swipe?.card.querySelector('.pl-course-track');
+        if (!track) return;
+        track.style.transition = 'none';
+        track.style.transform = `translateX(${swipe.dx}px)`; // the map follows the finger; the next one comes in with it
+      });
     }
   });
   const endSwipe = (e) => {
     if (!swipe || e.pointerId !== swipe.id) return;
-    const { card, dx, on, t } = swipe;
+    const { card, dx, on, trail } = swipe;
     swipe = null;
+    cancelAnimationFrame(swipeFrame);
+    swipeFrame = 0;
     if (!on) return;
     swipedAt = performance.now();
     const track = card.querySelector('.pl-course-track');
-    const fast = Math.abs(dx) / Math.max(1, performance.now() - t) > 0.45; // a flick counts even if short
-    if (Math.abs(dx) > card.clientWidth * 0.25 || (fast && Math.abs(dx) > 24)) glide(dx < 0 ? 1 : -1, dx);
-    else if (track) {
+    const [t0, x0] = trail[0] ?? [0, 0];
+    const [t1, x1] = trail.at(-1) ?? [1, 0];
+    const v = (x1 - x0) / Math.max(16, t1 - t0); // px/ms, + to the right
+    const flick = Math.abs(v) > 0.4 && Math.sign(v) === Math.sign(dx);
+    if (Math.abs(dx) > card.clientWidth * 0.25 || (flick && Math.abs(dx) > 20)) {
+      const step = dx < 0 ? 1 : -1;
+      glide(step, dx, Math.sign(v) === -step ? v : 0);
+    } else if (track) {
       // not far enough: it settles back
-      track.style.transition = 'transform .22s cubic-bezier(.2,.8,.25,1)';
-      track.style.transform = '';
+      track.style.transition = 'transform .26s cubic-bezier(.25,.75,.35,1)';
+      track.style.transform = 'translateX(0px)';
     }
   };
   root.addEventListener('pointerup', endSwipe);
