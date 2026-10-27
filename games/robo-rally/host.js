@@ -350,6 +350,17 @@ export default function (root, api) {
     return list.map((_, i) => list[(k + i) % list.length]).filter((r) => r.x != null && r.on !== false && !r.sd);
   }
 
+  /**
+   * The flag each robot is heading for (its next one), for the board to breathe: lead marks the race leader's
+   * (the most flags; on a tie, every tied robot's). Only while racing: not in setup, the Briefing or the win.
+   */
+  function flagTargets(v) {
+    if (!['start', 'upgrade', 'program', 'activate'].includes(v.phase)) return null;
+    const racing = v.robots.filter((r) => (r.cp ?? 0) < v.cps);
+    const most = Math.max(0, ...v.robots.map((r) => r.cp ?? 0));
+    return racing.map((r) => ({ id: r.id, color: r.color, n: (r.cp ?? 0) + 1, lead: (r.cp ?? 0) === most }));
+  }
+
   function apply(v, first = false) {
     if (briefing) {
       // the Briefing has the arena; when the phase moves on, it hands it back (and that redraws all this)
@@ -398,6 +409,7 @@ export default function (root, api) {
       arena.setReady(['program', 'upgrade'].includes(v.phase) ? new Set(v.robots.filter((r) => r.ready).map((r) => r.id)) : null);
       arena.setDeciding(v.prompt?.id ?? null);
       arena.setTaken(v.robots);
+      arena.setTargets(flagTargets(v));
       arena.showNames = v.phase !== 'setup';
       arena.namesAlways = v.round === 1 && ['program', 'activate'].includes(v.phase); // round 1: whose robot is whose
       arena.setShutdown(v.robots.filter((r) => r.sd && r.on !== false).map((r) => r.id));

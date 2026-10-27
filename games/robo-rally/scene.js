@@ -625,6 +625,33 @@ function padBorderTexture() {
   return padTex;
 }
 
+/**
+ * A flag's ring, lit over the one paintLight draws (radius .4 of a space): a crisp line in a soft glow.
+ * On a plane FLAG_RING across, so the line falls at .4.
+ */
+const FLAG_RING = 1.3;
+function flagRingTexture() {
+  return sharedTex('flag-ring', () => {
+    const W = 256;
+    const c = canvas(W, W);
+    const g = c.getContext('2d');
+    const img = g.createImageData(W, W);
+    const at = 0.4 / (FLAG_RING / 2); // the ring's radius, as a share of the plane's half
+    for (let y = 0; y < W; y++) {
+      for (let x = 0; x < W; x++) {
+        const r = Math.hypot(x - W / 2 + 0.5, y - W / 2 + 0.5) / (W / 2);
+        const d = r - at;
+        const k = Math.min(1, Math.exp(-((d / 0.035) ** 2)) + Math.exp(-((d / 0.16) ** 2)) * 0.3);
+        const i = (y * W + x) * 4;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.round(k * 255);
+        img.data[i + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  });
+}
+
 /** A checkpoint's column of light: lit from its foot (a short soft start), fading towards the top. */
 let liftedTex = null;
 function liftedTexture() {
@@ -747,6 +774,8 @@ export class Arena {
     this.gears = new Map();
     this.pushers = new Map();
     this.columns = [];
+    this.marks = new Map();
+    this.targeting = false;
     this.course = null;
     this.camMode = 'race';
     this.focusOn = null;
@@ -1140,8 +1169,16 @@ export class Arena {
       const taken = new THREE.Group();
       taken.position.set(p.x, 0, p.z);
       this.board.add(taken);
-      this.columns.push({ n: cp.n, col, inner, halo, mat, base: 0.9, flash: 0, flashColor: new THREE.Color(PALETTE.light), taken, takenKey: '' });
+      // someone's next flag: its ring breathes with its column (setTargets)
+      const aura = new THREE.Mesh(new THREE.PlaneGeometry(FLAG_RING, FLAG_RING), new THREE.MeshBasicMaterial({ map: flagRingTexture(), color: hdr(PALETTE.light, 0), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      aura.rotation.x = -Math.PI / 2;
+      aura.position.set(p.x, 0.012, p.z);
+      aura.visible = false;
+      this.board.add(aura);
+      this.columns.push({ n: cp.n, col, inner, halo, mat, base: 0.9, flash: 0, flashColor: new THREE.Color(PALETTE.light), taken, takenKey: '', aura, aim: 0, tgt: 0, lead: 0 });
     }
+    this.marks = new Map(); // robot id -> its mark at the flag it's heading for (setTargets)
+    this.targeting = false;
 
     // the key light's shadows cover the course
     const r = Math.max(c.w, c.h) * 0.72;
@@ -1600,6 +1637,126 @@ export class Arena {
         ring.position.y = 0.06 + i * 0.07;
         col.taken.add(ring);
       });
+    }
+  }
+
+  /**
+   * The flags the robots are heading for (the race). Each such flag's ring and column breathe together, slowly,
+   * and a bead of light in each robot's color stands at the ring's rim, so the room sees who's heading where;
+   * the race leader's flag (lead) breathes a little stronger. When a robot reaches its flag, its bead hops on to
+   * the next one, once the flag's own flash has had its moment. A flag nobody is heading for stands still.
+   * list: [{ id, color, n, lead }] in seat order, or null: nothing breathes (the lessons, setup, the win).
+   */
+  setTargets(list) {
+    this.targeting = !!list;
+    const want = new Map();
+    (list ?? []).forEach((r, i) => {
+      if (this.columns.some((c) => c.n === r.n)) want.set(r.id, { ...r, i });
+    });
+    for (const [id, m] of this.marks) if (!want.has(id)) m.leaving = true;
+    for (const [id, r] of want) {
+      let m = this.marks.get(id);
+      if (!m || m.leaving) {
+        if (m) this.dropMark(m);
+        m = this.makeMark(r);
+        this.marks.set(id, m);
+      }
+      m.i = r.i;
+      m.lead = !!r.lead;
+      if (m.color !== r.color) {
+        m.color = r.color;
+        m.core.material.color.copy(hdr(r.color, 1.7));
+        m.glow.material.color.copy(hdr(r.color, 0.9));
+      }
+      const goal = m.next ?? m.n;
+      if (r.n === goal) continue;
+      if (r.n > goal) {
+        // it reached a flag: the bead waits out the flag's flash, then hops on
+        m.next = r.n;
+        m.hopAt = this.realTime + (m.placed ? 1.1 : 0);
+      } else {
+        m.n = r.n; // (back to an earlier flag: a new race) it glides there
+        m.next = null;
+      }
+    }
+  }
+
+  makeMark(r) {
+    const group = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.105, 18, 12), new THREE.MeshBasicMaterial({ color: hdr(r.color, 1.7), transparent: true, opacity: 0 }));
+    core.position.y = 0.11;
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(r.color, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = 0.014;
+    group.add(core, glow);
+    group.visible = false;
+    this.board.add(group);
+    return { id: r.id, n: r.n, next: null, hopAt: 0, hop: null, color: r.color, lead: !!r.lead, i: 0, group, core, glow, k: 0, placed: false, leaving: false };
+  }
+
+  dropMark(m) {
+    this.board.remove(m.group);
+    m.core.geometry.dispose();
+    m.core.material.dispose();
+    m.glow.geometry.dispose();
+    m.glow.material.dispose();
+    if (this.marks.get(m.id) === m) this.marks.delete(m.id);
+  }
+
+  /** Every frame: the beads find their places round their flags' rings (the side facing the camera), hop, fade. */
+  updateMarks(real) {
+    if (!this.marks.size) return;
+    const eye = this.board.worldToLocal(this.camera.position.clone());
+    const now = this.realTime;
+    for (const m of this.marks.values()) {
+      if (m.next != null && now >= m.hopAt && !m.leaving) {
+        m.hop = { t0: now, from: m.group.position.clone() };
+        m.n = m.next;
+        m.next = null;
+      }
+    }
+    const at = new Map();
+    for (const m of this.marks.values()) if (!m.leaving) (at.get(m.n) ?? at.set(m.n, []).get(m.n)).push(m);
+    const slot = new THREE.Vector3();
+    for (const m of [...this.marks.values()]) {
+      const col = this.columns.find((c) => c.n === m.n);
+      if (!col) {
+        this.dropMark(m);
+        continue;
+      }
+      const ctr = col.col.userData.center;
+      const here = at.get(m.n) ?? [m];
+      here.sort((a, b) => a.i - b.i);
+      const j = Math.max(0, here.indexOf(m));
+      // in a row along the ring's near side, centred on the camera's line of sight
+      const front = Math.atan2(eye.z - ctr.z, eye.x - ctr.x);
+      const step = here.length > 6 ? 0.37 : 0.45;
+      const a = front + (j - (here.length - 1) / 2) * step;
+      slot.set(ctr.x + Math.cos(a) * 0.58, 0, ctr.z + Math.sin(a) * 0.58);
+      if (m.hop) {
+        const d = m.hop.from.distanceTo(slot);
+        const dur = Math.min(2.2, 0.9 + d * 0.09);
+        const k = Math.min(1, (now - m.hop.t0) / dur);
+        const e = ease(k);
+        m.group.position.lerpVectors(m.hop.from, slot, e);
+        m.group.position.y = Math.sin(Math.PI * k) * Math.min(2.4, 0.5 + d * 0.22);
+        if (k >= 1) m.hop = null;
+      } else if (!m.placed) {
+        m.group.position.copy(slot);
+        m.placed = true;
+      } else m.group.position.lerp(slot, Math.min(1, real * 4));
+      m.k += ((m.leaving ? 0 : 1) - m.k) * Math.min(1, real * 2.5);
+      if (m.leaving && m.k < 0.02) {
+        this.dropMark(m);
+        continue;
+      }
+      const lit = 1 - this.dimCur;
+      m.group.visible = m.k > 0.01;
+      m.core.material.opacity = m.k;
+      m.core.scale.setScalar(0.5 + 0.5 * m.k);
+      // the glow stays on the glass while the bead is in the air, fainter the higher it goes
+      m.glow.position.y = 0.014 - m.group.position.y;
+      m.glow.material.opacity = m.k * (0.35 + 0.65 * lit) / (1 + m.group.position.y * 2);
     }
   }
 
@@ -2915,9 +3072,22 @@ export class Arena {
       const k = p.kick ? (t - p.kick) / 0.5 : 1;
       p.plate.position.z = 0.05 + (k < 1 ? Math.sin(k * Math.PI) * 0.32 : 0);
     }
+    // the flags robots are heading for breathe, ring and column together, all in one slow breath
+    const breath = 0.5 - 0.5 * Math.cos((this.realTime * TAU) / 3.6);
+    const headed = new Map();
+    for (const m of this.marks.values()) if (!m.leaving) headed.set(m.n, (headed.get(m.n) ?? false) || m.lead);
     for (const col of this.columns) {
       const flash = col.flash ? Math.max(0, 1 - (t - col.flash) / 2.4) : 0;
-      const breathe = 0.85 + Math.sin(t * 1.1 + col.n) * 0.12;
+      col.tgt += ((headed.has(col.n) ? 1 : 0) - col.tgt) * Math.min(1, real * 1.5);
+      col.lead += ((headed.get(col.n) ? 1 : 0) - col.lead) * Math.min(1, real * 1.5);
+      const swell = col.tgt * (0.06 + breath * (0.4 + 0.4 * col.lead));
+      const breathe = (this.targeting ? 0.82 : 0.85 + Math.sin(t * 1.1 + col.n) * 0.12) + swell;
+      col.aura.visible = col.tgt > 0.003;
+      if (col.aura.visible) {
+        col.aura.material.color.set(PALETTE.light).multiplyScalar(col.tgt * (0.15 + breath * (0.75 + 0.55 * col.lead)) * (0.45 + 0.55 * lit) * traced);
+        col.aura.scale.setScalar(1 + breath * 0.035 * col.tgt);
+      }
+      col.halo.material.color.set(PALETTE.light).multiplyScalar(0.12 + col.tgt * breath * (0.22 + 0.18 * col.lead));
       const base = new THREE.Color(PALETTE.light).lerp(col.flashColor, flash);
       const stutter = col.flicker != null && t - col.flicker < 1 ? (Math.sin((t - col.flicker) * 38) > 0 ? 1.3 : 0.15) : 1;
       col.mat.color.copy(base).multiplyScalar((breathe + flash * 2.2 * (col.flashK ?? 1)) * (0.45 + 0.55 * lit) * stutter * traced);
@@ -2940,6 +3110,7 @@ export class Arena {
     this.motes.rotation.y = t * 0.006;
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
 
+    this.updateMarks(real);
     for (const b of this.bots.values()) this.animateBot(b, t, dt);
     if (this.namesAlways || this.tagsOnly) this.spreadTags(real);
     this.updateGhost(dt);
