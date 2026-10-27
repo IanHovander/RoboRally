@@ -24,9 +24,14 @@ const smooth = (a, b, x) => {
   return k * k * (3 - 2 * k);
 };
 const rand = (a, b) => a + Math.random() * (b - a);
+const lerp = (a, b, k) => a + (b - a) * k;
 const wrapAngle = (a) => ((((a + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
 const BOT_SCALE = 1.3;
+// everything one board is (setCourse builds it; the board on stage keeps it in these fields of the arena)
+const BOARD_KEYS = ['course', 'board', 'topMat', 'belts', 'curveMats', 'gears', 'pushers', 'columns', 'batteries', 'batteryMat', 'emitters',
+  'throughHole', 'pits', 'areas', 'wallMats', 'perimeterGroup', 'perimeterShown', 'markCost', 'markPlaces', 'marks', 'startTags', 'startKey',
+  'lightLine', 'builtInert', 'warm'];
 
 export const PALETTE = {
   void: '#06080b',
@@ -1094,6 +1099,12 @@ export class Arena {
     this.quake = null;
     this.punchIn = null;
     this.mishaps = new Map();
+    // setup's map carousel: boards built ahead, out of sight (preload), and how far the strip has slid (setSlide)
+    this.spares = new Map(); // course -> a board (buildBoard's shape), hidden until it slides in
+    this.spareWant = { courses: [], perimeter: false };
+    this.slide = null; // { o, left, right }: o in maps, negative: moved left (the right-hand map coming in)
+    this.slideNow = null; // this frame's slide (slideState)
+    this.slidePx = 0; // how far a board moves on screen per map of slide, in CSS px (for host.js's titles)
 
     this.buildRoom();
     this.resize();
@@ -1127,6 +1138,7 @@ export class Arena {
   destroy() {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    this.warmRT?.dispose();
     this.ro.disconnect();
     const resources = new Set();
     this.scene.traverse((o) => {
@@ -1200,12 +1212,15 @@ export class Arena {
     const moteMat = new THREE.PointsMaterial({ color: 0xcfd8e6, size: 0.035, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending });
     // ...but never over the board: there they'd read as specks on the glass (or in a pit). A mote whose spot in the
     // room lies above the board (or near its edge) isn't drawn; the rest drift round it as before.
-    this.moteClear = { uBoardInv: { value: new THREE.Matrix4() }, uHalf: { value: new THREE.Vector2(0, 0) } };
+    this.moteClear = {
+      uBoardInv: { value: new THREE.Matrix4() }, uHalf: { value: new THREE.Vector2(0, 0) },
+      uBoardInv2: { value: new THREE.Matrix4() }, uHalf2: { value: new THREE.Vector2(-1, -1) }, // (a board sliding in)
+    };
     moteMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.moteClear);
       sh.vertexShader = sh.vertexShader
-        .replace('void main() {', 'uniform mat4 uBoardInv;\nuniform vec2 uHalf;\nvarying float vOver;\nvoid main() {')
-        .replace('#include <project_vertex>', '#include <project_vertex>\n  vec3 bl = (uBoardInv * modelMatrix * vec4(transformed, 1.0)).xyz;\n  vOver = step(abs(bl.x), uHalf.x) * step(abs(bl.z), uHalf.y);');
+        .replace('void main() {', 'uniform mat4 uBoardInv;\nuniform vec2 uHalf;\nuniform mat4 uBoardInv2;\nuniform vec2 uHalf2;\nvarying float vOver;\nvoid main() {')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n  vec3 bl = (uBoardInv * modelMatrix * vec4(transformed, 1.0)).xyz;\n  vec3 bl2 = (uBoardInv2 * modelMatrix * vec4(transformed, 1.0)).xyz;\n  vOver = max(step(abs(bl.x), uHalf.x) * step(abs(bl.z), uHalf.y), step(abs(bl2.x), uHalf2.x) * step(abs(bl2.z), uHalf2.y));');
       sh.fragmentShader = sh.fragmentShader
         .replace('void main() {', 'varying float vOver;\nvoid main() {\n  if (vOver > 0.5) discard;');
     };
@@ -1229,12 +1244,14 @@ export class Arena {
     this.setDim(0);
   }
 
-  /** Build the board for a course (an id from board.js, or a course object the lessons make). Same course: nothing to do, unless fresh. */
+  /**
+   * Show the board for a course (an id from board.js, or a course object the lessons make). Same course: nothing to
+   * do, unless fresh (then it's built afresh). A board built ahead (preload: setup's neighbouring maps) is simply
+   * brought on stage, with no building at all; otherwise it's built here.
+   */
   setCourse(idOrCourse, { fresh = false } = {}) {
     const c = typeof idOrCourse === 'string' ? getCourse(idOrCourse) : idOrCourse;
     if (this.course === c && !fresh) return;
-    this.course = c;
-    this.moteClear?.uHalf.value.set(c.w / 2 + 1.5, c.h / 2 + 1.5); // the room's motes keep this far off the board
     // a new board: whatever was still glowing on the old one goes out
     this.epoch = (this.epoch ?? 0) + 1;
     for (const e of this.effects) e.end?.();
@@ -1243,24 +1260,161 @@ export class Arena {
     for (const b of [...this.bots.values()]) this.removeBot(b);
     this.slow = this.quake = this.punchIn = null;
     this.mishaps.clear();
-    for (const obj of [...this.board.children]) {
-      this.board.remove(obj);
-      obj.traverse((o) => {
-        o.geometry?.dispose();
-        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-          if (!m || m.userData?.shared) continue;
-          for (const v of Object.values(m)) if (v?.isTexture && !v.userData?.shared) v.dispose();
-          m.dispose?.();
-        }
-      });
+    // sliding (setup's map carousel): the camera carries on as it was, only standing back as far as the new board
+    // needs, which the board sliding in was already scaled for: it stays exactly where it is (placeBoards)
+    const was = this.slide && this.camCur && this.camHome && this.course ? { cc: this.camCur, dist: this.camHome.dist } : null;
+    const old = this.saveBoard();
+    const spare = fresh ? null : this.spares.get(c);
+    if (spare) this.spares.delete(c);
+    // the board leaving: kept out of sight when it's wanted again soon (a neighbour in setup's carousel), or let go
+    if (old.course && old.course !== c && !fresh && this.wanted(old.course) && !this.spares.has(old.course)) {
+      this.tidyBoard(old);
+      this.spares.set(old.course, old);
+    } else this.disposeBoard(old);
+    if (spare && spare.builtInert === !!this.inertBatteries) {
+      this.paintMore(spare, Infinity); // (built ahead but not quite finished: finished now)
+      this.loadBoard(spare);
+    } else {
+      if (spare) this.disposeBoard(spare);
+      this.loadBoard(this.buildBoard(c));
     }
-    this.lightLine = null; // (its mesh was on the board, just disposed)
-    this.belts = [];
-    this.gears.clear();
-    this.pushers.clear();
-    this.columns = [];
-    this.batteries = [];
-    this.emitters = [];
+    this.board.position.set(0, 0, 0);
+    this.board.scale.setScalar(1);
+    this.board.visible = true;
+    this.warm = true; // (drawn from the next frame on)
+    this.targeting = false;
+    this.stageFor(c);
+    if (was) {
+      const r = this.camHome.dist / was.dist;
+      was.cc.d *= r;
+      was.cc.tgt.multiplyScalar(r);
+      this.camCur = was.cc;
+    }
+    this.tendSpares();
+  }
+
+  /** What one board is (everything setCourse builds): the board on stage lives in these fields of the arena. */
+  saveBoard() {
+    const r = {};
+    for (const k of BOARD_KEYS) r[k] = this[k];
+    return r;
+  }
+
+  loadBoard(r) {
+    for (const k of BOARD_KEYS) this[k] = r[k];
+  }
+
+  /** Run fn with another board (a spare) in the arena's board fields, so the usual methods work on it. */
+  withBoard(rec, fn) {
+    if (rec.board === this.board) {
+      try {
+        return fn();
+      } finally {
+        Object.assign(rec, this.saveBoard());
+      }
+    }
+    const keep = this.saveBoard();
+    this.loadBoard(rec);
+    try {
+      return fn();
+    } finally {
+      Object.assign(rec, this.saveBoard());
+      this.loadBoard(keep);
+    }
+  }
+
+  /**
+   * Build a course's board into a group of its own (in the scene, hidden): { course, board, belts, ... }. Ahead of
+   * time (later): only started, its steps left in rec.painting for the idle time (paintMore).
+   */
+  buildBoard(c, later = false) {
+    const rec = {
+      course: c, board: new THREE.Group(), topMat: null, belts: [], curveMats: [], gears: new Map(), pushers: new Map(), columns: [],
+      batteries: [], batteryMat: null, emitters: [], throughHole: null, pits: null, areas: [], wallMats: null, perimeterGroup: null,
+      perimeterShown: null, markCost: new Map(), markPlaces: new Map(), marks: new Map(), startTags: null, startKey: null, lightLine: null,
+      builtInert: !!this.inertBatteries, warm: false,
+    };
+    rec.board.visible = false;
+    this.scene.add(rec.board);
+    rec.painting = this.paintBoard(c);
+    if (!later) this.paintMore(rec, Infinity);
+    return rec;
+  }
+
+  /** Carry on building a board (n steps more, at most); true once it's all there. */
+  paintMore(rec, n = 1) {
+    if (!rec.painting) return true;
+    this.withBoard(rec, () => {
+      for (let i = 0; i < n && rec.painting; i++) if (rec.painting.next().done) rec.painting = null;
+    });
+    return !rec.painting;
+  }
+
+  /** A board leaves for good: off the scene, and its GPU memory given back. */
+  disposeBoard(rec) {
+    if (!rec?.board) return;
+    this.scene.remove(rec.board);
+    rec.board.traverse((o) => {
+      o.geometry?.dispose();
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!m || m.userData?.shared) continue;
+        for (const v of Object.values(m)) if (v?.isTexture && !v.userData?.shared) v.dispose();
+        m.dispose?.();
+      }
+    });
+    rec.board = null;
+  }
+
+  /** A board leaving the stage to wait in the wings: nothing of the moment stays on it (marks, start spaces, flashes). */
+  tidyBoard(rec) {
+    this.withBoard(rec, () => {
+      for (const m of [...this.marks.values()]) this.dropMark(m);
+      this.markPlaces = new Map();
+      this.showStarts(null);
+      this.startKey = null;
+      const G = this.lightLine;
+      if (G) {
+        this.board.remove(G.m);
+        G.m.geometry.dispose();
+        G.mat.dispose();
+        G.t.dispose();
+        this.lightLine = null;
+      }
+      for (const col of this.columns) {
+        Object.assign(col, { flash: 0, flicker: null, flashK: 1, tgt: 0, lead: 0, takenKey: '' });
+        for (const o of [...col.taken.children]) {
+          col.taken.remove(o);
+          o.geometry.dispose();
+          o.material.dispose();
+        }
+      }
+      for (const a of this.areas) Object.assign(a, { k: 0, want: 0 });
+      for (const g of this.gears.values()) Object.assign(g, { kick: null, extra: 0, pulse: 0 });
+      for (const b of this.belts) b.pulse = 0;
+      for (const q of this.pushers.values()) q.kick = null;
+      this.board.visible = false;
+      this.board.position.set(0, 0, 0);
+      this.board.scale.setScalar(1);
+    });
+  }
+
+  /** The room round the board on stage: the light it spills, the motes keeping off it, the shadows, the camera. */
+  stageFor(c) {
+    this.moteClear?.uHalf.value.set(c.w / 2 + 1.5, c.h / 2 + 1.5); // the room's motes keep this far off the board
+    this.spill.scale.set(c.w * 2.4, c.h * 2.4, 1); // the light the board spills on the floor below
+    // the key light's shadows cover the course
+    const r = Math.max(c.w, c.h) * 0.72;
+    Object.assign(this.key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 60 });
+    this.key.shadow.camera.updateProjectionMatrix();
+    this.key.position.set(-c.w * 0.3, 16, c.h * 0.6);
+    this.fitCamera();
+  }
+
+  /**
+   * The board's meshes, into this.board (a fresh group) and the board fields (buildBoard), in a few steps: built on
+   * stage they run straight through; built ahead (a spare), one step per idle moment, so a slow computer never stalls.
+   */
+  *paintBoard(c) {
     const S = Math.min(112, Math.floor(4096 / Math.max(c.w, c.h)));
 
     // the slab of glass under each board piece: glowing edges, and no top, so a pit is a hole right through it
@@ -1273,8 +1427,6 @@ export class Arena {
       slab.receiveShadow = true;
       this.board.add(slab);
     }
-    // the light the board spills on the floor below
-    this.spill.scale.set(c.w * 2.4, c.h * 2.4, 1);
 
     // the glass top: smoky color, light drawn into it, holes for the pits
     const glass = tex(paintGlass(c, S));
@@ -1288,6 +1440,8 @@ export class Arena {
     top.position.y = 0;
     top.receiveShadow = true;
     this.board.add(top);
+
+    yield;
 
     // pits: a shaft through the glass, lit at the rim and falling away into the dark
     // The shaft is drawn only through its hole: an invisible lid marks where the hole is seen (the stencil), and
@@ -1378,6 +1532,7 @@ export class Arena {
       }
     }
     this.batteryMat = batteryGlow;
+    yield;
     this.pits = buildPits(rims, throughHole);
     if (this.pits) this.board.add(this.pits.wall, this.pits.lip);
 
@@ -1394,6 +1549,8 @@ export class Arena {
       this.board.add(m);
       return { mesh: m, k: 0, want: 0 };
     });
+
+    yield;
 
     // walls: fins of frosted glass with a bright top edge
     const finMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 0.2, metalness: 0, emissive: 0xdfe6f0, emissiveIntensity: 0.12, transparent: true, opacity: 0.8 });
@@ -1445,6 +1602,8 @@ export class Arena {
         this.board.add(beam);
       }
     }
+
+    yield;
 
     // push panels: a pale plate on the wall; five dots show the registers it pushes on
     for (const q of c.pushers) {
@@ -1531,16 +1690,299 @@ export class Arena {
     }
     for (const L of c.lasers) for (const q of beamPath(c, L.x, L.y, L.d)) crowd(q.x, q.y, 10);
     for (const q of c.pushers) crowd(q.x, q.y, 10);
-    this.targeting = false;
+  }
 
-    // the key light's shadows cover the course
-    const r = Math.max(c.w, c.h) * 0.72;
-    Object.assign(this.key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 60 });
-    this.key.shadow.camera.updateProjectionMatrix();
-    this.key.position.set(-c.w * 0.3, 16, c.h * 0.6);
-    this.startTags = null;
-    this.startKey = null;
-    this.fitCamera();
+  // ----- setup's map carousel: the neighbouring maps' boards, built ahead, slide in as the leader's phone slides -----
+
+  /**
+   * The courses (ids) whose boards should be ready out of sight, besides the one on stage, and whether they show the
+   * "map perimeter" wall. They're built in idle time, a piece at a time, so the picture never stutters; boards no
+   * longer wanted are let go the same way. [] lets them all go (the race doesn't need them).
+   */
+  preload(ids, { perimeter = false } = {}) {
+    const key = `${ids.join()}|${perimeter}`;
+    if (key === this.spareKey) return;
+    this.spareKey = key;
+    this.spareWant = { courses: ids.map((id) => (typeof id === 'string' ? getCourse(id) : id)), perimeter: !!perimeter };
+    this.tendSpares();
+  }
+
+  wanted(c) {
+    return this.spareWant.courses.includes(c);
+  }
+
+  /** Is this course's board built, uploaded and ready to slide in? */
+  ready(id) {
+    const rec = this.spares.get(typeof id === 'string' ? getCourse(id) : id);
+    return !!rec?.warm && rec.builtInert === !!this.inertBatteries;
+  }
+
+  /**
+   * The carousel's slide: o (in maps; negative: the strip has moved left, so the right-hand map is coming in) and the
+   * courses either side (ids, or null for none). 0 (or null): at rest. Called every frame while it moves.
+   */
+  setSlide(o, left = null, right = null) {
+    this.slide = o || left || right ? { o: o || 0, left: left ? getCourse(left) : null, right: right ? getCourse(right) : null } : null;
+  }
+
+  /** This frame's slide: which board comes in (nb, if it's ready), how far (u, 0..1), how it's framed (fn) and its scale (k). */
+  slideState() {
+    const S = this.slide;
+    if (!S || !this.course || !this.camHome || Math.abs(S.o) < 1e-4) return null;
+    const side = S.o < 0 ? 1 : -1; // 1: the right-hand board comes in
+    const c = side > 0 ? S.right : S.left;
+    const rec = c && c !== this.course ? this.spares.get(c) : null;
+    const fa = this.fitFor(this.course);
+    if (!rec?.board || rec.painting || rec.builtInert !== !!this.inertBatteries) return { o: S.o, side, u: 0, nb: null, fa, fn: fa, k: 1 };
+    const fn = this.fitFor(c);
+    // the incoming board, scaled so it looks just as it will once on stage (where the camera stands back as far as
+    // it needs: dist), and the camera's angle moving to its own as it comes
+    return { o: S.o, side, u: Math.min(1, Math.abs(S.o)), nb: rec, fa, fn, k: fa.dist / fn.dist };
+  }
+
+  /**
+   * Where the boards stand this frame (after the camera): the one on stage moved o maps along the camera's right, the
+   * incoming one a map further on. A map is the boards side by side with a gap, and never less than it takes for a
+   * board a map away to be right off the screen, so whatever isn't sliding is out of sight.
+   */
+  placeBoards() {
+    const sv = this.slideNow;
+    for (const rec of this.spares.values()) if (rec.board?.visible && rec !== sv?.nb) rec.board.visible = false;
+    if (!sv) {
+      if (this.wasSliding) {
+        this.wasSliding = false;
+        this.stillSince = this.realTime;
+      }
+      if (this.spareWaiting && this.realTime - (this.stillSince ?? -1) >= 0.2) this.tendSpares();
+      this.board.position.set(0, 0, 0);
+      this.board.updateMatrixWorld();
+      if (this.course) this.spill.scale.set(this.course.w * 2.4, this.course.h * 2.4, 1);
+      // (at rest too, so the titles know how far a board will move as soon as a slide starts)
+      const right = this.slide?.right && this.spares.get(this.slide.right);
+      const N = right?.board ? right.course : this.course;
+      this.slidePx = this.slide && this.course && this.camHome ? this.slideSpan(1, N, this.fitFor(this.course).dist / this.fitFor(N).dist).px : 0;
+      return;
+    }
+    this.wasSliding = true;
+    const A = this.course;
+    const N = sv.nb?.course ?? A;
+    const k = sv.nb ? sv.k : 1;
+    const { step, px, right } = this.slideSpan(sv.side, N, k);
+    this.board.position.copy(right).multiplyScalar(sv.o * step);
+    this.board.updateMatrixWorld();
+    if (sv.nb) {
+      const B = sv.nb.board;
+      B.visible = true;
+      B.scale.setScalar(k);
+      B.position.copy(right).multiplyScalar((sv.o + sv.side) * step);
+      B.updateMatrixWorld();
+    }
+    this.slidePx = px;
+    // the light spilled on the floor below grows or shrinks toward the incoming board's
+    const u = sv.nb ? sv.u : 0;
+    this.spill.scale.set(lerp(A.w, N.w * k, u) * 2.4, lerp(A.h, N.h * k, u) * 2.4, 1);
+  }
+
+  /**
+   * One map of slide, toward `side` (1: right) with board N (scaled k) coming in: { step (world units along the
+   * camera's right), px (CSS px a board's centre moves on screen), right (that direction) }. The boards side by side
+   * with a gap, and never less than it takes for each to be right off the screen while the other is on stage.
+   */
+  slideSpan(side, N, k) {
+    const cam = this.camera;
+    cam.updateMatrixWorld();
+    const az = this.camCur?.az ?? this.camHome?.az ?? 0;
+    const right = new THREE.Vector3(Math.cos(az), 0, -Math.sin(az));
+    const A = this.course;
+    const P = cam.projectionMatrix.elements[0];
+    const v = new THREE.Vector3();
+    const m = 0.03; // (just past the edge)
+    // each corner of a board (at rest, centred, scaled s): where it is on screen (NDC x), how far it moves per world unit along `right`
+    const corners = (c, s) => {
+      const out = [];
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        for (const y of [0.3, -0.36]) {
+          v.set((x * c.w * s) / 2, y * s, (z * c.h * s) / 2);
+          const depth = -v.clone().applyMatrix4(cam.matrixWorldInverse).z;
+          out.push({ x: v.project(cam).x, per: P / Math.max(0.01, depth) });
+        }
+      }
+      return out;
+    };
+    let need = 0;
+    for (const q of corners(N, k)) need = Math.max(need, side > 0 ? (1 + m - q.x) / q.per : (q.x + 1 + m) / q.per); // it waits off screen while this one is on stage
+    for (const q of corners(A, 1)) need = Math.max(need, side > 0 ? (q.x + 1 + m) / q.per : (1 + m - q.x) / q.per); // this one goes right off once it has come
+    const half = (c, s) => s * ((c.w / 2) * Math.abs(right.x) + (c.h / 2) * Math.abs(right.z));
+    const step = Math.max(need, (half(A, 1) + half(N, k)) * 1.12);
+    // a board's centre stays at the same depth as it slides, so it moves evenly across the screen
+    const depth0 = -v.set(0, 0, 0).applyMatrix4(cam.matrixWorldInverse).z;
+    return { step, right, px: ((step * P) / Math.max(0.01, depth0)) * (this.size.w / 2) };
+  }
+
+  /** Idle-time work on the spares, a piece at a time, until they're all ready (or let go). */
+  tendSpares() {
+    if (this.spareJob || !this.running) return;
+    const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 }) : (fn) => setTimeout(fn, 30);
+    // one piece of work a frame, in that frame's spare time (so the GPU's share of it is spread out too)
+    this.spareJob = requestAnimationFrame(() => {
+      this.spareJob = idle(() => {
+        this.spareJob = null;
+        if (!this.running) return;
+        let more = false;
+        const t0 = performance.now();
+        try {
+          more = this.spareStep();
+        } catch (err) {
+          console.warn('preloading a board:', err);
+        }
+        // (for test scripts: what each piece of work cost, in ms)
+        if (this.spareDid) (this.spareLog ??= []).push([this.spareDid, Math.round((performance.now() - t0) * 10) / 10]);
+        if (this.spareLog?.length > 60) this.spareLog.shift();
+        if (more) this.tendSpares();
+      });
+    });
+  }
+
+  /**
+   * One piece of the work: let go of a board no longer wanted, build a wanted one, give it its perimeter, or warm it
+   * up (its pictures to the GPU, one at a time; its shaders; one hidden draw). True if there's more to do.
+   */
+  spareStep() {
+    const want = this.spareWant;
+    const shown = this.slideNow?.nb ?? null;
+    this.spareDid = null;
+    // while a board is sliding (and for a moment after), only the one it needs: the rest waits for a still picture
+    const S = this.slide;
+    const need = this.slideNow ? (this.slideNow.side > 0 ? S?.right : S?.left) : null;
+    const urgent = need && need !== this.course && !this.ready(need);
+    if ((this.slideNow || this.realTime - (this.stillSince ?? -1) < 0.2) && !urgent) {
+      this.spareWaiting = true;
+      return false;
+    }
+    this.spareWaiting = false;
+    for (const [c, rec] of urgent ? [] : this.spares) {
+      const stale = rec.builtInert !== !!this.inertBatteries;
+      if ((!want.courses.includes(c) || stale) && rec !== shown) {
+        this.spares.delete(c);
+        this.disposeBoard(rec);
+        this.spareDid = `drop ${c.id}`;
+        return true;
+      }
+    }
+    this.spareDid = null;
+    // the nearest first: they're listed in the order they'll be wanted
+    for (const c of urgent ? [need] : want.courses) {
+      if (c === this.course) continue;
+      const rec = this.spares.get(c);
+      if (!rec) {
+        this.spares.set(c, this.buildBoard(c, true));
+        this.spareDid = `start ${c.id}`;
+        return true;
+      }
+      if (rec.painting) {
+        this.paintMore(rec, urgent ? Infinity : 1);
+        this.spareDid = `build ${c.id}`;
+        return true;
+      }
+      if (!!rec.perimeterShown !== want.perimeter) {
+        this.withBoard(rec, () => {
+          const keep = this.perimeterFor;
+          this.perimeterFor = want.perimeter ? c : null;
+          this.buildPerimeter();
+          this.perimeterFor = keep;
+        });
+        rec.warm = false;
+        rec.warmed = null;
+        this.spareDid = `walls ${c.id}`;
+        return true;
+      }
+      if (!rec.warm) {
+        const did = this.warmStep(rec);
+        this.spareDid = `warm ${c.id} ${did}`;
+        return did !== 'compile'; // (compiling: it carries on when the shaders are ready)
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Get a spare onto the GPU before it's ever seen, so sliding it in costs nothing: each picture uploaded on its
+   * own, then the shaders, then one draw of it alone into a tiny target (the meshes' buffers).
+   */
+  warmStep(rec) {
+    const r = this.renderer;
+    this.warmRT ??= new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, stencilBuffer: true });
+    if (!rec.warmed) {
+      const textures = new Set();
+      rec.board.traverse((o) => {
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (!m) continue;
+          for (const v of Object.values(m)) if (v?.isTexture) textures.add(v);
+          for (const u of Object.values(m.uniforms ?? {})) if (u?.value?.isTexture) textures.add(u.value);
+        }
+      });
+      // the biggest first (they're the slow ones), each on its own
+      rec.warmed = { textures: [...textures].sort((a, b) => (b.image?.width ?? 0) * (b.image?.height ?? 0) - (a.image?.width ?? 0) * (a.image?.height ?? 0)), compiled: false };
+      return 'list';
+    }
+    const W = rec.warmed;
+    if (W.textures.length) {
+      // small pictures go together; a big one alone
+      let budget = 0;
+      let n = 0;
+      while (W.textures.length && budget < 1) {
+        const t = W.textures.shift();
+        budget += ((t.image?.width ?? 0) * (t.image?.height ?? 0)) / 1.2e6;
+        r.initTexture(t);
+        n++;
+      }
+      return `textures ${n}`;
+    }
+    const keepTarget = r.getRenderTarget();
+    r.setRenderTarget(this.warmRT); // (shaders are made for where they draw: the composer draws into a target like this)
+    try {
+      if (!W.compiled) {
+        // the shaders compile alongside (the GPU's driver works on them while the frames go on); then it carries on
+        if (!W.compiling) {
+          W.compiling = true;
+          const go = () => {
+            if (W.compiled) return;
+            W.compiled = true;
+            this.tendSpares();
+          };
+          r.compileAsync(rec.board, this.camera, this.scene).then(go, go);
+          setTimeout(go, 2000); // (in case the check never finishes, e.g. the board was let go meanwhile)
+        }
+        return 'compile';
+      }
+      // one draw of it alone (the rest of the scene hidden for the moment), into the tiny target: its buffers go up
+      const shown = [];
+      for (const o of this.scene.children) {
+        if (o !== rec.board && o.visible && !o.isLight) {
+          shown.push(o);
+          o.visible = false;
+        }
+      }
+      const wasVisible = rec.board.visible;
+      rec.board.visible = true;
+      const auto = r.shadowMap.autoUpdate;
+      r.shadowMap.autoUpdate = false;
+      const bg = this.scene.background;
+      this.scene.background = null;
+      try {
+        r.render(this.scene, this.camera);
+      } finally {
+        this.scene.background = bg;
+        r.shadowMap.autoUpdate = auto;
+        r.shadowMap.needsUpdate = true;
+        rec.board.visible = wasVisible;
+        for (const o of shown) o.visible = true;
+      }
+      rec.warm = true;
+      return 'draw';
+    } finally {
+      r.setRenderTarget(keepTarget);
+    }
   }
 
   // ----- the camera -----
@@ -1560,25 +2002,45 @@ export class Arena {
 
   fitCamera() {
     if (!this.course || !this.size) return;
-    const c = this.course;
-    const cam = this.camera;
+    const fit = this.fitFor(this.course);
+    this.turned = fit.turned;
+    this.camHome = { dist: fit.dist, elev: fit.elev, az: fit.az, target: new THREE.Vector3(0, 0, 0) };
+    this.camCur = null;
+    // faces and stars grow with the board, so they read the same from across the room on any course
+    this.faceScale = Math.max(1, Math.min(1.7, fit.dist / 13));
+  }
+
+  /**
+   * How the camera sees a course at home, framed as setFrame says: { dist, elev, az, turned }. (Any course: a board
+   * sliding in is seen as it will be once it's on stage.) Kept until the frame or the screen's size changes.
+   */
+  fitFor(c) {
+    const key = `${this.frameKey}|${this.size.w}x${this.size.h}`;
+    this.fits ??= new WeakMap();
+    const had = this.fits.get(c);
+    if (had?.key === key) return had.fit;
+    const cam = (this.fitCam ??= new THREE.PerspectiveCamera());
+    cam.fov = this.camera.fov;
+    cam.aspect = this.camera.aspect;
+    cam.near = this.camera.near;
+    cam.far = this.camera.far;
+    cam.updateProjectionMatrix();
     const f = this.frame;
     // on a tall screen (a phone held upright) a wide board turns a quarter: its long side runs up the screen,
     // seen from a little higher so the far end still reads
     const room = (this.size.w * (2 - f.left - f.right)) / (this.size.h * (2 - f.top - f.bottom)); // the frame's shape
-    this.turned = room < 0.8 && c.w > c.h * 1.1;
-    const az = this.turned ? -Math.PI / 2 : 0;
-    const elev = THREE.MathUtils.degToRad(this.turned ? 70 : c.w > c.h * 1.7 ? 50 : 54);
+    const turned = room < 0.8 && c.w > c.h * 1.1;
+    const az = turned ? -Math.PI / 2 : 0;
+    const elev = THREE.MathUtils.degToRad(turned ? 70 : c.w > c.h * 1.7 ? 50 : 54);
     const target = new THREE.Vector3(0, 0, 0);
     const fw = 2 - f.left - f.right; // the frame's size in NDC (the whole view is 2 x 2)
     const fh = 2 - f.top - f.bottom;
     const corners = [];
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       // the far edge has robots with cards floating over them; the near edge, the slab's thickness
-      const far = this.turned ? x > 0 : z < 0;
+      const far = turned ? x > 0 : z < 0;
       corners.push(new THREE.Vector3((x * c.w) / 2, far ? f.headroom ?? 2.3 : 0.3, (z * c.h) / 2), new THREE.Vector3((x * c.w) / 2, -0.36, (z * c.h) / 2));
     }
-    if (cam.view?.enabled) cam.clearViewOffset();
     let lo = 3;
     let hi = 200;
     for (let i = 0; i < 36; i++) {
@@ -1600,15 +2062,15 @@ export class Arena {
       if (x1 - x0 <= fw && y1 - y0 <= fh) hi = dist;
       else lo = dist;
     }
-    this.camHome = { dist: hi, elev, az, target };
-    this.camCur = null;
-    // faces and stars grow with the board, so they read the same from across the room on any course
-    this.faceScale = Math.max(1, Math.min(1.7, hi / 13));
+    const fit = { dist: hi, elev, az, turned };
+    this.fits.set(c, { key, fit });
+    return fit;
   }
 
   /** The camera's wish for this moment: { az, el, d, tgt } */
   camWish(t) {
-    const home = this.camHome;
+    const sv = this.slideNow;
+    const home = sv?.nb ? { ...this.camHome, elev: lerp(this.camHome.elev, sv.fn.elev, sv.u), az: lerp(this.camHome.az, sv.fn.az, sv.u) } : this.camHome;
     let az = home.az + Math.sin(t * 0.07) * 0.03;
     let d = home.dist;
     let el = home.elev;
@@ -1692,35 +2154,45 @@ export class Arena {
     const cy = (f.bottom - f.top) / 2;
     let sx = 0;
     let sy = 0;
+    const sv = this.slideNow;
     if (!this.focusOn && this.camMode !== 'start') {
       cam.updateMatrixWorld();
       if (cam.view?.enabled) cam.clearViewOffset();
-      const c = this.course;
-      let x0 = 9;
-      let x1 = -9;
-      let y0 = 9;
-      let y1 = -9;
       // the board's glass sits in the middle of the frame; with a headroom, the whole box does (the glass and
       // the cards floating over its far edge), so the cards stay inside the frame too
       const room = f.headroom != null;
-      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        const far = this.turned ? x > 0 : z < 0;
-        for (const h of room ? [far ? f.headroom : 0.3, -0.36] : [0]) {
-          const v = new THREE.Vector3((x * c.w) / 2, h, (z * c.h) / 2).project(cam);
-          x0 = Math.min(x0, v.x);
-          x1 = Math.max(x1, v.x);
-          y0 = Math.min(y0, v.y);
-          y1 = Math.max(y1, v.y);
+      const centre = (c, s, turned) => {
+        let x0 = 9;
+        let x1 = -9;
+        let y0 = 9;
+        let y1 = -9;
+        for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const far = turned ? x > 0 : z < 0;
+          for (const h of room ? [far ? f.headroom : 0.3, -0.36] : [0]) {
+            const v = new THREE.Vector3((x * c.w * s) / 2, h * s, (z * c.h * s) / 2).project(cam);
+            x0 = Math.min(x0, v.x);
+            x1 = Math.max(x1, v.x);
+            y0 = Math.min(y0, v.y);
+            y1 = Math.max(y1, v.y);
+          }
         }
+        return [cx - (x0 + x1) / 2, cy - (y0 + y1) / 2];
+      };
+      [sx, sy] = centre(this.course, 1, this.turned);
+      // a board sliding in: the picture's centring moves to its own as it comes (where it will be once on stage)
+      if (sv?.nb) {
+        const [nx, ny] = centre(sv.nb.course, sv.k, sv.fn.turned);
+        sx += (nx - sx) * sv.u;
+        sy += (ny - sy) * sv.u;
       }
-      sx = cx - (x0 + x1) / 2;
-      sy = cy - (y0 + y1) / 2;
     } else {
       sx = cx;
       sy = cy;
     }
-    cc.sx += (sx - cc.sx) * Math.min(1, k * 2);
-    cc.sy += (sy - cc.sy) * Math.min(1, k * 2);
+    // (sliding: the centring follows the slide exactly, so a board arrives framed just as it will stay)
+    const ks = sv ? 1 : Math.min(1, k * 2);
+    cc.sx += (sx - cc.sx) * ks;
+    cc.sy += (sy - cc.sy) * ks;
     // while punched in, the moment (not the whole board) is what sits in the middle of the frame
     const fx = cc.sx + (cx - cc.sx) * punch;
     const fy = cc.sy + (cy - cc.sy) * punch;
@@ -3483,6 +3955,46 @@ export class Arena {
     // the Briefing's first shot: the board's light traces on from nothing
     const traced = this.trace ? smooth(0, 1, (t - this.trace.t0) / this.trace.dur) : 1;
     if (this.trace && traced >= 1) this.trace = null;
+    this.motes.rotation.y = t * 0.006;
+    this.motes.position.y = Math.sin(t * 0.2) * 0.2;
+
+    this.updateMarks(real);
+    for (const b of this.bots.values()) this.animateBot(b, t, dt);
+    if (this.namesAlways || this.tagsOnly) this.spreadTags(real);
+    this.updateGhost(dt);
+    // (an effect may start others: those land in the fresh list and join the ones still running)
+    const kept = [];
+    for (let pass = 0; pass < 4 && this.effects.length; pass++) {
+      const running = this.effects;
+      this.effects = [];
+      for (const e of running) {
+        if (t < e.t0) {
+          kept.push(e);
+          continue;
+        }
+        const k = e.dur > 0 ? Math.min(1, (t - e.t0) / e.dur) : 1;
+        e.update(k);
+        if (k >= 1) e.end?.();
+        else kept.push(e);
+      }
+    }
+    this.effects = kept.concat(this.effects);
+
+    this.slideNow = this.slideState();
+    this.placeCamera(t, real);
+    this.placeBoards();
+    this.animateBoard(t, dt, real, lit, traced);
+    const nb = this.slideNow?.nb;
+    if (nb) this.withBoard(nb, () => this.animateBoard(t, dt, real, lit, traced));
+    this.moteClear.uBoardInv.value.copy(this.board.matrixWorld).invert();
+    if (nb) this.moteClear.uBoardInv2.value.copy(nb.board.matrixWorld).invert();
+    this.moteClear.uHalf2.value.set(nb ? nb.course.w / 2 + 1.5 : -1, nb ? nb.course.h / 2 + 1.5 : -1);
+    if (this.useBloom) this.composer.render(dt);
+    else this.renderer.render(this.scene, this.camera);
+  }
+
+  /** One board's own motion and light, every frame: belts, gears, push panels, flags, batteries, pits (the board on stage, or one sliding in). */
+  animateBoard(t, dt, real, lit, traced) {
     if (this.topMat) this.topMat.emissiveIntensity = (0.35 + 0.65 * lit) * traced;
     for (const belt of this.belts) {
       belt.tex.offset.y = (belt.tex.offset.y - dt * belt.speed * (belt.pulse && t - belt.pulse < 1.2 ? 2.2 : 1)) % 1;
@@ -3570,35 +4082,6 @@ export class Arena {
     // free start spaces: their borders blink, all together, about once a second (as on the phones)
     const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
     for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
-    this.motes.rotation.y = t * 0.006;
-    this.moteClear.uBoardInv.value.copy(this.board.matrixWorld).invert();
-    this.motes.position.y = Math.sin(t * 0.2) * 0.2;
-
-    this.updateMarks(real);
-    for (const b of this.bots.values()) this.animateBot(b, t, dt);
-    if (this.namesAlways || this.tagsOnly) this.spreadTags(real);
-    this.updateGhost(dt);
-    // (an effect may start others: those land in the fresh list and join the ones still running)
-    const kept = [];
-    for (let pass = 0; pass < 4 && this.effects.length; pass++) {
-      const running = this.effects;
-      this.effects = [];
-      for (const e of running) {
-        if (t < e.t0) {
-          kept.push(e);
-          continue;
-        }
-        const k = e.dur > 0 ? Math.min(1, (t - e.t0) / e.dur) : 1;
-        e.update(k);
-        if (k >= 1) e.end?.();
-        else kept.push(e);
-      }
-    }
-    this.effects = kept.concat(this.effects);
-
-    this.placeCamera(t, real);
-    if (this.useBloom) this.composer.render(dt);
-    else this.renderer.render(this.scene, this.camera);
   }
 
   animateBot(b, t, dt) {

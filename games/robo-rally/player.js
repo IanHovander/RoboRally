@@ -146,6 +146,7 @@ export default function (root, api) {
   // centre), line (the light line it was set for) }. null: the map frames my robot and my line by itself.
   let mapView = null;
   let mapLit = null; // a board piece whose reboot ground is lit (asked about with "?" or a long press), or null
+  let litCourse = null; // (on the setup map: which course's)
   /** Where I'd start this round's program from (my robot, or my reboot spot facing the way I chose). */
   function programStart(m) {
     return m?.on ? m : m?.rb && m.rbAt ? { ...m.rbAt, d: prog.rebootDir } : null;
@@ -267,12 +268,35 @@ export default function (root, api) {
 
   // ----- my map: drag to pan, pinch to zoom, double-tap to frame my robot and line again -----
   const pan = { pts: new Map(), start: null, moved: false, pinched: false, swallow: false, tap: null, raf: 0, sharp: 0 };
-  const mapCanvasOf = (e) => (e.target?.closest?.('.pl-map canvas') && !pl.classList.contains('gd-pointing') ? e.target.closest('.pl-map canvas') : null);
+  /**
+   * The map under a finger that a drag pans and a pinch zooms: my programming map, or the setup map in the middle of
+   * the carousel (which a one-finger drag pans only when zoomed in: otherwise it's a swipe to the next map).
+   * { el, view() (tile, ox, oy now), set(tile, ox, oy, quick), sharp() (after a pinch), double(at), drag }
+   */
+  function surfaceOf(e) {
+    if (pl.classList.contains('gd-pointing')) return null;
+    const cv = e.target?.closest?.('.pl-map canvas');
+    if (cv && maps.get(cv)) {
+      return {
+        el: cv, drag: true, view: () => maps.get(cv), set: (tile, ox, oy, quick) => setMapView(cv, tile, ox, oy, quick), sharp: () => drawMap(cv, { force: true }),
+        double: () => {
+          mapView = null; // a double tap frames my robot and my line again
+          mapZoom = 'near';
+          render();
+        },
+      };
+    }
+    const pic = e.target?.closest?.('.pl-course-pic');
+    if (pic && pic === picNow() && api.you?.isVip && view?.phase === 'setup' && !gliding && !e.target.closest('.pl-zoom')) {
+      return { el: pic, drag: !!courseLook, view: () => picView(pic), set: (tile, ox, oy, quick) => setCourseLook(pic, tile, ox, oy, quick), sharp: () => drawCourseMap(pic), double: (at) => toggleCourseZoom(pic, at) };
+    }
+    return null;
+  }
   function panFrom() {
-    const cv = pan.start?.canvas;
-    const t = cv && maps.get(cv);
+    const S = pan.start?.surface;
+    const t = S?.view();
     if (!t) return;
-    pan.start = { canvas: cv, tile: t.tile, ox: t.ox, oy: t.oy, pts: new Map([...pan.pts].map(([id, p]) => [id, { ...p }])) };
+    pan.start = { surface: S, canvas: S.el, tile: t.tile, ox: t.ox, oy: t.oy, pts: new Map([...pan.pts].map(([id, p]) => [id, { ...p }])) };
   }
   /** Show the map at this size and offset (CSS px), as my own view. */
   function setMapView(cv, tile, ox, oy, quick) {
@@ -296,10 +320,12 @@ export default function (root, api) {
   function slideHtml(sel) {
     const lvl = LEVELS[sel.level] ?? 1;
     // difficulty: the rulebook's own word, over a rising meter (not dots: dots mean other things here)
-    return html`<div class="pl-course-slide">
-      <img alt="" src="${thumb(sel.id)}" draggable="false">
-      <b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
-      <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span>
+    // the picture is the map itself: "?" (or a long press) on a square says what it is; a pinch or a double tap
+    // (or the magnifier) looks closer
+    return html`<div class="pl-course-slide" data-course="${sel.id}">
+      <div class="pl-course-pic"><img alt="" src="${thumb(sel.id)}" draggable="false"><canvas class="pl-course-zoom" hidden></canvas><button class="pl-zoom" data-ui="czoom" aria-label="Zoom">${g('zoom')}</button></div>
+      <div class="pl-course-name"><b>${COURSE_TITLES[sel.id] ?? sel.name}</b>
+      <span class="pl-course-meta"><span class="pl-level" aria-label="Difficulty ${sel.level}"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span>${g('flag')}${sel.checkpoints.length}</span></span></div>
     </div>`;
   }
   /** The previous, current and next maps, side by side; the track sits centred on the current one. */
@@ -312,10 +338,144 @@ export default function (root, api) {
     const key = `${id}|${JSON.stringify(mapLook())}`;
     if (card.dataset.key === key) return;
     card.dataset.key = key;
+    courseLook = null;
     card.innerHTML = String(html`<div class="pl-course-track">${[-1, 0, 1].map((k) => slideHtml(courseAt(id, k)))}</div>`);
+    askMiddle(card.querySelector('.pl-course-track'));
     // every map's picture, drawn ahead in idle time, so a glide never waits to draw the next one
     const later = window.requestIdleCallback ?? ((fn) => setTimeout(fn, 200));
     for (const c of COURSES) later(() => thumb(c.id));
+  }
+  // the big screen follows the carousel as it moves: how far the strip has slid, in maps (negative: to the left,
+  // toward the next map), once a frame and only when it changed; null when it has stopped. Never waited on.
+  const mapStep = (card) => card.clientWidth + parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.5; // a map's width and the 1.5rem gap
+  let browseSent = null;
+  function browseTo(offset) {
+    const o = offset == null ? null : Math.round(offset * 1000) / 1000;
+    if (o === browseSent) return;
+    browseSent = o;
+    api.send('browse', o == null ? null : { offset: o });
+  }
+  /** Stream an animation of the track to the big screen, frame by frame, until it's over (then stop). */
+  function streamTrack(anim, track, w) {
+    const tick = () => {
+      if (anim.playState !== 'running' && anim.playState !== 'pending') return;
+      const m = new DOMMatrixReadOnly(getComputedStyle(track).transform);
+      browseTo(m.m41 / w);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  // ----- the setup map up close: a pinch, a double tap or the magnifier zooms the map in the middle; a drag then
+  // pans it (instead of swiping to the next map). The picture is swapped for a canvas drawn sharp at that size. -----
+  let courseLook = null; // { id, tile, cx, cy (the course point at the picture's centre) }, or null: the whole map
+  const picNow = () => body.querySelector('.pl-course-track > .pl-course-slide:nth-child(2) .pl-course-pic');
+  const picCourse = (pic) => getCourse(pic.closest('.pl-course-slide')?.dataset.course ?? view.opts.course);
+  /** How a setup map picture shows its course now: { tile, ox, oy (CSS px in the picture), fit, width, height, course }. */
+  function picView(pic) {
+    const c = picCourse(pic);
+    const width = pic.clientWidth;
+    const height = pic.clientHeight;
+    if (!width || !height) return null;
+    const fit = Math.min(width / c.w, height / c.h);
+    const place = (o, size, extent) => (extent <= size ? (size - extent) / 2 : clamp(o, size - extent, 0));
+    const L = courseLook?.id === c.id && pic === picNow() ? courseLook : null;
+    const tile = L ? clamp(L.tile, fit, courseMaxTile(fit)) : fit;
+    const ox = place(L ? width / 2 - L.cx * tile : (width - tile * c.w) / 2, width, tile * c.w);
+    const oy = place(L ? height / 2 - L.cy * tile : (height - tile * c.h) / 2, height, tile * c.h);
+    return { tile, ox, oy, fit, width, height, course: c, robots: [], ghosts: [], ring: null };
+  }
+  const courseMaxTile = (fit) => Math.max(fit * 3.2, 60);
+  /**
+   * Draw the middle map: the picture as it is, unless it's zoomed or a board's ground is lit; then a canvas drawn
+   * sharp over it (the course drawn once at that size and copied in where it sits, so a pan is smooth; quick: a pinch
+   * under way, the drawing stretched until a sharp one follows).
+   */
+  function drawCourseMap(pic, { quick = false } = {}) {
+    if (!pic?.isConnected) return null;
+    const t = picView(pic);
+    const cv = pic.querySelector('canvas');
+    const img = pic.querySelector('img');
+    if (!t || !cv) return null;
+    const c = t.course;
+    const lit = mapLit != null && litCourse === c.id ? mapLit : null;
+    const on = (courseLook?.id === c.id && pic === picNow()) || lit != null;
+    cv.hidden = !on;
+    img.style.visibility = on ? 'hidden' : '';
+    pic.classList.toggle('near', !!courseLook && courseLook.id === c.id && t.tile > t.fit * 1.02);
+    maps.set(pic, t);
+    if (!on) return t;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    if (cv.width !== Math.round(t.width * dpr) || cv.height !== Math.round(t.height * dpr)) {
+      cv.width = Math.round(t.width * dpr);
+      cv.height = Math.round(t.height * dpr);
+    }
+    const look = { glow: true, areaLit: lit, ...mapLook() };
+    const cacheKey = JSON.stringify([t.tile, dpr, c.id, lit, mapLook()]);
+    let cache = mapCache.get(cv);
+    if (!cache || (cache.key !== cacheKey && !(quick && cache.c === c))) {
+      const pad = Math.ceil(t.tile);
+      const w = t.tile * c.w + pad * 2;
+      const h = t.tile * c.h + pad * 2;
+      const k = Math.min(dpr, Math.sqrt(8e6 / (w * h))); // (a phone's canvases have a memory limit)
+      const off = cache?.cv ?? document.createElement('canvas');
+      off.width = Math.ceil(w * k);
+      off.height = Math.ceil(h * k);
+      const g2 = off.getContext('2d');
+      g2.setTransform(k, 0, 0, k, 0, 0);
+      g2.clearRect(0, 0, w, h);
+      drawCourse(g2, c, { tile: t.tile, ox: pad, oy: pad, ...look });
+      cache = { key: cacheKey, cv: off, tile: t.tile, pad, w, h, c };
+      mapCache.set(cv, cache);
+    }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, t.width, t.height);
+    const k = t.tile / cache.tile;
+    ctx.drawImage(cache.cv, t.ox - cache.pad * k, t.oy - cache.pad * k, cache.w * k, cache.h * k);
+    cv.dataset.xform = `${t.tile},${t.ox},${t.oy}`; // for test scripts
+    return t;
+  }
+  const onPicResize = () => courseLook && drawCourseMap(picNow()); // (turned, or resized: drawn again at the new size)
+  window.addEventListener('resize', onPicResize);
+  /** Show the middle map at this size and offset (CSS px); at the whole map's size, it's the picture again. */
+  function setCourseLook(pic, tile, ox, oy, quick) {
+    const t = picView(pic);
+    if (!t) return;
+    tile = clamp(tile, t.fit, courseMaxTile(t.fit));
+    courseLook = tile <= t.fit * 1.02 && !quick ? null : { id: t.course.id, tile, cx: (t.width / 2 - ox) / tile, cy: (t.height / 2 - oy) / tile };
+    cancelAnimationFrame(pan.raf);
+    pan.raf = requestAnimationFrame(() => drawCourseMap(pic, { quick }));
+    clearTimeout(pan.sharp);
+    if (quick) pan.sharp = setTimeout(() => drawCourseMap(pic), 160);
+  }
+  /** Zoom the middle map in on a point (client px; default its middle), or back out to the whole map. */
+  function toggleCourseZoom(pic, at = null) {
+    const t = picView(pic);
+    if (!t) return;
+    api.vibrate(6);
+    if (courseLook) {
+      courseLook = null;
+      drawCourseMap(pic);
+      return;
+    }
+    const r = pic.getBoundingClientRect();
+    const x = at ? at.x - r.left : t.width / 2;
+    const y = at ? at.y - r.top : t.height / 2;
+    const tile = Math.min(courseMaxTile(t.fit), t.fit * 2.4);
+    const gx = (x - t.ox) / t.tile;
+    const gy = (y - t.oy) / t.tile;
+    courseLook = { id: t.course.id, tile, cx: gx, cy: gy };
+    drawCourseMap(pic);
+  }
+  /** Only the map in the middle can be asked about (its map, square by square, and its name); the ones either side wait off the card. */
+  function askMiddle(track) {
+    [...track.children].forEach((slide, i) => {
+      for (const [sel, ask] of [['.pl-course-pic', 'map'], ['.pl-course-name', 'course']]) {
+        const el = slide.querySelector(sel);
+        if (i === 1) el.dataset.ask = ask;
+        else delete el.dataset.ask;
+      }
+    });
   }
   /** A carousel slide for a map, as an element. */
   const slideNode = (sel) => {
@@ -332,7 +492,11 @@ export default function (root, api) {
     const track = card?.querySelector('.pl-course-track');
     if (!track || gliding) return;
     gliding = true;
-    const w = card.clientWidth + parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.5; // a map's width and the 1.5rem gap
+    if (courseLook) {
+      courseLook = null; // (zoomed in: it leaves as the whole map)
+      drawCourseMap(picNow());
+    }
+    const w = mapStep(card);
     const from = shownCourse ?? view.opts.course;
     const next = courseAt(from, step);
     api.vibrate(6);
@@ -342,7 +506,10 @@ export default function (root, api) {
     const dur = Math.max(170, Math.min(420, Math.abs(v) > 0.05 ? (3 * left) / Math.abs(v) : 340 * (left / w) + 80));
     track.style.transition = 'none';
     track.style.transform = `translateX(${fromPx}px)`;
-    track.animate([{ transform: `translateX(${fromPx}px)` }, { transform: `translateX(${to}px)` }], { duration: dur, easing: 'cubic-bezier(.25,.75,.35,1)' }).finished.then(() => {
+    if (!fromPx && browseSent === null) browseSent = 0; // (from rest: its first frame is still at 0, which the big screen shows already)
+    const anim = track.animate([{ transform: `translateX(${fromPx}px)` }, { transform: `translateX(${to}px)` }], { duration: dur, easing: 'cubic-bezier(.25,.75,.35,1)' });
+    streamTrack(anim, track, w); // the big screen's board glides with it, all the way
+    anim.finished.then(() => {
       gliding = false;
       shownCourse = next.id;
       // recentre without rebuilding: the slides already showing move up one place (their images are decoded and
@@ -356,9 +523,15 @@ export default function (root, api) {
         track.prepend(slideNode(courseAt(next.id, -1)));
       }
       track.style.transform = '';
+      askMiddle(track);
       card.dataset.key = `${next.id}|${JSON.stringify(mapLook())}`;
+      browseTo(-step);
       send('setOpt', { key: 'course', value: next.id });
-    }, () => (gliding = false));
+      browseTo(null);
+    }, () => {
+      gliding = false;
+      browseTo(null);
+    });
   }
   function stepCourse(step) {
     glide(step);
@@ -368,8 +541,26 @@ export default function (root, api) {
   root.addEventListener('pointerdown', (e) => {
     const card = e.target.closest?.('.pl-course-card');
     if (!card || !api.you?.isVip || view?.phase !== 'setup' || gliding) return;
+    if (swipe && swipe.id !== e.pointerId) return cancelSwipe(); // a second finger: a pinch, not a swipe
+    if (courseLook || e.target.closest('.pl-zoom')) return; // zoomed in: a drag looks round the map instead
     swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, card, on: false, slop: 0, trail: [] };
   });
+  /** A swipe that turned into a pinch: the map goes back where it was. */
+  function cancelSwipe() {
+    const was = swipe;
+    swipe = null;
+    cancelAnimationFrame(swipeFrame);
+    swipeFrame = 0;
+    if (!was?.on) return;
+    swipedAt = performance.now();
+    const track = was.card.querySelector('.pl-course-track');
+    if (!track) return browseTo(null);
+    track.style.transition = 'none';
+    track.style.transform = 'translateX(0px)';
+    const anim = track.animate([{ transform: `translateX(${was.dx}px)` }, { transform: 'translateX(0px)' }], { duration: 200, easing: 'cubic-bezier(.25,.75,.35,1)' });
+    streamTrack(anim, track, mapStep(was.card));
+    anim.finished.then(() => browseTo(null), () => browseTo(null));
+  }
   let swipeFrame = 0;
   root.addEventListener('pointermove', (e) => {
     if (!swipe || e.pointerId !== swipe.id) return;
@@ -393,6 +584,7 @@ export default function (root, api) {
         if (!track) return;
         track.style.transition = 'none';
         track.style.transform = `translateX(${swipe.dx}px)`; // the map follows the finger; the next one comes in with it
+        browseTo(swipe.dx / (swipe.w ||= mapStep(swipe.card))); // ...and so does the big screen's
       });
     }
   });
@@ -407,16 +599,19 @@ export default function (root, api) {
     const track = card.querySelector('.pl-course-track');
     const [t0, x0] = trail[0] ?? [0, 0];
     const [t1, x1] = trail.at(-1) ?? [1, 0];
-    const v = (x1 - x0) / Math.max(16, t1 - t0); // px/ms, + to the right
+    const v = performance.now() - t1 > 90 ? 0 : (x1 - x0) / Math.max(16, t1 - t0); // px/ms, + to the right (held still before letting go: no flick)
     const flick = Math.abs(v) > 0.4 && Math.sign(v) === Math.sign(dx);
     if (Math.abs(dx) > card.clientWidth * 0.25 || (flick && Math.abs(dx) > 20)) {
       const step = dx < 0 ? 1 : -1;
       glide(step, dx, Math.sign(v) === -step ? v : 0);
     } else if (track) {
-      // not far enough: it settles back
-      track.style.transition = 'transform .26s cubic-bezier(.25,.75,.35,1)';
+      // not far enough: it settles back (and the big screen's board with it)
+      track.style.transition = 'none';
       track.style.transform = 'translateX(0px)';
-    }
+      const anim = track.animate([{ transform: `translateX(${dx}px)` }, { transform: 'translateX(0px)' }], { duration: 260, easing: 'cubic-bezier(.25,.75,.35,1)' });
+      streamTrack(anim, track, mapStep(card));
+      anim.finished.then(() => browseTo(null), () => browseTo(null));
+    } else browseTo(null);
   };
   root.addEventListener('pointerup', endSwipe);
   root.addEventListener('pointercancel', endSwipe);
@@ -426,17 +621,19 @@ export default function (root, api) {
   }, true);
 
   root.addEventListener('pointerdown', (e) => {
-    const cv = mapCanvasOf(e);
-    if (!cv || !maps.get(cv)) return;
+    const S = surfaceOf(e);
+    if (!S || (pan.start && pan.start.surface.el !== S.el)) return;
     if (!pan.pts.size) {
       pan.moved = false;
       pan.pinched = false;
     }
     pan.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    try {
-      cv.setPointerCapture(e.pointerId);
-    } catch {}
-    pan.start = { canvas: cv };
+    if (S.drag || pan.pts.size > 1) {
+      try {
+        S.el.setPointerCapture(e.pointerId);
+      } catch {}
+    }
+    pan.start = { surface: S };
     panFrom();
   });
   root.addEventListener('pointermove', (e) => {
@@ -452,7 +649,8 @@ export default function (root, api) {
       const dy = p.y - p0.y;
       if (!pan.moved && Math.hypot(dx, dy) <= 10) return; // still a tap (as the Guide's long press counts it)
       pan.moved = true;
-      setMapView(s.canvas, s.tile, s.ox + dx, s.oy + dy, false);
+      if (!s.surface.drag) return; // (the setup map at its whole size: that drag is the carousel's swipe)
+      s.surface.set(s.tile, s.ox + dx, s.oy + dy, false);
     } else {
       const [a0, b0] = ids.slice(0, 2).map((id) => s.pts.get(id));
       const [a, b] = ids.slice(0, 2).map((id) => pan.pts.get(id));
@@ -464,53 +662,68 @@ export default function (root, api) {
       // the spot between my fingers stays under them
       const gx = ((a0.x + b0.x) / 2 - r.left - s.ox) / s.tile;
       const gy = ((a0.y + b0.y) / 2 - r.top - s.oy) / s.tile;
-      setMapView(s.canvas, tile, (a.x + b.x) / 2 - r.left - gx * tile, (a.y + b.y) / 2 - r.top - gy * tile, true);
+      s.surface.set(tile, (a.x + b.x) / 2 - r.left - gx * tile, (a.y + b.y) / 2 - r.top - gy * tile, true);
     }
   });
   const panUp = (e) => {
     if (!pan.pts.has(e.pointerId)) return;
     const p = pan.pts.get(e.pointerId);
     pan.pts.delete(e.pointerId);
-    if (pan.pts.size) return panFrom(); // a finger left a pinch: the other one carries on panning from here
-    const cv = pan.start?.canvas;
+    if (pan.pts.size) {
+      // a finger left a pinch: the other one carries on panning from here (the setup map: if it's zoomed in)
+      if (pan.start?.surface) pan.start.surface.drag ||= !!courseLook || pan.start.surface.el.tagName === 'CANVAS';
+      return panFrom();
+    }
+    const S = pan.start?.surface;
     pan.start = null;
     if (pan.moved) {
       // a drag isn't a tap: the click it ends in does nothing
       pan.swallow = true;
       setTimeout(() => (pan.swallow = false), 350);
-      if (pan.pinched && cv) drawMap(cv, { force: true });
+      if (pan.pinched && S) {
+        if (S.el.tagName !== 'CANVAS' && courseLook) {
+          // the setup map pinched back to (about) its whole size: the picture again
+          const t = picView(S.el);
+          if (t && t.tile <= t.fit * 1.05) courseLook = null;
+        }
+        S.sharp();
+      }
       return;
     }
-    // a double tap frames my robot and my line again
+    // a double tap: my programming map frames my robot and my line again; the setup map zooms in there (or out)
     const now = performance.now();
-    if (e.type === 'pointerup' && pan.tap && now - pan.tap.t < 320 && Math.hypot(p.x - pan.tap.x, p.y - pan.tap.y) < 32) {
+    if (e.type === 'pointerup' && S && pan.tap && pan.tap.el === S.el && now - pan.tap.t < 320 && Math.hypot(p.x - pan.tap.x, p.y - pan.tap.y) < 32) {
       pan.tap = null;
       pan.swallow = true;
       setTimeout(() => (pan.swallow = false), 350);
-      mapView = null;
-      mapZoom = 'near';
       api.vibrate(6);
-      return render();
+      return S.double(p);
     }
-    pan.tap = { t: now, x: p.x, y: p.y };
+    pan.tap = { t: now, x: p.x, y: p.y, el: S?.el };
   };
   root.addEventListener('pointerup', panUp);
   root.addEventListener('pointercancel', panUp);
 
   /** Light up the ground a reboot ring serves (or the dock, start-pad ground) while I'm asking about it. */
-  function lightArea(b) {
+  function lightArea(b, courseId = null) {
     mapLit = b;
+    litCourse = courseId;
     clearInterval(lightArea.t);
     let seen = performance.now();
-    const cv = body.querySelector('.pl-map canvas');
-    if (cv) drawMap(cv);
+    const redraw = () => {
+      const cv = body.querySelector('.pl-map canvas');
+      if (cv) drawMap(cv);
+      const pic = picNow();
+      if (pic) drawCourseMap(pic);
+    };
+    redraw();
     lightArea.t = setInterval(() => {
       if (document.querySelector('.gd-sheet')) seen = performance.now();
       if (performance.now() - seen < 1500) return;
       clearInterval(lightArea.t);
       mapLit = null;
-      const c2 = body.querySelector('.pl-map canvas');
-      if (c2) drawMap(c2);
+      litCourse = null;
+      redraw();
     }, 250);
   }
 
@@ -560,6 +773,8 @@ export default function (root, api) {
 
   /** The Guide asks: what's on the map where this tap landed? */
   function mapTopics(el, x, y) {
+    const pic = el.closest?.('.pl-course-pic');
+    if (pic) return courseMapTopics(pic, x, y);
     const canvas = el.tagName === 'CANVAS' ? el : el.querySelector('canvas');
     const t = canvas && maps.get(canvas);
     if (!t || !view) return [];
@@ -579,6 +794,27 @@ export default function (root, api) {
     }
     if (!ids.length) return ['me']; // plain floor: what the map is (the big screen, from above; yours has the outline)
     return ids.map((id) => (id === 'robot' && other?.id ? `robot:${other.id}` : id));
+  }
+
+  /** The setup map: what's on the square under a tap (the course itself if the tap is off its squares). */
+  function courseMapTopics(pic, x, y) {
+    const t = picView(pic);
+    if (!t) return ['course'];
+    const r = pic.getBoundingClientRect();
+    const cx = (x - r.left - t.ox) / t.tile;
+    const cy = (y - r.top - t.oy) / t.tile;
+    const c = t.course;
+    if (cx < 0 || cy < 0 || cx >= c.w || cy >= c.h) return ['course'];
+    const gx = Math.floor(cx);
+    const gy = Math.floor(cy);
+    const ids = topicAtCell(c, gx, gy, cx - gx, cy - gy, {});
+    // asking about a reboot ring (or the dock) lights the whole ground it serves, as on the programming map
+    if (ids[0] === 'reboot-ring' || ids[0] === 'dock') {
+      const b = ringBoard(c, gx, gy);
+      const dock = c.boards.findIndex((q) => q.dock);
+      lightArea(b >= 0 ? b : dock >= 0 ? dock : null, c.id);
+    }
+    return ids.length ? ids : ['course'];
   }
 
   /**
@@ -717,6 +953,11 @@ export default function (root, api) {
       }
       case 'course':
         return stepCourse(Number(arg));
+      case 'czoom': {
+        const pic = el.closest('.pl-course-pic');
+        if (pic === picNow() && !gliding) toggleCourseZoom(pic);
+        return;
+      }
       case 'card':
         if (view.phase === 'program' && m.mustReturn) {
           const i = prog.pick.indexOf(arg);
@@ -1054,7 +1295,7 @@ export default function (root, api) {
       <div class="pl-setup">
         <div class="pl-course">
           <button class="pl-arrow" data-ui="course" data-arg="-1" data-ask="course" aria-label="Previous course">${g('left')}</button>
-          <div class="pl-course-card" data-ask="course"></div>
+          <div class="pl-course-card"></div>
           <button class="pl-arrow next" data-ui="course" data-arg="1" data-ask="course" aria-label="Next course">${g('right')}</button>
         </div>
         <div class="pl-opts"></div>
@@ -1573,6 +1814,7 @@ export default function (root, api) {
       render();
     },
     destroy() {
+      window.removeEventListener('resize', onPicResize);
       clearTimeout(draftTimer);
       clearInterval(diceTimer);
       guide.destroy();

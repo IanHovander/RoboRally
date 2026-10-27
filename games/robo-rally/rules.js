@@ -300,7 +300,10 @@ function setOpt(ctx, payload) {
   const s = ctx.state;
   if (s.phase !== 'setup' || !payload || typeof payload !== 'object') return;
   const { key, value } = payload;
-  if (key === 'course' && COURSES.some((c) => c.id === value)) s.opts.course = value;
+  if (key === 'course' && COURSES.some((c) => c.id === value)) {
+    if (value !== s.opts.course) s.browse = null; // a new map is chosen: the carousel's slide is over
+    s.opts.course = value;
+  }
   if (['upgrades', 'lessDeadly', 'lessSpam', 'brief'].includes(key) && typeof value === 'boolean') s.opts[key] = value;
   if (key === 'timer' && TIMERS.includes(value)) s.opts.timer = value;
   if (s.touched) s.touched[key] = true;
@@ -326,9 +329,27 @@ function autoOpts(ctx) {
 }
 const FIRST_GAME = { upgrades: false, timer: 120, lessDeadly: false, lessSpam: false };
 
+/**
+ * The leader is sliding the phone's map carousel: offset is how far the strip has moved, in maps (negative: to the
+ * left, toward the next map). Only the big screen sees it (hostView), so it follows the finger without costing the
+ * phones anything; `at` (the server's clock) lets it place each sample in time. null: the slide is over.
+ */
+function browse(ctx, payload) {
+  const s = ctx.state;
+  if (s.phase !== 'setup') return;
+  const o = payload === null || payload === undefined ? null : payload.offset;
+  if (o === null || o === undefined) {
+    s.browse = null;
+    return;
+  }
+  if (typeof o !== 'number' || !Number.isFinite(o)) return;
+  s.browse = { offset: Math.round(Math.max(-1.5, Math.min(1.5, o)) * 1000) / 1000, course: s.opts.course, at: Date.now() };
+}
+
 function begin(ctx) {
   const s = ctx.state;
   if (s.phase !== 'setup') return;
+  s.browse = null;
   const course = getCourse(s.opts.course);
   s.order = s.order.filter((id) => ctx.player(id)).slice(0, course.starts.length);
   s.phase = 'start';
@@ -354,6 +375,7 @@ export default {
       prefs: {}, // id -> that phone's settings from its last game (hello)
       optsBase: null, // the leader's last-game settings, once taken (a new leader doesn't replace them)
       touched: {}, // options the leader has set by hand this game: never changed for them
+      browse: null, // setting up: the leader is sliding the phone's map carousel ({ offset, course, at }; browse())
     };
     autoOpts(ctx);
   },
@@ -367,6 +389,7 @@ export default {
 
   onDisconnect(ctx, player) {
     const s = ctx.state;
+    s.browse = null; // (it may be the leader's phone, gone mid-slide: the big screen's map settles; a live slide sends it again)
     if (s.prompt?.id === player.id) {
       ctx.cancelTimer('prompt');
       E.timeoutPrompt(s, env(ctx));
@@ -395,6 +418,9 @@ export default {
     // ----- setting up (the leader's phone) -----
     setOpt(ctx, player, payload) {
       if (player.isVip) setOpt(ctx, payload);
+    },
+    browse(ctx, player, payload) {
+      if (player.isVip) browse(ctx, payload);
     },
     begin(ctx, player) {
       if (player.isVip) begin(ctx);
@@ -528,6 +554,7 @@ export default {
       round: s.round,
       reg: s.reg,
       opts: s.opts,
+      browse: s.phase === 'setup' ? s.browse ?? null : null, // (the big screen only: the phones never see it)
       deadline: s.deadline,
       prio: s.order[s.prio] ?? null,
       cps: course.checkpoints.length,

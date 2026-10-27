@@ -425,6 +425,40 @@ function plain(v) {
   check(t.s.opts.timer === 60 && t.s.opts.upgrades === true, 'the leader leaves while setting up: the settings stay as they were');
 }
 {
+  // the leader slides the phone's map carousel: only the big screen follows it (hostView), never the phones
+  const t = room(3, { begin: false });
+  check(t.hv().browse === null, 'browsing: nothing to follow at first');
+  const course = t.s.opts.course;
+  const pvBefore = JSON.stringify([t.pv(0), t.pv(1)]);
+  t.act(1, 'browse', { offset: -0.4 });
+  check(t.s.browse === null && t.hv().browse === null, "browsing: another phone's slide is ignored (leader only)");
+  t.act(0, 'browse', { offset: -0.4 });
+  const b = t.hv().browse;
+  check(b && b.offset === -0.4 && b.course === course && typeof b.at === 'number', `browsing: the big screen sees the leader's slide (got ${JSON.stringify(b)})`);
+  check(JSON.stringify([t.pv(0), t.pv(1)]) === pvBefore && !('browse' in t.pv(0)), 'browsing: the phones\' views are unchanged (hostView only)');
+  t.act(0, 'browse', { offset: 9 });
+  check(t.hv().browse.offset === 1.5, 'browsing: the offset is kept within a map and a half');
+  t.act(0, 'browse', { offset: 'far' });
+  check(t.hv().browse.offset === 1.5, 'browsing: a bad offset is ignored');
+  t.act(0, 'browse', null);
+  check(t.hv().browse === null, 'browsing: null ends the slide');
+  t.act(0, 'browse', { offset: -0.97 });
+  const next = COURSES[(COURSES.findIndex((c) => c.id === course) + 1) % COURSES.length].id;
+  t.act(0, 'setOpt', { key: 'course', value: next });
+  check(t.s.opts.course === next && t.hv().browse === null, 'browsing: choosing the map ends the slide');
+  t.act(0, 'browse', { offset: 0.3 });
+  t.act(0, 'setOpt', { key: 'timer', value: 60 });
+  check(t.hv().browse?.offset === 0.3 && t.hv().browse.course === next, 'browsing: other options leave the slide alone');
+  t.host('setOpt', { key: 'course', value: course });
+  check(t.hv().browse === null, "browsing: the big screen's own choice of map ends it too");
+  t.act(0, 'browse', { offset: 0.2 });
+  rules.onDisconnect(t.ctx, t.players[2]);
+  check(t.hv().browse === null, 'browsing: a phone dropping out ends it (it may be the leader)');
+  t.act(0, 'begin');
+  t.act(0, 'browse', { offset: 0.5 });
+  check(t.s.phase === 'start' && t.s.browse === null && t.hv().browse === null, 'browsing: only while setting up');
+}
+{
   // upgrades off: no Power Up in anyone's deck (it would do nothing without energy)
   const off = room(2, { raced: [0, 1], opts: { upgrades: false } });
   pickAll(off);

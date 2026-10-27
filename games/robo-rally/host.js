@@ -384,6 +384,9 @@ export default function (root, api) {
     if (arena) {
       // no upgrades: batteries do nothing (drawn inert); "Map perimeter": a wall right round the course
       arena.setBatteriesInert(!v.opts.upgrades);
+      // setting up: the maps either side of this one are built ahead, out of sight, so they can slide straight in
+      // (and the one a glide is leaving stays until it's gone); the race doesn't need them
+      arena.preload(v.phase === 'setup' ? slideSpares() : [], { perimeter: !!v.opts.lessDeadly });
       arena.setCourse(v.opts.course);
       arena.setPerimeter(v.opts.lessDeadly ? getCourse(v.opts.course) : null);
       arena.setFrame(frameFor(v.phase));
@@ -567,8 +570,6 @@ export default function (root, api) {
     switch (v.phase) {
       case 'setup': {
         const o = v.opts;
-        const sel = COURSES.find((x) => x.id === o.course) ?? COURSES[0];
-        const lvl = LEVELS[sel.level] ?? 1;
         // a hover says what the option does, in a few words (the phones' "?" says more)
         const TIPS = {
           upgrades: 'Upgrade shop: spend energy on upgrades',
@@ -577,27 +578,24 @@ export default function (root, api) {
           brief: 'Rules tutorial: before round 1, for everyone (off: only for newcomers)',
         };
         const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${TIPS[key] ?? key}">${raw(svgGlyph(glyph))}</button>`;
-        return set(centerEl, html`
-          <div class="lm-setup">
-            <h1 class="lm-course-name">${courseTitle(sel.id)}</h1>
-            <div class="lm-course-meta"><span class="lm-level"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span class="lm-flagcount">${raw(svgGlyph('flag'))}${sel.checkpoints.length}</span></div>
-            <div class="lm-courses">
-              ${COURSES.map((x) => html`
-                <button class="lm-course ${x.id === o.course && 'on'}" data-host="course=${x.id}">
-                  <img alt="" src="${thumb(x.id)}">
-                  <span>${COURSE_TITLES[x.id] ?? x.name}</span>
-                </button>`)}
-            </div>
-            <div class="lm-opts">
+        // the frame is made once (the map strip's pictures don't change); the titles, the strip's highlight and the
+        // options change in place, so a map sliding in (slideTick) never has the page rebuilt under it
+        if (set(centerEl, setupFrame()) || !setupEls) {
+          const q = (sel) => centerEl.querySelector(sel);
+          setupEls = { heads: q('.lm-heads'), strip: q('.lm-courses'), hl: [...centerEl.querySelectorAll('.lm-course-hl')], opts: q('.lm-opts'), boxes: null };
+        }
+        for (const b of setupEls.strip.querySelectorAll('.lm-course')) b.classList.toggle('on', b.dataset.course === o.course);
+        renderHeads();
+        set(setupEls.opts, html`
               ${toggle('upgrades', 'bolt')}
               ${toggle('lessDeadly', 'wall')}
               ${toggle('lessSpam', 'sp')}
               ${toggle('brief', 'tutorial')}
               <span class="lm-seg-cap" aria-hidden="true">${raw(svgGlyph('timer'))}</span>
               <span class="lm-seg">${TIMERS.map((t) => html`<button class="${o.timer === t && 'on'}" data-host="timer=${t}">${t ? t / 60 : raw(svgGlyph('inf'))}</button>`)}</span>
-              <button class="lm-go" data-action="begin" title="Start">${raw(svgGlyph('play'))}</button>
-            </div>
-          </div>`);
+              <button class="lm-go" data-action="begin" title="Start">${raw(svgGlyph('play'))}</button>`);
+        placeSlide(slide.o);
+        return;
       }
       case 'over': {
         const w = robotById(v, v.winner);
@@ -613,6 +611,235 @@ export default function (root, api) {
         return set(centerEl, v.round === 1 ? html`<div class="lm-hint"><span class="lm-hint-slots"><i></i><i></i><i></i><i></i><i></i></span><span class="lm-hint-card">${raw(cardSvgHtml('m1', 'xs'))}</span></div>` : '');
     }
     return set(centerEl, '');
+  }
+
+  // ----- setup: the map carousel. The leader's phone slides it (view.browse), or a map is chosen here: the board, the
+  // title and the strip's highlight all slide with it, the next map coming in from the side as on the phone -----
+  const courseAt = (id, step) => COURSES[(Math.max(0, COURSES.findIndex((x) => x.id === id)) + step + COURSES.length) % COURSES.length].id;
+  const courseIndex = (id) => COURSES.findIndex((x) => x.id === id);
+  const slide = {
+    o: 0, // how far it has slid, in maps (negative: moved left, the right-hand map coming in)
+    course: null, // the map on stage
+    left: null, // the maps shown either side (the neighbours; while a jump glides in, the one it left)
+    right: null,
+    mode: 'rest', // 'follow' (the leader's finger), 'glide' (a timed slide home), 'rest'
+    glide: null, // { from, t (ms so far), dur }
+    live: false, // the leader is sliding it now
+    last: null, // the newest sample from the phone: { offset, at } (at: the server's clock)
+    v: 0, // its speed, in maps per ms
+    t: 0, // (the last frame)
+    px: 0, // how far a board moves on screen per map, in CSS px (the arena's measure; the titles move with it)
+  };
+  let setupEls = null;
+  let setupHtml = null;
+
+  /** The maps whose boards the arena keeps ready: the ones either side (and the one a glide is leaving), nearest first. */
+  function slideSpares() {
+    if (!slide.course) return [];
+    return [...new Set([slide.o < 0 ? slide.right : slide.left, slide.left, slide.right, courseAt(slide.course, 1), courseAt(slide.course, -1)])].filter((id) => id && id !== slide.course);
+  }
+
+  /** A view in setup: if the map changed, the slide carries on from where the new one already was (or glides it in). */
+  function courseSlide(v) {
+    const id = v.opts.course;
+    if (slide.course === id) return;
+    const from = slide.course;
+    slide.course = id;
+    slide.live = false;
+    slide.last = null;
+    slide.v = 0;
+    if (!from) {
+      Object.assign(slide, { o: 0, mode: 'rest', glide: null, left: courseAt(id, -1), right: courseAt(id, 1) });
+      return;
+    }
+    // which way: a step round the carousel, or (a jump, from the strip here) toward where it sits in the strip
+    const step = id === courseAt(from, 1) ? 1 : id === courseAt(from, -1) ? -1 : Math.sign(courseIndex(id) - courseIndex(from)) || 1;
+    // the new map is where the old one's neighbour was a moment ago (it may have slid most of the way in already)
+    slide.o += step;
+    slide.left = step > 0 ? from : courseAt(id, -1);
+    slide.right = step < 0 ? from : courseAt(id, 1);
+    if (Math.abs(slide.o) > 0.08) {
+      const d = Math.min(1.5, Math.abs(slide.o));
+      slide.mode = 'glide';
+      slide.glide = { from: slide.o, t: 0, dur: 140 + 300 * d };
+    } else slide.mode = 'follow';
+  }
+
+  /** The leader's phone: where its carousel is now (or null: let go). Each sample carries the server's time. */
+  function noteBrowse(v) {
+    const b = v.phase === 'setup' ? v.browse : null;
+    if (!b || b.course !== slide.course) {
+      if (slide.live) {
+        slide.live = false;
+        slide.v = 0;
+        // let go short of a new map: it eases home (the phone has usually brought it most of the way already)
+        if (Math.abs(slide.o) > 0.15) {
+          slide.mode = 'glide';
+          slide.glide = { from: slide.o, t: 0, dur: 140 + 200 * Math.min(1, Math.abs(slide.o)) };
+        } else slide.mode = 'follow';
+      }
+      return;
+    }
+    const L = slide.last;
+    if (L && b.at === L.at && b.offset === L.offset) return;
+    const gap = L ? b.at - L.at : Infinity;
+    if (gap > 2 && gap < 150) {
+      const v1 = (b.offset - L.offset) / gap;
+      slide.v = gap < 60 ? v1 * 0.7 + slide.v * 0.3 : v1;
+    } else slide.v = 0;
+    slide.last = { offset: b.offset, at: b.at };
+    slide.live = true;
+    slide.mode = 'follow';
+    slide.glide = null;
+  }
+
+  /**
+   * Every frame: where the slide is now, and everything placed to match. Following the leader's finger it shows the
+   * newest sample at once, carried on by its speed for the moment it has been travelling (the samples carry the
+   * server's time), smoothed only enough to hide the network's jitter.
+   */
+  function slideTick() {
+    const now = performance.now();
+    const dt = Math.min(100, now - (slide.t || now));
+    slide.t = now;
+    if (view?.phase !== 'setup' || !slide.course) return;
+    let o = slide.o;
+    if (slide.mode === 'glide') {
+      const G = slide.glide;
+      G.t += Math.min(dt, 34); // (a slow frame doesn't skip part of the glide)
+      const k = Math.min(1, G.t / G.dur);
+      o = G.from * (1 - k) ** 3; // eases to a stop, as the phone's glide does
+      if (k >= 1) {
+        o = 0;
+        slide.mode = 'rest';
+      }
+    } else if (slide.mode === 'follow') {
+      let target = 0;
+      const L = slide.last;
+      if (slide.live && L) {
+        const age = Math.max(0, api.now() - L.at);
+        const ahead = age < 45 ? age : Math.max(0, 90 - age); // carried on for as long as a sample takes to come, no further
+        target = Math.max(-1.5, Math.min(1.5, L.offset + slide.v * ahead));
+      }
+      o += (target - o) * (1 - Math.exp(-dt / (slide.live ? 14 : 60)));
+      if (!slide.live && Math.abs(o) < 0.001) {
+        o = 0;
+        slide.mode = 'rest';
+      }
+    }
+    if (slide.mode === 'rest' && !slide.live) {
+      o = 0;
+      // at rest: the true neighbours either side again (a jump's leftover is let go)
+      const l = courseAt(slide.course, -1);
+      const r = courseAt(slide.course, 1);
+      if (slide.left !== l || slide.right !== r) {
+        slide.left = l;
+        slide.right = r;
+        arena?.preload(slideSpares(), { perimeter: !!view.opts.lessDeadly });
+        renderHeads();
+      }
+    }
+    const moved = o !== slide.o;
+    slide.o = o;
+    arena?.setSlide(o, slide.left, slide.right);
+    if (arena?.slidePx > 0) slide.px = arena.slidePx;
+    if (!moved && o === 0 && !slide.placed) return;
+    slide.placed = o !== 0;
+    placeSlide(o);
+  }
+
+  /** The titles and the strip's highlight, where the slide has them. */
+  function placeSlide(o) {
+    if (!setupEls?.heads.isConnected) return;
+    const px = slide.px || innerWidth * 0.8;
+    for (const el of setupEls.heads.children) {
+      const k = Number(el.dataset.k);
+      const at = o + k;
+      el.style.transform = at ? `translateX(${(at * px).toFixed(1)}px)` : '';
+      el.style.visibility = Math.abs(at) < 1.15 && (k === 0 || o !== 0) ? '' : 'hidden';
+    }
+    const strip = setupEls.strip;
+    const boxes = (setupEls.boxes ??= new Map([...strip.querySelectorAll('.lm-course')].map((b) => [b.dataset.course, { el: b, x: b.offsetLeft, y: b.offsetTop, w: b.offsetWidth, h: b.offsetHeight }])));
+    const cur = boxes.get(slide.course);
+    if (!cur || !cur.w) {
+      setupEls.boxes = null; // (not laid out yet)
+      return;
+    }
+    const nb = boxes.get(o < 0 ? slide.right : o > 0 ? slide.left : null);
+    const u = Math.min(1, Math.abs(o));
+    const [h1, h2] = setupEls.hl;
+    const put = (el, b, op) => {
+      el.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px)`;
+      el.style.width = `${b.w.toFixed(1)}px`;
+      el.style.height = `${b.h.toFixed(1)}px`;
+      el.style.opacity = op;
+    };
+    const sliding = !!nb && u > 0;
+    strip.classList.toggle('sliding', sliding);
+    for (const b of boxes.values()) {
+      if (sliding) b.el.style.setProperty('--sel', b === cur ? 1 - u : b === nb ? u : 0);
+      else b.el.style.removeProperty('--sel');
+    }
+    if (!sliding) {
+      put(h1, cur, 1);
+      h2.style.opacity = 0;
+      return;
+    }
+    const dir = o < 0 ? 1 : -1; // the highlight heads for the incoming map
+    const mix = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, w: a.w + (b.w - a.w) * k, h: a.h + (b.h - a.h) * k });
+    if (Math.sign(courseIndex(nb.el.dataset.course) - courseIndex(slide.course)) === dir) {
+      put(h1, mix(cur, nb, u), 1);
+      h2.style.opacity = 0;
+    } else {
+      // round the end of the strip: it slides off this end as the other comes in at the far end
+      const pitch = boxes.size > 1 ? Math.abs([...boxes.values()][1].x - [...boxes.values()][0].x) : cur.w;
+      put(h1, { ...cur, x: cur.x + dir * pitch * u }, 1 - u);
+      put(h2, { ...nb, x: nb.x - dir * pitch * (1 - u) }, u);
+    }
+  }
+
+  /** The setup screen's frame: titles (filled by renderHeads), the strip of maps with its highlight, the options. */
+  function setupFrame() {
+    setupHtml ??= String(html`
+          <div class="lm-setup">
+            <div class="lm-heads"></div>
+            <div class="lm-courses">
+              ${COURSES.map((x) => html`
+                <button class="lm-course" data-host="course=${x.id}" data-course="${x.id}">
+                  <img alt="" src="${thumb(x.id)}">
+                  <span>${COURSE_TITLES[x.id] ?? x.name}</span>
+                </button>`)}
+              <i class="lm-course-hl" aria-hidden="true"></i><i class="lm-course-hl" aria-hidden="true"></i>
+            </div>
+            <div class="lm-opts"></div>
+          </div>`);
+    return setupHtml;
+  }
+
+  /** The titles: the map on stage, and the ones either side, ready to slide in with their boards. */
+  function renderHeads() {
+    const heads = setupEls?.heads;
+    if (!heads?.isConnected || !slide.course) return;
+    // the titles already showing move up a place (as the phone's slides do); only a new one is made
+    const have = new Map([...heads.children].map((el) => [el.dataset.id, el]));
+    const nodes = [[slide.left, -1], [slide.course, 0], [slide.right, 1]].map(([id, k]) => {
+      let el = have.get(id);
+      have.delete(id);
+      if (!el) {
+        const sel = COURSES.find((x) => x.id === id) ?? COURSES[0];
+        const lvl = LEVELS[sel.level] ?? 1;
+        const t = document.createElement('template');
+        t.innerHTML = String(html`<div class="lm-head" data-id="${sel.id}">
+              <h1 class="lm-course-name">${courseTitle(sel.id)}</h1>
+              <div class="lm-course-meta"><span class="lm-level"><span class="pl-meter">${[1, 2, 3, 4].map((i) => html`<i class="${i <= lvl && 'on'}"></i>`)}</span>${sel.level ?? ''}</span><span class="lm-flagcount">${raw(svgGlyph('flag'))}${sel.checkpoints.length}</span></div>
+            </div>`).trim();
+        el = t.content.firstElementChild;
+      }
+      el.dataset.k = k;
+      return el;
+    });
+    if (nodes.some((el, i) => heads.children[i] !== el) || heads.children.length !== nodes.length) heads.replaceChildren(...nodes);
+    placeSlide(slide.o);
   }
 
   function thumb(id) {
@@ -635,6 +862,7 @@ export default function (root, api) {
   let raf = 0;
   function timerLoop() {
     raf = requestAnimationFrame(timerLoop);
+    slideTick();
     const v = view;
     const timed = v && ['start', 'upgrade', 'program'].includes(v.phase) && v.deadline;
     const left = timed ? v.deadline - api.now() : 0;
@@ -686,16 +914,28 @@ export default function (root, api) {
     hurryBtn.hidden = !['start', 'upgrade', 'program'].includes(v.phase);
   }
 
+  /** Setup is over: the slide stops, and the boards built ahead are let go. */
+  function endSlide() {
+    Object.assign(slide, { o: 0, course: null, left: null, right: null, mode: 'rest', glide: null, live: false, last: null, v: 0, placed: false });
+    setupEls = null;
+    arena?.setSlide(0);
+  }
+  const onResizeStrip = () => setupEls && (setupEls.boxes = null);
+  window.addEventListener('resize', onResizeStrip);
+
   // for test scripts: what the big screen sees
-  window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts };
+  window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts, slide: () => ({ ...slide }) };
 
   return {
     update(next) {
       if (!next?.opts) return; // no view yet (the game is starting)
       prev = view;
       view = next;
+      if (next.phase === 'setup') courseSlide(next);
+      else if (slide.course) endSlide();
       apply(next);
       render(next);
+      noteBrowse(next);
       noticeChanges(next, prev);
       callouts.view(next, prev);
     },
@@ -705,6 +945,7 @@ export default function (root, api) {
       window.removeEventListener('pointerdown', gesture);
       window.removeEventListener('keydown', gesture);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', onResizeStrip);
       window.removeEventListener('keydown', onKey);
       explainer.destroy();
       briefing?.stop();
