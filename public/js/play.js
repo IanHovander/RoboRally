@@ -2,6 +2,7 @@
 import { html, raw } from './ui.js';
 import { robotSvg, formOf, FORMS, svgGlyph } from '../games/robo-rally/glyphs.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
+import { watchForUpdates } from './update.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
@@ -70,6 +71,17 @@ socket.on('session', ({ token, name }) => {
   store.set('sessionStorage', TOKEN, token);
   store.set('localStorage', LAST_TOKEN, token);
   store.set('localStorage', NAME, name);
+});
+// a newer version published: reload into it between games (the lobby, setting up, a race's end), never mid-race,
+// and never while someone is typing or touching the screen
+let touching = 0;
+addEventListener('pointerdown', () => touching++, true);
+addEventListener('pointerup', () => (touching = Math.max(0, touching - 1)), true);
+addEventListener('pointercancel', () => (touching = Math.max(0, touching - 1)), true);
+watchForUpdates(() => {
+  if (!state || touching || document.activeElement?.matches?.('input, textarea')) return false;
+  if (!state.inGame || state.room?.screen !== 'game') return true;
+  return ['setup', 'over'].includes(state.view?.phase);
 });
 onState(socket, (next) => {
   const hadYou = !!state?.you;

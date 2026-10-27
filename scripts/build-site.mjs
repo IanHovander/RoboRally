@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import { findGames } from '../server/games.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -34,5 +35,30 @@ for (const look of looks) {
   fs.writeFileSync(path.join(out, 'games', 'index.json'), JSON.stringify(lookGames.map(({ id, hasStyle }) => ({ id, hasStyle })), null, 2));
 }
 fs.writeFileSync(path.join(OUT, '.nojekyll'), ''); // tell GitHub Pages to serve the files exactly as they are
+
+// The version: pages that are open when a newer one is published reload into it between games (js/update.js).
+// It's the commit being built (or the time, off git), stamped into js/version.js, with the list of the site's code
+// for the pages to fetch fresh before reloading.
+let version = process.env.GITHUB_SHA?.slice(0, 12);
+if (!version) {
+  try {
+    version = execSync('git rev-parse --short=12 HEAD', { cwd: ROOT }).toString().trim();
+    if (execSync('git status --porcelain', { cwd: ROOT }).toString().trim()) version += `-${Date.now().toString(36)}`;
+  } catch {
+    version = Date.now().toString(36);
+  }
+}
+fs.writeFileSync(path.join(OUT, 'js', 'version.js'), `export const VERSION = ${JSON.stringify(version)};\n`);
+const code = [];
+const walk = (dir) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const f = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name !== 'looks' && e.name !== 'lib') walk(f); // (the 3D library never changes; the looks aren't the game)
+    } else if (/\.(js|css|html|json)$/.test(e.name) && e.name !== 'version.json') code.push(path.relative(OUT, f).split(path.sep).join('/'));
+  }
+};
+walk(OUT);
+fs.writeFileSync(path.join(OUT, 'version.json'), JSON.stringify({ v: version, files: code }));
 
 console.log(`Built dist/ with ${games.length} game(s): ${games.map((g) => g.id).join(', ')}${looks.length ? `, plus looks: ${looks.map((l) => l.name).join(', ')}` : ''}`);

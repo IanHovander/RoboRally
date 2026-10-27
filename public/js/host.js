@@ -4,6 +4,7 @@ import { mountLumenLobby, LEADER } from '../games/robo-rally/lobby.js';
 import { robotSvg, svgGlyph } from '../games/robo-rally/glyphs.js';
 import { sfx, unlock, onState as onSound, setMuted, state as soundState } from '../games/robo-rally/sound.js';
 import { connect, createApi, GameStage, mode, onState } from './client.js';
+import { watchForUpdates } from './update.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
@@ -70,6 +71,9 @@ onState(socket, (next) => {
   state = next;
   render();
 });
+// a newer version published: reload into it, but only in the lobby (on the website the big screen hosts the room;
+// the room's players are kept across the reload, see net/peer-host.js)
+watchForUpdates(() => !!state && state.room.screen !== 'game');
 
 $('start').addEventListener('click', () => lobby('start'));
 $('players').addEventListener('click', (e) => {

@@ -24,6 +24,8 @@ export async function hostInBrowser({ onStatus }) {
   const [Peer, qrcode, games] = await Promise.all([loadPeerJS(), loadQrCode(), loadGames()]);
   const relay = getRelay();
   const room = new Room(games);
+  restorePlayers(room); // a reload (an update, or by hand): everyone's seat, name, color and robot are kept
+  addEventListener('pagehide', () => savePlayers(room));
   const phones = new Set(); // RoomConn for each connected phone
 
   // The big screen itself: connected a moment later, once host.js is listening.
@@ -186,6 +188,29 @@ function readSaved() {
 function writeSaved(value) {
   try {
     localStorage.setItem(SAVED, JSON.stringify(value));
+  } catch {}
+}
+
+// The room's players, kept across a reload of the big screen (it hosts the room on the website, so a reload
+// starts the room afresh): phones reconnect with their tokens and get their own seats back, in the same order (so
+// the same leader), with the same names, colors and robots. Only for a quick reload, not a later visit.
+const PLAYERS = 'gamenight.roomPlayers';
+function savePlayers(room) {
+  try {
+    const players = [...room.players.values()].map(({ id, token, name, color, avatar }) => ({ id, token, name, color, avatar }));
+    sessionStorage.setItem(PLAYERS, JSON.stringify({ at: Date.now(), players }));
+  } catch {}
+}
+function restorePlayers(room) {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(PLAYERS) ?? 'null');
+    sessionStorage.removeItem(PLAYERS);
+    if (!saved || Date.now() - saved.at > 2 * 60_000) return;
+    for (const p of saved.players ?? []) {
+      if (!p?.id || !p.name || room.players.has(p.id)) continue;
+      room.players.set(p.id, { id: p.id, token: p.token ?? null, name: p.name, color: p.color, avatar: p.avatar, connected: false, socketId: null });
+    }
+    room.vip = undefined;
   } catch {}
 }
 
