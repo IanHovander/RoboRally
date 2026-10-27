@@ -36,6 +36,7 @@ export default function (root, api) {
       <div class="lm-title"></div>
       <div class="lm-center"></div>
       <div class="lm-roster"></div>
+      <div class="lm-rules" hidden title="SPAM in hand discards: each round, unplayed SPAM leaves your hand">${cardSvgHtml('sp')}${svgGlyph('right')}${svgGlyph('deck')}</div>
       <div class="tc-layer"></div>
       <div class="lm-corner">
         <div class="tc-tally" hidden></div>
@@ -371,6 +372,8 @@ export default function (root, api) {
   }
 
   function apply(v, first = false) {
+    // a rule that changes how the race plays, shown the whole race: SPAM left in your hand is discarded each round
+    $('.lm-rules').hidden = !(v.opts?.lessSpam && v.phase !== 'setup');
     if (briefing) {
       // the Briefing has the arena; when the phase moves on, it hands it back (and that redraws all this)
       if (v.phase === 'brief') {

@@ -352,7 +352,7 @@ export function mountGuide(root, o = {}) {
         ${clips.length > 0 && html`<div class="gd-clips n${Math.min(clips.length, 3)} ${many && 'many'}">${clips.map(([key, cap]) => html`<figure class="gd-clip"><canvas data-demo="${key}"></canvas>${cap && html`<figcaption>${cap}</figcaption>`}</figure>`)}</div>`}
         ${t.does && html`<p class="gd-does">${t.does.replace(/ (?=\d)/g, '\u00a0')}</p>`}
         ${t.fine && html`<p class="gd-fine">${t.fine}</p>`}
-        <div class="gd-row"><button class="gd-pill" data-gd="book" data-arg="${id}" aria-label="Book">${g('book')}</button><button class="gd-x" data-gd="close-sheet" aria-label="Close">${g('cross')}</button><span></span></div>
+        <div class="gd-row"><button class="gd-pill" data-gd="book" data-arg="${id}" aria-label="Book">${g('book')}</button><button class="gd-x" data-gd="close-sheet" aria-label="Close">${g('cross')}</button></div>
       </div>`);
     layer.append(el);
     el.dataset.topic = arg != null ? `${id}:${arg}` : id;
@@ -417,8 +417,8 @@ export function mountGuide(root, o = {}) {
         <div class="gd-causes">${raw(causesFor(steps, { auto }).map((x) => markHtml(x, robots)).join(''))}</div>
         <div class="gd-row nav">
           <button class="gd-round" data-gd="replay" data-arg="${reg - 1}" ${reg <= 0 ? 'disabled' : ''} aria-label="Previous slot">${g('left')}</button>
-          <button class="gd-x" data-gd="close-sheet" aria-label="Close">${g('cross')}</button>
           <button class="gd-round" data-gd="replay" data-arg="${reg + 1}" ${reg >= 4 ? 'disabled' : ''} aria-label="Next slot">${g('right')}</button>
+          <button class="gd-x" data-gd="close-sheet" aria-label="Close">${g('cross')}</button>
         </div>
       </div>`);
     layer.append(el);

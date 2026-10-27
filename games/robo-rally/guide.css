@@ -36,7 +36,7 @@
 }
 .gd-round { width: 3.4rem; }
 .gd-pill { width: 4.4rem; }
-.gd-x { width: 7.5rem; background: var(--light); color: var(--ink); border-color: var(--light); box-shadow: 0 0 1.6rem rgba(244, 239, 228, .2); }
+.gd-x { width: 3.4rem; background: var(--light); color: var(--ink); border-color: var(--light); box-shadow: 0 0 1.6rem rgba(244, 239, 228, .2); } /* closing: round, at the bottom right */
 .gd-round .lm-g, .gd-pill .lm-g, .gd-x .lm-g { width: 1.5rem; height: 1.5rem; }
 .gd-round:disabled { opacity: .25; }
 .gd-tray .gd-round { background: var(--light); color: var(--ink); border-color: var(--light); }
@@ -74,9 +74,8 @@
 .gd-does { margin: .8rem .1rem 0; font-size: 1.05rem; line-height: 1.4; font-weight: 400; letter-spacing: .01em; }
 .gd-does + .gd-fine { margin-top: .4rem; }
 .gd-fine { margin: .8rem .1rem 0; font-size: .85rem; line-height: 1.45; font-weight: 300; color: var(--faint); }
-.gd-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .6rem; margin-top: 1rem; }
-.gd-row .gd-pill { justify-self: end; }
-.gd-row.nav .gd-round:first-child { justify-self: end; }
+.gd-row { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; }
+.gd-row .gd-x { margin-left: auto; } /* close sits at the bottom right; the book (or the replay's arrows) on the left */
 
 /* the replay */
 .gd-num { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 1px solid var(--light); font-weight: 300; font-size: 1.2rem; }

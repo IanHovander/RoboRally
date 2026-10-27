@@ -62,30 +62,54 @@ function tex(c, { repeat = false, srgb = true } = {}) {
   return t;
 }
 
-/** A text label as a sprite: light text on a soft dark pill. */
-function labelSprite(text, { color = '#f4efe4', height = 0.2, weight = 500, pill = true, size = 64, track = 0.06 } = {}) {
+/**
+ * A text label as a sprite: light text on a soft dark pill. `owner` (a color): the label belongs to something below
+ * it, so the pill gets an edge in that color and a small pointer under it, aimed down at what it names (a robot's
+ * name never reads as the name of the gear or ring it happens to float over).
+ */
+function labelSprite(text, { color = '#f4efe4', height = 0.2, weight = 500, pill = true, size = 64, track = 0.06, owner = null } = {}) {
   const probe = canvas(8, 8).getContext('2d');
   probe.font = `${weight} ${size}px ${FONT}, sans-serif`;
   probe.letterSpacing = `${track * size}px`;
   const tw = Math.ceil(probe.measureText(text).width);
   const padX = size * 0.6;
-  const c = canvas(tw + padX * 2, Math.ceil(size * 1.7));
+  const pillH = Math.ceil(size * 1.7);
+  const notch = owner ? Math.round(size * 0.42) : 0; // the pointer's height, under the pill
+  const c = canvas(tw + padX * 2, pillH + notch);
   const g = c.getContext('2d');
   if (pill) {
-    g.fillStyle = 'rgba(8,10,14,.62)';
+    g.fillStyle = owner ? 'rgba(8,10,14,.78)' : 'rgba(8,10,14,.62)';
     g.beginPath();
-    g.roundRect(2, 2, c.width - 4, c.height - 4, c.height / 2);
+    g.roundRect(2, 2, c.width - 4, pillH - 4, (pillH - 4) / 2);
     g.fill();
+    if (owner) {
+      const cx = c.width / 2;
+      const w = size * 0.36;
+      g.beginPath();
+      g.moveTo(cx - w, pillH - 4);
+      g.lineTo(cx, pillH + notch - 2);
+      g.lineTo(cx + w, pillH - 4);
+      g.closePath();
+      g.fillStyle = owner;
+      g.fill();
+      g.strokeStyle = owner;
+      g.lineWidth = size * 0.06;
+      g.beginPath();
+      g.roundRect(4, 4, c.width - 8, pillH - 8, (pillH - 8) / 2);
+      g.stroke();
+    }
   }
   g.font = probe.font;
   g.letterSpacing = probe.letterSpacing;
   g.fillStyle = color;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(text, c.width / 2 + (track * size) / 2, c.height / 2 + size * 0.04);
+  g.fillText(text, c.width / 2 + (track * size) / 2, pillH / 2 + size * 0.04);
   const t = tex(c);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
-  s.scale.set(height * (c.width / c.height), height, 1);
+  const h = height * (c.height / pillH); // (the pill keeps its size; the pointer hangs below it)
+  s.scale.set(h * (c.width / c.height), h, 1);
+  if (notch) s.center.set(0.5, (notch + pillH / 2) / c.height); // the pill's middle stands where it always stood
   s.renderOrder = 20;
   return s;
 }
@@ -2227,8 +2251,8 @@ export class Arena {
       if (b.color !== r.color) {
         b.color = r.color;
         b.model.setColor(r.color);
-      }
-      if (b.name !== r.name) this.renameBot(b, r.name);
+        this.renameBot(b, r.name); // (its name tag wears its color)
+      } else if (b.name !== r.name) this.renameBot(b, r.name);
       if (b.busyUntil > this.time) continue;
       if (r.on === false) {
         b.visible = false;
@@ -2270,7 +2294,7 @@ export class Arena {
       b.tag.material.map.dispose();
       b.tag.material.dispose();
     }
-    b.tag = name ? labelSprite(String(name).toUpperCase(), { height: 0.24, weight: 500, track: 0.12 }) : null;
+    b.tag = name ? labelSprite(String(name).toUpperCase(), { height: 0.24, weight: 500, track: 0.12, owner: b.color }) : null;
     if (b.tag) {
       b.tag.position.y = 0.86;
       b.group.add(b.tag);
