@@ -29,6 +29,9 @@ const store = {
   },
 };
 
+// the last name this phone joined with, ready in the field before the connection is even up
+$('name').value = store.get('localStorage', NAME) ?? '';
+
 let state = null;
 let notice = null; // { title, message, button } shown instead of everything else
 
@@ -71,7 +74,6 @@ socket.on('replaced', () => {
 
 // ---------- join ----------
 
-$('name').value = store.get('localStorage', NAME) ?? '';
 $('host-link').hidden = !isLocal;
 // a robot of light waiting for a name: it takes your color once you're in
 $('join-robot').innerHTML = robotSvg({ color: '#f4efe4', avatar: 0 }, { dim: true });
@@ -79,6 +81,7 @@ $('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const name = $('name').value.trim();
   if (!name) return $('name').focus();
+  store.set('localStorage', NAME, name); // remembered for next time, whether or not this join works
   const button = $('join-btn');
   button.disabled = true;
   const token = store.get('localStorage', LAST_TOKEN);

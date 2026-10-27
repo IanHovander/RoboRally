@@ -16,8 +16,9 @@ const RECLAIM_MS = 90_000; // how long to wait for our old code after a refresh 
  */
 export async function hostInBrowser({ onStatus }) {
   if (!(await onlyTab())) {
-    onStatus('Robo Rally is already open in another tab. Use that one (or close it and reload this one).');
-    return new Promise(() => {});
+    // another tab is the big screen: wait our turn, and start by ourselves the moment it closes
+    onStatus('Robo Rally is open in another tab. Close it and this one starts by itself.');
+    await nextTab();
   }
   onStatus('Setting up the room…');
   const [Peer, qrcode, games] = await Promise.all([loadPeerJS(), loadQrCode(), loadGames()]);
@@ -195,6 +196,17 @@ function onlyTab() {
     navigator.locks.request('gamenight-host', { ifAvailable: true }, (lock) => {
       resolve(!!lock);
       return lock ? new Promise(() => {}) : undefined; // hold it for as long as this tab is open
+    });
+  });
+}
+
+/** Wait for the other big-screen tab to close (the browser hands the lock on), then hold it for this tab. */
+function nextTab() {
+  if (!navigator.locks) return Promise.resolve();
+  return new Promise((resolve) => {
+    navigator.locks.request('gamenight-host', () => {
+      resolve();
+      return new Promise(() => {}); // hold it for as long as this tab is open
     });
   });
 }
