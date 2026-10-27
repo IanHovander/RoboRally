@@ -626,6 +626,7 @@ function privateRobot(R) {
     deck: R.deck.length,
     discard: R.discard.length,
     // what's in each pile (as in the board game: you may look through your own cards, but not their order)
+    archive: R.archive, // where I come back if I fall on the dock or a board without a reboot ring (my start pad)
     deckCards: countTypes(R.deck),
     discardCards: countTypes(R.discard),
     spam: [...R.deck, ...R.discard, ...R.hand].filter((c) => cardType(c) === 'sp').length,
