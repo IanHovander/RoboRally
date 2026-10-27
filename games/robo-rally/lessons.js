@@ -307,8 +307,7 @@ export async function playRun(arena, run, o = {}) {
       arena.syncRobots(robots);
       onBeat?.(st, i);
       // one robot alone: its card shows as it's played, so its reveal is only a breath
-      let hold = b.what?.k === 'reveal' && robots.length < 2 ? 300 : beatHold(b);
-      if (b.fx.some((f) => f.k === 'win')) hold = Math.min(hold, o.winHold ?? Infinity);
+      let hold = holdFor(st, o);
       await pause(hold / (o.tempo ?? 1));
       arena.syncRobots(robots);
     }
@@ -347,9 +346,21 @@ function placedGhosts(run, start, placed) {
   return ghosts;
 }
 
+/**
+ * How long playRun holds a beat step: a lone robot's reveal is a breath; revealHold and winHold (optional) cap a
+ * card reveal and a win.
+ */
+export function holdFor(st, o = {}) {
+  const b = st.beat;
+  let hold = b.what?.k === 'reveal' && st.robots.length < 2 ? 300 : beatHold(b);
+  if (b.what?.k === 'reveal' && o.revealHold != null) hold = Math.min(hold, o.revealHold);
+  if (b.fx.some((f) => f.k === 'win')) hold = Math.min(hold, o.winHold ?? Infinity);
+  return hold;
+}
+
 /** A run's length in ms if played straight through by playRun (for the film's progress dots). */
-export function runLength(run, { programMs = () => 1100 } = {}) {
+export function runLength(run, { programMs = () => 1100, revealHold, winHold } = {}) {
   let ms = 0;
-  for (const st of run.steps) ms += st.kind === 'program' ? programMs(st) + 400 : st.beat.what?.k === 'reveal' && st.robots.length < 2 ? 300 : beatHold(st.beat);
+  for (const st of run.steps) ms += st.kind === 'program' ? programMs(st) + 400 : holdFor(st, { revealHold, winHold });
   return ms;
 }

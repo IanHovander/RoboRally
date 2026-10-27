@@ -10,7 +10,7 @@
 // The dots under the board are the scenes: the lit one fills as its scene plays. Clicking a dot (or ← →)
 // jumps to that scene; the film carries on from there by itself. The lit one is also a scrub bar: click or
 // drag along it to go back or ahead within the scene (the scene is rebuilt at the step at that moment).
-import { LESSONS, lessonCourse, runLesson, playRun, runLength, beatHold } from './lessons.js';
+import { LESSONS, lessonCourse, runLesson, playRun, runLength, holdFor } from './lessons.js';
 import { createMimic } from './mimic.js';
 import { sceneSound, setLevel } from './sound.js';
 
@@ -25,6 +25,13 @@ const DEMO = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const STOP = Symbol('another scene took over');
 const FADE_MS = 700; // the board fades out, then in, between scenes (.lesson-stage's opacity transition)
+// the film's pacing: a breath to see the new board before anything moves, a short beat after the scene's last move
+// (a flag's own celebration already holds the stage, so after one only a moment), card reveals kept brisk
+const PREROLL_MS = 700;
+const TAIL_MS = 1200;
+const WIN_TAIL_MS = 700;
+const PACE = { revealHold: 1000, winHold: 2600 };
+const tailOf = (run) => (run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? WIN_TAIL_MS : TAIL_MS);
 const SETTLE_MS = 1600; // a beat can still fire delayed effects (a fall's ring, its sound) this long after it starts
 
 export function mountLumenLobby(stage, ui) {
@@ -217,23 +224,24 @@ export function mountLumenLobby(stage, ui) {
 
   /** Which program steps the fingertip fills slowly (the rest fill quickly). */
   const slowStep = (lesson) => (st) => !!lesson.phone && (lesson.slowRounds ?? [1]).includes(st.round);
+  const quick = (lesson) => lesson !== LESSONS[0]; // (only the first scene teaches the fingertip at full slowness)
 
   /** How long a scene plays: playLesson's pauses, added up. */
   function lessonLength(lesson, run) {
     const slow = slowStep(lesson);
-    const ms = FADE_MS + 1400 + runLength(run, { programMs: (st) => mimic.programMs(st.cards[0].filter(Boolean).length, slow(st)) });
-    return ms + (run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
+    const ms = FADE_MS + PREROLL_MS + runLength(run, { ...PACE, programMs: (st) => mimic.programMs(st.cards[0].filter(Boolean).length, slow(st), quick(lesson)) });
+    return ms + tailOf(run);
   }
 
   /** When each step of a scene starts (ms from the scene's start, as lessonLength counts), and when the steps end. */
   function stepTimes(lesson, run) {
     const slow = slowStep(lesson);
-    let t = FADE_MS + 1400;
+    let t = FADE_MS + PREROLL_MS;
     const starts = run.steps.map((st) => {
       const at = t;
       t += st.kind === 'program'
-        ? mimic.programMs(st.cards[0].filter(Boolean).length, slow(st)) + 400
-        : st.beat.what?.k === 'reveal' && st.robots.length < 2 ? 300 : beatHold(st.beat);
+        ? mimic.programMs(st.cards[0].filter(Boolean).length, slow(st), quick(lesson)) + 400
+        : holdFor(st, PACE);
       return at;
     });
     return { starts, end: t };
@@ -249,7 +257,7 @@ export function mountLumenLobby(stage, ui) {
     while (i < starts.length && starts[i] <= at) i++;
     i = Math.max(0, i - 1);
     if (at >= end) i = run.steps.length;
-    if (at < FADE_MS + 1400) i = 0;
+    if (at < FADE_MS + PREROLL_MS) i = 0;
     const instant = async () => {
       if (!alive()) throw STOP;
     };
@@ -290,6 +298,8 @@ export function mountLumenLobby(stage, ui) {
     if (i < run.steps.length) {
       await pause(250);
       await playRun(arena, run, {
+        ...PACE,
+        fast: quick(lesson),
         pause,
         cast,
         mimic,
@@ -305,8 +315,7 @@ export function mountLumenLobby(stage, ui) {
     }
     showRegs(null);
     mimic.lit(-1);
-    const tail = run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200;
-    await pause(Math.max(300, end + tail - Math.max(at, end)));
+    await pause(Math.max(300, end + tailOf(run) - Math.max(at, end)));
   }
 
   async function playLesson(lesson, run, pause) {
@@ -318,12 +327,19 @@ export function mountLumenLobby(stage, ui) {
     // a clean start: robots at their start spaces, nothing left glowing from the last scene
     mimic.reset();
     mimic.showDeck(!!lesson.deck);
-    arena.reset(lessonCourse(lesson)); // the board built afresh (even the same one), robots and effects gone
+    // the board, robots and effects gone; a board built ahead (while the last scene played) just steps on stage
+    const course = lessonCourse(lesson);
+    if (arena.course !== course && arena.ready?.(course)) arena.setCourse(course);
+    else arena.reset(course);
     arena.syncRobots(robotsAt(run.start));
+    const next = LESSONS[(LESSONS.indexOf(lesson) + 1) % LESSONS.length];
+    if (next !== lesson) arena.preload?.([lessonCourse(next)]);
     hush = false;
     stage.style.opacity = '1';
-    await pause(1400);
+    await pause(PREROLL_MS);
     await playRun(arena, run, {
+      ...PACE,
+      fast: quick(lesson),
       pause,
       cast,
       mimic,
@@ -338,7 +354,7 @@ export function mountLumenLobby(stage, ui) {
     });
     showRegs(null);
     mimic.lit(-1);
-    await pause(run.steps.at(-1)?.beat?.fx.some((f) => f.k === 'win') ? 4200 : 2200);
+    await pause(tailOf(run));
   }
 
   function release() {
