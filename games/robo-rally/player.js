@@ -98,7 +98,7 @@ export default function (root, api) {
   /** A race has begun: remember its settings. */
   function saveOpts(o) {
     if (!o) return;
-    store.set('rr.lastOpts', JSON.stringify({ upgrades: !!o.upgrades, timer: o.timer, lessDeadly: !!o.lessDeadly, lessSpam: !!o.lessSpam }));
+    store.set('rr.lastOpts', JSON.stringify({ upgrades: !!o.upgrades, timer: o.timer, lessDeadly: !!o.lessDeadly, lessSpam: !!o.lessSpam, brief: !!o.brief }));
   }
 
   // ---------- helpers ----------

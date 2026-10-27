@@ -309,7 +309,7 @@ function setOpt(ctx, payload) {
   if (s.touched) s.touched[key] = true;
 }
 
-const PREF_KEYS = ['upgrades', 'timer', 'lessDeadly', 'lessSpam'];
+const PREF_KEYS = ['upgrades', 'timer', 'lessDeadly', 'lessSpam', 'brief'];
 /**
  * Setting up: the options start where the leader left them last game (taken once, from the first leader whose
  * phone has them, so a leader leaving doesn't switch them), and upgrades start off while anyone is new.
@@ -327,7 +327,7 @@ function autoOpts(ctx) {
   const base = someoneNew ? FIRST_GAME : { ...FIRST_GAME, upgrades: true, ...(s.optsBase ?? {}) };
   for (const k of PREF_KEYS) if (!s.touched[k]) s.opts[k] = base[k];
 }
-const FIRST_GAME = { upgrades: false, timer: 120, lessDeadly: false, lessSpam: false };
+const FIRST_GAME = { upgrades: false, timer: 120, lessDeadly: false, lessSpam: false, brief: false }; // (a newcomer brings the Briefing anyway)
 
 /**
  * The leader is sliding the phone's map carousel: offset is how far the strip has moved, in maps (negative: to the
@@ -408,7 +408,7 @@ export default {
       const p = payload?.prefs;
       if (p && typeof p === 'object') {
         const ok = {};
-        for (const k of ['upgrades', 'lessDeadly', 'lessSpam']) if (typeof p[k] === 'boolean') ok[k] = p[k];
+        for (const k of ['upgrades', 'lessDeadly', 'lessSpam', 'brief']) if (typeof p[k] === 'boolean') ok[k] = p[k];
         if (TIMERS.includes(p.timer)) ok.timer = p.timer;
         s.prefs[player.id] = ok;
       }
