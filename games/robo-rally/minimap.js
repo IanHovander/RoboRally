@@ -20,11 +20,12 @@ export const C = {
   reboot: '#9cc8ff',
 };
 const FONT = 'Lumen, Roboto, sans-serif';
+const LASER_GAP = 0.17; // a double laser's two beams, this far apart (in squares), as on the big screen
 
 /**
  * Draw a course. o: { tile, ox, oy, robots: [{x,y,d,color,on,me,avatar}], ghosts: [{x,y,d,n,fell,path}],
  * ghostColor, starts: {n: color}, cpNext, cpDone(n), glow (soft light effects; off for tiny previews),
- * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, drawn dim),
+ * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, so they aren't drawn),
  * reboot (rebootFor(): the ring I'd come back on, lit in ghostColor; a planned fall gets a dotted link to it) }
  */
 export function drawCourse(g, course, o = {}) {
@@ -75,10 +76,16 @@ export function drawCourse(g, course, o = {}) {
     const b = path[path.length - 1];
     g.strokeStyle = 'rgba(255,74,58,.7)';
     g.lineWidth = lw(0.03);
-    g.beginPath();
-    g.moveTo(px(a.x + 0.5) - DX[L.d] * T * 0.38, py(a.y + 0.5) - DY[L.d] * T * 0.38);
-    g.lineTo(px(b.x + 0.5) + DX[L.d] * T * 0.47, py(b.y + 0.5) + DY[L.d] * T * 0.47);
-    g.stroke();
+    // one line per beam: a double laser is two lines, clearly apart (as its two lenses)
+    for (let i = 0; i < L.n; i++) {
+      const off = (i - (L.n - 1) / 2) * T * LASER_GAP;
+      const ox = DY[L.d] * off;
+      const oy = DX[L.d] * off;
+      g.beginPath();
+      g.moveTo(px(a.x + 0.5) - DX[L.d] * T * 0.38 + ox, py(a.y + 0.5) - DY[L.d] * T * 0.38 + oy);
+      g.lineTo(px(b.x + 0.5) + DX[L.d] * T * 0.47 + ox, py(b.y + 0.5) + DY[L.d] * T * 0.47 + oy);
+      g.stroke();
+    }
   }
   g.restore();
 
@@ -128,9 +135,8 @@ export function drawCourse(g, course, o = {}) {
         g.lineTo(ex - tx * T * 0.1 - Math.cos(ea) * T * 0.08, ey - ty * T * 0.1 - Math.sin(ea) * T * 0.08);
         g.stroke();
         g.restore();
-      } else if (cell.k === 'battery') {
+      } else if (cell.k === 'battery' && !o.inert) {
         g.save();
-        if (o.inert) g.globalAlpha = 0.22;
         if (glow && !o.inert) {
           g.shadowColor = C.energy;
           g.shadowBlur = T * 0.15;
@@ -213,9 +219,12 @@ export function drawCourse(g, course, o = {}) {
       g.shadowBlur = T * 0.2;
     }
     g.fillStyle = C.laser;
-    g.beginPath();
-    g.arc(cx, cy, T * 0.07, 0, Math.PI * 2);
-    g.fill();
+    for (let i = 0; i < L.n; i++) {
+      const off = (i - (L.n - 1) / 2) * T * LASER_GAP;
+      g.beginPath();
+      g.arc(cx + DY[L.d] * off, cy + DX[L.d] * off, T * (L.n > 1 ? 0.055 : 0.07), 0, Math.PI * 2);
+      g.fill();
+    }
     g.restore();
   }
   for (const p of course.pushers) {
@@ -368,20 +377,22 @@ export function drawGhostLine(g, course, ghosts, o = {}) {
     marks.set(key, m);
   }
   const label = (text, x, y, size, halo = false) => {
-    g.font = `600 ${Math.round(size * (text.length > 2 ? 0.75 : 1))}px ${FONT}`;
+    // the game's own type, as on the flags' numbers; outside the dot a soft dark glow (not a hard outline)
+    // keeps it readable where it crosses the line
+    g.font = `500 ${Math.round(size * (text.length > 2 ? 0.75 : 1))}px ${FONT}`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
+    g.save();
     if (halo) {
-      // outside the dot it may sit on the line: a dark rim keeps it readable
-      g.save();
-      g.shadowBlur = 0;
-      g.strokeStyle = '#0b0e13';
-      g.lineWidth = Math.max(2.5, size * 0.3);
-      g.strokeText(text, x, y);
-      g.restore();
+      g.shadowColor = 'rgba(11,14,19,.95)';
+      g.shadowBlur = Math.max(3, size * 0.45);
+      g.fillStyle = gc;
+      g.fillText(text, x, y);
     }
+    g.shadowBlur = 0;
     g.fillStyle = gc;
     g.fillText(text, x, y);
+    g.restore();
   };
   for (const gh of marks.values()) {
     const cx = px(Math.max(-0.4, Math.min(course.w - 0.6, gh.x)) + 0.5);

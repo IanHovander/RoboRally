@@ -71,6 +71,7 @@ export const TOPICS = {
   edge: { sec: 'board', pic: { g: 'edge' }, clips: [['edge', 'Off the edge']], fine: 'Off the edge is a fall too (unless Map perimeter is on).' },
   wall: { sec: 'board', pic: { g: 'wall' }, clips: [['wall', 'Stops you'], ['wall-laser', 'Stops lasers']], fine: 'Walls stop robots, pushes and lasers. Hitting one doesn’t hurt.' },
   'board-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], fine: 'After every slot, it hits the first robot in its line: 1 SPAM per beam. Two lines side by side: a double laser, 2 SPAM.' },
+  'double-laser': { sec: 'board', pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'Two beams: double damage. After every slot it hits the first robot in its line with 2 SPAM.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
   dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. It has walls, edges and batteries like any board.' },
   pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },
@@ -238,7 +239,9 @@ export function topicAtCell(course, x, y, fx = 0.5, fy = 0.5, o = {}) {
   if (course.boards.some((b) => b.reboot && b.reboot.x === x && b.reboot.y === y)) add('reboot-ring');
   if (o.ring && o.ring.x === x && o.ring.y === y) add('reboot-ring'); // my start pad, lit as the spot I'd come back on
   // 5. on a board laser's line
-  if (inside && course.lasers.some((L) => beamPath(course, L.x, L.y, L.d).some((p) => p.x === x && p.y === y))) add('board-laser');
+  const onLaser = course.lasers.filter((L) => beamPath(course, L.x, L.y, L.d).some((p) => p.x === x && p.y === y));
+  if (inside && onLaser.some((L) => L.n > 1)) add('double-laser');
+  if (inside && onLaser.some((L) => L.n === 1)) add('board-laser');
   // 6-8. the square itself
   if (!cell) add('edge');
   else {

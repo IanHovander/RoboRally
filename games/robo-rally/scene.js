@@ -293,11 +293,12 @@ function paintLight(course, S, { inert = false } = {}) {
         g.textBaseline = 'middle';
         g.fillText(String(cell.n), cx, cy + S * 0.03);
       } else if (cell.k === 'battery') {
-        // no upgrades, no energy (the rulebook's lighter game): the battery is drawn faint and neutral, inert
-        const ink = inert ? 'rgba(244,239,228,.16)' : PALETTE.energy;
+        // no upgrades, no energy (the rulebook's lighter game): batteries do nothing, so they aren't drawn at all
+        if (inert) continue;
+        const ink = PALETTE.energy;
         g.save();
-        g.shadowColor = inert ? 'transparent' : PALETTE.energy;
-        g.shadowBlur = inert ? 0 : S * 0.12;
+        g.shadowColor = PALETTE.energy;
+        g.shadowBlur = S * 0.12;
         g.strokeStyle = ink;
         g.lineWidth = S * 0.028;
         for (let i = 0; i < 3; i++) {
@@ -3156,8 +3157,8 @@ export class Arena {
       } else col.col.rotation.y = Math.atan2(this.camera.position.x - col.col.position.x, this.camera.position.z - col.col.position.z);
     }
     if (this.batteryMat) this.batteryMat.color.set(PALETTE.energy).multiplyScalar((0.22 + Math.sin(t * 2.2) * 0.1) * lit);
-    // free start spaces: their borders flash fast, all together (on, off, on...)
-    const blink = (this.realTime * 2.4) % 1 < 0.55 ? 1 : 0.08;
+    // free start spaces: their borders blink, all together, about once a second (as on the phones)
+    const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
     for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
     this.motes.rotation.y = t * 0.006;
     this.motes.position.y = Math.sin(t * 0.2) * 0.2;
