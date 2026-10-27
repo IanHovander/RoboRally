@@ -218,7 +218,7 @@
 /* ================= the phones ================= */
 
 .pl {
-  position: absolute; inset: 0; display: grid; grid-template-rows: auto auto 1fr; overflow: hidden;
+  position: absolute; inset: 0; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: minmax(0, 1fr); overflow: hidden;
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   color: var(--light); font-family: var(--font); user-select: none; -webkit-user-select: none;
 }
@@ -226,6 +226,11 @@
 /* above the sheets (so "?" works while a decision is open), but taps pass through the bar to the shell's menu dots */
 .pl-top { position: relative; z-index: 31; display: flex; align-items: center; gap: .7rem; height: 3rem; padding: 0 3.4rem 0 1rem; pointer-events: none; }
 .pl-top > * { pointer-events: auto; }
+/* a narrow phone with many flags: the bar tightens rather than pushing the screen wider than the phone */
+@media (max-width: 380px) {
+  .pl-top { gap: .45rem; padding-left: .7rem; }
+  .pl-top .pl-flags.glyphs i { width: .82rem; }
+}
 .pl:not(.vip) .pl-top { padding-right: .6rem; } /* the leader's menu dots sit at the far right; everyone else's "?" is flush right */
 .pl-me-wrap { display: grid; place-items: center; }
 .pl-me { width: 1.6rem; height: 1.6rem; filter: drop-shadow(0 0 .4rem color-mix(in srgb, var(--me) 70%, transparent)); }
@@ -239,8 +244,24 @@
 .pl-flags.glyphs i { display: grid; place-items: center; width: 1.05rem; height: 1.25rem; background: none; box-shadow: none; color: rgba(244, 239, 228, .2); }
 .pl-flags.glyphs i .lm-g { width: 100%; height: 100%; }
 .pl-flags.glyphs i.on { color: var(--me); filter: drop-shadow(0 0 3px var(--me)); }
-.pl-flags.glyphs i.next { color: var(--light); }
-.pl-flags.glyphs i.next .lm-g path[fill] { fill: none; stroke: currentColor; stroke-width: 2.4; }
+.pl-flags[data-ui="goal"] { cursor: pointer; }
+/* which flag I'm going for (a tap on my flags): a note under the top bar, and a ring on the map */
+.pl-goal {
+  position: fixed; top: 3.6rem; left: 50%; transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: .5rem; padding: .45rem .95rem;
+  border-radius: 99px; background: rgba(12, 15, 20, .92); border: 1px solid var(--hair2);
+  color: var(--light); font-size: .95rem; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
+  animation: pl-goal-in 2.8s ease both; pointer-events: none;
+}
+.pl-goal .lm-g { width: 1.1rem; height: 1.1rem; color: var(--me, var(--light)); }
+.pl-goal b { font-weight: 500; font-size: 1.15rem; letter-spacing: 0; }
+@keyframes pl-goal-in { 0% { opacity: 0; transform: translate(-50%, -.4rem); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+.pl-goal-ring {
+  position: absolute; width: calc(var(--r) * 1.1); height: calc(var(--r) * 1.1); margin: calc(var(--r) * -.55) 0 0 calc(var(--r) * -.55);
+  border-radius: 50%; border: 2px solid var(--me, var(--light)); pointer-events: none;
+  animation: pl-goal-ring .9s ease-out 3;
+}
+@keyframes pl-goal-ring { 0% { transform: scale(.7); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
 .pl-flags.glyphs.big i { width: 1.9rem; height: 2.2rem; background: none; box-shadow: none; color: var(--c); filter: drop-shadow(0 0 4px var(--c)); }
 .pl-en { display: inline-flex; align-items: center; gap: .1rem; color: var(--energy); font-weight: 400; font-variant-numeric: tabular-nums; }
 .pl-en .lm-g { width: 1.1rem; height: 1.1rem; }

@@ -249,23 +249,24 @@ export function drawCourse(g, course, o = {}) {
   for (const cp of course.checkpoints) {
     const cx = px(cp.x + 0.5);
     const cy = py(cp.y + 0.5);
+    // every flag looks the same until you've reached it; then it's filled with your color
     const done = o.cpDone?.(cp.n);
-    const next = o.cpNext === cp.n;
+    const mine = o.ghostColor ?? C.light;
     g.save();
-    if (glow && !done) {
-      g.shadowColor = C.light;
-      g.shadowBlur = T * (next ? 0.5 : 0.2);
+    if (glow) {
+      g.shadowColor = done ? mine : C.light;
+      g.shadowBlur = T * (done ? 0.4 : 0.2);
     }
-    g.fillStyle = next ? C.light : done ? 'rgba(244,239,228,.08)' : 'rgba(244,239,228,.12)';
-    g.strokeStyle = done ? 'rgba(244,239,228,.3)' : C.light;
+    g.fillStyle = done ? mine : 'rgba(244,239,228,.12)';
+    g.strokeStyle = done ? mine : C.light;
     g.lineWidth = lw(0.04);
     g.beginPath();
     g.arc(cx, cy, T * 0.38, 0, Math.PI * 2);
     g.fill();
     g.stroke();
     g.restore();
-    g.fillStyle = next ? '#0b0e13' : done ? 'rgba(244,239,228,.35)' : C.light;
-    g.font = `${next ? 500 : 300} ${Math.round(T * 0.48)}px ${FONT}`;
+    g.fillStyle = done ? '#0b0e13' : C.light;
+    g.font = `${done ? 500 : 300} ${Math.round(T * 0.48)}px ${FONT}`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(String(cp.n), cx, cy + T * 0.03);

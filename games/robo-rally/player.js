@@ -116,7 +116,8 @@ export default function (root, api) {
       mountDemo(c, c.dataset.demo, api.you?.color ?? '#f4efe4', { safeEdges: view?.opts.lessDeadly, form: formOf(api.you) });
     }
   }
-  const flagsHtml = (m, cls = '') => html`<span class="pl-flags glyphs ${cls}" data-ask="goal" data-tap="ask">${Array.from({ length: view.cps }, (_, i) => html`<i class="${i < (m?.cp ?? 0) ? 'on' : i === (m?.cp ?? 0) ? 'next' : ''}">${g('flag')}</i>`)}</span>`;
+  // my flags: reached ones lit; a tap shows which flag I'm going for now (and whether it's the last)
+  const flagsHtml = (m, cls = '') => html`<span class="pl-flags glyphs ${cls}" data-ask="goal" data-ui="goal">${Array.from({ length: view.cps }, (_, i) => html`<i class="${i < (m?.cp ?? 0) && 'on'}">${g('flag')}</i>`)}</span>`;
 
   // ---------- the light table (my map) ----------
 
@@ -150,7 +151,21 @@ export default function (root, api) {
     const c = course();
     const fit = Math.min(width / c.w, height / c.h);
     const zoom = near ?? mapZoom ?? (fit >= 22 ? 'all' : 'near');
-    const tile = zoom === 'all' ? fit : Math.max(30, Math.min(40, width / 8));
+    let tile = zoom === 'all' ? fit : Math.max(30, Math.min(40, width / 8));
+    // center on what matters to me: my robot and every square my planned line passes through. Zoomed in, the
+    // view zooms out just enough (never past the whole course) to keep all of that line on the phone.
+    const from = programStart(m);
+    const ghosts = view.phase === 'program' && from ? ghostsFor(m) : [];
+    let focus = { x: c.w / 2, y: c.h / 2 };
+    if (from) {
+      const pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
+      const x0 = Math.min(...pts.map((p) => p[0]));
+      const x1 = Math.max(...pts.map((p) => p[0])) + 1;
+      const y0 = Math.min(...pts.map((p) => p[1]));
+      const y1 = Math.max(...pts.map((p) => p[1])) + 1;
+      focus = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+      if (zoom === 'near') tile = Math.max(fit, Math.min(tile, width / (x1 - x0 + 1), height / (y1 - y0 + 1)));
+    }
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
@@ -159,17 +174,12 @@ export default function (root, api) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    // center on what matters to me
-    let focus = { x: c.w / 2, y: c.h / 2 };
-    const from = programStart(m);
-    if (from) focus = { x: from.x + 0.5, y: from.y + 0.5 };
     let ox = (width - tile * c.w) / 2;
     let oy = (height - tile * c.h) / 2;
     if (zoom === 'near') {
       ox = Math.round(clamp(width / 2 - focus.x * tile, width - tile * c.w, 0));
       oy = Math.round(clamp(height / 2 - focus.y * tile, height - tile * c.h, 0));
     }
-    const ghosts = view.phase === 'program' && from ? ghostsFor(m) : [];
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
     drawCourse(ctx, c, { tile, ox, oy, robots, ghosts, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), ...mapLook() });
@@ -177,6 +187,47 @@ export default function (root, api) {
     maps.set(canvas, { tile, ox, oy, robots, ghosts });
     canvas.dataset.xform = `${tile},${ox},${oy}`; // for test scripts
     return { tile, ox, oy, zoom, fit };
+  }
+
+  /**
+   * Which flag am I going for? A note under the top bar ("Next flag: 2", or "Last flag: 3"), and on the map a ring
+   * pulses round that flag (the map shows the whole course first if the flag is out of view).
+   */
+  let goalTimer = 0;
+  function showGoal() {
+    const m = me();
+    if (!m || !view.cps) return;
+    const n = m.cp + 1;
+    if (n > view.cps) return;
+    api.vibrate(6);
+    root.querySelector('.pl-goal')?.remove();
+    const note = document.createElement('div');
+    note.className = 'pl-goal';
+    note.innerHTML = String(html`${g('flag')}<span>${n === view.cps ? 'Last flag' : 'Next flag'}</span><b>${n}</b>`);
+    root.append(note);
+    clearTimeout(goalTimer);
+    goalTimer = setTimeout(() => note.remove(), 2800);
+    const cp = course().checkpoints.find((x) => x.n === n);
+    let canvas = body.querySelector('.pl-map canvas');
+    if (!cp || !canvas) return;
+    const seen = (info) => {
+      const x = info.ox + (cp.x + 0.5) * info.tile;
+      const y = info.oy + (cp.y + 0.5) * info.tile;
+      return x > 0 && y > 0 && x < canvas.clientWidth && y < canvas.clientHeight ? { x, y, r: info.tile } : null;
+    };
+    let at = maps.get(canvas) && seen(maps.get(canvas));
+    if (!at) {
+      mapZoom = 'all';
+      render();
+      canvas = body.querySelector('.pl-map canvas');
+      at = canvas && maps.get(canvas) && seen(maps.get(canvas));
+      if (!at) return;
+    }
+    const ring = document.createElement('i');
+    ring.className = 'pl-goal-ring';
+    ring.style.cssText = `left:${canvas.offsetLeft + at.x}px;top:${canvas.offsetTop + at.y}px;--r:${at.r}px`;
+    canvas.parentElement.append(ring);
+    setTimeout(() => ring.remove(), 2800);
   }
 
   /** The Guide asks: what's on the map where this tap landed? */
@@ -321,6 +372,8 @@ export default function (root, api) {
     const { ui, arg } = el.dataset;
     const m = me();
     switch (ui) {
+      case 'goal':
+        return showGoal();
       case 'opt': {
         const [key, rawValue] = arg.split('=');
         const value = rawValue === 'true' ? true : rawValue === 'false' ? false : /^\d+$/.test(rawValue) ? Number(rawValue) : rawValue;
@@ -511,7 +564,7 @@ export default function (root, api) {
     return html`<div class="pl-pile">${types.map((k) => html`<span class="pl-pile-card" data-ask="${k}" data-tap="ask">${card(k, 'xs')}${counts[k] > 1 && html`<b>×${counts[k]}</b>`}</span>`)}</div>`;
   }
   const upTiles = (keys, ui) => html`<div class="pl-uptiles">${keys.map((k) => html`<button class="pl-uptile ${UPGRADES[k].kind}" data-ui="${ui}" data-arg="${k}">${demo(k, 'tiny')}<span>${UPGRADES[k].name}</span></button>`)}</div>`;
-  const robotFlags = (r) => html`<span class="pl-flags glyphs">${Array.from({ length: view.cps }, (_, i) => html`<i class="${i < (r?.cp ?? 0) ? 'on' : i === (r?.cp ?? 0) ? 'next' : ''}" style="--me:${r.color}">${g('flag')}</i>`)}</span>`;
+  const robotFlags = (r) => html`<span class="pl-flags glyphs">${Array.from({ length: view.cps }, (_, i) => html`<i class="${i < (r?.cp ?? 0) && 'on'}" style="--me:${r.color}">${g('flag')}</i>`)}</span>`;
 
   function openDeck() {
     openSheet({
