@@ -20,7 +20,11 @@ export const C = {
   reboot: '#9cc8ff',
 };
 const FONT = 'Lumen, Roboto, sans-serif';
-const LASER_GAP = 0.17; // a double laser's two beams, this far apart (in squares), as on the big screen
+// a double laser's two beams sit this far apart (in squares), and never closer than DOUBLE_MIN_PX, so even on a
+// small phone map they read as two lines, not one
+const LASER_GAP = 0.3;
+const DOUBLE_MIN_PX = 5;
+const laserGap = (T) => Math.max(T * LASER_GAP, DOUBLE_MIN_PX);
 
 /**
  * Draw a course. o: { tile, ox, oy, robots: [{x,y,d,color,on,me,avatar}], ghosts: [{x,y,d,n,fell,path}],
@@ -79,11 +83,11 @@ export function drawCourse(g, course, o = {}) {
     const path = beamPath(course, L.x, L.y, L.d);
     const a = path[0];
     const b = path[path.length - 1];
-    g.strokeStyle = 'rgba(255,74,58,.7)';
-    g.lineWidth = lw(0.03);
+    g.strokeStyle = L.n > 1 ? 'rgba(255,84,66,.9)' : 'rgba(255,74,58,.7)';
+    g.lineWidth = L.n > 1 ? lw(0.045, 1.4) : lw(0.03);
     // one line per beam: a double laser is two lines, clearly apart (as its two lenses)
     for (let i = 0; i < L.n; i++) {
-      const off = (i - (L.n - 1) / 2) * T * LASER_GAP;
+      const off = (i - (L.n - 1) / 2) * laserGap(T);
       const ox = DY[L.d] * off;
       const oy = DX[L.d] * off;
       g.beginPath();
@@ -212,9 +216,14 @@ export function drawCourse(g, course, o = {}) {
     const side = turn(L.d, 2);
     const cx = px(L.x + 0.5) + DX[side] * T * 0.38;
     const cy = py(L.y + 0.5) + DY[side] * T * 0.38;
+    // the housing: wide enough for both lenses on a double laser (along the wall, across the beams)
+    const half = T * 0.14;
+    const along = L.n > 1 ? Math.max(half, laserGap(T) / 2 + T * 0.11) : half;
+    const hw = L.d % 2 ? half : along; // a beam going N/S: lenses side by side in x
+    const hh = L.d % 2 ? along : half;
     g.fillStyle = '#0d1014';
     g.beginPath();
-    g.roundRect(cx - T * 0.14, cy - T * 0.14, T * 0.28, T * 0.28, T * 0.05);
+    g.roundRect(cx - hw, cy - hh, hw * 2, hh * 2, T * 0.05);
     g.fill();
     g.save();
     if (glow) {
@@ -223,9 +232,9 @@ export function drawCourse(g, course, o = {}) {
     }
     g.fillStyle = C.laser;
     for (let i = 0; i < L.n; i++) {
-      const off = (i - (L.n - 1) / 2) * T * LASER_GAP;
+      const off = (i - (L.n - 1) / 2) * laserGap(T);
       g.beginPath();
-      g.arc(cx + DY[L.d] * off, cy + DX[L.d] * off, T * (L.n > 1 ? 0.055 : 0.07), 0, Math.PI * 2);
+      g.arc(cx + DY[L.d] * off, cy + DX[L.d] * off, Math.max(1.6, T * 0.07), 0, Math.PI * 2);
       g.fill();
     }
     g.restore();
