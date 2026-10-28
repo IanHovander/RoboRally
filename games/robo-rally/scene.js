@@ -1014,9 +1014,10 @@ void main() {
   gl_FragColor = vec4(c * uBright, 1.0);
 }`;
 
-// the lip, where the glass breaks: a hairline at least a pixel and a half wide, its edges smoothed by its own
-// coverage (so the hole's outline doesn't stair-step). One color laid over itself stays that color, so where two
-// lips meet (at a corner, or between pits side by side) nothing doubles up
+// the lip, where the glass breaks: lit, so the hole reads as cut into the glass from any angle (seen low and small,
+// as in the rule film on a phone, the dark alone doesn't say "hole"). A hairline at least a pixel and a half wide,
+// its edges smoothed by its own coverage (so the hole's outline doesn't stair-step). One color laid over itself
+// stays that color, so where two lips meet (at a corner, or between pits side by side) nothing doubles up
 const LIP_FRAG = `
 uniform float uBright;
 uniform vec3 uRim;
@@ -1068,7 +1069,7 @@ function buildPits(rims, throughHole) {
   wall.renderOrder = 6;
   // the lip draws over the hole's edge after everything in it (a robot sinking, the light following it)
   const lip = new THREE.Mesh(geo(rims.lip), new THREE.ShaderMaterial({
-    uniforms: { uBright: uniforms.uBright, uRim: { value: hdr(0x8a97ad, 0.09) } }, vertexShader: PIT_VERT, fragmentShader: LIP_FRAG,
+    uniforms: { uBright: uniforms.uBright, uRim: { value: hdr(0x8a97ad, 0.5) } }, vertexShader: PIT_VERT, fragmentShader: LIP_FRAG,
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
   }));
   lip.renderOrder = 8;

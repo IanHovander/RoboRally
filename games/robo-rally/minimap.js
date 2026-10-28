@@ -647,10 +647,11 @@ function drawPit(g, course, x, y, X, Y, T) {
     g.fillStyle = gr;
     g.fillRect(d === 1 ? ex - w : ex, Y, w, T);
   }
-  // the lip, just inside the rim (one solid color, so where two sides meet it doesn't double up)
+  // the lip, just inside the rim, lit as the big screen's is (one solid color, so where two sides meet it doesn't
+  // double up)
   if (T >= 10) {
     const lw = Math.max(1, T * 0.025);
-    g.fillStyle = '#3b4453';
+    g.fillStyle = '#56637a';
     if (rim[0]) g.fillRect(X, Y, T, lw);
     if (rim[2]) g.fillRect(X, Y + T - lw, T, lw);
     if (rim[3]) g.fillRect(X, Y, lw, T);
