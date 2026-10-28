@@ -1075,6 +1075,16 @@ export class Arena {
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     container.append(this.renderer.domElement);
+    // the graphics card can lose the picture (the computer sleeping, a driver reset, a tab left a long while): then
+    // the view's owner builds it afresh ('broken'), see also checkPicture
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener('webglcontextlost', () => (this.lostAt = performance.now()));
+    canvas.addEventListener('webglcontextrestored', () => this.broke('restored'));
+    this.pictureCheck = { at: performance.now() + 15000, quick: 0, white: 0 };
+    this.onShown = () => {
+      if (document.visibilityState === 'visible') this.pictureCheck = { at: performance.now() + 600, quick: 4, white: 0 };
+    };
+    document.addEventListener('visibilitychange', this.onShown);
 
     this.scene = new THREE.Scene();
     this.scene.background = backgroundTexture();
@@ -1159,9 +1169,61 @@ export class Arena {
     }
   }
 
+  /** The picture can't be trusted any more (see the constructor and checkPicture): tell the owner, once. */
+  broke(why) {
+    if (this.broken) return;
+    this.broken = why;
+    console.warn(`3D view: ${why === 'white' ? 'the picture went white' : why === 'lost' ? 'the graphics card dropped it' : 'the graphics card came back'}; building it afresh`, why === 'white' ? this.runaway() : '');
+    setTimeout(() => this.emit('broken', { why, arena: this }));
+  }
+
+  /** What in the scene is out of range (the likely cause of a white picture), for the console. */
+  runaway() {
+    const out = [];
+    const bad = (v) => !Number.isFinite(v) || Math.abs(v) > 1e3;
+    const name = (o) => o.name || o.type;
+    this.scene.traverse((o) => {
+      if ([o.position.x, o.position.y, o.position.z, o.scale.x].some((v) => !Number.isFinite(v))) out.push(`${name(o)} placed at NaN`);
+      if (o.isLight && bad(o.intensity)) out.push(`${name(o)} intensity ${o.intensity}`);
+      for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+        if (m.color && [m.color.r, m.color.g, m.color.b].some(bad)) out.push(`${name(o)} color ${m.color.r}`);
+        if (bad(m.opacity ?? 0)) out.push(`${name(o)} opacity ${m.opacity}`);
+        if (bad(m.emissiveIntensity ?? 0)) out.push(`${name(o)} emissive ${m.emissiveIntensity}`);
+        for (const [k, u] of Object.entries(m.uniforms ?? {})) if (typeof u.value === 'number' && bad(u.value)) out.push(`${name(o)} ${k} ${u.value}`);
+      }
+    });
+    if (bad(this.renderer.toneMappingExposure)) out.push(`exposure ${this.renderer.toneMappingExposure}`);
+    return out.slice(0, 12).join('; ') || 'nothing out of range in the scene';
+  }
+
+  /**
+   * Now and then, and just after the page is shown again: a look at the picture just drawn, along its top and bottom
+   * edges, where the room is dark. All of it white means the picture has gone wrong (the graphics card's memory
+   * spoiled, or a value run away and spread over everything by the glow); white twice running, and it's broken.
+   */
+  checkPicture() {
+    const pc = this.pictureCheck;
+    const gl = this.renderer.getContext();
+    const w = gl.drawingBufferWidth;
+    const h = gl.drawingBufferHeight;
+    if (this.rowBuf?.length !== w * 4) this.rowBuf = new Uint8Array(w * 4);
+    const row = this.rowBuf;
+    this.renderer.setRenderTarget(null);
+    let n = 0;
+    let white = 0;
+    for (const y of [Math.floor(h * 0.04), Math.floor(h * 0.96)]) {
+      gl.readPixels(0, y, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, row);
+      for (let i = 0; i < w; i += 8, n++) if (row[i * 4] > 247 && row[i * 4 + 1] > 247 && row[i * 4 + 2] > 247) white++;
+    }
+    pc.white = n && white > n * 0.9 ? pc.white + 1 : 0;
+    if (pc.white >= 2) return this.broke('white');
+    pc.at = performance.now() + (pc.white ? 1000 : pc.quick-- > 0 ? 2000 : 15000);
+  }
+
   destroy() {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    document.removeEventListener('visibilitychange', this.onShown);
     this.warmRT?.dispose();
     this.ro.disconnect();
     const resources = new Set();
@@ -1177,7 +1239,8 @@ export class Arena {
     this.scene.environment?.dispose();
     this.composer.dispose?.();
     this.renderer.dispose();
-    this.renderer.forceContextLoss(); // browsers allow only a few live WebGL contexts: give this one back now
+    // browsers allow only a few live WebGL contexts: give this one back now (unless it's gone already)
+    if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 
@@ -3967,6 +4030,12 @@ export class Arena {
   // ----- every frame -----
 
   frameLoop() {
+    if (this.broken) return;
+    if (this.lostAt) {
+      // (lost: the browser usually hands it back within a moment; if not, it's broken)
+      if (performance.now() - this.lostAt > 3000) this.broke('lost');
+      return;
+    }
     const real = Math.min(this.clock.getDelta(), 0.1);
     this.realTime += real;
     const dt = real * this.timeScale() * this.tempo; // the scene's time: slower in slow motion (faster in the Briefing's lessons)
@@ -4015,6 +4084,7 @@ export class Arena {
     this.moteClear.uHalf2.value.set(nb ? nb.course.w / 2 + 1.5 : -1, nb ? nb.course.h / 2 + 1.5 : -1);
     if (this.useBloom) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
+    if (performance.now() >= this.pictureCheck.at) this.checkPicture();
   }
 
   /** One board's own motion and light, every frame: belts, gears, push panels, flags, batteries, pits (the board on stage, or one sliding in). */

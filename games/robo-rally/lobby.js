@@ -130,7 +130,7 @@ export function mountLumenLobby(stage, ui) {
       if (!active || version !== gen) return;
       stage.replaceChildren();
       arena = new Arena(stage);
-      arena.on((kind, d) => hush || sceneSound(kind, d, (id) => Number(String(id).slice(1)) || 0));
+      arena.on((kind, d) => (kind === 'broken' ? rebuild(d.arena) : hush || sceneSound(kind, d, (id) => Number(String(id).slice(1)) || 0)));
       arena.camMode = 'lesson';
       arena.calmWin = true; // a flag reached in a lesson: rings of light, no camera move
       no3d.hidden = true;
@@ -355,6 +355,14 @@ export function mountLumenLobby(stage, ui) {
     showRegs(null);
     mimic.lit(-1);
     await pause(tailOf(run));
+  }
+
+  // the picture went wrong (Arena.broke): the film starts again on a fresh view (a few times at most)
+  let rebuilt = 0;
+  function rebuild(old) {
+    if (arena !== old || !active || ++rebuilt > 3) return;
+    release();
+    start();
   }
 
   function release() {

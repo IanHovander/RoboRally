@@ -100,6 +100,7 @@ export default function (root, api) {
   const seatOf = (id) => view?.robots.find((r) => r.id === id)?.seat ?? 0;
   const tokenOf = (id) => rosterEl.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
   const onArena = (kind, d) => {
+    if (kind === 'broken') return rebuild3d(d.arena);
     // a mishap on the board: that player's token at the bottom flinches too, so the room sees whose it was
     if (kind === 'mishap' || kind === 'fall') flinch(d.id, kind === 'fall' || d.n > 1);
     // junk cards: from the robot (or where it fell) to that player's token, every time
@@ -298,7 +299,7 @@ export default function (root, api) {
   }
 
   // ----- the 3D scene (it's big: load it once the font its labels use is ready) -----
-  (async () => {
+  async function make3d() {
     try {
       await Promise.race([Promise.all([document.fonts.load('200 64px Lumen'), document.fonts.load('500 64px Lumen')]), new Promise((r) => setTimeout(r, 1500))]);
       const { Arena } = await import('./scene.js');
@@ -311,12 +312,29 @@ export default function (root, api) {
       }
     } catch (err) {
       console.warn('3D view unavailable, using the flat map:', err);
-      flat = document.createElement('canvas');
-      flat.className = 'lm-flat';
-      box3d.append(flat);
-      if (view) apply(view);
+      useFlat();
     }
-  })();
+  }
+  function useFlat() {
+    flat = document.createElement('canvas');
+    flat.className = 'lm-flat';
+    box3d.append(flat);
+    if (view) apply(view);
+  }
+  make3d();
+  // the 3D view's picture went wrong (Arena.broke): a fresh one, as at the start; if it keeps breaking, the flat map
+  let rebuilt = [];
+  function rebuild3d(old) {
+    if (arena !== old || !old) return;
+    arena = null;
+    if (briefing) stopBriefing(); // (it has the old view; it starts again on the new one)
+    old.destroy();
+    const now = performance.now();
+    rebuilt = rebuilt.filter((t) => now - t < 120_000);
+    rebuilt.push(now);
+    if (rebuilt.length > 3) useFlat();
+    else make3d();
+  }
 
   // setup: drag across the big screen (not on a button or the strip) to slide to the next map, as on the phone
   let drag = null;
