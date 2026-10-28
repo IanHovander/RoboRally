@@ -909,7 +909,9 @@ function studioEnvironment(renderer) {
 
 // ---------- the pits: a waterfall of light ----------
 
-const PIT_DEPTH = 1.5; // how deep a pit's shaft goes (closed far down, black long before that)
+// how deep a pit's shaft goes: deep enough that even looking steeply down (a tall screen's camera) the far wall
+// fills the hole, never the shaft's floor; it's black long before that (PIT_FRAG)
+const PIT_DEPTH = 4;
 const PIT_LIP = 0.03; // how far the lip's strip reaches either side of the rim (its line is drawn inside it)
 const PIT_SINKS = 2; // robots whose light can be sinking into the pits at once (animateBot: sinkGlow)
 
@@ -962,6 +964,7 @@ void main() {
 const PIT_FRAG = `
 uniform float uTime;
 uniform float uBright;
+uniform float uGlow;
 uniform vec3 uColor;
 uniform vec3 uSink[${PIT_SINKS}];
 uniform vec3 uSinkCol[${PIT_SINKS}];
@@ -974,6 +977,11 @@ void main() {
   float u = vUv.x;
   float v = vUv.y;
   float t = uTime;
+  // how steeply this spot is seen: the steeper the look into a hole, the further down its far wall shows (a tall
+  // screen's camera looks down more), so the light reaches further down to match. 1 at a wide screen's angle.
+  vec3 eye = normalize(cameraPosition - vW);
+  float reach = clamp(eye.y / max(length(eye.xz), 1e-3) / 1.38, 1.0, 2.6);
+  float vd = v / reach;
   float cu = u * 11.0;
   float col = floor(cu);
   float h1 = hash(col * 1.37 + 3.1);
@@ -981,20 +989,23 @@ void main() {
   float h3 = hash(col * 0.73 + 4.2);
   float f = fract(cu) - 0.5 - (h3 - 0.5) * 0.45;
   float px = fwidth(cu);
+  // seen small (a phone's screen): every other thread fades out and the rest take its light, so they stay apart
+  float thin = smoothstep(0.2, 0.34, px);
+  float keep = mod(col, 2.0) > 0.5 ? 1.0 - thin : 1.0 + thin;
   float s = max(0.08, px * 0.6);
-  float thread = exp(-f * f / (2.0 * s * s)) * (0.08 / s);
+  float thread = exp(-f * f / (2.0 * s * s)) * (0.08 / s) * keep;
   float q = fract(t * (0.045 + 0.03 * h2) - v * 0.42 + h1);
   float pulse = 0.2 + 0.8 * pow(0.5 + 0.5 * cos(6.2831853 * q), 3.0);
   float threads = thread * (0.4 + 0.6 * h2) * pulse * smoothstep(0.0, 0.16, v);
   float sheet = 0.16 * exp(-v * 9.0) * (0.85 + 0.15 * sin(u * 2.3 + t * 0.2));
-  float L = (0.95 * threads + 0.025) * exp(-v * 2.0) + sheet + 0.18 * exp(-v * 50.0);
+  float L = (0.95 * threads + 0.025) * exp(-vd * 2.0) + sheet + 0.18 * exp(-v * 50.0);
   // where two walls meet, a soft crease; a wall seen edge-on shows its light softly (its threads would crowd)
   float crease = max(vEdge.y * (1.0 - smoothstep(0.0, 0.14, vEdge.x)), vEdge.z * (1.0 - smoothstep(0.0, 0.14, 1.0 - vEdge.x)));
   vec3 n = normalize(vN);
   L *= (1.0 - 0.45 * crease) * (0.3 + 0.7 * smoothstep(0.1, 0.55, abs(dot(n, normalize(cameraPosition - vW)))));
   // the wall itself: the glass's cut face at the top catching a little light, then dark
-  vec3 wall = vec3(0.016, 0.019, 0.025) * exp(-v * 3.0) + vec3(0.05, 0.058, 0.075) * (1.0 - smoothstep(0.015, 0.05, v));
-  vec3 c = (wall * (1.0 - 0.6 * crease) + uColor * L) * (1.0 - smoothstep(0.45, 0.95, v));
+  vec3 wall = vec3(0.016, 0.019, 0.025) * exp(-vd * 3.0) + vec3(0.05, 0.058, 0.075) * (1.0 - smoothstep(0.015, 0.05, v));
+  vec3 c = (wall * (1.0 - 0.6 * crease) + uColor * L * uGlow) * (1.0 - smoothstep(0.45, 0.95, vd));
   for (int i = 0; i < ${PIT_SINKS}; i++) {
     vec3 d = uSink[i] - vW;
     c += uSinkCol[i] * max(0.0, dot(n, normalize(d)) * 0.7 + 0.3) / (1.0 + 14.0 * dot(d, d)) * (1.0 - smoothstep(0.7, 1.2, v));
@@ -1022,7 +1033,7 @@ void main() {
 function buildPits(rims, throughHole) {
   if (!rims.wall.length) return null;
   const uniforms = {
-    uTime: { value: 0 }, uBright: { value: 1 }, uColor: { value: hdr(PALETTE.light, 1.6) },
+    uTime: { value: 0 }, uBright: { value: 1 }, uGlow: { value: 1 }, uColor: { value: hdr(PALETTE.light, 1.6) },
     uSink: { value: Array.from({ length: PIT_SINKS }, () => new THREE.Vector3()) },
     uSinkCol: { value: Array.from({ length: PIT_SINKS }, () => new THREE.Color(0)) },
   };
@@ -1276,12 +1287,16 @@ export class Arena {
     this.key = key;
 
     // the floor far below: dark, with the board's light spilling onto it
-    const floorMat = new THREE.MeshBasicMaterial({ color: 0x040507 });
+    // (the floor and its light are never drawn in a pit's hole, where the stencil says one is seen: the shafts go
+    // deeper than the floor, so it would cross them. So they draw after the pits' lids.)
+    const notInHole = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc };
+    const floorMat = new THREE.MeshBasicMaterial({ color: 0x040507, ...notInHole });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), floorMat);
+    floor.renderOrder = 6;
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -1.6;
     s.add(floor);
-    this.spill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(0x9fb2cc, 0.16), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.spill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(0x9fb2cc, 0.16), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, ...notInHole }));
     this.spill.rotation.x = -Math.PI / 2;
     this.spill.position.y = -1.59;
     s.add(this.spill);
@@ -3650,7 +3665,7 @@ export class Arena {
       this.later(ta + teeter, () => this.emit('gulp', { id: b.id }));
       this.later(ta + teeter + sink * 0.8, () => {
         this.ring(at, b.color, 0.55, 0.05, 1.1);
-        this.pillar(at, b.color, 1.3, 1.0, PIT_DEPTH * 0.8);
+        this.pillar(at, b.color, 1.3, 1.0, 1.2);
         this.motes3(at, b.color, 18, 1.4);
         this.ghost(at, b.color);
         this.emit('poof', { id: b.id });
@@ -4164,6 +4179,7 @@ export class Arena {
       const u = this.pits.uniforms;
       u.uTime.value = t;
       u.uBright.value = (0.35 + 0.65 * lit) * traced;
+      u.uGlow.value = this.useBloom ? 1 : 1.5; // (without the glow round them, the threads are brighter themselves)
       // a robot sinking into a pit lights the shaft round it in its color, all the way down (animateBot: sinkGlow)
       let i = 0;
       for (const b of this.bots.values()) {
