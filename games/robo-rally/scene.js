@@ -978,9 +978,10 @@ void main() {
   float v = vUv.y;
   float t = uTime;
   // how steeply this spot is seen: the steeper the look into a hole, the further down its far wall shows (a tall
-  // screen's camera looks down more), so the light reaches further down to match. 1 at a wide screen's angle.
+  // screen's camera looks down more; the rule film's, low over a small board, less), so the light fades out within
+  // what can be seen: the hole always darkens toward its near edge, like a well. 1 at a wide screen's race angle.
   vec3 eye = normalize(cameraPosition - vW);
-  float reach = clamp(eye.y / max(length(eye.xz), 1e-3) / 1.38, 1.0, 2.6);
+  float reach = clamp(eye.y / max(length(eye.xz), 1e-3) / 1.38, 0.4, 2.6);
   float vd = v / reach;
   float cu = u * 11.0;
   float col = floor(cu);
