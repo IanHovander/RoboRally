@@ -87,6 +87,11 @@ export function mountGuide(root, o = {}) {
   layer.className = 'gd';
   (o.shell ? document.body : root).append(layer);
   const pl = () => root.querySelector('.pl') ?? root;
+  // where the layer is (the whole window on a phone; the phone's column on a laptop): a rect from the page, in its terms
+  const local = (r) => {
+    const f = layer.getBoundingClientRect();
+    return { left: r.left - f.left, top: r.top - f.top, right: r.right - f.left, bottom: r.bottom - f.top, width: r.width, height: r.height };
+  };
 
   let pointing = false;
   let outlined = [];
@@ -273,11 +278,10 @@ export function mountGuide(root, o = {}) {
     }
     cap.style.pointerEvents = '';
     const ask = askRect();
-    const holes = [...outlined.map((x) => x.r), ask];
-    const W = innerWidth;
-    const H = innerHeight;
+    const holes = [...outlined.map((x) => x.r), ask].map(local);
+    const { width: W, height: H } = layer.getBoundingClientRect();
     wrap.querySelector('.gd-dim').innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><mask id="gd-mask"><rect width="${W}" height="${H}" fill="#fff"/>${holes.map((r) => `<rect x="${r.left - 2}" y="${r.top - 2}" width="${r.width + 4}" height="${r.height + 4}" rx="8" fill="#000"/>`).join('')}</mask></defs><rect width="${W}" height="${H}" fill="rgba(3,4,7,.65)" mask="url(#gd-mask)"/></svg>`;
-    wrap.querySelector('.gd-outlines').innerHTML = outlined.map(({ r }) => `<i class="${breathe ? 'breathe' : ''}" style="left:${r.left - 2}px;top:${r.top - 2}px;width:${r.width + 4}px;height:${r.height + 4}px"></i>`).join('');
+    wrap.querySelector('.gd-outlines').innerHTML = outlined.map(({ r }) => local(r)).map((r) => `<i class="${breathe ? 'breathe' : ''}" style="left:${r.left - 2}px;top:${r.top - 2}px;width:${r.width + 4}px;height:${r.height + 4}px"></i>`).join('');
   }
   function onPointTap(e) {
     const x = e.clientX;
@@ -498,7 +502,7 @@ export function mountGuide(root, o = {}) {
         <span class="gd-cap">${t.sec === 'haywire' && !t.name ? card(id, 'ic') : html`${t.sec === 'cards' && card(id, 'ic')}${cap}`}</span></button>`;
     };
     el.innerHTML = String(html`
-      <header class="gd-book-top"><span class="gd-book-ic">${g('book')}</span><button class="gd-book-x" data-gd="close-book" aria-label="Close" style="right:${Math.max(4, innerWidth - a.right)}px">${g('cross')}</button></header>
+      <header class="gd-book-top"><span class="gd-book-ic">${g('book')}</span><button class="gd-book-x" data-gd="close-book" aria-label="Close" style="right:${Math.max(4, layer.getBoundingClientRect().right - a.right)}px">${g('cross')}</button></header>
       <nav class="gd-chips">${secs.map((s) => html`<button data-gd="sec" data-arg="${s.id}">${iconHtml(s.icon)}<span>${s.label}</span></button>`)}</nav>
       <div class="gd-book-body">${secs.map((s) => html`
         <section class="gd-sec" data-sec="${s.id}">
@@ -667,6 +671,7 @@ export function mountGuide(root, o = {}) {
   // ----- first-time cues: a pulse on the new thing, a chip under the "?" -----
   function ring(rect, times = 2, cls = '') {
     if (!rect || !rect.width) return;
+    rect = local(rect);
     const i = document.createElement('i');
     i.className = `gd-ring ${cls}`;
     i.style.cssText = `left:${rect.left - 3}px;top:${rect.top - 3}px;width:${rect.width + 6}px;height:${rect.height + 6}px;animation-iteration-count:${times}`;
@@ -678,11 +683,11 @@ export function mountGuide(root, o = {}) {
   }
   function showChip(picHtml, open) {
     foldChip();
-    const a = askRect();
+    const a = local(askRect());
     const el = document.createElement('button');
     el.className = 'gd-chip';
     el.dataset.gd = 'chip';
-    el.style.cssText = `top:${a.bottom + 2}px;right:${Math.max(4, innerWidth - a.right)}px`;
+    el.style.cssText = `top:${a.bottom + 2}px;right:${Math.max(4, layer.getBoundingClientRect().width - a.right)}px`;
     el.innerHTML = String(html`${picHtml}<i>${g('ask')}</i>`);
     layer.append(el);
     mountClips(el);

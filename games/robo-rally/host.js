@@ -656,6 +656,7 @@ export default function (root, api) {
         if (set(centerEl, setupFrame()) || !setupEls) {
           const q = (sel) => centerEl.querySelector(sel);
           setupEls = { heads: q('.lm-heads'), strip: q('.lm-courses'), hl: [...centerEl.querySelectorAll('.lm-course-hl')], opts: q('.lm-opts'), boxes: null };
+          setupEls.strip.addEventListener('transitionend', (e) => e.target.matches('.lm-course') && onResizeStrip());
         }
         for (const b of setupEls.strip.querySelectorAll('.lm-course')) b.classList.toggle('on', b.dataset.course === o.course);
         renderHeads();
@@ -1001,7 +1002,14 @@ export default function (root, api) {
     setupEls = null;
     arena?.setSlide(0);
   }
-  const onResizeStrip = () => setupEls && (setupEls.boxes = null);
+  // a resize (or the browser zoomed): the strip's cards are measured again and the highlight put back on its map,
+  // straight away and again as the cards finish easing to their new size (the strip's transitionend, below)
+  const remeasureStrip = () => {
+    if (!setupEls) return;
+    setupEls.boxes = null;
+    if (slide.course) placeSlide(slide.o);
+  };
+  const onResizeStrip = () => requestAnimationFrame(remeasureStrip);
   window.addEventListener('resize', onResizeStrip);
 
   // for test scripts: what the big screen sees

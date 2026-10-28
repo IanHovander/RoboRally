@@ -6,7 +6,10 @@ import { linkType, loadPeerJS, loadQrCode, localPair, peerOptions, PROTOCOL, Roo
 import { getRelay } from './relay.js';
 
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I, L or O: too easy to misread
-const SAVED = 'gamenight.host'; // { code, token }: lets a refreshed tab get the same room code back
+// This copy of the site (its folder, e.g. /RoboRally/). Other games at the same address (other folders on
+// ianhovander.github.io) share the browser's storage and tab locks, so everything here is kept under this name.
+const SITE = new URL('../../', import.meta.url).pathname;
+const SAVED = `gamenight.host ${SITE}`; // { code, token } for this tab: a reload gets the same room code back
 const SILENT_MS = 8000; // phones say something every 2 s; this long without a word means they're gone
 const RECLAIM_MS = 90_000; // how long to wait for our old code after a refresh before taking a new one
 
@@ -16,8 +19,8 @@ const RECLAIM_MS = 90_000; // how long to wait for our old code after a refresh 
  */
 export async function hostInBrowser({ onStatus }) {
   if (!(await onlyTab())) {
-    // another tab is the big screen: wait our turn, and start by ourselves the moment it closes
-    onStatus('Robo Rally is open in another tab. Close it and this one starts by itself.');
+    // another tab is this game's big screen: wait our turn, and start by ourselves the moment it closes
+    onStatus(`${document.title || 'This game'} is open in another tab. Close it and this one starts by itself.`);
     await nextTab();
   }
   onStatus('Setting up the room…');
@@ -35,6 +38,7 @@ export async function hostInBrowser({ onStatus }) {
   const saved = readSaved();
   let code = saved?.code ?? newCode();
   const token = saved?.token ?? newToken();
+  let ours = !!saved; // the code was this tab's before a reload (or is now): worth waiting for if it's held
   let peer = null;
   let reclaimingSince = 0;
   let retryDelay = 1000;
@@ -43,6 +47,7 @@ export async function hostInBrowser({ onStatus }) {
     peer?.destroy();
     peer = new Peer(roomPeerId(code), peerOptions({ token }, relay));
     peer.on('open', () => {
+      ours = true;
       reclaimingSince = 0;
       retryDelay = 1000;
       writeSaved({ code, token });
@@ -59,13 +64,15 @@ export async function hostInBrowser({ onStatus }) {
     });
     peer.on('error', (err) => {
       if (err.type === 'unavailable-id') {
-        // Someone (usually this same screen, just before a refresh) still holds our code.
+        // Our own code still held (by this same screen, just before a reload): wait for it a while. A new code
+        // that's taken is someone else's room: another code straight away.
         reclaimingSince ||= Date.now();
-        if (Date.now() - reclaimingSince < RECLAIM_MS) {
+        if (ours && Date.now() - reclaimingSince < RECLAIM_MS) {
           onStatus(`Getting room ${code} back… (this takes up to a minute after a refresh)`);
           setTimeout(start, 3000);
         } else {
           code = newCode();
+          ours = false;
           reclaimingSince = 0;
           start();
         }
@@ -178,7 +185,7 @@ function newToken() {
 
 function readSaved() {
   try {
-    const value = JSON.parse(localStorage.getItem(SAVED));
+    const value = JSON.parse(sessionStorage.getItem(SAVED));
     return value && /^[A-Z]{4}$/.test(value.code) && typeof value.token === 'string' ? value : null;
   } catch {
     return null;
@@ -187,14 +194,14 @@ function readSaved() {
 
 function writeSaved(value) {
   try {
-    localStorage.setItem(SAVED, JSON.stringify(value));
+    sessionStorage.setItem(SAVED, JSON.stringify(value));
   } catch {}
 }
 
 // The room's players, kept across a reload of the big screen (it hosts the room on the website, so a reload
 // starts the room afresh): phones reconnect with their tokens and get their own seats back, in the same order (so
 // the same leader), with the same names, colors and robots. Only for a quick reload, not a later visit.
-const PLAYERS = 'gamenight.roomPlayers';
+const PLAYERS = `gamenight.roomPlayers ${SITE}`;
 function savePlayers(room) {
   try {
     const players = [...room.players.values()].map(({ id, token, name, color, avatar }) => ({ id, token, name, color, avatar }));
@@ -214,11 +221,12 @@ function restorePlayers(room) {
   } catch {}
 }
 
-/** Only one big screen per browser: two tabs would fight over the same room code. */
+/** Only one big screen per browser for this game (other games' big screens are fine): two would confuse the room. */
+const LOCK = `gamenight-host ${SITE}`;
 function onlyTab() {
   if (!navigator.locks) return Promise.resolve(true);
   return new Promise((resolve) => {
-    navigator.locks.request('gamenight-host', { ifAvailable: true }, (lock) => {
+    navigator.locks.request(LOCK, { ifAvailable: true }, (lock) => {
       resolve(!!lock);
       return lock ? new Promise(() => {}) : undefined; // hold it for as long as this tab is open
     });
@@ -229,7 +237,7 @@ function onlyTab() {
 function nextTab() {
   if (!navigator.locks) return Promise.resolve();
   return new Promise((resolve) => {
-    navigator.locks.request('gamenight-host', () => {
+    navigator.locks.request(LOCK, () => {
       resolve();
       return new Promise(() => {}); // hold it for as long as this tab is open
     });

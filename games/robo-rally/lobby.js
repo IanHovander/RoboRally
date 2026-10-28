@@ -144,9 +144,29 @@ export function mountLumenLobby(stage, ui) {
     }
   }
 
-  // board between the phone (left) and the join column (right); on a phone held upright the join band is
-  // above, so the board takes the space right of the (narrower) phone
-  const frame = () => (innerWidth < innerHeight ? { left: 0.06, right: 0.06, top: 0.24, bottom: 0.95 } : innerWidth / innerHeight > 1.5 ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 });
+  // board between the phone (left) and the join column (right). Upright, the join band is above: the board goes
+  // in the room left between it, the phone (beside the board in a window, under it on a phone held upright: see
+  // lobby.css) and the buttons along the bottom, as measured.
+  const phoneEl = ui.querySelector('.lf-phone');
+  function frame() {
+    phoneEl.style.top = '';
+    if (innerWidth >= innerHeight) return innerWidth / innerHeight > 1.5 ? { left: 0.52, right: 0.66, top: 0.42, bottom: 0.36 } : { left: 0.56, right: 0.68, top: 0.46, bottom: 0.4 };
+    const s = stage.getBoundingClientRect();
+    if (!s.height) return { left: 0.06, right: 0.06, top: 0.24, bottom: 0.95 };
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const joinBottom = document.querySelector('.join')?.getBoundingClientRect().bottom ?? s.top;
+    const free = { top: Math.max(s.top, joinBottom - rem), bottom: s.bottom - 7 * rem }; // (above the start button)
+    const beside = matchMedia('(min-width: 540px)').matches; // (lobby.css: the phone beside the board)
+    if (beside) phoneEl.style.top = `${(free.top + free.bottom) / 2 - s.top}px`;
+    const p = phoneEl.getBoundingClientRect();
+    const y = (px) => (2 * px) / s.height; // a height on screen, in the frame's terms (the canvas is 2 high)
+    return {
+      left: beside ? (2 * (p.right - s.left + rem)) / s.width : 0.06,
+      right: 0.06,
+      top: Math.max(0.1, y(free.top - s.top + rem)),
+      bottom: beside ? Math.max(0.1, y(s.bottom - free.bottom)) : Math.max(0.1, y(s.bottom - p.top + 0.6 * rem)),
+    };
+  }
   function layout() {
     const f = frame();
     // the strip sits centered over the board's frame, just above it
@@ -155,6 +175,9 @@ export function mountLumenLobby(stage, ui) {
     arena?.setFrame(f);
   }
   addEventListener('resize', layout);
+  // (the join band grows as players join)
+  const joinEl = document.querySelector('.join');
+  if (joinEl) new ResizeObserver(() => layout()).observe(joinEl);
 
   /** Go to scene i now: the scene playing stops where it is and fades out, and scene i starts clean. */
   function jumpTo(i) {

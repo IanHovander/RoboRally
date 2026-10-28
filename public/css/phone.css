@@ -2,6 +2,12 @@
 
 html.phone { font-size: 16px; }
 html.phone body { overflow: hidden; overscroll-behavior: none; }
+/* A laptop, a Chromebook, a tablet: the phone's screen is a phone-shaped column down the middle, sized to the
+   window's height. (The body holds everything fixed to the screen, so sheets and overlays stay in the column.) */
+@media (min-width: 600px) and (min-height: 480px) {
+  html.phone { font-size: clamp(15px, 1.9vh, 22px); background: var(--void); }
+  html.phone body { width: min(100%, 27rem); margin: 0 auto; contain: layout; box-shadow: 0 0 0 1px var(--hair), 0 0 6rem rgba(0, 0, 0, 0.6); }
+}
 .phone .screen {
   position: fixed;
   inset: 0;

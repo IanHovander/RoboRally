@@ -179,11 +179,22 @@
    row), in the film and in the Briefing (there above the robots along the bottom) */
 @media (orientation: portrait) {
   .lf-phone {
-    left: 50%; top: auto; bottom: 5.6rem; width: min(74vw, 26rem); aspect-ratio: auto; transform: translateX(-50%);
+    left: 50%; top: auto; bottom: 7rem; width: min(74vw, 26rem); aspect-ratio: auto; transform: translateX(-50%);
     grid-template-rows: auto auto auto; padding: 1.6rem .9rem .7rem; gap: .7rem; border-radius: 1.6rem;
   }
   .lm-host .lf-phone { bottom: 11.5rem; }
   .lf-phone::before { top: .65rem; }
   .lf-hand { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .3rem; align-content: start; }
   .lf-lock { height: 2rem; }
+}
+/* an upright window wider than a phone (a laptop's window, a tablet): in the film, the phone stands beside the
+   board again, at the left (lobby.js centres it in the room under the join band and fits the board beside it) */
+@media (orientation: portrait) and (min-width: 540px) {
+  .lesson-ui .lf-phone {
+    left: 4.2vw; top: 50%; bottom: auto; width: clamp(9rem, 28vw, 15rem); aspect-ratio: 9 / 17; transform: translateY(-50%);
+    grid-template-rows: auto 1fr auto; padding: 2.2rem 1rem 1.2rem; gap: 1rem; border-radius: 2.2rem;
+  }
+  .lesson-ui .lf-phone::before { top: .9rem; }
+  .lesson-ui .lf-hand { grid-template-columns: repeat(4, 1fr); gap: .4rem; align-content: end; }
+  .lesson-ui .lf-lock { height: 2.4rem; }
 }
