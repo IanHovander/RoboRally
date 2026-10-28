@@ -353,6 +353,7 @@ export default function (root, api) {
       slide.mode = 'drag';
       slide.glide = null;
       slide.live = false;
+      slide.buf = [];
     }
     if (!drag.on) return;
     const now = performance.now();
@@ -699,8 +700,9 @@ export default function (root, api) {
     mode: 'rest', // 'follow' (the leader's finger), 'drag' (a drag here), 'hold' (waiting for the chosen map), 'glide' (a timed slide home), 'rest'
     glide: null, // { from, t (ms so far), dur }
     live: false, // the leader is sliding it now
-    last: null, // the newest sample from the phone: { offset, at } (at: the server's clock)
-    v: 0, // its speed, in maps per ms
+    buf: [], // the leader's slide, as the phone sent it: { t (the phone's clock, ms), o }, oldest first
+    skew: 0, // this screen's clock less the phone's, for the quickest sample yet (skewUsed: eased toward it)
+    ov: 0, // the slide's speed, maps per second
     t: 0, // (the last frame)
     px: 0, // how far a board moves on screen per map, in CSS px (the arena's measure; the titles move with it)
   };
@@ -713,7 +715,10 @@ export default function (root, api) {
     return [...new Set([slide.o < 0 ? slide.right : slide.left, slide.left, slide.right, courseAt(slide.course, 1), courseAt(slide.course, -1)])].filter((id) => id && id !== slide.course);
   }
 
-  const SPRING_W = 13; // how tightly the big screen's slide follows the leader's finger (see slideTick)
+  // following the leader's phone (slideTick): its slide replayed this far behind the phone's own clock, so a sample
+  // that's a little late still arrives in time, through a critically damped follow this tight (rad/s)
+  const PLAY_DELAY = 60;
+  const FOLLOW_W = 22;
 
   /** A view in setup: if the map changed, the slide carries on from where the new one already was (or glides it in). */
   function courseSlide(v) {
@@ -722,10 +727,8 @@ export default function (root, api) {
     const from = slide.course;
     slide.course = id;
     slide.live = false;
-    slide.last = null;
-    slide.v = 0;
     if (!from) {
-      Object.assign(slide, { o: 0, mode: 'rest', glide: null, left: courseAt(id, -1), right: courseAt(id, 1) });
+      Object.assign(slide, { o: 0, ov: 0, mode: 'rest', glide: null, buf: [], left: courseAt(id, -1), right: courseAt(id, 1) });
       return;
     }
     // which way: a step round the carousel, or (a jump, from the strip here) toward where it sits in the strip
@@ -734,6 +737,12 @@ export default function (root, api) {
     slide.o += step;
     slide.left = step > 0 ? from : courseAt(id, -1);
     slide.right = step < 0 ? from : courseAt(id, 1);
+    if (slide.mode === 'follow' && slide.buf.length && (id === courseAt(from, 1) || id === courseAt(from, -1))) {
+      // the phone landed on its neighbour while its slide is still being replayed: it plays on, in the new map's terms
+      for (const s of slide.buf) s.o += step;
+      return;
+    }
+    slide.buf = [];
     if (Math.abs(slide.o) > 0.08) {
       const d = Math.min(1.5, Math.abs(slide.o));
       slide.mode = 'glide';
@@ -741,38 +750,47 @@ export default function (root, api) {
     } else slide.mode = 'follow';
   }
 
-  /** The leader's phone: where its carousel is now (or null: let go). Each sample carries the server's time. */
+  /**
+   * The leader's phone: where its carousel is now (or null: let go, and what's been sent plays out). Each sample
+   * carries the phone's own clock, so the slide can be replayed here just as it moved there, however the network
+   * bunched or delayed the samples on the way.
+   */
   function noteBrowse(v) {
     const b = v.phase === 'setup' ? v.browse : null;
     if (!b || b.course !== slide.course) {
-      if (slide.live) {
-        slide.live = false;
-        slide.v = 0;
-        // let go short of a new map: it eases home (the phone has usually brought it most of the way already)
-        if (Math.abs(slide.o) > 0.15) {
-          slide.mode = 'glide';
-          slide.glide = { from: slide.o, t: 0, dur: 140 + 200 * Math.min(1, Math.abs(slide.o)) };
-        } else slide.mode = 'follow';
-      }
+      slide.live = false;
       return;
     }
-    const L = slide.last;
-    if (L && b.at === L.at && b.offset === L.offset) return;
-    const gap = L ? b.at - L.at : Infinity;
-    if (gap > 2 && gap < 150) {
-      const v1 = (b.offset - L.offset) / gap;
-      slide.v = gap < 60 ? v1 * 0.7 + slide.v * 0.3 : v1;
-    } else slide.v = 0;
-    slide.last = { offset: b.offset, at: b.at };
+    const t = b.t ?? b.at; // (a phone that doesn't send its clock: the room's)
+    const now = performance.now();
+    const buf = slide.buf;
+    const L = buf.at(-1);
+    if (L && t <= L.t) return; // (seen already)
+    const playedOut = !L || (!slide.live && now - slide.skewUsed - PLAY_DELAY > L.t);
+    if (slide.mode !== 'follow' || playedOut) {
+      // a new slide: it starts from where the board is now
+      slide.buf = [{ t: t - 17, o: slide.o }];
+      slide.skew = slide.skewUsed = now - t;
+    } else if (t - L.t > 50) buf.push({ t: t - 17, o: L.o }); // (the finger was still until a frame before this)
+    slide.skew = Math.min(slide.skew, now - t); // the quickest a sample has come: the clocks' difference
+    slide.buf.push({ t, o: Math.max(-1.5, Math.min(1.5, b.offset)) });
     slide.live = true;
     slide.mode = 'follow';
     slide.glide = null;
   }
+  /** Where the phone's slide was at phone time t (between the samples either side). */
+  function slideAt(buf, t) {
+    let i = 0;
+    while (i < buf.length - 1 && buf[i + 1].t <= t) i++;
+    const a = buf[i];
+    const b = buf[i + 1];
+    return !b || t <= a.t ? a.o : a.o + ((b.o - a.o) * (t - a.t)) / (b.t - a.t);
+  }
 
   /**
-   * Every frame: where the slide is now, and everything placed to match. Following the leader's finger it's a
-   * critically damped spring: pulled toward where the finger is, and toward the finger's smoothed speed, so a steady
-   * drag is followed without lag while a jerky finger's sudden changes of speed are smoothed into a glide.
+   * Every frame: where the slide is now, and everything placed to match. Following the leader's phone, its slide is
+   * replayed a moment behind (PLAY_DELAY) through a critically damped follow: a weighted average of where the slide
+   * has just been, so it's smooth, and it never goes past where the slide stops (no overshoot, no bounce back).
    */
   function slideTick() {
     const now = performance.now();
@@ -792,21 +810,33 @@ export default function (root, api) {
         slide.mode = 'rest';
       }
     } else if (slide.mode === 'follow') {
-      const target = slide.live && slide.last ? Math.max(-1.5, Math.min(1.5, slide.last.offset)) : 0;
-      // the finger's speed, smoothed over ~0.1 s (0 once it lets go)
-      slide.vs = (slide.vs ?? 0) + ((slide.live ? slide.v : 0) - (slide.vs ?? 0)) * (1 - Math.exp(-dt / 100));
-      const w = SPRING_W; // stiffness (rad/s): higher follows tighter, lower glides more
-      const h = dt / 1000;
-      const n = Math.max(1, Math.ceil(h / 0.008)); // small steps keep it steady through a slow frame
-      for (let i = 0; i < n; i++) {
-        const acc = w * w * (target - o) + 2 * w * (slide.vs * 1000 - (slide.ov ?? 0));
-        slide.ov = (slide.ov ?? 0) + acc * (h / n);
-        o += slide.ov * (h / n);
+      const buf = slide.buf;
+      let target = 0; // (let go and played out: home)
+      let played = true;
+      if (buf.length) {
+        slide.skewUsed += (slide.skew - slide.skewUsed) * (1 - Math.exp(-dt / 150)); // (a quicker sample: eased in)
+        const pt = now - slide.skewUsed - PLAY_DELAY; // the phone's time being shown now
+        played = pt >= buf.at(-1).t;
+        if (!played) target = slideAt(buf, pt);
+        else if (slide.live) target = buf.at(-1).o; // (the finger is still)
+        while (buf.length > 2 && buf[1].t < pt - 200) buf.shift(); // (what's long been played)
       }
-      if (!slide.live && Math.abs(o - target) < 0.001 && Math.abs(slide.ov) < 0.02) {
+      // the follow, in exact steps (toward this frame's target): e = (e0 + c·t)·e^(-wt), c = v0 + w·e0
+      const w = FOLLOW_W;
+      for (let left = dt / 1000; left > 1e-6; ) {
+        const h = Math.min(left, 0.008);
+        left -= h;
+        const e = o - target;
+        const c = slide.ov + w * e;
+        const k = Math.exp(-w * h);
+        o = target + (e + c * h) * k;
+        slide.ov = (slide.ov - w * c * h) * k;
+      }
+      if (!slide.live && played && Math.abs(o) < 0.001 && Math.abs(slide.ov) < 0.02) {
         o = 0;
         slide.ov = 0;
         slide.mode = 'rest';
+        slide.buf = [];
       }
     }
     if (slide.mode === 'rest' && !slide.live) {
@@ -998,7 +1028,7 @@ export default function (root, api) {
 
   /** Setup is over: the slide stops, and the boards built ahead are let go. */
   function endSlide() {
-    Object.assign(slide, { o: 0, course: null, left: null, right: null, mode: 'rest', glide: null, live: false, last: null, v: 0, placed: false });
+    Object.assign(slide, { o: 0, course: null, left: null, right: null, mode: 'rest', glide: null, live: false, buf: [], ov: 0, placed: false });
     setupEls = null;
     arena?.setSlide(0);
   }

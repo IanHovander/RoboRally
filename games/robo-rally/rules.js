@@ -332,7 +332,8 @@ const FIRST_GAME = { upgrades: false, timer: 120, lessDeadly: false, lessSpam: f
 /**
  * The leader is sliding the phone's map carousel: offset is how far the strip has moved, in maps (negative: to the
  * left, toward the next map). Only the big screen sees it (hostView), so it follows the finger without costing the
- * phones anything; `at` (the server's clock) lets it place each sample in time. null: the slide is over.
+ * phones anything; `t` (the phone's own clock, when it was there) lets it replay the slide exactly as it moved, and
+ * `at` (the server's clock) stands in for a phone that doesn't send it. null: the slide is over.
  */
 function browse(ctx, payload) {
   const s = ctx.state;
@@ -343,7 +344,8 @@ function browse(ctx, payload) {
     return;
   }
   if (typeof o !== 'number' || !Number.isFinite(o)) return;
-  s.browse = { offset: Math.round(Math.max(-1.5, Math.min(1.5, o)) * 1000) / 1000, course: s.opts.course, at: Date.now() };
+  const t = typeof payload.t === 'number' && Number.isFinite(payload.t) ? payload.t : null;
+  s.browse = { offset: Math.round(Math.max(-1.5, Math.min(1.5, o)) * 1000) / 1000, course: s.opts.course, at: Date.now(), t };
 }
 
 function begin(ctx) {

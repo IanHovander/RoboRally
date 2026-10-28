@@ -353,7 +353,7 @@ export default function (root, api) {
     const o = offset == null ? null : Math.round(offset * 1000) / 1000;
     if (o === browseSent) return;
     browseSent = o;
-    api.send('browse', o == null ? null : { offset: o });
+    api.send('browse', o == null ? null : { offset: o, t: Math.round(performance.now()) }); // (t: this phone's clock)
   }
   /** Stream an animation of the track to the big screen, frame by frame, until it's over (then stop). */
   function streamTrack(anim, track, w) {
