@@ -33,6 +33,7 @@
     </aside>
     <div class="lobby-corner">
       <button id="sound-btn" class="corner-btn" title="Sound"></button>
+      <button class="corner-btn" data-play-here title="Play on this screen too" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="13" y="7" width="14" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M18.5 28.5 H21.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
     </div>
   </section>
 
@@ -40,8 +41,16 @@
     <main id="stage" class="stage"></main>
     <div class="game-menu">
       <button class="menu-btn" data-lobby="restart" title="Start over"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M29 20 A9 9 0 1 1 26 13.3" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M27.5 8 L26.5 13.8 L32 15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="menu-btn" data-play-here title="Your cards" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="13" y="7" width="14" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M18.5 28.5 H21.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
       <button class="menu-btn" data-lobby="end" title="Back to the lobby"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 20 L20 11 L30 20 M14 18 V30 H26 V18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
+  </section>
+
+  <!-- Your own controller on this same screen (a phone used as the big screen, by someone who plays too): the
+       phone page in a panel, in this tab, so the game keeps running while you play. -->
+  <section id="play-panel" class="play-panel" aria-hidden="true">
+    <button id="play-back" class="play-back"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="7" y="10" width="26" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M15 31 H25" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><span>Big screen</span></button>
+    <iframe id="play-frame" title="Your controller" allow="screen-wake-lock"></iframe>
   </section>
 
   <div id="error" class="error-toast" hidden>

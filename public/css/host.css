@@ -255,3 +255,20 @@ body.pointer .game-menu { opacity: 1; }
 
 .denied { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 1.6rem; text-align: center; padding: 2rem; }
 .denied p { max-width: 30rem; color: var(--dim); }
+
+/* ---------- Your own controller on this screen: the phone page in a panel over the big screen ---------- */
+
+.play-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 20; width: min(100vw, 30rem);
+  display: flex; flex-direction: column; background: var(--ink); box-shadow: -1rem 0 3rem rgba(0, 0, 0, 0.6);
+  transform: translateX(105%); visibility: hidden; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s 0.35s;
+}
+.play-panel.open { transform: none; visibility: visible; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (orientation: portrait) { .play-panel { width: 100vw; } }
+.play-back {
+  appearance: none; flex: none; display: flex; align-items: center; justify-content: center; gap: 0.6rem; height: 3.2rem;
+  border: 0; border-bottom: 1px solid var(--hair2); background: rgba(12, 15, 20, 0.9); color: var(--light); font: inherit;
+  font-size: 1.05rem; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer;
+}
+.play-back svg { width: 1.8rem; height: 1.8rem; }
+.play-panel iframe { flex: 1; width: 100%; border: 0; background: var(--ink); }

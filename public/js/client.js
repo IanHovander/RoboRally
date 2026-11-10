@@ -35,6 +35,10 @@ export async function connect(auth, { room } = {}) {
   if (mode === 'server') {
     await loadScript('socket.io/socket.io.min.js');
     socket = window.io({ auth, reconnectionDelay: 500, reconnectionDelayMax: 2000 });
+  } else if ((await import('./net/embed-client.js')).isEmbedded()) {
+    // the panel inside the big screen's own page: talk to the room it hosts, no network needed
+    const { EmbedSocket } = await import('./net/embed-client.js');
+    socket = new EmbedSocket(auth);
   } else {
     const { PeerSocket } = await import('./net/peer-client.js');
     socket = new PeerSocket(room, auth);
