@@ -443,6 +443,11 @@
 @keyframes pl-target { 50% { border-color: rgba(244, 239, 228, .35); } }
 .pl-slot.full { border-color: transparent; animation: none; }
 .pl-slot .lm-card { width: 100%; height: 100%; border-radius: .7rem; }
+/* dragging a card: it follows the finger; where it came from fades; the slot under it lights */
+.pl-prog .pl-card, .pl-prog .pl-slot { touch-action: none; -webkit-user-select: none; user-select: none; }
+.pl-drag { position: fixed; z-index: 60; margin: 0; pointer-events: none; border-radius: .7rem; box-shadow: 0 1.2rem 2.4rem rgba(0, 0, 0, .55), 0 0 0 2px var(--me); }
+.pl-card.dragging, .pl-slot.dragging .lm-card { opacity: .2; }
+.pl-slot.drop { border: 1.5px solid var(--me); box-shadow: 0 0 1.2rem color-mix(in srgb, var(--me) 60%, transparent); transform: scale(1.06); }
 .pl-slot .lm-card.half { height: 48%; }
 .pl-slot.full:has(.half) { grid-template-rows: 1fr 1fr; gap: 4%; }
 .pl-slot.locked .lm-card { opacity: .8; }

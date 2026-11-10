@@ -131,6 +131,26 @@ export async function hostInBrowser({ onStatus }) {
     dc.on('error', gone);
   }
 
+  // A player on this same screen: the phone page in host.html's panel (net/embed-client.js), talking by
+  // postMessage. It lives in this tab, so it's never quiet for long and never needs a network.
+  let panel = null; // { frame, conn }
+  let panelSerial = 0;
+  addEventListener('message', (e) => {
+    const msg = e.data?.gameNight;
+    if (!msg || e.origin !== location.origin || !e.source || e.source === window) return;
+    if (msg.t === 'hello') {
+      panel?.conn.closed(); // the panel reloaded (or asked to join again): the old connection is over
+      const frame = e.source;
+      const conn = new RoomConn(`panel-${++panelSerial}`);
+      conn.transmit = (m) => frame.postMessage({ gameNight: m }, location.origin);
+      conn.hangUp = () => {};
+      panel = { frame, conn };
+      if (msg.v !== PROTOCOL) return conn.transmit({ t: 'bye', reason: 'version' });
+      conn.transmit({ t: 'welcome' });
+      room.connect(conn, { role: 'player', token: msg.auth?.token, name: msg.auth?.name });
+    } else if (panel?.frame === e.source) panel.conn.receive(msg);
+  });
+
   async function checkLink(phone) {
     if (!phone.open) return;
     try {
@@ -144,7 +164,14 @@ export async function hostInBrowser({ onStatus }) {
 
   // Every couple of seconds: drop phones that have gone quiet (a locked iPhone often never says
   // goodbye), and see how each one is connected.
+  // While this tab is hidden (a phone used as the big screen, switched to another app for a moment) the browser
+  // slows or pauses it, so phones' messages wait unread: that isn't the phones going quiet. Check only while it's
+  // in front, and give everyone a fresh start when it comes back (phones that really left still drop 8 s later).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') for (const phone of phones) phone.lastHeard = Date.now();
+  });
   setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
     const now = Date.now();
     for (const phone of phones) {
       if (now - phone.lastHeard > SILENT_MS || phone.peerConnection?.connectionState === 'failed') {

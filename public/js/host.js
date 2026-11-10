@@ -86,6 +86,21 @@ for (const btn of document.querySelectorAll('[data-lobby]')) {
     if (confirm(question)) lobby(btn.dataset.lobby);
   });
 }
+// Play on this screen too: your controller slides over the big screen (and back), in this same tab, so the room
+// it hosts keeps running and everyone stays connected while you play.
+for (const btn of document.querySelectorAll('[data-play-here]')) btn.addEventListener('click', () => showPanel(true));
+$('play-back').addEventListener('click', () => showPanel(false));
+function showPanel(open) {
+  const frame = $('play-frame');
+  if (open && !frame.src) {
+    const url = new URL('./', location.href);
+    url.search = state?.room.join.code ? `?embed&room=${state.room.join.code}` : '?embed';
+    frame.src = url.href;
+  }
+  $('play-panel').classList.toggle('open', open);
+  $('play-panel').setAttribute('aria-hidden', String(!open));
+}
+
 $('error-close').addEventListener('click', () => {
   dismissedError = state?.error;
   $('error').hidden = true;
@@ -98,6 +113,8 @@ function render() {
   $('game').hidden = !inGame;
   film.setActive(!inGame, room.players);
 
+  // (on the website the panel needs the room code, which comes once the room is registered)
+  for (const btn of document.querySelectorAll('[data-play-here]')) btn.hidden = mode === 'browser' && !room.join.code;
   $('join-local').hidden = !room.join.local;
   $('join-local-text').textContent = room.join.local ?? '';
 

@@ -7,6 +7,8 @@ import { watchForUpdates } from './update.js';
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['connecting', 'code', 'join', 'wait', 'game', 'notice'];
 const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+// inside the big screen's own page (its "play on this screen too" panel): no other room, no other big screen
+const embedded = window.parent !== window && new URLSearchParams(location.search).has('embed');
 
 // On the website, which room (big screen) to join: from the address (?room=ABCD from the QR code, or the
 // short ?ABCD the big screen shows under it), or typed in.
@@ -65,7 +67,7 @@ socket.on('connect', () => ($('offline').hidden = true));
 socket.on('disconnect', () => ($('offline').hidden = !!notice || !state));
 // Website: what the connection is up to ("Looking for room ABCD…") while we wait.
 socket.on('status', (text) => ($('connecting-msg').textContent = text ?? ''));
-$('change-room').hidden = !ROOM;
+$('change-room').hidden = !ROOM || embedded;
 $('check-link').hidden = !ROOM;
 socket.on('session', ({ token, name }) => {
   store.set('sessionStorage', TOKEN, token);
@@ -100,7 +102,7 @@ socket.on('replaced', () => {
 
 // ---------- join ----------
 
-$('host-link').hidden = !isLocal;
+$('host-link').hidden = !isLocal || embedded;
 // a robot of light waiting for a name: it takes your color once you're in
 $('join-robot').innerHTML = robotSvg({ color: '#f4efe4', avatar: 0 }, { dim: true });
 $('join-form').addEventListener('submit', (e) => {

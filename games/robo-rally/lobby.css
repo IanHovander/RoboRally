@@ -138,7 +138,9 @@
 .lf-no3d[hidden] { display: none; }
 .lf-no3d b { font-weight: 400; font-size: 1.15rem; color: var(--light); }
 .lf-no3d:hover { border-color: rgba(244, 239, 228, .5); }
-@media (orientation: portrait) { .lf-no3d { transform: translate(-50%, -50%); max-width: 80vw; } }
+@media (orientation: portrait) {
+  .lf-no3d { transform: translate(-50%, -50%); max-width: 80vw; }
+}
 
 .lf-dots {
   position: absolute; left: 50%; bottom: 1.5rem; display: flex; align-items: center;
@@ -198,3 +200,6 @@
   .lesson-ui .lf-hand { grid-template-columns: repeat(4, 1fr); gap: .4rem; align-content: end; }
   .lesson-ui .lf-lock { height: 2.4rem; }
 }
+
+/* a phone held upright: the scene dots centred, clear of the corner buttons at the left */
+@media (orientation: portrait) { .lf-dots { transform: translateX(-50%); } }

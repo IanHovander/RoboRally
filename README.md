@@ -82,6 +82,10 @@ Players scan the QR code (or open the site and type the 4-letter room code). Not
 
 - **Refreshing the big screen** keeps the same room code. Phones reconnect by themselves, back in the lobby.
 - **Keep the big-screen tab in front.** Browsers slow down hidden tabs, which makes the game lag.
+- **Playing on the big screen too** (say, a phone as the big screen): tap the phone button (bottom left in the lobby,
+  top left in a race). Your controller slides over the big screen in the same tab, and "Big screen" slides it away,
+  so the room keeps running and everyone stays connected. Switching to another app or tab pauses the game instead;
+  phones wait for it to come back.
 - **`check.html`** on the site tests a network in 10 seconds: green means that device can play from there.
 
 #### The relay

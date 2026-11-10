@@ -1,6 +1,6 @@
 // A phone in Lumen. Only what is private, as little as possible:
 //   setup (the first player): choose the course · start: tap a glowing pad · upgrades: a small shop ·
-//   program: tap five cards into five slots while a little light table draws where they'll take you ·
+//   program: tap (or drag) five cards into five slots while a little light table draws where they'll take you ·
 //   the race: your five slots, and under each one what happened to you (tap one to see it again) ·
 //   decisions: a sheet. The "?" at the top right answers questions about anything on the screen (guide.js).
 import { html, raw } from '../../js/ui.js';
@@ -930,6 +930,83 @@ export default function (root, api) {
     }
   }
 
+  // ---------- drag a card onto a slot (a tap still drops it in the next free one) ----------
+  // From the hand onto a slot: it goes there (a card already there goes back to the hand). From one slot
+  // onto another: the two swap. From a slot to anywhere else: back to the hand.
+  let drag = null;
+  let draggedAt = 0;
+  const slotUnder = (x, y) => {
+    const s = document.elementFromPoint(x, y)?.closest('.pl-regs .pl-slot');
+    return s && root.contains(s) && !s.classList.contains('locked') ? s : null;
+  };
+  root.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || drag || view?.phase !== 'program' || me()?.done || me()?.mustReturn) return;
+    const el = e.target.closest('.pl-prog .pl-card[data-ui="card"]:not(:disabled), .pl-prog .pl-slot.full:not(.locked)');
+    if (!el || e.target.closest('[data-ui="crab"]')) return;
+    const fromSlot = el.classList.contains('pl-slot') ? Number(el.dataset.arg) : null;
+    if (fromSlot != null && prog.regs[fromSlot].length !== 1) return; // a Crab Legs pair stays put
+    drag = { el, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, id: fromSlot == null ? el.dataset.arg : prog.regs[fromSlot][0], fromSlot, ghost: null, over: null };
+  });
+  const onDragMove = (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 8) return;
+      const pic = drag.el.querySelector('.lm-card');
+      if (!pic) return (drag = null);
+      const r = pic.getBoundingClientRect();
+      drag.ghost = pic.cloneNode(true);
+      drag.ghost.classList.add('pl-drag');
+      Object.assign(drag.ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
+      document.body.append(drag.ghost);
+      drag.el.classList.add('dragging');
+      api.vibrate(6);
+    }
+    e.preventDefault();
+    drag.ghost.style.transform = `translate(${e.clientX - drag.x0}px, ${e.clientY - drag.y0}px) scale(1.08)`;
+    const over = slotUnder(e.clientX, e.clientY);
+    if (over !== drag.over) {
+      drag.over?.classList.remove('drop');
+      over?.classList.add('drop');
+      drag.over = over;
+    }
+  };
+  addEventListener('pointermove', onDragMove, { passive: false });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const d = drag;
+    drag = null;
+    if (!d.ghost) return; // a tap: the click does the rest
+    draggedAt = performance.now();
+    d.over?.classList.remove('drop');
+    d.el.classList.remove('dragging');
+    const rect = d.ghost.getBoundingClientRect();
+    d.ghost.remove();
+    const to = e.type === 'pointerup' ? slotUnder(e.clientX, e.clientY) : null;
+    const i = to ? Number(to.dataset.arg) : null;
+    if (me()?.done || view?.phase !== 'program') return;
+    if (i != null && i !== d.fromSlot) {
+      if (d.fromSlot != null) [prog.regs[i], prog.regs[d.fromSlot]] = [prog.regs[d.fromSlot], prog.regs[i]];
+      else prog.regs[i] = [d.id];
+      flip = { rect, slot: i };
+    } else if (i == null && d.fromSlot != null) {
+      prog.regs[d.fromSlot] = [];
+      flyBack = [{ id: d.id, rect }];
+    } else return render();
+    prog.target = null;
+    prog.stack = null;
+    api.vibrate(8);
+    changed();
+  };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+  // a drag ends with a click where it started: that isn't a tap
+  root.addEventListener('click', (e) => {
+    if (performance.now() - draggedAt < 400 && e.target.closest?.('.pl-prog')) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+
   // ---------- taps ----------
 
   root.addEventListener('click', async (e) => {
@@ -1815,6 +1892,10 @@ export default function (root, api) {
     },
     destroy() {
       window.removeEventListener('resize', onPicResize);
+      removeEventListener('pointermove', onDragMove);
+      removeEventListener('pointerup', endDrag);
+      removeEventListener('pointercancel', endDrag);
+      drag?.ghost?.remove();
       clearTimeout(draftTimer);
       clearInterval(diceTimer);
       guide.destroy();
