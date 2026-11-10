@@ -64,7 +64,7 @@ collects marks for what happened to you, and tapping it replays it. The full des
 | Who runs the game | the big screen's browser tab | Node on this laptop | Node on this laptop |
 | Phones join over | Wi-Fi or mobile data | Wi-Fi or mobile data | the same Wi-Fi only |
 | Needs internet | yes | yes | no |
-| Outside services | PeerJS introductions, a relay for mobile data (Metered, login kept on the big screen) | a Cloudflare tunnel | none |
+| Outside services | PeerJS introductions, a relay for mobile data (Metered, login built in) | a Cloudflare tunnel | none |
 
 All three run the same games.
 
@@ -93,9 +93,6 @@ new login in the Metered dashboard (that turns the old one off) and put it in `c
 
 **Copies of this project are welcome to use it.** Leave `turnLogin` as it is: if it's ever replaced here, syncing a
 copy with this repo brings in the new one. (`docs/adding-a-game.md`, section 2.)
-
-To use a different login on one computer, click **Relay** at the bottom of the big screen's lobby. It's kept in
-that browser only, and "Forget it" goes back to the built-in one.
 
 ### Laptop + internet link
 

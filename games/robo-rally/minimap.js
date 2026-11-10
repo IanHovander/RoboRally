@@ -836,7 +836,8 @@ export function previewProgram(course, start, regs, opts = {}) {
       ghosts.push({ x, y, d, n: r + 1, unknown: true, path });
       return ghosts; // a SPAM (or Again in Register 1) is a mystery: stop guessing
     }
-    if (list.length === 2 && list.every((t) => typeof t === 'string')) list = [list.includes('rr') ? 'crabr' : 'crabl'];
+    const crab = list.length === 2 && list.every((t) => typeof t === 'string');
+    if (crab) list = [list.includes('rr') ? 'crabr' : 'crabl'];
     for (const [k, a, b] of ops(list)) {
       if (k === 'rt') d = turn(d, a);
       else {
@@ -844,7 +845,7 @@ export function previewProgram(course, start, regs, opts = {}) {
         if (opts.hover && !fell && cell(x, y)?.k === 'pit') fell = true; // hovering ends on a pit: in it goes
       }
     }
-    last = list;
+    last = crab ? ['m1'] : list; // (Again after Crab Legs repeats only the Move 1: engine.js taskCard)
     // board elements
     for (const fast of [true, false]) {
       for (let s = 0; s < (fast ? 2 : 1) && !fell; s++) {

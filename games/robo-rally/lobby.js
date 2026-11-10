@@ -303,7 +303,7 @@ export function mountLumenLobby(stage, ui) {
         const st = run.steps[k];
         if (st.beat?.what?.k === 'reveal') reg = st.reg;
         for (const f of st.beat?.fx ?? []) {
-          if (f.k === 'damage' && f.id === 'L0') mimic.junkNow({ sp: f.sp ?? 0, hw: f.hw ?? 0, reg: reg ?? 0 });
+          if (f.k === 'dmg' && f.id === 'L0') mimic.junkNow({ sp: f.sp ?? 0, hw: f.hw ?? 0, reg: reg ?? 0 });
           if (f.k === 'win' && lesson.line) arena.clearGhost();
         }
       }

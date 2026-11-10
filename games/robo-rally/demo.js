@@ -635,23 +635,27 @@ export function setDemoFocus(el) {
   kick();
 }
 
-const observers = new Map(); // scroll container (or null: the page) -> IntersectionObserver
+// scroll container -> IntersectionObserver (held weakly: a closed Book's goes with it); pageObserver: the page's own
+const observers = new WeakMap();
+let pageObserver = null;
 function observer(root = null) {
   if (typeof IntersectionObserver === 'undefined') return null;
-  if (!observers.has(root)) {
-    observers.set(root, new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        const a = byCanvas.get(e.target);
-        if (a) {
-          a.inView = e.isIntersecting;
-          a.still = false;
-        }
+  const had = root ? observers.get(root) : pageObserver;
+  if (had) return had;
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const a = byCanvas.get(e.target);
+      if (a) {
+        a.inView = e.isIntersecting;
+        a.still = false;
       }
-      rankAt = 0;
-      kick();
-    }, { root, rootMargin: '100px' }));
-  }
-  return observers.get(root);
+    }
+    rankAt = 0;
+    kick();
+  }, { root, rootMargin: '100px' });
+  if (root) observers.set(root, io);
+  else pageObserver = io;
+  return io;
 }
 
 function kick() {

@@ -195,6 +195,7 @@ export class RoomConn {
 
   receive(msg) {
     this.lastHeard = Date.now();
+    if (!this.open) return; // the room has let this screen go (kicked, replaced): nothing more from it counts
     if (msg?.t !== 'ev' || typeof msg.e !== 'string' || !Array.isArray(msg.a)) return;
     if (msg.e === 'disconnect') return; // reserved: only we decide that
     const fn = this.handlers.get(msg.e);

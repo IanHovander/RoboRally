@@ -14,11 +14,12 @@ export function watchForUpdates(isSafe) {
   let reloading = false;
 
   const check = async () => {
-    if (next) return;
+    if (reloading) return;
     try {
       const res = await fetch(new URL(`version.json?t=${Date.now()}`, SITE), { cache: 'no-store' });
       const info = await res.json();
-      if (info?.v && info.v !== VERSION) next = info;
+      // (looked at afresh each time: if a reload didn't take, a later version is still noticed)
+      next = info?.v && info.v !== VERSION ? info : null;
     } catch {}
   };
 

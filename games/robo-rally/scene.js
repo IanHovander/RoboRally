@@ -4623,7 +4623,9 @@ export class Arena {
         this.resize();
       } else if (this.renderer.shadowMap.enabled) {
         this.renderer.shadowMap.enabled = false;
-        this.scene.traverse((o) => o.material && (o.material.needsUpdate = true));
+        this.scene.traverse((o) => {
+          for (const m of [].concat(o.material ?? [])) m.needsUpdate = true; // (a slab has a list of materials)
+        });
       } else if (this.pixelRatio > 0.8) {
         // a slightly softer picture before losing the glow, which is most of the look
         this.pixelRatio = 0.8;

@@ -120,6 +120,8 @@ export default function (root, api) {
   }
 
   const me = () => view?.me;
+  // a robot that fell last round comes back in slot 1 of this one: until it does it's off the board, but it hasn't fallen
+  const comingBack = (m) => !m.on && m.rb && view.reg <= 0 && !(m.story?.round === view.round && m.story.regs?.[0]?.some((st) => st[0] === 'f'));
   const course = () => getCourse(view.opts.course);
   const robotById = (id) => view?.robots.find((r) => r.id === id);
   const bot = (r, cls = '') => (r ? raw(robotSvg(r, { cls })) : '');
@@ -872,7 +874,8 @@ export default function (root, api) {
 
   function saveDraft() {
     clearTimeout(draftTimer);
-    draftTimer = setTimeout(() => send('draft', { regs: prog.regs, rebootDir: prog.rebootDir }), 250);
+    // saved quietly: a draft that arrives just after I locked in (or as time ran out) is refused, and that's fine
+    draftTimer = setTimeout(() => api.send('draft', { regs: prog.regs, rebootDir: prog.rebootDir }), 250);
   }
 
   function placeCard(id, el) {
@@ -1244,7 +1247,7 @@ export default function (root, api) {
         if (m.mustReturn) return 'Give back cards';
         if (m.done) return m.wantSd ? 'Shutting down' : waitOthers;
         return programFull() ? 'Lock in' : 'Fill five slots';
-      case 'activate': return m && !m.on ? 'Back next round' : 'Watch the big screen';
+      case 'activate': return m && !m.on && !comingBack(m) ? 'Back next round' : 'Watch the big screen';
       case 'over': return view.winner === api.you?.id ? 'You win' : 'Race over';
     }
     return '';
@@ -1621,7 +1624,7 @@ export default function (root, api) {
     story?.regs?.forEach((steps, i) => {
       if (fell == null && steps?.some((st) => st[0] === 'f')) fell = i;
     });
-    if (fell == null && !m.on && race.fellAt == null) race.fellAt = view.reg;
+    if (fell == null && !m.on && !comingBack(m) && race.fellAt == null) race.fellAt = view.reg;
     if (fell == null) fell = race.fellAt;
     const arriving = [];
     set(body.querySelector('.pl-regs'), html`${m.regs.map((r, i) => {

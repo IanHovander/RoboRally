@@ -7,6 +7,21 @@ import { getRelay } from './relay.js';
 const SILENT_MS = 6000; // the big screen answers our clock question every 2 s; silence this long = gone
 const WELCOME_MS = 12_000; // give up on a connection attempt after this long and try again
 const RELOADED = 'gamenight.reloadedForVersion';
+// (a browser that refuses storage throws on touching it: that mustn't stop the connection)
+const reloaded = {
+  get() {
+    try { return sessionStorage.getItem(RELOADED); } catch { return null; }
+  },
+  /** True if it was kept. */
+  set(value) {
+    try {
+      value == null ? sessionStorage.removeItem(RELOADED) : sessionStorage.setItem(RELOADED, value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};
 
 export class PeerSocket extends ClientSocket {
   constructor(code, auth) {
@@ -72,7 +87,7 @@ export class PeerSocket extends ClientSocket {
           clearTimeout(welcome);
           this.connected = true;
           this.retries = 0;
-          sessionStorage.removeItem(RELOADED);
+          reloaded.set(null);
           this.status(null);
           this.fire('connect');
         } else if (msg?.t === 'bye') {
@@ -137,8 +152,8 @@ export class PeerSocket extends ClientSocket {
     this.wanted = false;
     if (reason === 'version') {
       // The big screen runs a newer (or older) copy of the site than this phone has cached.
-      if (!sessionStorage.getItem(RELOADED)) {
-        sessionStorage.setItem(RELOADED, '1');
+      // (reload once; only if that can be remembered, or a stale page would reload for ever)
+      if (!reloaded.get() && reloaded.set('1')) {
         location.reload();
         return;
       }

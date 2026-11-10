@@ -262,6 +262,7 @@ export function useTemp(s, env, R, card, payload = {}) {
         if (c) R.hand.push(c);
       }
       cleanDraft(R);
+      peekDeck(s, R);
       break;
     }
     case 'memory-swap':
@@ -270,6 +271,7 @@ export function useTemp(s, env, R, card, payload = {}) {
         if (c) R.hand.push(c);
       }
       R.mustReturn = Math.min(3, R.hand.length);
+      peekDeck(s, R);
       break;
     case 'rewire': {
       const hw = [];
@@ -302,7 +304,14 @@ export function returnCards(s, env, R, cards) {
   R.deck.unshift(...cards);
   R.mustReturn = 0;
   cleanDraft(R);
+  peekDeck(s, R);
   return null;
+}
+
+/** SPAM Filter: its owner sees the top card of their deck (looked at again whenever the top of the deck changes). */
+function peekDeck(s, R) {
+  if (has(R, 'spam-filter') && !R.deck.length && R.discard.length) R.deck = shuffle(s, R.discard.splice(0));
+  R.peek = has(R, 'spam-filter') ? R.deck[0] ?? null : null;
 }
 
 // ---------- the Programming Phase ----------
@@ -311,16 +320,14 @@ export function startProgramming(s, env) {
   s.phase = 'program';
   s.reg = -1;
   for (const R of robotList(s)) {
-    const size = HAND_SIZE + (has(R, 'flash-drive') ? 1 : 0);
+    // (cards still owed to the deck, Memory Swap used in the shop, are on top of the hand: giving them back leaves a full one)
+    const size = HAND_SIZE + (has(R, 'flash-drive') ? 1 : 0) + R.mustReturn;
     while (R.hand.length < size) {
       const c = drawProgram(s, R);
       if (!c) break;
       R.hand.push(c);
     }
-    if (has(R, 'spam-filter')) {
-      if (!R.deck.length && R.discard.length) R.deck = shuffle(s, R.discard.splice(0));
-      R.peek = R.deck[0] ?? null;
-    } else R.peek = null;
+    peekDeck(s, R);
     R.done = false;
     R.draft = null;
     R.wantShutdown = false;
@@ -491,6 +498,7 @@ function nextRegister(s, env) {
     R.overcharge = 0;
     R.weapon = null;
     R.afterWindow = false;
+    R.shieldReg = -1; // Deflector Shield covers the register it paid in (not the same one next round)
   }
   s.queue = [
     { t: 'reveal' },

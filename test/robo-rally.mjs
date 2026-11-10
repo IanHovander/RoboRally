@@ -6,6 +6,7 @@ import * as E from '../games/robo-rally/engine.js';
 import rules from '../games/robo-rally/rules.js';
 import { COURSES, PIECES, getCourse } from '../games/robo-rally/board.js';
 import { cardType } from '../games/robo-rally/cards.js';
+import { previewProgram } from '../games/robo-rally/minimap.js';
 
 let failures = 0;
 const check = (cond, msg) => {
@@ -259,6 +260,40 @@ const at = (R) => `${R.x},${R.y},${'NESW'[R.d]}`;
   program(t, 'b', [null, null, null, null, null]);
   run(t, { registers: 1, answer: (p) => (p.kind === 'weapon' ? 'mini-howitzer' : p.def) });
   check(at(t.R('b')) === '5,2,N' && t.R('a').energy === 1, 'Mini Howitzer: pay 1 Energy, 2 damage and a push');
+}
+{
+  const t = lab([{ id: 'a', x: 5, y: 1, d: 2, perm: ['deflector-shield'], energy: 1 }]);
+  const R = t.R('a');
+  program(t, 'a', [null, null, null, null, null]);
+  run(t, { registers: 1 });
+  check(R.energy === 0 && R.stats.damage === 0, 'Deflector Shield: 1 Energy stops the board laser for that register');
+  newRound(t);
+  check(R.stats.damage === 4, `...and with no Energy left, the other four registers hurt (got ${R.stats.damage})`);
+  program(t, 'a', [null, null, null, null, null]);
+  run(t, { registers: 1 });
+  check(R.stats.damage === 5, `...and Register 1 of the next round isn't shielded for free (got ${R.stats.damage})`);
+}
+{
+  const t = lab([{ id: 'a', x: 5, y: 7, d: 0, temp: ['memory-swap'], perm: ['spam-filter'] }]);
+  const R = t.R('a');
+  check(t.s.phase === 'upgrade' && E.useTemp(t.s, t.env, R, 'memory-swap') === null && R.mustReturn === 3, 'Memory Swap can be used in the shop: 3 cards drawn, 3 owed to the deck');
+  E.startProgramming(t.s, t.env);
+  check(R.hand.length === 12 && R.peek === R.deck[0] && !R.hand.includes(R.peek), `...the hand is dealt on top of them, and SPAM Filter shows the deck's real top card (hand ${R.hand.length})`);
+  const back = R.hand.slice(0, 3);
+  E.returnCards(t.s, t.env, R, back);
+  check(R.hand.length === 9 && R.peek === back[0], `...so giving them back leaves a full hand of 9, with the first one back on top (hand ${R.hand.length})`);
+}
+{
+  const t = lab([{ id: 'a', x: 4, y: 7, d: 0, perm: ['crab-legs'] }]);
+  const R = t.R('a');
+  const regs = [[card('rr'), card('m1')], [card('ag')], [], [], []];
+  R.hand.push(...regs.flat());
+  R.draft = { regs, keep: [] };
+  R.done = true;
+  run(t, { registers: 2 });
+  check(at(R) === '5,6,N', `Again after Crab Legs repeats only the Move 1, forward (got ${at(R)})`);
+  const line = previewProgram(t.env.course, { x: 4, y: 7, d: 0 }, [['rr', 'm1'], ['ag']]);
+  check(line[1]?.x === R.x && line[1]?.y === R.y, `...and the phone's light line agrees (got ${line[1]?.x},${line[1]?.y})`);
 }
 {
   const t = lab([{ id: 'a', x: 4, y: 9, d: 0, temp: ['overclocked'] }]);

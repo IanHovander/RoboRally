@@ -622,6 +622,7 @@ function publicRobot(ctx, id, seat, forHost) {
     return r.cards.length || (s.phase === 'program' && R.draft?.regs[i]?.length) ? 1 : 0;
   });
   out.hw = R.regs.map((r) => (r.next || (r.locked && !r.up) ? 1 : 0));
+  out.pick = R.start; // its start pad: where it comes back if it falls on the dock (teach.js rebootSpot)
   out.perm = R.up.perm;
   out.temp = R.up.temp.length;
   out.hand = R.hand.length;

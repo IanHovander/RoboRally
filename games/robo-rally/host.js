@@ -344,7 +344,7 @@ export default function (root, api) {
     if (e.target.closest('button, [data-host], .lm-courses, .lm-opts, .lm-corner, a, input')) return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, from: slide.o, trail: [] };
   });
-  addEventListener('pointermove', (e) => {
+  const onDragMove = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x;
     if (!drag.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - drag.y)) {
@@ -361,7 +361,7 @@ export default function (root, api) {
     while (drag.trail.length > 2 && now - drag.trail[0][0] > 100) drag.trail.shift();
     const per = slide.px || innerWidth * 0.6; // screen px per map
     slide.o = Math.max(-1.4, Math.min(1.4, drag.from + (e.clientX - drag.x) / per));
-  });
+  };
   const endDrag = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag;
@@ -385,8 +385,10 @@ export default function (root, api) {
       slide.ov = 0;
     }
   };
-  addEventListener('pointerup', endDrag);
-  addEventListener('pointercancel', endDrag);
+  // (on the window, so a drag that leaves the big screen's layer still ends; taken off again in destroy)
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
 
   root.addEventListener('click', (e) => {
     if (performance.now() - draggedAt < 300) return; // (the end of a drag isn't a click)
@@ -1066,6 +1068,9 @@ export default function (root, api) {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('resize', onResizeStrip);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointermove', onDragMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
       explainer.destroy();
       briefing?.stop();
       briefing = null;
