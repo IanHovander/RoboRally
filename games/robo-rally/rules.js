@@ -3,8 +3,11 @@
 // It also keeps what the screens need to teach: who has never finished a race (the Briefing and the
 // big screen's callouts are for them), who has driven the test drive (drills.js: newcomers who haven't get it
 // after the Briefing's film), and each robot's story of the last round, for its phone.
-import { COURSES, getCourse, padsByFlag } from './board.js';
+// And it gives the race an ending: the finishing order, a few awards, the race's biggest moment to show again,
+// and a rematch.
+import { COURSES, getCourse, padsByFlag, stepsToFlag } from './board.js';
 import { cardType, UPGRADES } from './cards.js';
+import { readBeat } from './chaos.js';
 import { DRILLS } from './drills.js';
 import * as E from './engine.js';
 
@@ -14,6 +17,9 @@ const RELAXED_MS = 300_000; // "no timer" still ends eventually, so one sleepy p
 const BRIEF_MS = 150_000; // the Briefing ends by itself after this, whatever happens
 const PRACTICE_MS = 90_000; // ...and so does the test drive after its film
 const HOLD_MS = 4000; // the most the big screen can hold one beat of the race (for a callout)
+const OVER_MS = 120_000; // the ending stays up this long (the big screen's show takes about 20 s of it), then it's the lobby
+const PLAY_MIN = 6; // how big a moment has to be to be shown again at the end (chaos.js scores: a fall off a belt is 6.5)
+const PLAY_BYTES = 3000; // ...and how big it may be, as JSON (the big screen gets it in one message)
 const STORY_STEPS = 40; // per register
 const STORY_BYTES = 2500; // per robot, as JSON
 const TIMERS = [0, 60, 120, 180];
@@ -68,7 +74,7 @@ function schedule(ctx) {
     s.beatDue = Date.now() + 500;
     ctx.timer('beat', 500, pump);
   }
-  if (s.phase === 'over') ctx.timer('deadline', 90_000, finish);
+  if (s.phase === 'over') ctx.timer('deadline', OVER_MS, finish);
 }
 
 function onDeadline(ctx) {
@@ -85,15 +91,24 @@ function onDeadline(ctx) {
 /**
  * The draw: nobody picks a start pad. The racers get the pads nearest the first flag (so nobody starts far behind
  * the rest, and round 1 is crowded), handed out at random. A phone that joins during the draw gets the nearest
- * pad that's left.
+ * pad that's left. In a rematch the pads go in reverse finishing order instead: whoever came last in the race
+ * before gets the nearest one (someone new counts as last).
  */
 function drawPads(s) {
   const waiting = s.order.filter((id) => s.picks[id] == null);
   const taken = Object.values(s.picks);
   // (shuffled, then sorted: pads equally far from the flag come in a random order)
   const free = E.shuffle(s, padsByFlag(getCourse(s.opts.course)).filter((p) => !taken.includes(p.n))).sort((a, b) => a.steps - b.steps);
-  const pads = E.shuffle(s, free.slice(0, waiting.length).map((p) => p.n));
-  waiting.forEach((id, i) => (s.picks[id] = pads[i]));
+  const pads = free.slice(0, waiting.length).map((p) => p.n);
+  const was = s.last?.places;
+  if (was) {
+    // (shuffled, then sorted: robots that shared a place come in a random order)
+    const who = E.shuffle(s, waiting).sort((a, b) => (was[b] ?? Infinity) - (was[a] ?? Infinity));
+    who.forEach((id, i) => (s.picks[id] = pads[i]));
+    return;
+  }
+  const mixed = E.shuffle(s, pads);
+  waiting.forEach((id, i) => (s.picks[id] = mixed[i]));
 }
 
 /**
@@ -176,8 +191,10 @@ function pump(ctx) {
   if (s.phase !== 'activate') return drive(ctx);
   const e = env(ctx);
   const before = s.story ? E.robotList(s).map((R) => R.regs.map((r) => (r.cards[0] ? cardType(r.cards[0]) : null))) : null;
+  const stood = poses(s);
   const beat = E.step(s, e);
   if (beat) recordStory(s, beat, before);
+  if (beat) noteBeat(s, e, beat, stood);
   if (s.prompt) {
     ctx.timer('prompt', Math.max(0, s.prompt.deadline - Date.now()), (c) => {
       E.timeoutPrompt(c.state, env(c));
@@ -328,6 +345,104 @@ function fitStory(regs, r) {
   while (JSON.stringify(regs).length > max && regs[r].length > 1) regs[r].pop();
 }
 
+// ----- the ending: who came where, a few awards, the race's biggest moment, and a rematch -----
+
+/** Where every robot stands, as the big screen needs it to put them back there. */
+const poses = (s) => E.robotList(s).map((R) => ({ id: R.id, x: R.x, y: R.y, d: R.d, on: R.on, cp: R.cp }));
+
+/**
+ * After each beat of the race: who pushed whom to a fall (the awards, and each phone's nemesis), and the biggest
+ * moment so far, kept with where the robots stood before and after it so the big screen can play it again.
+ */
+function noteBeat(s, e, beat, stood) {
+  if (beat.fx.some((f) => f.k === 'win')) return;
+  const read = readBeat(beat, { course: e.course, robots: E.robotList(s) });
+  for (const ev of read.events) {
+    if (ev.kind !== 'fall' || ev.cause !== 'push' || !ev.by || ev.by === ev.id) continue;
+    const by = (s.doom[ev.id] ??= {});
+    by[ev.by] = (by[ev.by] ?? 0) + 1;
+  }
+  if (read.drama < PLAY_MIN || read.drama <= (s.play?.drama ?? 0)) return;
+  const kept = { fx: beat.fx, dur: beat.dur, reg: beat.reg, what: beat.what ?? null };
+  if (JSON.stringify(kept).length > PLAY_BYTES) return;
+  s.play = { drama: read.drama, round: s.round, beat: kept, before: stood, after: poses(s) };
+}
+
+/**
+ * The finishing order: the most flags first; level on flags, whoever is nearer their next flag (the spaces a robot
+ * walks; a fallen robot from where it comes back). Robots level on both share a place: [{ id, place }].
+ */
+function standings(s, e) {
+  const c = e.course;
+  const rows = E.robotList(s).map((R) => {
+    const at = R.on ? R : E.rebootPoint(s, e, R) ?? R.archive;
+    const steps = R.cp >= c.checkpoints.length ? 0 : stepsToFlag(c, R.cp + 1)[at.y * c.w + at.x] ?? Infinity;
+    return { id: R.id, cp: R.cp, steps };
+  });
+  rows.sort((a, b) => b.cp - a.cp || a.steps - b.steps);
+  return rows.map((r, i) => {
+    const up = rows[i - 1];
+    r.place = up && up.cp === r.cp && up.steps === r.steps ? up.place : i + 1;
+    return { id: r.id, place: r.place };
+  });
+}
+
+/** How many robots this one pushed to a fall. */
+const doomed = (s, id) => Object.values(s.doom).reduce((n, by) => n + (by[id] ?? 0), 0);
+// the awards, in the order the big screen gives them: what each one counts
+const AWARDS = [
+  ['shove', (s, R) => R.stats.pushes], // robots shoved
+  ['zap', (s, R) => R.stats.hits], // laser hits on other robots
+  ['doom', (s, R) => doomed(s, R.id)], // robots pushed into a pit or off the edge
+  ['fall', (s, R) => R.stats.falls], // its own falls
+];
+/** Each award goes to the robot with the most (two level share it; nobody with any, or three or more level: not given). */
+function awards(s) {
+  const robots = E.robotList(s);
+  if (robots.length < 2) return [];
+  const out = [];
+  for (const [k, count] of AWARDS) {
+    const n = Math.max(...robots.map((R) => count(s, R)));
+    const ids = robots.filter((R) => count(s, R) === n).map((R) => R.id);
+    if (n > 0 && ids.length <= 2) out.push({ k, n, ids });
+  }
+  return out;
+}
+
+/** How the race ended (worked out once, the first time a screen needs it): { rows: [{ id, place }], awards: [{ k, n, ids }] }. */
+function result(ctx) {
+  const s = ctx.state;
+  if (s.phase !== 'over') return null;
+  return (s.result ??= { rows: standings(s, env(ctx)), awards: awards(s) });
+}
+
+/** The robot that pushed this one to the most falls: { id, n }, or null. */
+function nemesis(s, id) {
+  const [by, n] = Object.entries(s.doom[id] ?? {}).sort((a, b) => b[1] - a[1])[0] ?? [];
+  return by ? { id: by, n } : null;
+}
+
+/**
+ * Again: back to setting up, with the same racers, map and options (the full tutorial isn't repeated). Everyone
+ * who raced has now finished a race, and the next draw goes in reverse finishing order (drawPads).
+ */
+function rematch(ctx) {
+  const s = ctx.state;
+  if (s.phase !== 'over') return;
+  const places = Object.fromEntries(result(ctx).rows.map((r) => [r.id, r.place]));
+  ctx.cancelTimer('deadline');
+  ctx.state = {
+    ...newState(ctx.players.map((p) => p.id), Math.floor(E.rand(s) * 2 ** 31), { ...s.opts, brief: false }),
+    raced: [...new Set([...s.raced, ...s.order])],
+    practiced: s.practiced,
+    prefs: s.prefs,
+    optsBase: s.optsBase,
+    touched: Object.fromEntries(['course', ...PREF_KEYS].map((k) => [k, true])), // the options stay as they were
+    last: { places },
+    away: s.order.filter((id) => !ctx.player(id)?.connected),
+  };
+}
+
 function finish(ctx) {
   const s = ctx.state;
   const name = ctx.player(s.winner)?.name;
@@ -392,13 +507,40 @@ function browse(ctx, payload) {
 function begin(ctx) {
   const s = ctx.state;
   if (s.phase !== 'setup') return;
-  s.browse = null;
   const course = getCourse(s.opts.course);
-  s.order = s.order.filter((id) => ctx.player(id)).slice(0, course.starts.length);
+  // (a rematch: someone whose phone was gone when it was called, and still is, has left; their robot stays out)
+  const order = s.order.filter((id) => ctx.player(id) && (ctx.player(id).connected || !s.away.includes(id))).slice(0, course.starts.length);
+  if (!order.length) return;
+  s.browse = null;
+  s.order = order;
   s.phase = 'start';
   s.picks = {};
   drawPads(s);
   drive(ctx);
+}
+
+/** A race about to be set up: the engine's game, and what this file keeps beside it. */
+function newState(order, seed, opts) {
+  return {
+    ...E.newGame({ order, seed, opts }),
+    raced: [], // players whose phone says it has finished a race before (hello)
+    practiced: [], // players whose phone has driven the test drive, before or here (hello, practice)
+    practice: {}, // id -> how many of its drills that phone has done here (the big screen shows it)
+    teach: null, // a newcomer is racing: decided when the draw is over and the race begins
+    brief: null, // the Briefing: { next phase, votes to skip it, stage: 'film' | 'practice' }
+    story: null, // what happened to each robot last round: { round, regs: { id: [5 lists of steps] } }
+    auto: {}, // id -> the slots time filled at random last programming phase
+    beatDue: 0, // when the current beat of the race ends
+    prefs: {}, // id -> that phone's settings from its last game (hello)
+    optsBase: null, // the leader's last-game settings, once taken (a new leader doesn't replace them)
+    touched: {}, // options the leader has set by hand this game: never changed for them
+    browse: null, // setting up: the leader is sliding the phone's map carousel ({ offset, course, at }; browse())
+    doom: {}, // id -> { the robot that pushed it to a fall: how many times }
+    play: null, // the race's biggest moment so far: { drama, round, beat, before, after } (noteBeat)
+    result: null, // how the race ended, once it has: { rows, awards } (result())
+    last: null, // a rematch: the race before this one ({ places: { id: place } })
+    away: [], // a rematch: racers whose phone was gone when it was called (still gone when the race starts: left out)
+  };
 }
 
 export default {
@@ -408,21 +550,7 @@ export default {
   maxPlayers: 8,
 
   setup(ctx) {
-    ctx.state = {
-      ...E.newGame({ order: ctx.players.map((p) => p.id), seed: Math.floor(Math.random() * 2 ** 31) }),
-      raced: [], // players whose phone says it has finished a race before (hello)
-      practiced: [], // players whose phone has driven the test drive, before or here (hello, practice)
-      practice: {}, // id -> how many of its drills that phone has done here (the big screen shows it)
-      teach: null, // a newcomer is racing: decided when the draw is over and the race begins
-      brief: null, // the Briefing: { next phase, votes to skip it, stage: 'film' | 'practice' }
-      story: null, // what happened to each robot last round: { round, regs: { id: [5 lists of steps] } }
-      auto: {}, // id -> the slots time filled at random last programming phase
-      beatDue: 0, // when the current beat of the race ends
-      prefs: {}, // id -> that phone's settings from its last game (hello)
-      optsBase: null, // the leader's last-game settings, once taken (a new leader doesn't replace them)
-      touched: {}, // options the leader has set by hand this game: never changed for them
-      browse: null, // setting up: the leader is sliding the phone's map carousel ({ offset, course, at }; browse())
-    };
+    ctx.state = newState(ctx.players.map((p) => p.id), Math.floor(Math.random() * 2 ** 31));
     autoOpts(ctx);
   },
 
@@ -558,7 +686,10 @@ export default {
       pump(ctx);
     },
 
-    // ----- the end -----
+    // ----- the end (the leader's phone): race again, or back to the lobby -----
+    rematch(ctx, player) {
+      if (player.isVip) rematch(ctx);
+    },
     finish(ctx, player) {
       if (player.isVip && ctx.state.phase === 'over') finish(ctx);
     },
@@ -567,6 +698,7 @@ export default {
   hostActions: {
     setOpt: (ctx, payload) => setOpt(ctx, payload),
     begin: (ctx) => begin(ctx),
+    rematch: (ctx) => rematch(ctx),
     finish(ctx) {
       if (ctx.state.phase === 'over') finish(ctx);
     },
@@ -600,6 +732,7 @@ export default {
     const s = ctx.state;
     const course = getCourse(s.opts.course);
     const tally = s.brief && briefTally(ctx);
+    const end = result(ctx);
     return {
       phase: s.phase,
       round: s.round,
@@ -616,6 +749,13 @@ export default {
       beat: s.beat,
       prompt: s.prompt && { id: s.prompt.id, kind: s.prompt.kind, icon: s.prompt.icon ?? null, title: s.prompt.title, deadline: s.prompt.deadline },
       winner: s.winner,
+      // the ending: the finishing order, each robot's place, the awards, and the moment to play again
+      result: end && {
+        order: end.rows.map((r) => r.id),
+        places: Object.fromEntries(end.rows.map((r) => [r.id, r.place])),
+        awards: end.awards,
+        play: s.play && { round: s.play.round, beat: s.play.beat, before: s.play.before, after: s.play.after },
+      },
       log: s.log.slice(-4),
     };
   },
@@ -627,6 +767,7 @@ export default {
     const p = s.prompt;
     const tally = s.brief && briefTally(ctx);
     const story = s.story?.regs[player.id];
+    const end = R && result(ctx);
     return {
       phase: s.phase,
       round: s.round,
@@ -651,6 +792,13 @@ export default {
       waiting: p && p.id !== player.id ? { id: p.id, kind: p.kind, icon: p.icon ?? null, deadline: p.deadline } : null,
       beat: { n: s.beat.n, what: s.beat.what ?? null, reg: s.beat.reg },
       winner: s.winner,
+      // the ending, for this robot: its place (of how many), its awards, and the robot that pushed it to the most falls
+      result: end && {
+        place: end.rows.find((r) => r.id === player.id)?.place ?? null,
+        of: end.rows.length,
+        awards: end.awards.filter((a) => a.ids.includes(player.id)).map((a) => ({ k: a.k, n: a.n })),
+        nemesis: nemesis(s, player.id),
+      },
       log: s.log.slice(-3),
     };
   },

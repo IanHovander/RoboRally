@@ -19,7 +19,7 @@ export const PROGRAM = {
   rl: { name: 'Rotate Left', icon: '↺', text: 'Turn 90° left.' },
   ut: { name: 'U-Turn', icon: '⟲', text: 'Turn around.' },
   pu: { name: 'Power Up', icon: '⚡', text: 'Gain 1 Energy.' },
-  ag: { name: 'Again', icon: '⟳', text: 'Repeat your previous register. In Register 1 it acts like SPAM.' },
+  ag: { name: 'Again', icon: '×2', text: 'Repeat your previous register. In Register 1 it acts like SPAM.' },
   sp: { name: 'SPAM', icon: '⚠', text: 'Damage. When revealed it is replaced by the top card of your deck.' },
 };
 

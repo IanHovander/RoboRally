@@ -23,7 +23,8 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 - **Players:** 2–6 is the rulebook's range; up to 8 work (8 start spaces), and 1 player can practice.
 - **Tests:** `node test/lessons.mjs` runs the teaching scenes and the test drive's drills through the rules.
   `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, checks
-  the Briefing, holds and each phone's story of the race, and runs a full game through the server.
+  the Briefing, holds, each phone's story of the race, the ending and a rematch, and runs a full game through
+  the server.
 - `node test/avatar.mjs` checks robot selection and reconnects. `npm test` retains framework coverage using
   example games in a test-only server; normal servers and the website build register only Robo Rally.
 
@@ -50,6 +51,33 @@ each a page of clips. During the race, each slot on your phone collects marks fo
 tapping it replays it. The design is `docs/teaching/design.md` (its first section says what changed after
 playing it).
 
+### How a race ends
+
+The rulebook stops at the winner. Here the big screen gives the race an ending, about 20 seconds long (Esc, Space
+or Enter skips it):
+
+1. **The winner:** the camera goes to the winning robot and its name comes up.
+2. **The standings:** the robots along the bottom slide into finishing order, each with its place. The order is
+   flags first; level on flags, whoever is nearer their next flag (the spaces a robot would walk; a robot that has
+   fallen counts from where it comes back). Robots level on both share a place.
+3. **The awards,** one at a time: most shoves, most laser hits, most robots pushed into a pit or off the edge,
+   most falls. Each comes up as a looping clip of what it counts (played by the robot that got it), its name, the
+   count and whose it is, and leaves a star over that robot. Each goes to the robot with the most; two robots
+   level share it, and if nobody has any, or three or more are level, it isn't given. A robot racing alone gets
+   none.
+4. **The moment again:** the race's biggest moment (a robot pushed to its doom, a chain of shoves) plays once more,
+   slowed down. A quiet race has none.
+
+Each phone shows the winner, then its own place, its awards (the same clips, named), and the robot that pushed
+it off most. The leader's
+phone and the big screen then have two buttons: **race again** and home. Racing again goes back to setting up
+with the same racers, map and options, and the next draw for start pads goes in reverse finishing order: whoever
+came last gets the pad nearest flag 1. With neither button pressed, everyone is back in the lobby after two
+minutes.
+
+A phone that arrived while the race was on is not in a rematch (it joins from the lobby): the leader goes home
+first when someone new is waiting.
+
 ### Differences from the rulebook
 
 - **Round 1 has no shop.** The race starts with programming; your 3 upgrades and 3 Energy wait for round 2's
@@ -67,7 +95,9 @@ playing it).
 - **Start pads are drawn, not picked** (rulebook: players choose, youngest first). When the leader starts the
   race, the racers get the pads nearest the first flag, handed out at random, and the big screen shows the robots
   coming down onto them (4 seconds). Nobody starts far behind the rest, and nobody has to judge a pad before
-  they know the game. On the starter course no pad has a straight run at flag 1.
+  they know the game. On the starter course no pad has a straight run at flag 1. In a rematch the pads go in
+  reverse finishing order instead: last place gets the nearest.
+- **Everyone gets a place, not only the winner** (the rulebook ranks nobody else): see "How a race ends".
 - **Shutdown is chosen instead of programming**, not declared after it. Same effect.
 - **Again after a Haywire repeats the whole Haywire** (for example Move 1, Rotate Right, Move 1). The rulebook only
   covers Double Program and Crab Legs (Again repeats the second card).
@@ -273,10 +303,12 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
   connection.
 - **`dev-host.html?to=race`** (on `npm run dev`) is the big screen the same way, no phones needed: `to=` setup, start,
   brief, program, race or over; `&n=8`, `&course=…`. Resize the window (or a phone held either way) to check the layout.
+  `to=over` plays a staged first slot so the ending has standings, awards and a moment to show again.
 - **`dev-phone.html?to=program`** (on `npm run dev`) is one Robo Rally phone running the real rules, no server
   needed. `to=` setup, start, brief, upgrade, program, race or over; `&n=8` players, `&course=…`, `&prompt=weapon`.
-  `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier), and
-  `?to=brief&votes=2` shows the Briefing with two votes to skip it.
+  `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier),
+  `?to=brief&votes=2` shows the Briefing with two votes to skip it, and `?to=over&me=2` shows the ending on the
+  third phone (`me=0`, the default, is the leader's).
 - **`host.html?relay=1`** makes the big screen send every phone through the relay (like phones on mobile data);
   **`host.html?tls=1`** uses only the relay over TLS on port 443 (like a strict school network). Each player's
   chip shows RELAY or DIRECT.

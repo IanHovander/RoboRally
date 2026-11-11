@@ -71,8 +71,16 @@ are all still used).
   for 4 seconds the big screen shows the course's name and the robots coming down onto their pads one at a
   time, and each phone shows its own pad lit. The starter course's flag 1 moved to the middle, in front of the
   dock, where no pad has a straight run at it.
+- **The Again card's symbol is "×2"** (`glyphs.js`, `ag`), in ordinary ink. It was a round arrow with a dot, in
+  grey, which the owner found confusing: in this game a bent or round arrow means a turn (the turn cards, the
+  gears) or a reboot. "×2" is read with the card in the slot before it: Move 3, ×2. Double Program's Haywire,
+  which showed "×2" alone, now shows a deck and "×2".
+- **New pictograms are a last resort.** The ending's awards first had four new small symbols (a shove, a laser
+  hit, a push into a pit, a fall), and the owner found them confusing too. A thing with no picture yet is shown
+  as a looping clip of it happening, with a name of two or three words (`demo.js`, `AWARDS`).
 
-**Superseded below:** the 70-second Briefing as the default (1, 2.5, 3.2: its script is now the leader's
+**Superseded below:** the round-arrow Again glyph (the `⟳` rows in 2.2: the clips still say `⟳`, which now draws
+"×2"); the 70-second Briefing as the default (1, 2.5, 3.2: its script is now the leader's
 option); "?" opening Point mode (1, 2.2.1, 2.2.2); the Book as one long page with a chip row and contextual
 sections (2.2.5); in the table of rejected ideas, "a guided tutorial round / practice level" (the test
 drive is one, without a second set of rules: it is the real programming screen and the real engine); and

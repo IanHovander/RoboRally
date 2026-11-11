@@ -358,14 +358,14 @@ export const boardOf = (c, x, y) => {
 };
 
 /**
- * The start pads, nearest the first flag first: [{ n, steps }], steps being the spaces a robot walks to get there
- * (round walls and pits; Infinity if it can't). The race hands out the nearest ones (rules.js, drawPads), so
- * nobody starts far behind the rest.
+ * How far every space is from flag n (1, 2...): the spaces a robot walks to get there, round walls and pits
+ * (Infinity if it can't). steps[y * c.w + x].
  */
-export function padsByFlag(c) {
-  if (c.padsByFlag) return c.padsByFlag;
+export function stepsToFlag(c, n) {
+  c.flagSteps ??= {};
+  if (c.flagSteps[n]) return c.flagSteps[n];
   const steps = new Array(c.w * c.h).fill(Infinity);
-  const flag = c.checkpoints[0];
+  const flag = c.checkpoints[n - 1];
   const queue = flag ? [[flag.x, flag.y]] : [];
   if (flag) steps[flag.y * c.w + flag.x] = 0;
   while (queue.length) {
@@ -379,6 +379,16 @@ export function padsByFlag(c) {
       queue.push([nx, ny]);
     }
   }
+  return (c.flagSteps[n] = steps);
+}
+
+/**
+ * The start pads, nearest the first flag first: [{ n, steps }]. The race hands out the nearest ones (rules.js,
+ * drawPads), so nobody starts far behind the rest.
+ */
+export function padsByFlag(c) {
+  if (c.padsByFlag) return c.padsByFlag;
+  const steps = stepsToFlag(c, 1);
   c.padsByFlag = c.starts.map((st) => ({ n: st.n, steps: steps[st.y * c.w + st.x] })).sort((a, b) => a.steps - b.steps || a.n - b.n);
   return c.padsByFlag;
 }

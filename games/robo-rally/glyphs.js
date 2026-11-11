@@ -14,7 +14,8 @@ export const GLYPHS = {
   rl: [{ d: 'M26 31 V22 a8 8 0 0 0 -8 -8 H12' }, { d: 'M16 9 L11 14 L16 19' }],
   ut: [{ d: 'M13 31 V18 a7 7 0 0 1 14 0 V27' }, { d: 'M22 23 L27 28 L32 23' }],
   pu: [{ d: 'M22.5 6 L12.5 22 H19.5 L17.5 34 L27.5 17.5 H20.5 Z', fill: true }],
-  ag: [{ d: 'M29.5 14.5 A11 11 0 1 0 31 22.5' }, { d: 'M24.5 10 L30 14.6 L24.6 18.8' }, { d: 'M20 20 m-2 0 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0', fill: true }],
+  // Again: "x2", read with the card in the slot before it (not a round arrow: that says turn, or reboot)
+  ag: [{ d: 'M7 15 L17 26 M17 15 L7 26' }, { d: 'M21.5 15.5 a5 5 0 1 1 8.6 3.6 L21.5 28.5 H32.5' }],
   sp: [{ d: 'M20 8 L33 31 H7 Z' }, { d: 'M20 16 V23' }, { d: 'M20 27 m-1.6 0 a1.6 1.6 0 1 0 3.2 0 a1.6 1.6 0 1 0 -3.2 0', fill: true }],
   abort: [{ d: 'M12 22 L20 12 L28 22 Z' }, { d: 'M12 28 H28' }],
   back: [{ d: 'M20 11 L29 20 L20 29 L11 20 Z' }],
@@ -59,6 +60,9 @@ export const GLYPHS = {
   // a Haywire lying face down (its back: a diamond with a lit middle)
   hw: [{ d: 'M20 10 L30 20 L20 30 L10 20 Z' }, { d: 'M20 16 L24 20 L20 24 L16 20 Z', fill: true }],
   star: [{ d: 'M20 5 L23.2 16.8 L35 20 L23.2 23.2 L20 35 L16.8 23.2 L5 20 L16.8 16.8 Z', fill: true }],
+  // the ending: race again, and the moment played again
+  rematch: [{ d: 'M9 20 A11 11 0 0 1 29.5 14.5' }, { d: 'M30 8.5 L29.5 14.5 L24.1 12' }, { d: 'M31 20 A11 11 0 0 1 10.5 25.5' }, { d: 'M10 31.5 L10.5 25.5 L15.9 28' }],
+  rewind: [{ d: 'M30.5 12 L21.5 20 L30.5 28 Z', fill: true }, { d: 'M21 12 L12 20 L21 28 Z', fill: true }],
   // a robot's face, for the big screen's comic moments: eyes (and a mouth) of light
   'face-shock': [{ d: circle(12.5, 17, 4.6) }, { d: circle(27.5, 17, 4.6) }, { d: circle(12.5, 17, 1.4), fill: true }, { d: circle(27.5, 17, 1.4), fill: true }, { d: circle(20, 29.5, 2.8) }],
   'face-uhoh': [{ d: 'M8.5 12.5 L15.5 10.5 M31.5 12.5 L24.5 10.5' }, { d: circle(12.5, 19.5, 2.2), fill: true }, { d: circle(27.5, 19.5, 2.2), fill: true }, { d: 'M12.5 29.5 q1.9 -2.4 3.8 0 t3.8 0 t3.8 0 t3.8 0' }],
@@ -139,12 +143,13 @@ export function haywireParts(type) {
       else out.push(a === 3 ? 'side-l' : a === 1 ? 'side-r' : 'side');
     } else if (k === 'rt') out.push(a === 1 ? 'rr' : a === -1 ? 'rl' : 'ut');
     else if (k === 'en') out.push('pu', `+${a}`); // Power Surge: a bolt and how much (+3)
+    else if (k === 'double') out.push('deck', '×2'); // Double Program: two cards off the deck (alone, x2 is the Again card)
     else out.push(k);
   }
   return out;
 }
 
-const HW_MARK = { 'm3+': '5', side: '⇆', 'side-l': '⇤', 'side-r': '⇥', install: '+', storm: '✶', double: '×2', spin: '?', swap: '⇄', emp: '◎', overcharge: '+2', dmg: '!' };
+const HW_MARK = { 'm3+': '5', side: '⇆', 'side-l': '⇤', 'side-r': '⇥', install: '+', storm: '✶', spin: '?', swap: '⇄', emp: '◎', overcharge: '+2', dmg: '!' };
 
 /** The inner picture of a card (SVG markup, no frame). */
 export function cardInner(idOrType) {
@@ -165,7 +170,7 @@ export function drawCard(g, idOrType, x, y, w, h, { font = 'Lumen' } = {}) {
   const t = cardType(idOrType);
   const tone = cardTone(t);
   const bg = tone === 'spam' ? '#ff7a6b' : tone === 'hay' ? '#b99bff' : '#f4f1ea';
-  const ink = tone === 'prog' ? (t === 'pu' ? '#c98a12' : t === 'ag' ? '#6b6f78' : '#15181d') : '#15181d';
+  const ink = tone === 'prog' ? (t === 'pu' ? '#c98a12' : '#15181d') : '#15181d';
   g.save();
   g.shadowColor = tone === 'spam' ? 'rgba(255,110,90,.9)' : tone === 'hay' ? 'rgba(170,130,255,.9)' : 'rgba(255,250,235,.85)';
   g.shadowBlur = w * 0.18;

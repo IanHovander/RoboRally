@@ -32,6 +32,14 @@ export const TOPICS = {
   // ----- goal -----
   goal: { sec: 'goal', pic: { g: 'flag' }, clips: [['goal-flags', 'In order'], ['flag-stop', 'Stop on it']], fine: 'Reach the numbered flags in order. A flag counts only if you’re on it when a slot ends. First to the last flag wins.' },
   flag: { sec: 'goal', pic: { cell: 'flag' }, clips: [['flag-stop', 'Stop on it'], ['goal-flags', 'In order']], fine: 'A numbered flag. Rings at its foot show who has it.' },
+  // the ending: where you came, the awards, and racing again
+  place: { sec: 'goal', pic: { g: 'flag' }, clips: [], cap: 'Your place', fine: 'Where you finished. Most flags first; level on flags, whoever is nearer their next one.' },
+  'award-shove': { sec: 'goal', pic: { g: 'star' }, clips: [['award-shove', 'Most shoves']], fine: 'An award: you shoved more robots than anyone else this race.' },
+  'award-zap': { sec: 'goal', pic: { g: 'star' }, clips: [['award-zap', 'Most laser hits']], fine: 'An award: your laser hit other robots more often than anyone else’s.' },
+  'award-doom': { sec: 'goal', pic: { g: 'star' }, clips: [['award-doom', 'Most pushed off']], fine: 'An award: you pushed more robots into a pit or off the edge than anyone else.' },
+  'award-fall': { sec: 'goal', pic: { g: 'star' }, clips: [['award-fall', 'Most falls']], fine: 'An award: you fell into a pit or off the edge more often than anyone else.' },
+  nemesis: { sec: 'goal', pic: { robot: true }, clips: [], cap: 'Your nemesis', fine: 'The robot that pushed you into a pit or off the edge the most, and how many times.' },
+  rematch: { sec: 'goal', pic: { g: 'rematch' }, clips: [], cap: 'Race again', fine: 'Same players, map and options. Whoever finished last starts nearest flag 1.' },
   // ----- program -----
   slots: { sec: 'program', pic: { slots: true }, clips: [['program-fill', 'Fill five']], fine: 'Tap cards to fill the five slots. Slot 1 runs first. Tap a filled slot to take its card back.' },
   line: { sec: 'program', pic: { line: true }, clips: [['line-preview', 'Where you’ll go'], ['line-bumped', 'Robots change it']], fine: 'Where your cards take you if nothing gets in the way. ✕: you’d fall. ?: can’t be known.' },
@@ -68,7 +76,7 @@ export const TOPICS = {
   'double-laser': { sec: 'board', long: true, pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'A double laser: two beams, so double damage. After every slot it fires along its line and hits the first robot in the way with 2 SPAM. Walls and robots block it.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
   dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. Fall from here (inside its dashed edge): back on your start pad. Walls, edges and batteries work as anywhere.' },
-  pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Your start pad, drawn at random from the ones nearest flag 1. You face the board. Fall on the dock and you come back here.' },
+  pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Your start pad: one of those nearest flag 1, at random (in a rematch, last place gets the nearest). Fall on the dock: back here.' },
   // ----- robots -----
   robot: { sec: 'robots', pic: { robot: true }, clips: [['push', 'Shove'], ['robot-laser', 'Laser']], fine: 'Other robots’ cards are secret. Robots shove and shoot each other; damage never knocks anyone out.' },
   rival: { sec: 'robots', pic: { robot: true }, clips: [], cap: 'Look closer', fine: 'Tap a robot on your map, or in your deck’s sheet, to see its flags, energy and installed upgrades. Its cards stay secret.' },
@@ -169,7 +177,7 @@ export function sectionTopics(sec) {
   return Object.keys(TOPICS).filter((id) => TOPICS[id].sec === sec && !TOPICS[id].generated && !HIDDEN_IN_BOOK.has(id));
 }
 // contextual topics: they make sense only for something on your screen (they're in "Now" when they apply)
-const HIDDEN_IN_BOOK = new Set(['your-upgrades', 'deck', 'discard', 'decide', 'watch', 'start', 'course', 'lock', 'kind', 'look-up']);
+const HIDDEN_IN_BOOK = new Set(['your-upgrades', 'deck', 'discard', 'decide', 'watch', 'start', 'course', 'lock', 'kind', 'look-up', 'place', 'award-shove', 'award-zap', 'award-doom', 'award-fall', 'nemesis', 'rematch']);
 
 /** The Book tile's caption: the first clip's caption, or the name (upgrades, named Haywires), or its own cap. */
 export function tileCaption(id) {

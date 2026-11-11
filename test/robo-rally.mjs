@@ -795,6 +795,110 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
   check(same(r[0], [['s', 8, 2, 0], ['c', ['m3'], [8, 2, 8, 1, 8, 0], 0], ['w']]), `story: a wall stopped me (got ${JSON.stringify(r[0])})`);
 }
 {
+  // the ending: the finishing order, the awards, the race's biggest moment, and each phone's own result
+  const t = room(3, { raced: everyone(3), opts: { course: 'lab' } });
+  endDraw(t);
+  const s = t.s;
+  s.prio = 0;
+  Object.assign(s.robots.q0, { x: 8, y: 1, d: 0, cp: 1 }); // one step from the last flag
+  Object.assign(s.robots.q1, { x: 3, y: 6, d: 3 }); // q2 stands between it and a pit
+  Object.assign(s.robots.q2, { x: 2, y: 6, d: 0 });
+  plan(s, 'q0', ['m1', null, null, null, null]);
+  plan(s, 'q1', ['m1', null, null, null, null]);
+  plan(s, 'q2', [null, null, null, null, null]);
+  t.fire('deadline');
+  t.race();
+  check(s.phase === 'over' && s.winner === 'q0', 'the ending: q0 takes the last flag in slot 1');
+  t.fire('beat');
+  check(t.timers.get('deadline')?.ms === 120_000, 'the ending stays up for two minutes, then it is the lobby');
+  const res = t.hv().result;
+  check(same(res.order, ['q0', 'q2', 'q1']) && same(res.places, { q0: 1, q2: 2, q1: 3 }), `the finishing order: the winner, then whoever is nearer their next flag, a fallen robot from where it comes back (got ${JSON.stringify(res.places)})`);
+  check(same(res.awards, [{ k: 'shove', n: 1, ids: ['q1'] }, { k: 'doom', n: 1, ids: ['q1'] }, { k: 'fall', n: 1, ids: ['q2'] }]), `the awards: most shoves, most robots pushed off, most falls; nobody was shot, so no award for it (got ${JSON.stringify(res.awards)})`);
+  const play = res.play;
+  const stood = (list, id) => list.find((r) => r.id === id);
+  check(play?.round === 1 && play.beat.fx.some((f) => f.k === 'shove') && play.beat.fx.some((f) => f.k === 'fall' && f.id === 'q2') && play.beat.dur > 0, 'the moment to play again: the push into the pit');
+  check(play && stood(play.before, 'q2').on && stood(play.before, 'q2').x === 2 && stood(play.before, 'q1').x === 3 && !stood(play.after, 'q2').on && stood(play.after, 'q1').x === 2, '...with where the robots stood before it and after it');
+  check(same(t.pv(2).result, { place: 2, of: 3, awards: [{ k: 'fall', n: 1 }], nemesis: { id: 'q1', n: 1 } }), `the pushed robot's phone: its place, its award, and who pushed it (got ${JSON.stringify(t.pv(2).result)})`);
+  check(same(t.pv(1).result, { place: 3, of: 3, awards: [{ k: 'shove', n: 1 }, { k: 'doom', n: 1 }], nemesis: null }) && t.pv(0).result.place === 1, "the others' phones: their own place and awards");
+  check(plain(t.hv()) && plain(t.pv(2)) && !JSON.stringify(t.pv(0)).includes('"play"'), 'the ending is plain JSON, and only the big screen gets the moment');
+
+  // a rematch: back to setting up with the same racers, map and options; the next draw goes in reverse finishing order
+  t.act(1, 'rematch');
+  check(s === t.s && t.s.phase === 'over', 'only the leader (or the big screen) starts a rematch');
+  t.act(0, 'rematch');
+  check(t.s.phase === 'setup' && t.s.opts.course === 'lab' && same(t.s.order, ['q0', 'q1', 'q2']) && !Object.keys(t.s.robots).length && !t.timers.has('deadline'), 'a rematch: setting up again, same racers and map, and no timer left running');
+  check(t.hv().result === null && t.hv().winner === null && t.s.play === null && !Object.keys(t.s.doom).length, '...with nothing left of the last race');
+  t.act(0, 'begin');
+  check(same(t.s.picks, { q1: 4, q2: 3, q0: 2 }), `the rematch's draw: last place gets the pad nearest flag 1, the winner the furthest of those used (got ${JSON.stringify(t.s.picks)})`);
+  t.fire('deadline');
+  check(t.s.phase === 'program' && t.s.round === 1 && !t.hv().teach, '...and everyone has raced now: no Briefing');
+}
+{
+  // someone new joins the rematch: they count as last (the nearest pad), and they bring the Briefing
+  const t = room(2, { raced: [0, 1], opts: { course: 'lab' } });
+  endDraw(t);
+  Object.assign(t.s.robots.q1, { cp: 2 });
+  t.s.phase = 'over';
+  t.s.winner = 'q1';
+  t.host('rematch');
+  const late = { id: 'q8', name: 'Late', color: '#336699', connected: true, isVip: false };
+  t.players.push(late);
+  check(t.s.phase === 'setup' && rules.onJoin(t.ctx, late) !== false && t.s.order.includes('q8'), 'a rematch from the big screen: a new phone can join while it is set up');
+  t.act(0, 'begin');
+  check(same(t.s.picks, { q8: 4, q0: 3, q1: 2 }), `the newcomer starts nearest, the winner furthest (got ${JSON.stringify(t.s.picks)})`);
+  t.fire('deadline');
+  check(t.s.phase === 'brief', '...and the Briefing plays for them');
+}
+{
+  // a racer who has left (their phone gone when the rematch is called, and still gone when it starts) stays out;
+  // one who is back in time races
+  const over = (gone = [2]) => {
+    const t = room(3, { raced: everyone(3), opts: { course: 'lab' } });
+    endDraw(t);
+    t.s.robots.q0.cp = 2;
+    t.s.phase = 'over';
+    t.s.winner = 'q0';
+    for (const i of gone) t.players[i].connected = false;
+    t.host('rematch');
+    return t;
+  };
+  const gone = over();
+  gone.act(0, 'begin');
+  check(same(gone.s.order, ['q0', 'q1']) && same(Object.keys(gone.s.picks).sort(), ['q0', 'q1']), `a rematch leaves out a racer who has left (got ${gone.s.order})`);
+  const back = over();
+  back.players[2].connected = true;
+  back.act(0, 'begin');
+  check(same(back.s.order, ['q0', 'q1', 'q2']) && back.s.picks.q2 != null, 'a racer who is back before it starts races');
+  const nobody = over([0, 1, 2]);
+  nobody.host('begin');
+  check(nobody.s.phase === 'setup', 'a rematch with every phone gone does not start');
+}
+{
+  // level on flags and as near the next one: a shared place. An award goes to one robot or to two, never to a crowd
+  const t = room(4, { raced: everyone(4), opts: { course: 'lab' } });
+  endDraw(t);
+  const R = (i) => t.s.robots[`q${i}`];
+  R(0).cp = 2;
+  Object.assign(R(1), { x: 7, y: 8 }); // one step from flag 1, both of them
+  Object.assign(R(2), { x: 8, y: 7 });
+  Object.assign(R(3), { x: 0, y: 0 });
+  R(1).stats.pushes = R(2).stats.pushes = 2;
+  for (const i of [1, 2, 3]) R(i).stats.hits = 1;
+  R(3).stats.falls = 3;
+  R(1).stats.falls = 1;
+  t.s.phase = 'over';
+  t.s.winner = 'q0';
+  const res = t.hv().result;
+  check(same(res.places, { q0: 1, q1: 2, q2: 2, q3: 4 }), `two robots level share second place, and the next is fourth (got ${JSON.stringify(res.places)})`);
+  check(same(res.awards, [{ k: 'shove', n: 2, ids: ['q1', 'q2'] }, { k: 'fall', n: 3, ids: ['q3'] }]) && res.play === null, `two robots level share an award; three level: nobody gets it (got ${JSON.stringify(res.awards)})`);
+  const solo = room(1, { raced: [0], opts: { course: 'lab' } });
+  endDraw(solo);
+  solo.s.robots.q0.stats.falls = 2;
+  solo.s.phase = 'over';
+  solo.s.winner = 'q0';
+  check(same(solo.hv().result.places, { q0: 1 }) && !solo.hv().result.awards.length, 'a robot racing alone: first place, and no awards');
+}
+{
   // The busiest case: 8 robots, upgrades, the longest course, 10 rounds. Every phone's view stays small.
   const t = room(8, { raced: everyone(8), opts: { course: 'everything-must-go', upgrades: true } });
   t.s.rng = 20261025;
@@ -843,6 +947,12 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
   check(views < 16_000, `the largest phone view stays under 16 KB (${views} bytes)`);
   check(stories < 2500, `every story stays under 2.5 KB (${stories} bytes)`);
   check(clean, 'the views are plain JSON (no Sets or Maps)');
+  // ...and if it ended now, the big screen's ending (with the race's biggest moment) would fit in one message
+  t.s.phase = 'over';
+  t.s.winner = 'q0';
+  const end = t.hv();
+  const bytes = JSON.stringify(end).length;
+  check(end.result.order.length === 8 && end.result.play && plain(end) && bytes < 12_000, `the 8-robot race's ending fits in one message (${bytes} bytes; the moment is ${JSON.stringify(end.result.play).length})`);
 }
 
 // ---------------------------------------------------------------------------------------------

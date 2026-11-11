@@ -3,7 +3,8 @@
 A review by a separate agent (2026-11-10), asked for ways to make this a better game and a better party game.
 It read the rules and both screens and simulated races headless; it did not open either screen. The tutorial and
 the help were reworked separately at the same time (`docs/teaching/design.md`, section 0), so some of section 4
-is already out of date. Of the suggestions, only number 2 (start pads) is built: see "What was built" under it.
+is already out of date. Of the suggestions, numbers 1 (the ending) and 2 (start pads) are built: see "What was
+built" under each.
 
 ## How it was checked
 
@@ -90,6 +91,38 @@ borrowed arena.
 **Risk.** Keep it under about 25 s and skippable. The stored beat adds a few KB to the host view (largest message
 today is 4.2 KB, limit 16).
 
+**What was built (2026-11-11).**
+- **Standings:** when the race ends, `rules.js` (`standings`) ranks every robot: flags, then walking distance to
+  the next flag (`board.js`, `stepsToFlag`; a fallen robot from where it comes back). Robots level on both share
+  a place. The roster slides into that order, each token under its place, the first three lit.
+- **Awards:** shoves, laser hits, robots pushed off, falls (`rules.js`, `AWARDS`). One robot gets each, or two
+  that are level; never three, and none when nobody has any. "Pushed off" is new bookkeeping: after each beat the
+  rules read it with `chaos.js` (`readBeat`) and note who pushed whom to a fall. Each award is shown as a looping
+  clip of the thing it counts (`demo.js`, `award-shove` and the rest, played by the robot that got it), with its
+  name ("Most shoves"), the count and the robot's name; it leaves a star over that robot's token. A first try
+  with four small pictograms and a count was confusing (the owner said so the same day), so there are none.
+- **The moment again:** the same reading scores every beat; the biggest (6 or more: a fall off a belt is 6.5) is
+  kept with where the robots stood before and after it, up to 3 KB. The big screen puts the robots back and plays
+  it at about half speed. In the busiest test race (eight robots, upgrades, ten rounds) the ending's message is
+  4.5 KB.
+- **Phones:** the winner, then my place of how many, my awards (the same clips, named), and the robot that
+  pushed me off most.
+- **Rematch:** one button on the leader's phone and on the big screen. It keeps the racers, the map and the
+  options, and does not repeat the full tutorial. It is the game's own, not the framework's "Start over" (which
+  would forget the map and the finishing order).
+- **Suggestion 2's reverse order:** a rematch's draw gives the pad nearest flag 1 to whoever came last, and the
+  furthest of the pads used to the winner.
+- **Length:** winner 3.6 s, standings 2.8 s, 2.6 s an award, the moment about 6 s: 23 s with all four awards.
+  Esc, Space or Enter skips to the end, and the buttons work throughout.
+- **Not built, or different:** the awards are not wordless (each has a name). There is no vote: only the leader or the
+  big screen starts a rematch. After two minutes without a choice everyone is back in the lobby (it was 90 s).
+- **A limit:** a phone that arrived during the race is not let into a rematch, because the framework only asks a
+  game about a new phone once, when it connects (`room.js`, `attach`). It gets in from the lobby (reading the
+  code, reloading its page while the rematch is being set up should also work; not tried). Fixing that means a
+  change to the shared room code.
+- **Checked:** `test/robo-rally.mjs` (the order, shared places, each award's rule, the kept moment, each phone's
+  own result, the rematch and its draw), and both screens in the dev pages. Not yet tried at a real table.
+
 ### 2. Re-lay the starter course and hand out the pads (game, S)
 
 **Problem (verified by simulation).**
@@ -124,7 +157,7 @@ today is 4.2 KB, limit 16).
   walking distance (`board.js`, `padsByFlag`; ties at random), handed out at random. This is narrower than the
   proposal's "any pad at random": with fewer than eight racers the far pads stay empty. The big screen shows the
   robots coming down onto their pads one at a time; each phone shows its own pad lit.
-- Not built: reverse finishing order in a rematch (there is no rematch yet: suggestion 1).
+- Reverse finishing order in a rematch came a day later, with the rematch itself (suggestion 1).
 - Re-measured with the real draw, 600 races a setting, equal casual bots, starter course:
 
 | Players | Fair share | Best pad wins | Worst pad wins | Round-one shoves |

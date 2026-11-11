@@ -2,7 +2,8 @@
 //   setup (the first player): choose the course · start: the pad the draw gave you · upgrades: a small shop ·
 //   program: tap (or drag) five cards into five slots while a little light table draws where they'll take you ·
 //   the race: your five slots, and under each one what happened to you (tap one to see it again) ·
-//   decisions: a sheet. The "?" at the top right answers questions about anything on the screen (guide.js).
+//   decisions: a sheet · the end: where you came, your awards, and (the leader) race again or go home.
+// The "?" at the top right answers questions about anything on the screen (guide.js).
 // A phone that has never raced gets the test drive (practice.js) while it waits for the leader to choose a map,
 // and in the Briefing's practice stage: the programming screen on three tiny courses.
 import { html, raw } from '../../js/ui.js';
@@ -10,7 +11,7 @@ import { COURSES, getCourse } from './board.js';
 import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
 import { drawCourse, previewProgram, filledRun, rebootFor, ringBoard } from './minimap.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
-import { mountDemo, hasDemo } from './demo.js';
+import { mountDemo, hasDemo, AWARDS } from './demo.js';
 import { mountGuide } from './guide.js';
 import { mountPractice } from './practice.js';
 import { topicAtCell, cardTopic } from './topics.js';
@@ -19,6 +20,8 @@ import { marksFor, markHtml, mountFallen, ranCards } from './replay.js';
 const TIMERS = [0, 60, 120, 180];
 const ARROWS = ['m1', 'rr', 'bk', 'rl']; // a direction relative to you, as a card picture
 const DICE_FACES = ['m1', 'm2', 'rr', 'rl', 'ut', 'm3', 'bk', 'pu'];
+const AWARD_ASK = { shove: 'award-shove', zap: 'award-zap', doom: 'award-doom', fall: 'award-fall' }; // an award's "?" topic
+const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 // what this phone remembers between games: the browser's storage, and a year-long cookie as a second copy
 // (some browsers clear or refuse one but not the other)
 const cookie = {
@@ -135,7 +138,9 @@ export default function (root, api) {
   function startDemos(el) {
     for (const c of el.querySelectorAll('canvas[data-demo]:not([data-on])')) {
       c.dataset.on = '1';
-      mountDemo(c, c.dataset.demo, api.you?.color ?? '#f4efe4', { safeEdges: view?.opts.lessDeadly, form: formOf(api.you) });
+      // (a clip of what another robot did says whose: data-by is its id, and the other robot in it is mine)
+      const by = c.dataset.by ? robotById(c.dataset.by) : null;
+      mountDemo(c, c.dataset.demo, (by ?? api.you)?.color ?? '#f4efe4', { safeEdges: view?.opts.lessDeadly, form: formOf(by ?? api.you), other: by ? api.you?.color : null });
     }
   }
   // my flags: reached ones lit; a tap shows which flag I'm going for now (and whether it's the last)
@@ -1330,7 +1335,9 @@ export default function (root, api) {
         if (m.done) return m.wantSd ? 'Shutting down' : waitOthers;
         return programFull() ? 'Lock in' : 'Fill five slots';
       case 'activate': return m && !m.on && !comingBack(m) ? 'Back next round' : 'Watch the big screen';
-      case 'over': return view.winner === api.you?.id ? 'You win' : 'Race over';
+      case 'over':
+        if (view.winner === api.you?.id) return 'You win';
+        return view.result?.place ? `${ordinal(view.result.place)} of ${view.result.of}` : 'Race over';
     }
     return '';
   }
@@ -1817,16 +1824,35 @@ export default function (root, api) {
     ], { duration: 280 + 300, easing: 'cubic-bezier(.3,.7,.2,1)' }).finished.then(() => el.remove(), () => el.remove());
   }
 
-  // ----- the end -----
+  // ----- the end: the winner; where I came, my awards, and the robot that pushed me off most; the leader races
+  // again or goes home (my place and my awards come in a little later, in step with the big screen's show) -----
   function renderOver(m) {
     layout('over', () => html`<div class="pl-over"></div>`);
     const w = robotById(view.winner);
     const won = view.winner === api.you?.id;
+    const res = view.result;
+    const foe = res?.nemesis && robotById(res.nemesis.id);
     set(body.querySelector('.pl-over'), html`
       ${w && html`<div class="pl-winner ${won && 'me'}" style="--c:${w.color}" data-ask="goal">${bot(w, 'big')}<b>${w.name}</b>
         <span class="pl-flags glyphs big">${Array.from({ length: view.cps }, () => html`<i class="on">${g('flag')}</i>`)}</span></div>`}
-      ${m && !won && html`<div class="pl-mine">${flagsHtml(m)}</div>`}
-      ${api.you?.isVip && html`<button class="pl-cta" data-action="finish" aria-label="Back to the lobby">${g('home')}</button>`}`);
+      ${m && html`<div class="pl-end">
+        ${!won && html`<div class="pl-end-place">
+          ${res?.place != null && html`<span class="pl-place" data-ask="place" data-tap="ask"><b>${res.place}</b><i>${res.of}</i></span>`}
+          <div class="pl-mine">${flagsHtml(m)}</div>
+        </div>`}
+        ${(res?.awards.length > 0 || foe) && html`<div class="pl-awards">
+          ${(res?.awards ?? []).map((a) => {
+            const ask = AWARD_ASK[a.k];
+            return html`<span class="pl-award" data-ask="${ask}" data-tap="ask">${demo(AWARDS[a.k].clip, 'award')}<span>${AWARDS[a.k].title}</span><b>${a.n}</b></span>`;
+          })}
+          ${foe && html`<span class="pl-award foe" style="--c:${foe.color}" data-ask="nemesis:${foe.id}" data-tap="ask">
+            <canvas class="pl-demo award" data-demo="award-doom" data-by="${foe.id}"></canvas><span><i>${foe.name}</i> pushed you off</span><b>${res.nemesis.n}</b></span>`}
+        </div>`}
+      </div>`}
+      ${api.you?.isVip && html`<div class="pl-over-btns">
+        <button class="pl-cta" data-action="rematch" data-ask="rematch" aria-label="Race again">${g('rematch')}</button>
+        <button class="pl-home" data-action="finish" aria-label="Back to the lobby">${g('home')}</button>
+      </div>`}`);
   }
 
   // ----- decisions -----
@@ -1928,6 +1954,13 @@ export default function (root, api) {
       const before = view;
       view = next;
       if (before?.phase !== next.phase) {
+        if (before && next.phase === 'setup') {
+          // a rematch: nothing is kept from the last race's rounds (they're numbered from 1 again)
+          prog.key = null;
+          race.key = null;
+          planned.clear();
+          mapView = null;
+        }
         if (next.inRace && (next.phase === 'start' || next.phase === 'brief' || (next.phase === 'program' && next.round === 1))) saveOpts(next.opts);
         if (before) hello();
         localSheet = null;

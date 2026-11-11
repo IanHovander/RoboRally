@@ -6,10 +6,13 @@
 // shut-down robots look shut down. When a newcomer is racing, the narrator (voice.js) gives the Briefing
 // (briefing.js) before round 1 and calls out first-time moments in the race (teach.js). After the Briefing's
 // film, newcomers drive the test drive on their phones (practice.js): the roster shows how far each has got.
+// When someone wins, the race gets an ending: the roster slides into finishing order, a few awards are given one
+// at a time, and the race's biggest moment plays again, slowly. Then the leader races again or goes home.
 import { html, raw, loadCss } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { drawCourse, ringBoard } from './minimap.js';
-import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle, GLYPHS } from './glyphs.js';
+import { robotSvg, svgGlyph, cardSvgHtml, COURSE_TITLES, LEVELS, courseTitle, GLYPHS, formOf } from './glyphs.js';
+import { mountDemo, AWARDS } from './demo.js';
 import { sfx, unlock, onState as onSound, setMuted, setLevel, sceneSound, state as soundState } from './sound.js';
 import { voice } from './voice.js';
 import { createVoiceLine, createCallouts, createExplainer, flyJunk, junkCards, topMargin } from './teach.js';
@@ -20,6 +23,8 @@ import { LEADER } from './lobby.js';
 const TIMERS = [0, 60, 120, 180];
 const PHASE_MS = { upgrade: 60_000, brief: 90_000 }; // (brief: its practice stage)
 const DROP_MS = [450, 280]; // the draw: the first robot comes down onto its pad after this long, then each next one
+const END_MS = { winner: 3600, places: 2800, award: 2600 }; // the ending: how long the winner, the standings and each award are up
+const REPLAY = { tempo: 0.55, before: 900, after: 1300 }; // ...and its moment again: this much slower, with a pause before and after
 const RACE_FRAME = { top: 0.2, bottom: 0.4, left: 0.04, right: 0.04, headroom: 2.95 };
 // the skip glyph (the phones' guide adds it to glyphs.js; drawn here too in case it isn't there)
 const SKIP = () => (GLYPHS.skip ? svgGlyph('skip') : '<svg class="lm-g" viewBox="0 0 40 40" aria-hidden="true"><path d="M9.5 12 L18.5 20 L9.5 28 Z" fill="currentColor"/><path d="M19 12 L28 20 L19 28 Z" fill="currentColor"/><path d="M31 12 V28" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>');
@@ -106,7 +111,7 @@ export default function (root, api) {
     // a mishap on the board: that player's token at the bottom flinches too, so the room sees whose it was
     if (kind === 'mishap' || kind === 'fall') flinch(d.id, kind === 'fall' || d.n > 1);
     // junk cards: from the robot (or where it fell) to that player's token, every time
-    if (kind === 'junk' && !briefing && tokenOf(d.id)) {
+    if (kind === 'junk' && !briefing && !replay && tokenOf(d.id)) {
       const from = d.src === 'reboot' ? arena.cellScreenPos(d.x, d.y, 0.3) : arena.screenPos(d.id);
       flyJunk(layer, junkCards(d), from, tokenOf(d.id), { big: callouts.bigJunk(d.id), onLand: () => flinch(d.id, d.sp + d.hw > 1) });
     }
@@ -269,8 +274,13 @@ export default function (root, api) {
       }
       return;
     }
+    const skips = e.key === 'Escape' || e.key === ' ' || e.key === 'Enter';
+    if (view?.phase === 'over' && skips && ending && ending.stage !== 'rest' && !e.target.closest?.('button')) {
+      e.preventDefault();
+      return skipEnding();
+    }
     if (view?.phase !== 'brief') return;
-    if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
+    if (skips) {
       e.preventDefault();
       skipBriefing();
     } else if (e.key === 'ArrowRight') {
@@ -425,6 +435,115 @@ export default function (root, api) {
     dropTimer = setTimeout(next, DROP_MS[0]);
   }
 
+  // ----- the ending (phase 'over'): the winner; then the roster slides into finishing order; then the awards, one at
+  // a time; then the race's biggest moment again, slowly; then it rests there until the leader races again or goes
+  // home. Esc, Space or Enter skips to the rest -----
+  let ending = null; // { stage: 'winner' | 'places' | 'awards' | 'replay' | 'rest', award: how many awards are given so far, timer }
+  let replay = null; // the moment is playing again (the arena is its, not the view's): { timer }
+  /** The award being given now, or null. */
+  const awardNow = (v) => (ending?.stage === 'awards' ? v.result?.awards[ending.award - 1] ?? null : null);
+  function startEnding() {
+    stopEnding();
+    ending = { stage: 'winner', award: 0, timer: setTimeout(endNext, END_MS.winner) };
+  }
+  /** The ending's next step. */
+  function endNext() {
+    const v = view;
+    const e = ending;
+    if (!e || v?.phase !== 'over') return;
+    clearTimeout(e.timer);
+    const res = v.result;
+    if (!res || e.stage === 'replay') e.stage = 'rest';
+    else if (e.stage === 'winner') e.stage = 'places';
+    else if (e.award < res.awards.length) {
+      e.stage = 'awards';
+      e.award++;
+    } else e.stage = res.play && arena ? 'replay' : 'rest';
+    if (e.stage === 'places') sfx.go();
+    if (e.stage === 'awards') sfx.yay(true);
+    if (replay) stopReplay();
+    if (e.stage === 'replay') startReplay(res.play);
+    else if (e.stage !== 'rest') e.timer = setTimeout(endNext, e.stage === 'places' ? END_MS.places : END_MS.award);
+    apply(v);
+    render(v);
+  }
+  function skipEnding() {
+    const e = ending;
+    if (!e || e.stage === 'rest' || view?.phase !== 'over') return;
+    clearTimeout(e.timer);
+    e.stage = 'rest';
+    e.award = view.result?.awards.length ?? 0;
+    if (replay) stopReplay();
+    apply(view);
+    render(view);
+  }
+  function stopEnding() {
+    if (!ending) return;
+    clearTimeout(ending.timer);
+    ending = null;
+    if (replay) stopReplay();
+  }
+  /** For test scripts: hold the ending at one stage (with this many awards given). */
+  function holdEnding(stage, award = 0) {
+    if (!ending || view?.phase !== 'over') return;
+    clearTimeout(ending.timer);
+    if (replay) stopReplay();
+    Object.assign(ending, { stage, award });
+    if (stage === 'replay' && view.result?.play && arena) startReplay(view.result.play);
+    apply(view);
+    render(view);
+  }
+  /** The race's biggest moment again: the robots back where they stood, then that beat, slowed down. */
+  function startReplay(play) {
+    const v = view;
+    const c = getCourse(v.opts.course);
+    const cast = (list) => list.map((q) => ({ ...robotById(v, q.id), ...q })).filter((r) => r.name != null);
+    host.classList.add('replaying');
+    arena.reset(c);
+    arena.setPerimeter(v.opts.lessDeadly ? c : null);
+    arena.syncRobots(cast(play.before));
+    arena.setFrame(frameFor('activate'));
+    arena.camMode = 'race';
+    arena.showNames = arena.namesAlways = true;
+    arena.setTargets(null);
+    arena.tempo = REPLAY.tempo;
+    replay = {
+      timer: setTimeout(() => {
+        arena.playBeat({ n: 0, cap: '', ...play.beat }, cast(play.after));
+        replay.timer = setTimeout(endNext, play.beat.dur / REPLAY.tempo + REPLAY.after);
+      }, REPLAY.before),
+    };
+  }
+  /** The moment is over (or skipped): the arena shows the end of the race again. */
+  function stopReplay() {
+    if (!replay) return;
+    clearTimeout(replay.timer);
+    replay = null;
+    host.classList.remove('replaying');
+    if (!arena) return;
+    arena.tempo = 1;
+    if (view) {
+      arena.reset(getCourse(view.opts.course));
+      apply(view, true);
+    }
+  }
+
+  /** The roster in this order (ids; null: by seat), every token sliding to its new place. */
+  function orderRoster(ids) {
+    const key = ids ? ids.join() : '';
+    if ((rosterEl.dataset.order ?? '') === key) return;
+    rosterEl.dataset.order = key;
+    const toks = [...rosterEl.querySelectorAll('.lm-tok')];
+    const from = new Map(toks.map((el) => [el, el.getBoundingClientRect()]));
+    for (const el of toks) el.style.order = ids ? String(Math.max(0, ids.indexOf(el.dataset.id))) : '';
+    for (const el of toks) {
+      const a = from.get(el);
+      const b = el.getBoundingClientRect();
+      if (a.left === b.left && a.top === b.top) continue;
+      el.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` }, { transform: 'translate(0, 0)' }], { duration: 900, easing: 'cubic-bezier(.3,.7,.2,1)', composite: 'add' });
+    }
+  }
+
   /** Robots as the scene should show them; in the draw, the ones that have come down stand on their start spaces. */
   function sceneRobots(v) {
     const c = getCourse(v.opts.course);
@@ -484,6 +603,11 @@ export default function (root, api) {
       return stopBriefing();
     }
     if (v.phase !== 'brief') briefOver = false;
+    if (replay) {
+      // the ending's moment has the arena; it hands it back when it's over (or the race has moved on: now)
+      if (v.phase === 'over') return;
+      stopEnding();
+    }
     const robots = sceneRobots(v);
     if (arena) {
       // no upgrades: batteries do nothing (drawn inert); "Map perimeter": a wall right round the course
@@ -531,7 +655,9 @@ export default function (root, api) {
       arena.namesAlways = v.phase === 'start' || (v.round === 1 && ['brief', 'program', 'activate'].includes(v.phase)); // the draw and round 1: whose robot is whose
       arena.setShutdown(v.robots.filter((r) => r.sd && r.on !== false).map((r) => r.id));
       if (v.phase === 'over') {
-        arena.focusOn = v.winner;
+        // the camera stays on the winner, but goes to the robot getting an award (if it's on the board)
+        const star = awardNow(v)?.ids.find((id) => robots.some((r) => r.id === id && r.on !== false));
+        arena.focusOn = star ?? v.winner;
         arena.setDim(0.72);
       } else {
         arena.focusOn = null;
@@ -621,8 +747,14 @@ export default function (root, api) {
         if (Array.isArray(now) && now.length) return html`${now.map((t) => raw(cardSvgHtml(t, 'xs')))}`;
         return html`<span class="lm-card-back"></span>`;
       }
-      case 'over':
-        return '';
+      case 'over': {
+        // the ending: its place, once the roster is in finishing order, and over it a star for each award it has been given
+        const place = ending && ending.stage !== 'winner' ? v.result?.places[r.id] : null;
+        if (place == null) return '';
+        const now = awardNow(v);
+        const given = v.result.awards.slice(0, ending.award).filter((a) => a.ids.includes(r.id));
+        return html`<span class="lm-awards">${given.map((a) => html`<i class="${a === now && 'new'}">${G('star')}</i>`)}</span><span class="lm-place ${place <= 3 && 'lit'}">${place}</span>`;
+      }
     }
     return '';
   }
@@ -640,7 +772,12 @@ export default function (root, api) {
       rosterEl.dataset.ids = ids;
       rosterEl.innerHTML = v.robots.map((r) => `<div class="lm-tok" data-id="${r.id}"><div class="lm-tok-top"></div><div class="lm-tok-bot"></div><div class="lm-tok-name"></div><div class="lm-tok-meta"></div></div>`).join('');
       rosterEl.style.setProperty('--n', v.robots.length);
+      delete rosterEl.dataset.order;
     }
+    // the ending: its stage (the roster is in finishing order from the standings on), and who is getting an award
+    const end = v.phase === 'over' ? ending : null;
+    rosterEl.dataset.end = end?.stage ?? '';
+    const awarded = end ? awardNow(v)?.ids ?? [] : [];
     const acting = v.phase === 'activate' ? v.beat.what?.id : null;
     const leader = api.players?.find((p) => p.isVip)?.id ?? null;
     // who the room is waiting on: they pulse; once only one or two are left (and someone is done), they rise
@@ -660,6 +797,7 @@ export default function (root, api) {
       el.classList.toggle('acting', acting === r.id);
       el.classList.toggle('prio', r.id === v.prio && !['setup', 'start', 'over'].includes(v.phase));
       el.classList.toggle('winner', v.phase === 'over' && r.id === v.winner);
+      el.classList.toggle('awarded', awarded.includes(r.id));
       el.classList.toggle('leader', r.id === leader);
       const done = waitPhase ? doneOf(v, r) : null;
       el.classList.toggle('wait', done === false && !r.away);
@@ -670,6 +808,7 @@ export default function (root, api) {
       const ups = (r.perm?.length ?? 0) + (r.temp ?? 0);
       set(el.children[3], html`${flagBars(v, r)}${v.opts.upgrades && r.en != null && html`<span class="lm-en">${G('bolt')}${r.en}</span>`}${ups > 0 && html`<span class="lm-ups">${(r.perm ?? []).map(() => html`<i></i>`)}${Array.from({ length: r.temp ?? 0 }, () => html`<i class="t"></i>`)}</span>`}`);
     }
+    orderRoster(end && end.stage !== 'winner' ? v.result?.order ?? null : null);
   }
 
   function renderRegs(v) {
@@ -718,12 +857,34 @@ export default function (root, api) {
       }
       case 'over': {
         const w = robotById(v, v.winner);
-        return set(centerEl, w ? html`
-          <div class="lm-over" style="--c:${w.color}">
-            <div class="lm-over-name">${w.name}</div>
-            <div class="lm-over-flags">${Array.from({ length: v.cps }, () => html`<i></i>`)}</div>
-            <button class="lm-home" data-action="finish" title="Back to the lobby">${raw(svgGlyph('home'))}</button>
-          </div>` : html`<div class="lm-over"><button class="lm-home" data-action="finish">${raw(svgGlyph('home'))}</button></div>`);
+        // the frame is made once (the winner's name comes in once); the ending's stage and its award change in place
+        set(centerEl, html`
+          <div class="lm-over" style="--c:${w?.color ?? '#f4efe4'}">
+            <div class="lm-over-win">${w && html`<div class="lm-over-name">${w.name}</div><div class="lm-over-flags">${Array.from({ length: v.cps }, () => html`<i></i>`)}</div>`}</div>
+            <div class="lm-over-award"></div>
+            <div class="lm-over-replay">${raw(svgGlyph('rewind'))}</div>
+            <div class="lm-over-btns">
+              <button class="lm-again" data-action="rematch" title="Race again">${raw(svgGlyph('rematch'))}</button>
+              <button class="lm-home" data-action="finish" title="Back to the lobby">${raw(svgGlyph('home'))}</button>
+            </div>
+          </div>`);
+        const box = centerEl.querySelector('.lm-over');
+        box.dataset.stage = ending?.stage ?? 'rest';
+        // an award: a looping clip of what it counts (played by the robot that got it), its name, how many, and whose it is
+        const a = awardNow(v);
+        const who = a ? a.ids.map((id) => robotById(v, id)).filter(Boolean) : [];
+        const fresh = set(box.querySelector('.lm-over-award'), a && html`
+          <div class="lm-award-now">
+            <canvas class="lm-award-clip" data-demo="${AWARDS[a.k].clip}"></canvas>
+            <div class="lm-award-text">
+              <span class="lm-award-title">${AWARDS[a.k].title}</span>
+              <b class="lm-award-n">${a.n}</b>
+              <span class="lm-award-who">${who.map((r) => html`<i style="--c:${r.color}">${r.name}</i>`)}</span>
+            </div>
+          </div>`);
+        const clip = fresh && box.querySelector('.lm-award-clip');
+        if (clip) mountDemo(clip, clip.dataset.demo, who[0]?.color, { safeEdges: !!v.opts.lessDeadly, form: formOf(who[0] ?? {}) });
+        return;
       }
       case 'brief':
       case 'program':
@@ -1088,7 +1249,7 @@ export default function (root, api) {
   window.addEventListener('resize', onResizeStrip);
 
   // for test scripts: what the big screen sees
-  window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts, slide: () => ({ ...slide }) };
+  window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts, slide: () => ({ ...slide }), ending: () => ending && { stage: ending.stage, award: ending.award, replay: !!replay }, holdEnding, skipEnding };
 
   return {
     update(next) {
@@ -1097,6 +1258,8 @@ export default function (root, api) {
       view = next;
       if (next.phase === 'brief' && prev && prev.phase !== 'brief') callouts.again(); // someone is new: the race teaches from the start
       if (next.phase === 'start' && prev?.phase !== 'start') startDrop();
+      if (next.phase === 'over' && prev?.phase !== 'over') startEnding();
+      else if (next.phase !== 'over' && ending) stopEnding(); // (a rematch)
       if (next.phase === 'setup') courseSlide(next);
       else if (slide.course) endSlide();
       apply(next);
@@ -1108,6 +1271,8 @@ export default function (root, api) {
     destroy() {
       cancelAnimationFrame(raf);
       clearTimeout(dropTimer);
+      clearTimeout(ending?.timer);
+      clearTimeout(replay?.timer);
       offSound();
       window.removeEventListener('pointerdown', gesture);
       window.removeEventListener('keydown', gesture);

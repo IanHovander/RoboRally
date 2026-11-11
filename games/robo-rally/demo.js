@@ -125,8 +125,22 @@ const D = {
   'robot-laser': { size: [5, 3], bots: { a: [0, 1, 'E'], b: [2, 1, 'N'], c: [4, 1, 'N'] }, steps: [['shoot', 'a', {}], ['wait', 400]] },
   battery: { grid: ['.. .. ..', '.. EE ..', '.. .. ..'], bots: { a: [0, 1, 'E'] }, steps: [[['reg', 1], ['move', 'a', 'F', 1]], ['pop', 'a', '⚡+1'], ['reg', 2], ['pop', 'a', '⚡+1']] },
   'reboot-face': { size: [3, 3], reboot: [1, 1, 'N'], bots: { a: [1, 1, 'N'] }, steps: [['off', 'a'], ['face', 'a', 'E'], ['wait', 400], ['face', 'a', 'S'], ['wait', 400], ['on', 'a'], ['move', 'a', 'F', 1]] },
+  // the ending's awards, as each looked in the race (a is the robot that got it): a shove, a laser hit, a robot
+  // pushed into a pit, a fall
+  'award-shove': { size: [5, 3], bots: { a: [0, 1, 'E'], b: [2, 1, 'N'] }, steps: [['move', 'a', 'F', 3], ['wait', 400]] },
+  'award-zap': { size: [5, 3], bots: { a: [0, 1, 'E'], b: [3, 1, 'N'] }, steps: [['shoot', 'a', {}], ['hit', 'b'], ['wait', 400]] },
+  'award-doom': { grid: ['.. .. .. .. ..', '.. .. .. XX ..', '.. .. .. .. ..'], bots: { a: [0, 1, 'E'], b: [2, 1, 'N'] }, steps: [['move', 'a', 'F', 2], ['wait', 700]] },
+  'award-fall': { grid: ['.. .. .. .. ..', '.. .. .. XX ..', '.. .. .. .. ..'], bots: { a: [1, 1, 'E'] }, steps: [['move', 'a', 'F', 2], ['wait', 700]] },
 };
 D['lobby-flags'] = D['goal-flags']; // the old name
+
+/** The ending's awards: the clip that shows what each one counts, and its name. */
+export const AWARDS = {
+  shove: { clip: 'award-shove', title: 'Most shoves' },
+  zap: { clip: 'award-zap', title: 'Most laser hits' },
+  doom: { clip: 'award-doom', title: 'Most pushed off' },
+  fall: { clip: 'award-fall', title: 'Most falls' },
+};
 
 // Haywire demos: the card's own moves, from a spot where they make sense.
 const HW_SETUP = {
@@ -746,12 +760,13 @@ function tick(now) {
 }
 
 /**
- * Play a demo on a canvas until the canvas leaves the page. opts: { safeEdges, form, lazy, root }
+ * Play a demo on a canvas until the canvas leaves the page. opts: { safeEdges, form, lazy, root, other }
+ * (other: the color of the first robot that isn't "you"; otherwise the others wear the demos' own colors)
  * (lazy: animate only while in view of root, the scroll box; out of view it holds a still). Returns a stop function.
  */
 export function mountDemo(canvas, key, color = '#ff4d6d', opts = {}) {
   if (!hasDemo(key)) return () => {};
-  const demo = { canvas, color, form: opts.form ?? 0, comp: null, board: null, lazy: !!opts.lazy, perimeter: !!(D[key]?.safeEdges || opts.safeEdges) };
+  const demo = { canvas, color, other: opts.other ?? null, form: opts.form ?? 0, comp: null, board: null, lazy: !!opts.lazy, perimeter: !!(D[key]?.safeEdges || opts.safeEdges) };
   const anim = { lazy: demo.lazy, root: opts.root ?? null, total: 0, paint: (t) => draw(demo, t), onStill: () => (demo.board = null) };
   if (demo.lazy) canvas.width = canvas.height = 1;
   if (D[key]) {
@@ -958,7 +973,7 @@ function draw(demo, t) {
   const py = (y) => oy + (y + 0.5) * T;
   const names = Object.keys(to.bots);
   const others = names.filter((id) => id !== comp.meId);
-  const colorOf = (id) => (id === comp.meId ? demo.color : OTHER[others.indexOf(id) % OTHER.length]);
+  const colorOf = (id) => (id === comp.meId ? demo.color : (!others.indexOf(id) && demo.other) || OTHER[others.indexOf(id) % OTHER.length]);
   const formOf = (id) => (id === comp.meId ? demo.form : (others.indexOf(id) + 2) % 6);
 
   // the light line, under the robots

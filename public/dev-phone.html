@@ -19,6 +19,8 @@
 //   ?to=race&story=demo        a scripted round on Closing Time (3+ players); stops when I fall in slot 5
 //   ?to=race&story=demo&reg=4  ...or at the start of slot 4 (a Haywire waits under slot 2)
 //   ?to=program&story=demo     after that round: round 2's programming, with the story as "last round"
+//   ?to=over&me=2              the ending (a staged first slot ends the race), on the third phone: its place, awards, nemesis
+//                              (me=0, the default, is the leader and the winner: race again, or home)
 import rules from './games/robo-rally/rules.js';
 import * as E from './games/robo-rally/engine.js';
 import mountPlayer from './games/robo-rally/player.js';
@@ -41,7 +43,7 @@ const ctx = {
 rules.setup(ctx);
 const s = () => ctx.state;
 const act = (who, type, payload) => rules.actions[type](ctx, players[who], payload);
-const me = players[0];
+const me = players[Number(q.get('me') ?? 0)] ?? players[0]; // the phone looked at (players[0] leads)
 const api = {
   role: 'player', you: me, players,
   send: async (type, payload) => { const r = rules.actions[type]?.(ctx, me, payload); setTimeout(redraw, 0); return r; },
@@ -59,9 +61,9 @@ window.dev = { ctx, act, E, redraw, rules };
 const to = q.get('to') ?? 'setup';
 const demo = q.get('story') === 'demo' && n >= 3;
 const course = demo ? 'closing-time' : q.get('course') ?? 'closing-time';
-rules.actions.setOpt(ctx, me, { key: 'course', value: course });
-if (q.get('upgrades') === '0') rules.actions.setOpt(ctx, me, { key: 'upgrades', value: false });
-rules.actions.setOpt(ctx, me, { key: 'timer', value: 120 });
+rules.actions.setOpt(ctx, players[0], { key: 'course', value: course });
+if (q.get('upgrades') === '0') rules.actions.setOpt(ctx, players[0], { key: 'upgrades', value: false });
+rules.actions.setOpt(ctx, players[0], { key: 'timer', value: 120 });
 const env = { course: getCourse(course), connected: () => true, now: () => Date.now(), name: (id) => ctx.player(id)?.name };
 // the race runs on the rules' own beat timer, fired here by hand (so each phone's story is recorded)
 const fire = (name) => { const fn = timers.get(name); timers.delete(name); fn?.(ctx); return !!fn; };
@@ -99,6 +101,23 @@ function demoRound() {
   act(0, 'lock', { regs: mine }); // everyone's in: the race starts
 }
 
+/** ?to=over: slot 1, staged. Ada shoves Bolt into a pit and shoots Cog; Ivy takes the last flag. */
+function stageEnding() {
+  const spots = [{ x: 10, y: 3, d: 1, cp: 1 }, { x: 4, y: 4, d: 0 }, { x: 4, y: 3, d: 0 }, { x: 4, y: 1, d: 1 }];
+  const first = ['m1', 'm1', 'rr', 'rl'];
+  s().prio = 0;
+  for (let i = 0; i < n; i++) {
+    const R = s().robots[players[i].id];
+    Object.assign(R, spots[i] ?? {});
+    const is = (c) => c.startsWith(`${first[i] ?? 'rr'}.`);
+    const pile = [R.hand, R.deck, R.discard].find((p) => p.some(is));
+    R.hand.unshift(pile.splice(pile.findIndex(is), 1)[0]);
+    act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) });
+  }
+  while (s().phase === 'activate' && beat());
+  beat(); // (the race is over: its last beat's timer starts the ending's)
+}
+
 // Everyone has finished a race before, so there's no Briefing, except at ?to=brief (the others are new).
 if (to !== 'brief') players.forEach((p, i) => act(i, 'hello', { raced: true }));
 if (to !== 'setup') {
@@ -114,7 +133,7 @@ if (to !== 'setup') {
       const R = s().robots[me.id];
       if (q.get('installed')) for (const k of q.get('installed').split(',')) R.up[UPGRADES[k].kind].push(k);
     }
-    const racing = ['activate', 'race', 'over'].includes(to) || !!q.get('prompt');
+    const racing = ['activate', 'race'].includes(to) || !!q.get('prompt');
     if (demo) {
       demoRound();
       const reg = Number(q.get('reg') ?? 0);
@@ -131,7 +150,7 @@ if (to !== 'setup') {
         race(() => k++ >= Number(q.get('beats') ?? 6)); // run a few beats
       }
     }
-    if (to === 'over') { s().phase = 'over'; s().winner = me.id; s().robots[me.id].cp = 2; }
+    if (to === 'over') stageEnding();
   }
 }
 const prompt = q.get('prompt');

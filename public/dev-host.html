@@ -17,6 +17,9 @@
 //   dev-host.html?to=setup | start | brief | practice | program | race | over      &n=4  &course=closing-time
 //   (start: the draw for start pads; dev.fire('deadline') ends it)
 //   (practice: the Briefing's second stage, the phones' test drive; dev.act(1, 'practice', { level: 2 }) moves a robot on)
+//   (over: a staged first slot ends the race, so the ending has standings, awards and a moment to play again;
+//    lumenHost.holdEnding('awards', 2) holds it at a stage (winner, places, awards, replay, rest),
+//    lumenHost.skipEnding() jumps to its end, dev.act(0, 'rematch') races again)
 import rules from './games/robo-rally/rules.js';
 import mountHost from './games/robo-rally/host.js';
 import { wireActions } from './js/ui.js';
@@ -54,6 +57,22 @@ rules.actions.setOpt(ctx, players[0], { key: 'course', value: q.get('course') ??
 rules.actions.setOpt(ctx, players[0], { key: 'timer', value: 120 });
 const fire = (name) => { const fn = timers.get(name); timers.delete(name); fn?.(ctx); return !!fn; };
 const beat = () => fire('beat');
+/** ?to=over: slot 1, staged. Ada shoves Bolt into a pit and shoots Cog; Ivy takes the last flag. */
+function stageEnding() {
+  const spots = [{ x: 10, y: 3, d: 1, cp: 1 }, { x: 4, y: 4, d: 0 }, { x: 4, y: 3, d: 0 }, { x: 4, y: 1, d: 1 }];
+  const first = ['m1', 'm1', 'rr', 'rl'];
+  s().prio = 0;
+  for (let i = 0; i < n; i++) {
+    const R = s().robots[players[i].id];
+    Object.assign(R, spots[i] ?? {});
+    const is = (c) => c.startsWith(`${first[i] ?? 'rr'}.`);
+    const pile = [R.hand, R.deck, R.discard].find((p) => p.some(is));
+    R.hand.unshift(pile.splice(pile.findIndex(is), 1)[0]);
+    act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) });
+  }
+  while (s().phase === 'activate' && beat());
+  beat(); // (the race is over: its last beat's timer starts the ending's)
+}
 if (to !== 'brief' && to !== 'practice') players.forEach((p, i) => act(i, 'hello', { raced: true }));
 if (to !== 'setup') {
   s().rng = 7; // (the same draw for start pads every time, so a screen looks the same twice)
@@ -61,11 +80,11 @@ if (to !== 'setup') {
   if (to !== 'start') {
     fire('deadline'); // the draw is over
     if (to === 'practice') rules.hostActions.briefDone(ctx); // the film is over
-    if (['race', 'over'].includes(to)) {
+    if (to === 'race') {
       for (let i = 0; i < n; i++) { const R = s().robots[players[i].id]; act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) }); }
       for (let k = 0; k < Number(q.get('beats') ?? 6) && s().phase === 'activate' && beat(); k++);
     }
-    if (to === 'over') { s().phase = 'over'; s().winner = players[0].id; }
+    if (to === 'over') stageEnding();
   }
 }
 redraw();
