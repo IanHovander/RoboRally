@@ -1,0 +1,69 @@
+<div id="rr-independent-lab">
+<style>
+#rr-independent-lab [hidden]{display:none!important}
+#rr-independent-lab .rr-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-bottom:16px}
+#rr-independent-lab .rr-toolbar label{flex:1;min-width:140px}
+#rr-independent-lab .rr-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+#rr-independent-lab .rr-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+#rr-independent-lab canvas{width:100%;aspect-ratio:5/3;display:block}
+#rr-independent-lab figure{margin:0;min-width:0}
+#rr-independent-lab figcaption{margin:8px 0 20px}
+#rr-independent-lab h3{margin:20px 0 6px}
+#rr-independent-lab .rr-rule{margin:4px 0 12px}
+#rr-independent-lab .rr-caption{display:block;margin-top:4px}
+#rr-independent-lab .rr-award{color:var(--foreground);font-weight:500}
+#rr-independent-lab .rr-ideas{padding-left:24px}
+#rr-independent-lab .rr-ideas li{margin-bottom:12px}
+@media(max-width:580px){#rr-independent-lab .rr-three{grid-template-columns:1fr}#rr-independent-lab .rr-pair{grid-template-columns:1fr}}
+</style>
+<div class="rr-toolbar">
+<label class="form-label">View<select class="form-select" data-mode><option value="awards">Winners & runners-up · 40 studies</option><option value="studies">All animated options · 300 studies</option><option value="ideas">All ideas · 1,000 concepts</option></select></label>
+<label class="form-label" data-scenario-label>Scenario<select class="form-select" data-scenario></select></label>
+<button type="button" class="btn" data-play>Pause</button>
+<button type="button" class="btn" data-replay>Replay</button>
+</div>
+<label class="form-label">Animation position<input class="form-range" data-time type="range" min="0" max="1000" value="0" aria-label="Scrub all displayed animations"></label>
+<div data-content></div>
+<script>
+__RENDERERS__
+(()=>{
+const root=document.getElementById('rr-independent-lab');
+const data=__DATA__;
+const awards=__AWARDS__;
+const artists=[globalThis.RRMechanical,globalThis.RRPaper,globalThis.RRCinematic];
+const mode=root.querySelector('[data-mode]'),scenario=root.querySelector('[data-scenario]'),content=root.querySelector('[data-content]');
+const play=root.querySelector('[data-play]'),replay=root.querySelector('[data-replay]'),slider=root.querySelector('[data-time]');
+let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,phase=0,last=performance.now(),entries=[],view='awards';
+let selected=data[0].id;
+let palette;
+const visibility=new IntersectionObserver(changes=>{for(const x of changes){if(x.target.rrEntry)x.target.rrEntry.visible=x.isIntersecting}draw()},{rootMargin:'160px'});
+function colors(){palette={bg:'#06080b',fg:'#f4efe4',muted:'#52535a',line:'#343740',robot:'#7aa8ff',other:'#ff7a6b',accent:'#ffc56e',danger:'#ff4a3a'};}
+colors();
+for(const s of data){const o=document.createElement('option');o.value=s.id;o.textContent=s.title;scenario.append(o)}
+function el(tag,text,cls){const e=document.createElement(tag);if(text)e.textContent=text;if(cls)e.className=cls;return e}
+function persist(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{scenario:selected,view},privateContent:{playing}}).catch(()=>{})}
+function concept(s,index){return s.ideas.find(x=>x.id===s.selected[index])}
+function figure(s,index,artist,badge,reason){
+const idea=concept(s,index),f=el('figure'),canvas=el('canvas');canvas.width=800;canvas.height=480;
+canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`${s.title}: ${idea.title}. ${idea.action}. ${artists[artist].name}.`);
+f.append(canvas);const cap=el('figcaption');cap.append(el('span',badge?`${badge} · ${idea.title}`:idea.title,'rr-award'));cap.append(el('span',artists[artist].name,'text-small rr-caption'));
+cap.append(el('span',reason||artists[artist].treatments?.[s.id]?.[index]||idea.action,'text-small rr-caption'));
+f.append(cap);const entry={canvas,ctx:canvas.getContext('2d'),s,index,artist,visible:true};canvas.rrEntry=entry;entries.push(entry);visibility.observe(canvas);return f;
+}
+function draw(){for(const e of entries){if(!e.visible)continue;const ctx=e.ctx;ctx.save();ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,400,240);artists[e.artist].draw(ctx,e.s.id,e.index,phase,palette);ctx.restore()}}
+function render(){visibility.disconnect();entries=[];content.replaceChildren();scenario.parentElement.hidden=view==='awards';play.hidden=replay.hidden=slider.parentElement.hidden=view==='ideas';
+if(view==='awards')for(const s of data){const section=el('section');section.append(el('h3',s.title));section.append(el('p',s.rule,'text-small rr-rule'));const pair=el('div',null,'rr-pair');const a=awards[s.id];pair.append(figure(s,a.winner.idea,a.winner.artist,'Winner',a.winner.reason),figure(s,a.runner.idea,a.runner.artist,'Runner-up',a.runner.reason));section.append(pair);content.append(section)}
+else {const s=data.find(x=>x.id===selected);content.append(el('h3',s.title));content.append(el('p',s.rule,'text-small rr-rule'));
+if(view==='studies')for(let i=0;i<5;i++){const idea=concept(s,i);content.append(el('h3',idea.title));content.append(el('p',idea.action,'text-small'));const row=el('div',null,'rr-three');for(let a=0;a<3;a++)row.append(figure(s,i,a));content.append(row)}
+else{const list=el('ol',null,'rr-ideas');for(const idea of s.ideas){const li=el('li');li.append(el('strong',idea.title+(s.selected.includes(idea.id)?' · animated':'')),el('span',idea.action,'rr-caption'));list.append(li)}content.append(list)}}
+draw();play.textContent=playing?'Pause':'Play';
+}
+mode.onchange=()=>{view=mode.value;render();persist()};scenario.onchange=()=>{selected=scenario.value;phase=0;render();persist()};
+play.onclick=()=>{playing=!playing;play.textContent=playing?'Pause':'Play';persist()};replay.onclick=()=>{phase=0;playing=true;play.textContent='Pause';draw()};slider.oninput=()=>{phase=Number(slider.value)/1000;playing=false;play.textContent='Play';draw()};
+function restore(state){const m=state?.modelContent,p=state?.privateContent;if(m&&data.some(s=>s.id===m.scenario))selected=m.scenario;if(['awards','studies','ideas'].includes(m?.view))view=m.view;if(typeof p?.playing==='boolean')playing=p.playing;mode.value=view;scenario.value=selected;render()}
+restore(window.openai?.widgetState);window.addEventListener('openai:set_globals',e=>restore(e.detail?.globals?.widgetState));
+new MutationObserver(()=>{colors();draw()}).observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme']});
+function frame(now){const dt=Math.min(now-last,100);last=now;if(playing){phase=(phase+dt/3600)%1;slider.value=String(Math.round(phase*1000));draw()}requestAnimationFrame(frame)}requestAnimationFrame(frame);
+})();
+</script>
+</div>

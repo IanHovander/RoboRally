@@ -1,0 +1,82 @@
+{
+  "move": {
+    "winner": {"idea":1,"artist":2,"reason":"The feet commit before the body does. The stretched connection makes the delayed catch-up readable without words."},
+    "runner": {"idea":2,"artist":1,"reason":"The floor becomes a flipbook. A strong folding trick that makes the route itself part of the performance."}
+  },
+  "turn": {
+    "winner": {"idea":2,"artist":2,"reason":"The light spring briefly unscrews the robot from its base. A compact surprise with a clear final facing."},
+    "runner": {"idea":0,"artist":0,"reason":"Head and body disagree for one beat. The late chassis response gives a routine turn personality."}
+  },
+  "push": {
+    "winner": {"idea":0,"artist":0,"reason":"An involuntary cart handle makes the victim participate in its own shove. Contact stays easy to follow."},
+    "runner": {"idea":2,"artist":2,"reason":"The bodies peel apart through a stretched light connection, making a simple push feel oddly intimate."}
+  },
+  "chain": {
+    "winner": {"idea":2,"artist":0,"reason":"One ridiculous many-legged procession carries the chain. The shared movement reads immediately."},
+    "runner": {"idea":0,"artist":1,"reason":"Nested cart shapes turn several robots into one awkward object, then separate them at the resolved spaces."}
+  },
+  "blocked": {
+    "winner": {"idea":3,"artist":2,"reason":"A tiny finger refuses entry with excessive politeness. The wall supplies the reaction instead of a generic impact burst."},
+    "runner": {"idea":4,"artist":0,"reason":"All that forward effort escapes upward through the antenna. A clean silhouette joke that can survive frequent use."}
+  },
+  "edge": {
+    "winner": {"idea":1,"artist":2,"reason":"The robot leaves as descending scan slices. It feels native to Lumen while making removal unmistakable."},
+    "runner": {"idea":3,"artist":0,"reason":"Gravity waits for paperwork, then acts abruptly. The clipboard's late departure supplies a second punchline."}
+  },
+  "pit": {
+    "winner": {"idea":3,"artist":2,"reason":"The tape measures the problem instead of solving it. The hopeful extension and useless retraction create a clear setup and payoff."},
+    "runner": {"idea":4,"artist":1,"reason":"An impossibly neat parcel slips through the hole. The last tiny packing remnant makes the disappearance feel deliberate."}
+  },
+  "reboot": {
+    "winner": {"idea":4,"artist":2,"reason":"Small luminous parts converge on the missing robot. Reconstruction feels at home on the glass stage."},
+    "runner": {"idea":0,"artist":1,"reason":"Flat-pack assembly makes returning to play a miniature construction gag, with the robot rebuilt on its marked space."}
+  },
+  "fire": {
+    "winner": {"idea":2,"artist":2,"reason":"Borrowing light from above gives the beam a surprising origin, then the shot resolves along one clean firing lane."},
+    "runner": {"idea":3,"artist":0,"reason":"A visible spool treats laser light like thread. The snip gives the shot a crisp physical ending."}
+  },
+  "hit": {
+    "winner": {"idea":2,"artist":2,"reason":"The body receives the hit before its expression catches up. Delayed recognition is funnier than a larger explosion."},
+    "runner": {"idea":0,"artist":1,"reason":"The x-ray shelf reveal rewards a close look while the stationary silhouette keeps the hit readable."}
+  },
+  "belt": {
+    "winner": {"idea":4,"artist":0,"reason":"The floor does the walking while the passenger stays dignified. The machinery owns the motion, as it should."},
+    "runner": {"idea":1,"artist":1,"reason":"The robot folds into luggage for the ride. The handle gives the temporary transformation a recognizable silhouette."}
+  },
+  "panel": {
+    "winner": {"idea":3,"artist":2,"reason":"An impossibly thin wall unfolds into a large concertina shove. Its expansion and collapse make the cause clear."},
+    "runner": {"idea":0,"artist":0,"reason":"The overfull drawer gives the panel a physical reason to shove, then comically reclaims its loose parcels."}
+  },
+  "gear": {
+    "winner": {"idea":3,"artist":2,"reason":"The winding mechanism acts first and the body catches up. Spring tension adds anticipation to a precise quarter-turn."},
+    "runner": {"idea":0,"artist":0,"reason":"The stubborn jar-lid release gives the turn a satisfying little pop while preserving the same board space."}
+  },
+  "energy": {
+    "winner": {"idea":1,"artist":0,"reason":"A charging cable becomes spaghetti. The final plug tap makes collecting energy feel like a small character moment."},
+    "runner": {"idea":4,"artist":2,"reason":"Nested cells resolve into one tiny spark. The shrinking scale is unexpected and keeps the pickup count clear."}
+  },
+  "checkpoint": {
+    "winner": {"idea":2,"artist":2,"reason":"The threatening stamp lands on the shadow instead of the robot. A neat reversal that leaves the earned number visible."},
+    "runner": {"idea":3,"artist":1,"reason":"A printed strip folds into a crown and packs into a badge. The celebration leaves a compact progress mark."}
+  },
+  "damage": {
+    "winner": {"idea":2,"artist":1,"reason":"The Haywire card becomes a puppeteer. Its tangled control is visible before the strings resolve into an instruction."},
+    "runner": {"idea":4,"artist":0,"reason":"Arguing printer rollers turn card replacement into a mechanical struggle, then deliver one clear result."}
+  },
+  "shield": {
+    "winner": {"idea":4,"artist":2,"reason":"A lint roller removes laser light like a nuisance. The beam is collected locally, keeping the defense distinct from a reflected attack."},
+    "runner": {"idea":2,"artist":0,"reason":"The packing bubble absorbs the impact with an inward collapse. A small, quick joke suitable for repeated shields."}
+  },
+  "upgrade": {
+    "winner": {"idea":2,"artist":2,"reason":"Curtains hide the exchange and reopen on the swapped player colors. The theatrical reveal makes the new positions easy to spot."},
+    "runner": {"idea":3,"artist":0,"reason":"A retracting tape measure gives the tractor pull a visible connection and a precise endpoint."}
+  },
+  "shutdown": {
+    "winner": {"idea":0,"artist":2,"reason":"The luminous robot dims beneath a fitted cover. The final antenna adjustment adds tenderness to a clear inactive pose."},
+    "runner": {"idea":4,"artist":0,"reason":"The appendages stop on separate beats. The last reluctant fan creates a quiet ending without moving the robot."}
+  },
+  "win": {
+    "winner": {"idea":3,"artist":0,"reason":"The surroundings bow first; the robot answers late. The whole store acknowledges the winner without another burst of confetti."},
+    "runner": {"idea":0,"artist":2,"reason":"A formal portrait frame struggles to accommodate the winner. The small framing adjustment makes the ceremony personal."}
+  }
+}
