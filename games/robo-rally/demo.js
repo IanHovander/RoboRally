@@ -613,6 +613,15 @@ export async function filmCount() {
   return Math.min(FILMS.length, (await lessonsMod)?.LESSONS?.length ?? 0);
 }
 
+/**
+ * Paint time t (ms) of a clip's frames on a canvas, for a caller that keeps its own clock (the phone's practice,
+ * practice.js): state = { canvas, comp: { c, frames, total, meId }, color, form }, kept between calls (it holds
+ * the drawn board: set state.board = null when the course changes). Past the end it holds the last frame.
+ */
+export function paintComp(state, t) {
+  if (state.comp) draw(state, Math.max(0, Math.min(t, state.comp.total - 1)));
+}
+
 // ---------- the scheduler: every looping canvas on the page ----------
 
 const MAX_LIVE = 16;

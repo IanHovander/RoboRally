@@ -1,0 +1,39 @@
+/* The test drive (practice.js): the programming screen on a tiny course. Prefix pr-. It reuses the phone's own
+   slots, cards, map box and lock (style.css: pl-regs, pl-slot, pl-map, pl-hand, pl-card, pl-actions, pl-lock). */
+
+.pl-practice { position: absolute; inset: 0; } /* (its place on the phone's game screen) */
+.pr { position: absolute; inset: 0; color: var(--light); font-family: var(--font); user-select: none; -webkit-user-select: none; }
+.pr button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.pr-prog { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(7rem, 1fr) auto auto; gap: .7rem; padding: .2rem .8rem .9rem; }
+.pr-map { transition: border-color .3s, box-shadow .3s; }
+.pr-map canvas { width: 100%; height: 100%; touch-action: manipulation; }
+.pr-map.swap canvas { animation: pr-swap .35s ease; }
+@keyframes pr-swap { from { opacity: 0; transform: scale(.96); } }
+/* the run ended on the flag: the map lights in my color; it didn't: a shake */
+.pr-map.won { border-color: var(--me); box-shadow: 0 0 1.8rem color-mix(in srgb, var(--me) 55%, transparent); }
+.pr-map.miss { animation: pr-miss .45s ease; }
+@keyframes pr-miss { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
+
+/* one pip a drill: done ones lit in my color, this one outlined */
+.pr-pips { position: absolute; right: .7rem; top: .65rem; display: flex; gap: .4rem; pointer-events: none; }
+.pr-pips i { width: .6rem; height: .6rem; border-radius: 50%; border: 1.5px solid var(--faint); transition: all .4s; }
+.pr-pips i.now { border-color: var(--light); }
+.pr-pips i.on { background: var(--me); border-color: var(--me); box-shadow: 0 0 .6rem var(--me); }
+
+/* nudges: a card that leaves the known route wiggles (take it back); the lock pulses when it's time */
+.pr .pl-slot.pr-hint { animation: pr-wiggle .9s ease-in-out infinite; }
+.pr .pl-slot.pr-hint .lm-card { box-shadow: 0 0 0 2px var(--coral), 0 0 1rem color-mix(in srgb, var(--coral) 60%, transparent); }
+@keyframes pr-wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+.pr .pl-lock.pr-hint { animation: pr-pulse 1.2s ease-in-out infinite; }
+@keyframes pr-pulse { 50% { transform: scale(1.04); box-shadow: 0 0 2.8rem color-mix(in srgb, var(--me) 80%, transparent); } }
+.pr .pl-card:disabled { cursor: default; }
+
+/* all three done */
+.pr-done { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(11, 14, 19, .72); color: var(--me); animation: gd-fade .3s ease; }
+.pr-done .lm-g { width: 5rem; height: 5rem; filter: drop-shadow(0 0 1.2rem var(--me)); animation: lm-pop .6s cubic-bezier(.2, 1.4, .3, 1); }
+.pr.done .pl-hand, .pr.done .pl-regs, .pr.done .pl-actions { opacity: .2; pointer-events: none; transition: opacity .5s; }
+
+/* short phones: tighter, so the map keeps its room */
+@media (max-height: 640px) {
+  .pr-prog { gap: .45rem; padding-bottom: .5rem; }
+}

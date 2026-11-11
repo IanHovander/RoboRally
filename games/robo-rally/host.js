@@ -4,7 +4,8 @@
 // It also teaches, without words: numerals of light show the order robots act in, the "1" badge marks
 // the Priority, junk cards fly from a hit robot to its player's token, names stay up in round 1, and
 // shut-down robots look shut down. When a newcomer is racing, the narrator (voice.js) gives the Briefing
-// (briefing.js) before round 1 and calls out first-time moments in the race (teach.js).
+// (briefing.js) before round 1 and calls out first-time moments in the race (teach.js). After the Briefing's
+// film, newcomers drive the test drive on their phones (practice.js): the roster shows how far each has got.
 import { html, raw, loadCss } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { drawCourse, ringBoard } from './minimap.js';
@@ -17,7 +18,8 @@ import { startBriefing } from './briefing.js';
 import { LEADER } from './lobby.js';
 
 const TIMERS = [0, 60, 120, 180];
-const PHASE_MS = { start: 40_000, upgrade: 60_000 };
+const PHASE_MS = { upgrade: 60_000, brief: 90_000 }; // (brief: its practice stage)
+const DROP_MS = [450, 280]; // the draw: the first robot comes down onto its pad after this long, then each next one
 const RACE_FRAME = { top: 0.2, bottom: 0.4, left: 0.04, right: 0.04, headroom: 2.95 };
 // the skip glyph (the phones' guide adds it to glyphs.js; drawn here too in case it isn't there)
 const SKIP = () => (GLYPHS.skip ? svgGlyph('skip') : '<svg class="lm-g" viewBox="0 0 40 40" aria-hidden="true"><path d="M9.5 12 L18.5 20 L9.5 28 Z" fill="currentColor"/><path d="M19 12 L28 20 L19 28 Z" fill="currentColor"/><path d="M31 12 V28" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>');
@@ -150,6 +152,8 @@ export default function (root, api) {
   });
 
   // ----- the Briefing (phase 'brief'): it borrows the arena, then hands it back -----
+  /** The Briefing's second stage: newcomers' phones have the test drive, and the room waits for them. */
+  const practising = (v) => v?.phase === 'brief' && v.brief?.stage === 'practice';
   let briefing = null;
   let briefOver = false; // this Briefing has ended here (played out or skipped): don't start it again
   let prioHold = false; // the Briefing is moving the "1" badge itself
@@ -160,6 +164,7 @@ export default function (root, api) {
       return;
     }
     if (briefing || briefOver || !arena) return;
+    if (practising(v)) return; // (the film is over: the phones have the test drive)
     host.classList.add('briefing');
     briefing = startBriefing({
       arena,
@@ -399,13 +404,34 @@ export default function (root, api) {
     api.send('setOpt', { key, value });
   });
 
-  /** Robots as the scene should show them; before the race, picked robots stand on their start spaces. */
+  // ----- the draw (phase 'start'): nobody picks a pad; the robots come down onto theirs one at a time, in seat order -----
+  let dropped = 0; // how many have come down
+  let dropTimer = 0;
+  const landed = (v, r) => v.robots.indexOf(r) < dropped;
+  function startDrop() {
+    clearTimeout(dropTimer);
+    dropped = 0;
+    const next = () => {
+      const v = view;
+      if (v?.phase !== 'start') return;
+      dropTimer = setTimeout(next, DROP_MS[1]); // (it keeps going: a phone may still join during the draw)
+      const r = v.robots[dropped];
+      if (!r) return;
+      dropped++;
+      sfx.join(r.seat);
+      apply(v);
+      render(v);
+    };
+    dropTimer = setTimeout(next, DROP_MS[0]);
+  }
+
+  /** Robots as the scene should show them; in the draw, the ones that have come down stand on their start spaces. */
   function sceneRobots(v) {
     const c = getCourse(v.opts.course);
     return v.robots
       .map((r) => {
         if (r.x != null) return r;
-        if (v.phase !== 'start' || r.pick == null) return null;
+        if (v.phase !== 'start' || r.pick == null || !landed(v, r)) return null;
         const st = c.starts.find((s) => s.n === r.pick);
         return st ? { ...r, x: st.x, y: st.y, d: st.d, on: true } : null;
       })
@@ -448,11 +474,13 @@ export default function (root, api) {
     // a rule that changes how the race plays, shown the whole race: SPAM left in your hand is discarded each round
     $('.lm-rules').hidden = !(v.opts?.lessSpam && v.phase !== 'setup');
     if (briefing) {
-      // the Briefing has the arena; when the phase moves on, it hands it back (and that redraws all this)
-      if (v.phase === 'brief') {
+      // the Briefing has the arena; when the phase moves on (or the phones skipped its film), it hands it back
+      // (and that redraws all this)
+      if (v.phase === 'brief' && !practising(v)) {
         lastBeat = v.beat.n;
         return;
       }
+      if (v.phase === 'brief') briefOver = true;
       return stopBriefing();
     }
     if (v.phase !== 'brief') briefOver = false;
@@ -466,7 +494,7 @@ export default function (root, api) {
       arena.setCourse(v.opts.course);
       arena.setPerimeter(v.opts.lessDeadly ? getCourse(v.opts.course) : null);
       arena.setFrame(frameFor(v.phase));
-      arena.camMode = v.phase === 'setup' ? 'orbit' : ['start', 'upgrade', 'program'].includes(v.phase) ? 'drift' : 'race';
+      arena.camMode = v.phase === 'setup' ? 'orbit' : ['start', 'brief', 'upgrade', 'program'].includes(v.phase) ? 'drift' : 'race';
       if (!first && prev && prev.phase !== v.phase && (v.phase === 'program' || v.phase === 'activate')) arena.pulse();
       if (v.phase === 'activate' && v.reg !== lastReg) {
         lastReg = v.reg;
@@ -491,15 +519,16 @@ export default function (root, api) {
         }
       }
       arena.syncRobots(robots);
+      // the draw: a pad lights in its robot's color as the robot comes down onto it
       const picks = {};
-      for (const r of v.robots) if (r.pick != null) picks[r.pick] = r.color;
+      for (const r of v.robots) if (r.pick != null && landed(v, r)) picks[r.pick] = r.color;
       arena.showStarts(v.phase === 'start' ? picks : null);
-      arena.setReady(['program', 'upgrade'].includes(v.phase) ? new Set(v.robots.filter((r) => r.ready).map((r) => r.id)) : null);
+      arena.setReady(['program', 'upgrade'].includes(v.phase) ? new Set(v.robots.filter((r) => r.ready).map((r) => r.id)) : practising(v) ? new Set(v.robots.filter((r) => doneOf(v, r)).map((r) => r.id)) : null);
       arena.setDeciding(v.prompt?.id ?? null);
       arena.setTaken(v.robots);
       arena.setTargets(flagTargets(v));
       arena.showNames = v.phase !== 'setup';
-      arena.namesAlways = v.round === 1 && ['program', 'activate'].includes(v.phase); // round 1: whose robot is whose
+      arena.namesAlways = v.phase === 'start' || (v.round === 1 && ['brief', 'program', 'activate'].includes(v.phase)); // the draw and round 1: whose robot is whose
       arena.setShutdown(v.robots.filter((r) => r.sd && r.on !== false).map((r) => r.id));
       if (v.phase === 'over') {
         arena.focusOn = v.winner;
@@ -546,8 +575,15 @@ export default function (root, api) {
     for (const r of v.robots) {
       const before = p.robots.find((x) => x.id === r.id);
       if (!before) continue;
+      // the test drive: a drill done (a flag pops over that robot), or all of them (a check)
+      if (practising(v) && practising(p) && r.id in p.brief.practice) {
+        const done = !(r.id in v.brief.practice);
+        if (done || v.brief.practice[r.id] > p.brief.practice[r.id]) {
+          sfx.ready(r.seat);
+          if (r.x != null) arena?.popAt(r.x, r.y, done ? 'check' : 'flag', r.color, '', { height: 0.5 });
+        }
+      }
       if (v.phase === p.phase && ['program', 'upgrade'].includes(v.phase) && r.ready && !before.ready) sfx.ready(r.seat);
-      if (v.phase === 'start' && r.pick != null && before.pick == null) sfx.join(r.seat);
     }
     if (v.prompt && v.prompt.deadline !== p.prompt?.deadline) sfx.ask();
   }
@@ -563,8 +599,14 @@ export default function (root, api) {
   function tokenTop(v, r) {
     if (r.away) return html`<span class="lm-zz">${G('dots')}</span>`;
     switch (v.phase) {
+      case 'brief': {
+        // the test drive: a pip a drill, lit as each is done
+        const n = practising(v) ? v.brief.practice[r.id] : null;
+        return n == null ? '' : html`<span class="tc-drive">${Array.from({ length: v.brief.drills }, (_, i) => html`<i class="${i < n && 'on'}"></i>`)}</span>`;
+      }
       case 'start':
-        return r.pick != null ? html`<span class="lm-pad">${r.pick}</span>` : html`<span class="lm-think"><i></i><i></i><i></i></span>`;
+        // the draw: its pad's number, once it has come down onto it
+        return r.pick != null && landed(v, r) ? html`<span class="lm-pad">${r.pick}</span>` : '';
       case 'upgrade':
         return r.ready ? html`<span class="lm-ok">${G('check')}</span>` : html`<span class="lm-shop">${G('shop')}</span>`;
       case 'program': {
@@ -585,9 +627,9 @@ export default function (root, api) {
     return '';
   }
 
-  /** Has this robot's player done what the phase waits for (picked a start space, finished shopping, locked in)? null: not a waiting phase. */
+  /** Has this robot's player done what the phase waits for (driven the test drive, finished shopping, locked in)? null: not a waiting phase. */
   function doneOf(v, r) {
-    if (v.phase === 'start') return r.pick != null;
+    if (practising(v)) return !(r.id in v.brief.practice);
     if (v.phase === 'upgrade' || v.phase === 'program') return !!r.ready;
     return null;
   }
@@ -603,7 +645,7 @@ export default function (root, api) {
     const leader = api.players?.find((p) => p.isVip)?.id ?? null;
     // who the room is waiting on: they pulse; once only one or two are left (and someone is done), they rise
     // and the ones who are done step back, so the room sees whose phone it is
-    const waitPhase = !briefing && ['start', 'upgrade', 'program'].includes(v.phase);
+    const waitPhase = !briefing && (['upgrade', 'program'].includes(v.phase) || practising(v));
     const waiting = waitPhase ? v.robots.filter((r) => !doneOf(v, r) && !r.away) : [];
     const doneCount = waitPhase ? v.robots.filter((r) => doneOf(v, r)).length : 0;
     rosterEl.classList.toggle('waiting', waiting.length > 0);
@@ -651,7 +693,7 @@ export default function (root, api) {
           upgrades: 'Upgrade shop: spend energy on upgrades',
           lessDeadly: 'Map perimeter: a wall all round, no falling off the edge',
           lessSpam: 'SPAM in hand discards: each round, unplayed SPAM leaves your hand',
-          brief: 'Rules tutorial: before round 1, for everyone (off: only for newcomers)',
+          brief: 'Rules tutorial: the full narrated rules before round 1, for everyone (off: a short one and a test drive on the phones, when someone is new)',
         };
         const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${TIPS[key] ?? key}">${raw(svgGlyph(glyph))}</button>`;
         // the frame is made once (the map strip's pictures don't change); the titles, the strip's highlight and the
@@ -683,9 +725,10 @@ export default function (root, api) {
             <button class="lm-home" data-action="finish" title="Back to the lobby">${raw(svgGlyph('home'))}</button>
           </div>` : html`<div class="lm-over"><button class="lm-home" data-action="finish">${raw(svgGlyph('home'))}</button></div>`);
       }
+      case 'brief':
       case 'program':
-        // round one: a reminder of what the phones are for (cards dropping into five slots)
-        return set(centerEl, v.round === 1 ? html`<div class="lm-hint"><span class="lm-hint-slots"><i></i><i></i><i></i><i></i><i></i></span><span class="lm-hint-card">${raw(cardSvgHtml('m1', 'xs'))}</span></div>` : '');
+        // round one (and the test drive before it): a reminder of what the phones are for (cards dropping into five slots)
+        return set(centerEl, (v.phase === 'program' ? v.round === 1 : practising(v) && !briefing) ? html`<div class="lm-hint"><span class="lm-hint-slots"><i></i><i></i><i></i><i></i><i></i></span><span class="lm-hint-card">${raw(cardSvgHtml('m1', 'xs'))}</span></div>` : '');
     }
     return set(centerEl, '');
   }
@@ -978,7 +1021,7 @@ export default function (root, api) {
     raf = requestAnimationFrame(timerLoop);
     slideTick();
     const v = view;
-    const timed = v && ['start', 'upgrade', 'program'].includes(v.phase) && v.deadline;
+    const timed = v && (['upgrade', 'program'].includes(v.phase) || practising(v)) && v.deadline;
     const left = timed ? v.deadline - api.now() : 0;
     const relaxed = v?.phase === 'program' && !v.opts.timer;
     const visible = timed && (!relaxed || left < 30_000) && left > 0;
@@ -1025,7 +1068,7 @@ export default function (root, api) {
     renderCenter(v);
     renderTally(v);
     if (!prioHold) placePrio(['setup', 'start', 'over'].includes(v.phase) ? null : v.prio);
-    hurryBtn.hidden = !['start', 'upgrade', 'program'].includes(v.phase);
+    hurryBtn.hidden = !['upgrade', 'program'].includes(v.phase);
   }
 
   /** Setup is over: the slide stops, and the boards built ahead are let go. */
@@ -1052,6 +1095,8 @@ export default function (root, api) {
       if (!next?.opts) return; // no view yet (the game is starting)
       prev = view;
       view = next;
+      if (next.phase === 'brief' && prev && prev.phase !== 'brief') callouts.again(); // someone is new: the race teaches from the start
+      if (next.phase === 'start' && prev?.phase !== 'start') startDrop();
       if (next.phase === 'setup') courseSlide(next);
       else if (slide.course) endSlide();
       apply(next);
@@ -1062,6 +1107,7 @@ export default function (root, api) {
     },
     destroy() {
       cancelAnimationFrame(raf);
+      clearTimeout(dropTimer);
       offSound();
       window.removeEventListener('pointerdown', gesture);
       window.removeEventListener('keydown', gesture);

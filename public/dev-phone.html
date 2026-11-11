@@ -15,6 +15,7 @@
 //   dev-phone.html?to=program&course=closing-time&prompt=weapon
 //   ?to=setup | start | brief | upgrade | program | activate (or race) | over
 //   ?to=brief&votes=2          the Briefing, with 2 of the other phones voting to skip it
+//   ?to=brief&stage=practice   the Briefing's practice stage: the test drive (a phone that hasn't raced or driven it)
 //   ?to=race&story=demo        a scripted round on Closing Time (3+ players); stops when I fall in slot 5
 //   ?to=race&story=demo&reg=4  ...or at the start of slot 4 (a Haywire waits under slot 2)
 //   ?to=program&story=demo     after that round: round 2's programming, with the story as "last round"
@@ -63,7 +64,8 @@ if (q.get('upgrades') === '0') rules.actions.setOpt(ctx, me, { key: 'upgrades', 
 rules.actions.setOpt(ctx, me, { key: 'timer', value: 120 });
 const env = { course: getCourse(course), connected: () => true, now: () => Date.now(), name: (id) => ctx.player(id)?.name };
 // the race runs on the rules' own beat timer, fired here by hand (so each phone's story is recorded)
-const beat = () => { const fn = timers.get('beat'); timers.delete('beat'); fn?.(ctx); return !!fn; };
+const fire = (name) => { const fn = timers.get(name); timers.delete(name); fn?.(ctx); return !!fn; };
+const beat = () => fire('beat');
 const race = (stop) => { for (let k = 0; k < 4000 && s().phase === 'activate' && !s().prompt && !stop() && beat(); k++); };
 
 /** Round 1 on Closing Time, scripted so that my story has a bit of everything:
@@ -100,10 +102,12 @@ function demoRound() {
 // Everyone has finished a race before, so there's no Briefing, except at ?to=brief (the others are new).
 if (to !== 'brief') players.forEach((p, i) => act(i, 'hello', { raced: true }));
 if (to !== 'setup') {
+  s().rng = 7; // (the same draw for start pads every time, so a screen looks the same twice)
   act(0, 'begin');
   if (to !== 'start') {
-    players.forEach((p, i) => act(i, 'pick', { n: i + 1 })); // round 1 has no shop: this is its programming (or the Briefing)
+    fire('deadline'); // the draw is over. Round 1 has no shop: this is its programming (or the Briefing)
     if (to === 'brief') for (let i = 1; i < n && i <= Number(q.get('votes') ?? 0); i++) act(i, 'skip', { on: true });
+    if (to === 'brief' && q.get('stage') === 'practice') rules.hostActions.briefDone(ctx); // the film is over
     if (q.get('upgrades') !== '0') {
       // everyone has energy to spend; I get a few upgrades to look at
       for (const id of s().order) s().robots[id].energy = 6;

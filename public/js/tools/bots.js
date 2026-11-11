@@ -75,7 +75,7 @@ function play(bot) {
   if (v.phase === 'vote' && !v.myVote && v.choices?.length) later('vote', { playerId: pick(v.choices).id });
 }
 
-/** Robo Rally: pick a start space, shop a little, program random cards, answer questions at random. */
+/** Robo Rally: shop a little, program random cards, answer questions at random. */
 function roboRally(bot, v) {
   const act = (type, payload) => bot.socket.emit('action', { type, payload });
   const once = (key, ms, fn) => {
@@ -90,10 +90,6 @@ function roboRally(bot, v) {
     act('hello', { raced: true });
   }
   if (v.prompt) return once(`ask:${v.prompt.deadline}`, 500, () => act('answer', { v: pick(v.prompt.options).v }));
-  if (v.phase === 'start' && v.myPick == null) {
-    const free = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => !v.robots.some((r) => r.pick === n));
-    return once(`start:${free.join()}`, 400, () => act('pick', { n: pick(free) }));
-  }
   if (!me) return;
   if (v.phase === 'upgrade' && !me.done) {
     return once(`shop:${v.round}`, 800, () => {

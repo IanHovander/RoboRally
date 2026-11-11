@@ -14,7 +14,9 @@
 <script type="module">
 // The big screen without a server or phones: the real rules run right here, so every phase can be looked at
 // (at any window size: a TV, or a phone held either way).
-//   dev-host.html?to=setup | start | brief | program | race | over      &n=4  &course=closing-time
+//   dev-host.html?to=setup | start | brief | practice | program | race | over      &n=4  &course=closing-time
+//   (start: the draw for start pads; dev.fire('deadline') ends it)
+//   (practice: the Briefing's second stage, the phones' test drive; dev.act(1, 'practice', { level: 2 }) moves a robot on)
 import rules from './games/robo-rally/rules.js';
 import mountHost from './games/robo-rally/host.js';
 import { wireActions } from './js/ui.js';
@@ -45,17 +47,20 @@ document.getElementById('stage').append(root);
 wireActions(document.getElementById('stage'), (t, p) => api.send(t, p));
 const screen = mountHost(root, api);
 function redraw() { screen.update(JSON.parse(JSON.stringify(rules.hostView(ctx)))); }
-window.dev = { ctx, act, redraw, rules };
+window.dev = { ctx, act, redraw, rules, fire: (name) => { const r = fire(name); redraw(); return r; } };
 
 const to = q.get('to') ?? 'setup';
 rules.actions.setOpt(ctx, players[0], { key: 'course', value: q.get('course') ?? 'closing-time' });
 rules.actions.setOpt(ctx, players[0], { key: 'timer', value: 120 });
-const beat = () => { const fn = timers.get('beat'); timers.delete('beat'); fn?.(ctx); return !!fn; };
-if (to !== 'brief') players.forEach((p, i) => act(i, 'hello', { raced: true }));
+const fire = (name) => { const fn = timers.get(name); timers.delete(name); fn?.(ctx); return !!fn; };
+const beat = () => fire('beat');
+if (to !== 'brief' && to !== 'practice') players.forEach((p, i) => act(i, 'hello', { raced: true }));
 if (to !== 'setup') {
+  s().rng = 7; // (the same draw for start pads every time, so a screen looks the same twice)
   act(0, 'begin');
   if (to !== 'start') {
-    players.forEach((p, i) => act(i, 'pick', { n: i + 1 }));
+    fire('deadline'); // the draw is over
+    if (to === 'practice') rules.hostActions.briefDone(ctx); // the film is over
     if (['race', 'over'].includes(to)) {
       for (let i = 0; i < n; i++) { const R = s().robots[players[i].id]; act(i, 'lock', { regs: R.hand.slice(0, 5).map((c) => [c]) }); }
       for (let k = 0; k < Number(q.get('beats') ?? 6) && s().phase === 'activate' && beat(); k++);

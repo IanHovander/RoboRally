@@ -126,7 +126,8 @@ export const COURSES = [
     length: 'Short',
     blurb: 'One open floor, two flags. Learn to drive before the lights go out.',
     pieces: [['garden', 0, 0], ['dock', 0, 10]],
-    checkpoints: [[8, 6], [3, 1]],
+    // flag 1 sits in front of the middle of the dock: no pad has a straight run at it, and round 1 is a scrum
+    checkpoints: [[5, 8], [3, 1]],
   },
   {
     id: 'blue-light-special',
@@ -355,6 +356,32 @@ export const boardOf = (c, x, y) => {
   const cell = cellAt(c, x, y);
   return cell ? cell.b : null;
 };
+
+/**
+ * The start pads, nearest the first flag first: [{ n, steps }], steps being the spaces a robot walks to get there
+ * (round walls and pits; Infinity if it can't). The race hands out the nearest ones (rules.js, drawPads), so
+ * nobody starts far behind the rest.
+ */
+export function padsByFlag(c) {
+  if (c.padsByFlag) return c.padsByFlag;
+  const steps = new Array(c.w * c.h).fill(Infinity);
+  const flag = c.checkpoints[0];
+  const queue = flag ? [[flag.x, flag.y]] : [];
+  if (flag) steps[flag.y * c.w + flag.x] = 0;
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    for (let d = 0; d < 4; d++) {
+      const nx = x + DX[d];
+      const ny = y + DY[d];
+      const cell = cellAt(c, nx, ny);
+      if (!cell || cell.k === 'pit' || wallBetween(c, x, y, d) || steps[ny * c.w + nx] !== Infinity) continue;
+      steps[ny * c.w + nx] = steps[y * c.w + x] + 1;
+      queue.push([nx, ny]);
+    }
+  }
+  c.padsByFlag = c.starts.map((st) => ({ n: st.n, steps: steps[st.y * c.w + st.x] })).sort((a, b) => a.steps - b.steps || a.n - b.n);
+  return c.padsByFlag;
+}
 
 /** Every wall edge once: [{x, y, side}] with side 0 (north) or 3 (west) of x,y, or the outer south/east edges. */
 export function wallEdges(c) {

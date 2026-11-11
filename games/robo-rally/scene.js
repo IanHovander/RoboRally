@@ -4013,9 +4013,8 @@ export class Arena {
   }
 
   /**
-   * The start phase: which start spaces are taken (picks: { n: color }), or null to hide. A free space's border
-   * flashes fast (its number stays crisp: it's the glass's own drawing); a taken one's border is steady, in
-   * its robot's color.
+   * The draw: which start spaces have their robot (picks: { n: color }), or null to hide. Each one's border lights
+   * in its robot's color (its number stays crisp: it's the glass's own drawing).
    */
   showStarts(picks) {
     if (!this.course) return;
@@ -4031,14 +4030,14 @@ export class Arena {
     if (!picks) return;
     for (const st of this.course.starts) {
       const taken = picks[st.n];
+      if (!taken) continue;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-        map: padBorderTexture(), color: taken ? hdr(taken, 1.7) : hdr(PALETTE.light, 1.5), transparent: true,
+        map: padBorderTexture(), color: hdr(taken, 1.7), transparent: true,
         blending: THREE.AdditiveBlending, depthWrite: false,
       }));
       m.rotation.x = -Math.PI / 2;
       m.position.copy(this.pos(st.x, st.y)).setY(0.012);
       m.renderOrder = 2;
-      if (!taken) m.userData.flash = st.n;
       this.board.add(m);
       this.startTags.push(m);
     }
@@ -4191,9 +4190,6 @@ export class Arena {
       }
       for (; i < PIT_SINKS; i++) u.uSinkCol.value[i].setScalar(0);
     }
-    // free start spaces: their borders blink, all together, about once a second (as on the phones)
-    const blink = (this.realTime / 1.1) % 1 < 0.5 ? 1 : 0.08;
-    for (const s of this.startTags ?? []) if (s.userData.flash != null) s.material.opacity = blink;
   }
 
   animateBot(b, t, dt) {

@@ -1,4 +1,4 @@
-/* The phone's Guide: "?", Point mode, entry sheets, the Book, replays, first-time cues. Prefix gd-.
+/* The phone's Guide: "?", Help, Point mode, entry sheets, How to play, the Book, replays, first-time cues. Prefix gd-.
    Lumen: light on dark glass, thin type. Colors come from the shell (--light --dim --faint --hair --me…). */
 
 .gd { position: fixed; inset: 0; z-index: 45; pointer-events: none; color: var(--light); font-family: var(--font); user-select: none; -webkit-user-select: none; }
@@ -28,6 +28,9 @@
   display: flex; align-items: center; justify-content: space-between; pointer-events: auto;
   background: linear-gradient(to top, rgba(6, 8, 11, .96) 55%, rgba(6, 8, 11, 0));
 }
+/* what pointing is for, in two words */
+.gd-tray-say { display: inline-flex; align-items: center; gap: .6rem; padding-left: .4rem; font-size: .8rem; font-weight: 300; letter-spacing: .22em; text-transform: uppercase; color: var(--light); pointer-events: none; }
+.gd-tray-say .lm-g { width: 1.6rem; height: 1.6rem; color: var(--me); animation: lm-breathe 1.6s ease-in-out infinite; }
 
 /* round and pill buttons, shared */
 .gd-round, .gd-x, .gd-pill {
@@ -73,7 +76,8 @@
 .gd-clip figcaption { position: absolute; left: .55rem; top: .4rem; font-size: .78rem; font-weight: 300; letter-spacing: .04em; color: var(--dim); pointer-events: none; text-shadow: 0 0 .4rem #000; }
 .gd-does { margin: .8rem .1rem 0; font-size: 1.05rem; line-height: 1.4; font-weight: 400; letter-spacing: .01em; }
 .gd-does + .gd-fine { margin-top: .4rem; }
-.gd-fine { margin: .8rem .1rem 0; font-size: .85rem; line-height: 1.45; font-weight: 300; color: var(--faint); }
+.gd-fine { margin: .8rem .1rem 0; font-size: .98rem; line-height: 1.45; font-weight: 300; color: var(--light); }
+.gd-does + .gd-fine { font-size: .88rem; color: var(--dim); } /* (a Haywire: what it does is said big, above) */
 .gd-row { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; }
 .gd-row { position: relative; justify-content: center; } /* the book (or the replay's arrows) in the middle */
 .gd-row .gd-x { position: absolute; right: 0; } /* close at the bottom right */
@@ -140,30 +144,76 @@
 .gd-pic.kind b { font-weight: 300; }
 .gd-pic.kind .t { color: var(--coral); }
 
-/* ----- the Book ----- */
+/* ----- Help: what this screen wants from you now, and the ways on ----- */
+.gd-sheet.gd-help { z-index: auto; } /* (the Book, the films and the test drive open over it; an entry sheet over them all) */
+.gd-home { display: grid; gap: .8rem; }
+.gd-home .gd-row { margin-top: 0; min-height: 3.4rem; }
+.gd-now { appearance: none; display: grid; gap: .65rem; padding: 0; border: 0; background: none; color: var(--light); text-align: left; cursor: pointer; }
+.gd-now canvas, .gd-now .gd-tile-pic { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 27vh; border-radius: .9rem; background: #0b0e13; border: 1px solid var(--hair); }
+.gd-now .gd-tile-pic { display: grid; }
+.gd-say { padding: 0 .1rem; font-size: 1.02rem; line-height: 1.42; font-weight: 300; letter-spacing: .01em; }
+.gd-menu { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.gd-act {
+  appearance: none; display: flex; align-items: center; gap: .65rem; min-height: 3.5rem; padding: 0 .9rem; border-radius: 1rem;
+  border: 1px solid var(--hair2); background: rgba(24, 30, 39, .8); color: var(--light); font-size: .95rem; font-weight: 300; letter-spacing: .03em; text-align: left; cursor: pointer;
+}
+.gd-act .lm-g { flex: none; width: 1.5rem; height: 1.5rem; color: var(--me); }
+.gd-act:active { background: rgba(244, 239, 228, .14); }
+.gd-menu > .gd-act:last-child:nth-child(odd) { grid-column: 1 / -1; } /* (three of them, in the lobby: the last takes the row) */
+/* what's on this screen (and my last round, slot by slot): small clips in a row that scrolls sideways */
+.gd-strip { display: flex; align-items: flex-start; gap: .55rem; margin: 0 -1rem; padding: 0 1rem; overflow-x: auto; scrollbar-width: none; }
+.gd-strip::-webkit-scrollbar { display: none; }
+.gd-strip-ic { flex: none; display: grid; place-items: center; width: 1.5rem; aspect-ratio: 1 / 2.2; color: var(--faint); }
+.gd-strip-ic .lm-g { width: 1.3rem; height: 1.3rem; }
+.gd-strip .gd-tile { flex: 0 0 34%; }
+.gd-strip.last .gd-tile { flex-basis: 24%; }
+.gd-strip.last .gd-strip-ic { aspect-ratio: 1 / 1.6; }
+
+/* ----- "How to play": one clip at a time (swipe), its sentence under it ----- */
+.gd-reel { flex: 1; min-height: 0; display: flex; overflow-x: auto; overscroll-behavior: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.gd-reel::-webkit-scrollbar { display: none; }
+.gd-film { flex: 0 0 100%; scroll-snap-align: center; display: grid; align-content: center; gap: 1rem; margin: 0; padding: .4rem 1rem 0; }
+.gd-film canvas { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 52vh; border-radius: 1rem; background: #0b0e13; border: 1px solid var(--hair); }
+.gd-film figcaption { display: flex; align-items: flex-start; gap: .75rem; min-height: 4.6rem; font-size: 1.08rem; line-height: 1.42; font-weight: 300; letter-spacing: .01em; }
+.gd-film figcaption b { flex: none; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; border: 1px solid var(--light); font-weight: 300; font-size: 1rem; }
+.gd-dots { flex: none; display: flex; justify-content: center; padding: .4rem 0 max(1rem, env(safe-area-inset-bottom)); }
+.gd-dots button { appearance: none; display: grid; place-items: center; width: 2.2rem; height: 2.2rem; padding: 0; border: 0; background: none; cursor: pointer; }
+.gd-dots i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--faint); transition: all .3s; }
+.gd-dots button.on i { background: var(--light); transform: scale(1.35); }
+
+/* ----- the test drive, over everything (practice.js fills the box) ----- */
+.gd-drive-box { position: relative; flex: 1; min-height: 0; }
+
+/* ----- the Book: an index of the subjects, then one subject's page ----- */
 .gd-book { position: fixed; inset: 0; display: flex; flex-direction: column; background: #07090d; animation: gd-fade .2s ease; padding-top: env(safe-area-inset-top); }
-.gd-book-top { position: relative; flex: none; display: flex; align-items: center; height: 3rem; padding: 0 1rem; }
+.gd-book-top { position: relative; flex: none; display: flex; align-items: center; gap: .3rem; height: 3rem; padding: 0 1rem; }
 .gd-book-ic { color: var(--dim); display: grid; place-items: center; }
 .gd-book-ic .lm-g { width: 1.6rem; height: 1.6rem; }
 .gd-book-x { position: absolute; top: .125rem; appearance: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: 50%; background: var(--light); color: var(--ink); cursor: pointer; }
 .gd-book-x .lm-g { width: 1.4rem; height: 1.4rem; }
-.gd-chips { flex: none; display: flex; gap: .4rem; height: 2.5rem; padding: 0 1rem .3rem; overflow-x: auto; scrollbar-width: none; align-items: center; }
-.gd-chips::-webkit-scrollbar { display: none; }
-.gd-chips button {
-  appearance: none; flex: none; display: inline-flex; align-items: center; gap: .3rem; height: 2.1rem; padding: 0 .75rem 0 .5rem; border-radius: 1.05rem;
-  border: 1px solid var(--hair); background: none; color: var(--faint); font-size: .78rem; letter-spacing: .06em; cursor: pointer; transition: all .25s;
+.gd-book-back { appearance: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin-left: -.75rem; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--dim); cursor: pointer; }
+.gd-book-back .lm-g { width: 1.5rem; height: 1.5rem; }
+.gd-book-title { display: flex; align-items: center; gap: .45rem; font-weight: 300; font-size: .85rem; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+.gd-book[data-view="index"] .gd-book-back, .gd-book[data-view="index"] .gd-book-body, .gd-book[data-view="sec"] .gd-index, .gd-book[data-view="sec"] > .gd-book-top > .gd-book-ic { display: none; }
+.gd-index { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(3, 1fr); align-content: start; gap: .6rem; padding: .5rem 16px max(2rem, env(safe-area-inset-bottom)); }
+.gd-idx {
+  appearance: none; display: grid; justify-items: center; align-content: center; gap: .55rem; aspect-ratio: 1 / .92; padding: .3rem; border-radius: 1rem;
+  border: 1px solid var(--hair2); background: rgba(24, 30, 39, .6); color: var(--light); font-size: .8rem; font-weight: 300; letter-spacing: .06em; cursor: pointer;
 }
-.gd-chips button.on { color: var(--ink); background: var(--light); border-color: var(--light); }
-.gd-book-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .2rem 16px max(2rem, env(safe-area-inset-bottom)); }
-.gd-sec { padding-top: .6rem; }
-.gd-sec h3 { display: flex; align-items: center; gap: .45rem; margin: .6rem 0 .55rem; font-weight: 300; font-size: .85rem; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+.gd-idx:active { background: rgba(244, 239, 228, .14); }
+.gd-idx .gd-ic { width: 2.1rem; height: 2.1rem; }
+.gd-idx .gd-ic .lm-g { width: 2rem; height: 2rem; }
+.gd-idx .gd-ic .lm-card.ic { width: 1.5rem; height: 1.95rem; border-radius: .28rem; }
+.gd-idx .gd-ic .lm-bot { width: 2rem; height: 2rem; }
+.gd-idx .gd-ic .gd-diamond { width: .95rem; height: .95rem; }
+.gd-idx .gd-ic.badge { width: 1.7rem; height: 1.7rem; font-size: 1rem; }
+.gd-book-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .5rem 16px max(2rem, env(safe-area-inset-bottom)); }
 .gd-ic { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; color: inherit; }
 .gd-ic .lm-g { width: 1.2rem; height: 1.2rem; }
 .gd-ic .lm-card.ic { width: .95rem; height: 1.25rem; border-radius: .18rem; }
 .gd-ic .lm-bot { width: 1.25rem; height: 1.25rem; }
 .gd-ic .gd-diamond { width: .6rem; height: .6rem; }
 .gd-ic.badge { width: 1.15rem; height: 1.15rem; font-size: .7rem; }
-.gd-chips .gd-ic.badge { box-shadow: none; }
 .gd-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .gd-tile {
   appearance: none; position: relative; display: grid; gap: .35rem; padding: 0 0 .1rem; border: 0; background: none; color: var(--dim);
@@ -175,7 +225,7 @@
 .gd-cap { display: flex; align-items: center; min-height: 1.1rem; padding: 0 .2rem; font-size: .78rem; font-weight: 300; letter-spacing: .03em; line-height: 1.15; }
 .gd-cap { gap: .4rem; }
 .gd-cap .lm-card.ic { flex: none; width: .9rem; height: 1.15rem; border-radius: .2rem; box-shadow: none; }
-.gd-tiles [data-sec] .gd-cap .lm-card.ic, .gd-sec[data-sec="haywire"] .gd-cap .lm-card.ic { width: 1.6rem; }
+.gd-book-body[data-sec="haywire"] .gd-cap .lm-card.ic { width: 1.6rem; }
 .gd-cap .lm-card.ic .lm-hw .lm-g { width: .5rem; height: .5rem; }
 .gd-cap .lm-card.ic .lm-hw b { font-size: .45rem; }
 .gd-tile.pulse canvas, .gd-tile.pulse .gd-tile-pic { animation: gd-tile 0.8s ease-out 2; }

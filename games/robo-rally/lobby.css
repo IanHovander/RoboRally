@@ -92,9 +92,6 @@
   transition: color .4s, background .4s, box-shadow .4s;
 }
 .lf-ask.glow { color: var(--ink); background: var(--light); box-shadow: 0 0 1.4rem rgba(244, 239, 228, .7); }
-.lf-phone.asking .lf-slots, .lf-phone.asking .lf-hand .lf-card:not(.ask), .lf-phone.asking .lf-bottom { opacity: .35; transition: opacity .5s; }
-.lf-card.ask .lm-card { box-shadow: 0 0 0 2px var(--c), 0 0 1.4rem var(--c); animation: lf-breathe 1.2s ease-in-out infinite; }
-@keyframes lf-breathe { 50% { box-shadow: 0 0 0 1px var(--c), 0 0 .6rem var(--c); } }
 
 /* the phone's timer: a hairline across the top that shrinks to nothing */
 .lf-clock { position: absolute; top: 2.1rem; left: 1rem; right: 1rem; height: 2px; opacity: 0; transition: opacity .3s; }

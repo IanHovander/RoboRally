@@ -1,9 +1,13 @@
-// The Briefing: a ~70-second narrated show on the big screen between picking start pads and round 1,
-// played only when a newcomer is racing (the rules put the game in phase 'brief'). Floor Control, the
-// store's after-hours computer, says one short line per shot over the right animation: the real course
-// with the players' robots, and tiny lesson boards (lessons.js) run by the real rules for the mechanics.
-// It covers what a wordless film can't: no health (damage is junk cards), Haywire jams a slot, the board
-// moves after every slot, turns are the robot's own, a flag counts only if you stop on it, and so on.
+// The Briefing's film: a narrated show on the big screen between the draw for start pads and round 1, played
+// when a newcomer is racing (the rules put the game in phase 'brief'). Floor Control, the store's
+// after-hours computer, says one short line per shot over the right animation: the real course with the
+// players' robots, and tiny lesson boards (lessons.js) run by the real rules.
+// It is short (about half a minute): whose robot is whose, the flags in order, five cards in five slots,
+// and that turns are the robot's own. Then newcomers learn the rest by doing: their phones get the test
+// drive (practice.js; the rules' practice stage), and the race's first-time callouts (teach.js) say each
+// other rule the first time it happens. With the leader's "Rules tutorial" option on, the film is the
+// full rules tutorial (about 70 seconds), for everyone: also no health (damage is junk cards), Haywire
+// jams a slot, the board moves after every slot, a flag counts only if you stop on it, and so on.
 // A majority of phones, Esc / Space / Enter, or the ⏭ button skip it; → jumps to the next shot.
 // It borrows the host's arena (one WebGL context) and hands it back as it found it.
 // Script and storyboard: docs/teaching/design.md, section 3.2.
@@ -147,6 +151,8 @@ export function startBriefing(ctx) {
   const v = v0;
   const shots = [];
   const shot = (name, run, when = true) => when && shots.push({ name, run });
+  const full = !!v.opts.brief; // the leader's "Rules tutorial": every shot (otherwise only the ones a first race needs)
+  const toDrive = Object.keys(v.brief?.practice ?? {}).length > 0; // someone's phone gets the test drive after this
 
   // A shot's line starts as its board fades in: `ready` is the board, `after(ready, fn)` its animation.
   const after = async (ready, fn) => {
@@ -241,7 +247,7 @@ export function startBriefing(ctx) {
         }),
       ),
     ]);
-  });
+  }, full);
 
   const slot2 = stepIndex(R.program, (st) => st.kind === 'beat' && st.reg === 1 && st.beat.what?.k === 'reveal');
 
@@ -281,7 +287,7 @@ export function startBriefing(ctx) {
     const ready = lessonBoard(BRIEF.order, run, 1);
     await Promise.all([say('Everyone plays slot one, the robot marked one first. Then the floor moves. Then slot two.', { id: 'brief-7' }), after(ready, () => play(run, { from: 1, regs: ctx.regs }))]);
     ctx.regs(null);
-  });
+  }, full);
 
   shot('priority', async () => {
     const ready = toReal();
@@ -301,7 +307,7 @@ export function startBriefing(ctx) {
         }
       }),
     ]);
-  });
+  }, full);
 
   const reg2 = stepIndex(R.damage, (st) => st.kind === 'beat' && st.round === 1 && st.reg === 1 && st.beat.what?.k === 'reveal');
   const hit3 = stepIndex(R.damage, (st) => st.kind === 'beat' && st.round === 1 && st.reg === 2 && st.beat.fx.some((f) => f.k === 'dmg'));
@@ -319,7 +325,7 @@ export function startBriefing(ctx) {
         await sleep(600); // the SPAM lands on the phone
       }),
     ]);
-  });
+  }, full);
 
   shot('haywire', async () => {
     const run = R.damage;
@@ -341,7 +347,7 @@ export function startBriefing(ctx) {
       }),
     ]);
     ctx.regs(null);
-  });
+  }, full);
 
   const fall = stepIndex(R.push, (st) => st.kind === 'beat' && st.beat.fx.some((f) => f.k === 'fall'));
   const round2 = stepIndex(R.push, (st) => st.kind === 'beat' && st.round === 2);
@@ -351,7 +357,7 @@ export function startBriefing(ctx) {
     const run = R.push;
     const ready = lessonBoard(BRIEF.push, run, 1);
     await Promise.all([say('Robots shove. Into pits. Off the edge.', { id: 'brief-11' }), after(ready, () => play(run, { from: 1, to: fall + 1 }))]);
-  });
+  }, full);
 
   shot('reboot', async () => {
     const run = R.push;
@@ -370,14 +376,14 @@ export function startBriefing(ctx) {
         await sleep(600);
       }),
     ]);
-  });
+  }, full);
 
   shot('timer', async () => {
     const ready = toReal({ phone: true });
     mimic.reset();
     phone(true);
     await Promise.all([say('At zero, empty slots fill at random.', { id: 'brief-13' }), after(ready, () => mimic.timeout(sleep))]);
-  }, (v.opts.timer ?? 0) > 0);
+  }, full && (v.opts.timer ?? 0) > 0);
 
   shot('energy', async () => {
     phone(false);
@@ -398,7 +404,23 @@ export function startBriefing(ctx) {
         await sleep(1200);
       }),
     ]);
-  }, !!v.opts.upgrades);
+  }, full && !!v.opts.upgrades);
+
+  // the hand-over to the phones: the fingertip fills five slots, as theirs are about to
+  shot('your turn', async () => {
+    phone(false);
+    const ready = toReal({ phone: true });
+    mimic.reset();
+    await Promise.all([
+      say('Your turn. Drive your robot to the flag.', { id: 'brief-drive' }),
+      after(ready, () => mimic.program(R.program.steps[0].cards[0], { slow: true, fast: true, pause: sleep, color: cast(0).color })),
+    ]);
+    phone(false);
+    arena.setFrame(realFrame(false));
+    arena.brighten();
+    line.collapse();
+    await sleep(600);
+  }, toDrive);
 
   shot('questions', async () => {
     const ready = toReal({ phone: true });
@@ -410,7 +432,7 @@ export function startBriefing(ctx) {
     arena.brighten();
     line.collapse();
     await sleep(800);
-  });
+  }, !toDrive);
 
   // ----- running them -----
   let index = 0;

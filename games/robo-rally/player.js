@@ -1,8 +1,10 @@
 // A phone in Lumen. Only what is private, as little as possible:
-//   setup (the first player): choose the course · start: tap a glowing pad · upgrades: a small shop ·
+//   setup (the first player): choose the course · start: the pad the draw gave you · upgrades: a small shop ·
 //   program: tap (or drag) five cards into five slots while a little light table draws where they'll take you ·
 //   the race: your five slots, and under each one what happened to you (tap one to see it again) ·
 //   decisions: a sheet. The "?" at the top right answers questions about anything on the screen (guide.js).
+// A phone that has never raced gets the test drive (practice.js) while it waits for the leader to choose a map,
+// and in the Briefing's practice stage: the programming screen on three tiny courses.
 import { html, raw } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
@@ -10,6 +12,7 @@ import { drawCourse, previewProgram, filledRun, rebootFor, ringBoard } from './m
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
 import { mountDemo, hasDemo } from './demo.js';
 import { mountGuide } from './guide.js';
+import { mountPractice } from './practice.js';
 import { topicAtCell, cardTopic } from './topics.js';
 import { marksFor, markHtml, mountFallen, ranCards } from './replay.js';
 
@@ -85,7 +88,8 @@ export default function (root, api) {
   // this phone tells the rules whether it has finished a race before (newcomers get the Briefing). Each game
   // keeps its own list, so it's said again at every phase change (saying it twice is harmless).
   // It also brings the settings of the last race it was in: if this phone leads, they're the defaults.
-  const hello = () => api.send('hello', { raced: store.get('rr.raced') === '1', prefs: lastOpts() });
+  // ...and whether it has driven the test drive (the Briefing's practice stage waits for newcomers who haven't).
+  const hello = () => api.send('hello', { raced: store.get('rr.raced') === '1', practiced: store.get('rr.practiced') === '1', prefs: lastOpts() });
   hello();
   function lastOpts() {
     try {
@@ -1299,7 +1303,7 @@ export default function (root, api) {
   }
 
   function renderTop(m) {
-    const timed = ['start', 'upgrade', 'program'].includes(view.phase) && view.deadline && (view.phase !== 'program' || view.opts.timer);
+    const timed = ['upgrade', 'program'].includes(view.phase) && view.deadline && (view.phase !== 'program' || view.opts.timer);
     set(top, html`
       ${api.you && html`<span class="pl-me-wrap" data-ask="me">${raw(robotSvg(api.you, { cls: 'pl-me' }))}</span>`}
       ${m && flagsHtml(m)}
@@ -1314,10 +1318,11 @@ export default function (root, api) {
   function taskText(m) {
     const waitOthers = 'Waiting for the others';
     if (!view.inRace && view.phase !== 'setup') return 'Next race soon';
+    if (wantsDrive()) return 'Drive to the flag';
     switch (view.phase) {
       case 'setup': return api.you?.isVip ? 'Select a map' : 'The leader is choosing';
-      case 'start': return view.robots.find((r) => r.id === api.you?.id)?.pick != null ? waitOthers : 'Pick a start spot';
-      case 'brief': return 'Watch the big screen';
+      case 'start': return 'You start here';
+      case 'brief': return view.brief?.stage === 'practice' ? waitOthers : 'Watch the big screen';
       case 'upgrade': return m?.done ? waitOthers : 'Upgrades';
       case 'program':
         if (!m) return '';
@@ -1341,6 +1346,7 @@ export default function (root, api) {
 
   function renderBody(m) {
     if (!view.inRace && view.phase !== 'setup') return layout('watch', () => html`<div class="pl-watch"><span data-ask="watch">${g('eye')}</span></div>`);
+    if (wantsDrive()) return renderPractice();
     switch (view.phase) {
       case 'setup': return renderSetup();
       case 'start': return renderStart();
@@ -1359,6 +1365,8 @@ export default function (root, api) {
   function layout(key, build) {
     if (layoutKey === key) return false;
     layoutKey = key;
+    drive?.destroy(); // (the test drive was on screen: it stops)
+    drive = null;
     shown.clear();
     shown.set(top, null);
     body.innerHTML = String(build());
@@ -1407,7 +1415,7 @@ export default function (root, api) {
     return thumbs.get(tk);
   }
 
-  // ----- start: tap a glowing pad on the dock (the whole course above, so you know where you're going) -----
+  // ----- start: the draw has handed out the pads; mine is lit on the dock (the whole course above, so you know where you're going) -----
   function renderStart() {
     layout('start', () => html`<div class="pl-start">
       <div class="pl-overview" data-ask="course"><canvas></canvas></div>
@@ -1441,15 +1449,13 @@ export default function (root, api) {
       drawCourse(ctx, c, { tile, ox, oy, noStarts: true, ...mapLook() });
     }
     maps.set(cv, { tile, ox, oy, robots: [], ghosts: [] });
-    // each start space is a button: free ones glow, taken ones show their robot
+    // each start space shows its robot: mine lit, the others dimmed (an empty one keeps its number)
     const taken = new Map(view.robots.filter((r) => r.pick != null).map((r) => [r.pick, r]));
-    set(body.querySelector('.pl-pads'), html`${c.starts.map((st, idx) => {
+    set(body.querySelector('.pl-pads'), html`${c.starts.map((st) => {
       const r = taken.get(st.n);
       const isMe = r && r.id === api.you?.id;
-      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;--i:${idx};${r ? `--c:${r.color}` : ''}`;
-      return html`<button class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'} ${mine != null && !r && 'quiet'}" style="${style}" ${r && !isMe ? 'disabled' : ''} data-action="pick" data-ask="pad" data-payload="${JSON.stringify({ n: st.n })}" aria-label="Start ${st.n}">
-        ${r ? bot(r) : html`<span>${st.n}</span>`}
-      </button>`;
+      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;${r ? `--c:${r.color}` : ''}`;
+      return html`<span class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'}" style="${style}" data-ask="pad">${r ? bot(r) : html`<span>${st.n}</span>`}</span>`;
     })}`);
   }
 
@@ -1505,6 +1511,43 @@ export default function (root, api) {
       ctx.textBaseline = 'middle';
       ctx.fillText(String(cp.n), x, y + r * 0.06);
     }
+  }
+
+  // ----- the test drive (practice.js): the programming screen on three tiny courses, for a phone that has never
+  // raced. While the leader chooses a map (nothing else to do then), and in the Briefing's practice stage, which
+  // waits for it. Done or skipped, this phone has driven it: it isn't offered again (it stays under "?") -----
+  let drive = null; // the practice on screen
+  let driveLevel = 0; // drills done here
+  let driveOver = false; // it has just ended on this phone
+  const knowsHow = () => store.get('rr.raced') === '1' || store.get('rr.practiced') === '1';
+  function wantsDrive() {
+    if (!view || driveOver) return false;
+    if (view.phase === 'setup') return !api.you?.isVip && (!!drive || !knowsHow()); // (once begun it stays to its end)
+    return view.phase === 'brief' && !!view.brief?.practice;
+  }
+  function renderPractice() {
+    if (!layout('practice', () => html`<div class="pl-practice"></div>`)) return;
+    const over = (wait) => {
+      store.set('rr.practiced', '1');
+      api.send('practice', { level: driveLevel, done: true });
+      // its ✓ shows for a moment; then this screen is what it would have been
+      setTimeout(() => {
+        driveOver = true;
+        render();
+      }, wait);
+    };
+    drive = mountPractice(body.querySelector('.pl-practice'), {
+      color: api.you?.color,
+      form: formOf(api.you),
+      level: Math.max(driveLevel, view.brief?.level ?? 0),
+      vibrate: (p) => api.vibrate(p),
+      onLevel(n) {
+        driveLevel = n;
+        api.send('practice', { level: n });
+      },
+      onDone: () => over(1300),
+      onSkip: () => over(0),
+    });
   }
 
   // ----- the Briefing: look up; skip if most of you want to -----

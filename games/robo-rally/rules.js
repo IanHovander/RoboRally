@@ -1,15 +1,18 @@
 // Robo Rally for Game Night. The rules themselves are in engine.js; this file connects them to the
 // framework: phones' actions, deadlines so nobody can stall the game, and what each screen may see.
 // It also keeps what the screens need to teach: who has never finished a race (the Briefing and the
-// big screen's callouts are for them), and each robot's story of the last round, for its phone.
-import { COURSES, getCourse } from './board.js';
+// big screen's callouts are for them), who has driven the test drive (drills.js: newcomers who haven't get it
+// after the Briefing's film), and each robot's story of the last round, for its phone.
+import { COURSES, getCourse, padsByFlag } from './board.js';
 import { cardType, UPGRADES } from './cards.js';
+import { DRILLS } from './drills.js';
 import * as E from './engine.js';
 
-const START_MS = 40_000; // picking start spaces
+const START_MS = 4000; // the draw: the big screen shows who starts where, then the race begins
 const UPGRADE_MS = 60_000;
 const RELAXED_MS = 300_000; // "no timer" still ends eventually, so one sleepy phone can't stop the race
 const BRIEF_MS = 150_000; // the Briefing ends by itself after this, whatever happens
+const PRACTICE_MS = 90_000; // ...and so does the test drive after its film
 const HOLD_MS = 4000; // the most the big screen can hold one beat of the race (for a callout)
 const STORY_STEPS = 40; // per register
 const STORY_BYTES = 2500; // per robot, as JSON
@@ -17,6 +20,8 @@ const TIMERS = [0, 60, 120, 180];
 
 /** Racers whose phone hasn't said it has finished a race before (a phone that never said hello counts). */
 const fresh = (s) => s.order.filter((id) => !s.raced.includes(id));
+/** Newcomers here now who haven't driven the test drive: the Briefing's practice stage waits for them. */
+const needPractice = (ctx) => fresh(ctx.state).filter((id) => ctx.player(id)?.connected && !ctx.state.practiced.includes(id));
 
 function env(ctx) {
   const s = ctx.state;
@@ -41,8 +46,8 @@ function drive(ctx) {
   const e = env(ctx);
   for (let i = 0; i < 6; i++) {
     const stamp = `${s.phase}:${s.round}`;
-    if (s.phase === 'start' && s.order.every((id) => s.picks[id] != null)) startRace(ctx);
-    else if (s.phase === 'brief' && briefTally(ctx).won) leaveBrief(s);
+    if (s.phase === 'brief' && briefTally(ctx).won) skipBrief(ctx);
+    else if (s.phase === 'brief' && s.brief.stage === 'practice' && !needPractice(ctx).length) leaveBrief(s);
     else if (s.phase === 'upgrade' && everyone(ctx, (R) => R.done)) E.startProgramming(s, e);
     else if (s.phase === 'program' && everyone(ctx, (R) => R.done)) activate(ctx);
     if (`${s.phase}:${s.round}` === stamp) break;
@@ -78,7 +83,21 @@ function onDeadline(ctx) {
 }
 
 /**
- * Start pads are picked: the race begins. Round 1 has no shop, and a newcomer gets the Briefing first
+ * The draw: nobody picks a start pad. The racers get the pads nearest the first flag (so nobody starts far behind
+ * the rest, and round 1 is crowded), handed out at random. A phone that joins during the draw gets the nearest
+ * pad that's left.
+ */
+function drawPads(s) {
+  const waiting = s.order.filter((id) => s.picks[id] == null);
+  const taken = Object.values(s.picks);
+  // (shuffled, then sorted: pads equally far from the flag come in a random order)
+  const free = E.shuffle(s, padsByFlag(getCourse(s.opts.course)).filter((p) => !taken.includes(p.n))).sort((a, b) => a.steps - b.steps);
+  const pads = E.shuffle(s, free.slice(0, waiting.length).map((p) => p.n));
+  waiting.forEach((id, i) => (s.picks[id] = pads[i]));
+}
+
+/**
+ * The draw is over: the race begins. Round 1 has no shop, and a newcomer gets the Briefing first
  * (as does everyone, when the leader switched it on for this game).
  */
 function startRace(ctx) {
@@ -88,7 +107,7 @@ function startRace(ctx) {
   E.startRace(s, e);
   if (s.phase === 'upgrade' && s.round === 1) E.startProgramming(s, e); // round 1: no shop (delete to bring it back)
   if (s.teach) {
-    s.brief = { next: s.phase, votes: [] };
+    s.brief = { next: s.phase, votes: [], stage: 'film' };
     s.phase = 'brief';
   }
 }
@@ -108,9 +127,31 @@ function leaveBrief(s) {
   s.brief = null;
 }
 
-function endBrief(ctx) {
-  if (ctx.state.phase !== 'brief') return;
-  leaveBrief(ctx.state);
+/**
+ * The Briefing has two stages: the film on the big screen, then the test drive on the phones of newcomers who
+ * haven't driven it (nobody: straight to the race). The votes start again for the second stage.
+ */
+function toPractice(ctx) {
+  const s = ctx.state;
+  s.brief.stage = 'practice';
+  s.brief.votes = [];
+  s.deadline = Date.now() + PRACTICE_MS;
+  ctx.timer('deadline', PRACTICE_MS, onDeadline);
+}
+
+/** A skip (a majority of phones, or the big screen): past the film to the test drive, or past the test drive. */
+function skipBrief(ctx) {
+  const s = ctx.state;
+  if (s.phase !== 'brief') return;
+  if (s.brief.stage === 'film' && needPractice(ctx).length) toPractice(ctx);
+  else leaveBrief(s);
+}
+
+/** The film played to its end on the big screen (said again during the test drive: nothing happens). */
+function filmOver(ctx) {
+  const s = ctx.state;
+  if (s.phase !== 'brief' || s.brief.stage !== 'film') return;
+  skipBrief(ctx);
   drive(ctx);
 }
 
@@ -356,6 +397,7 @@ function begin(ctx) {
   s.order = s.order.filter((id) => ctx.player(id)).slice(0, course.starts.length);
   s.phase = 'start';
   s.picks = {};
+  drawPads(s);
   drive(ctx);
 }
 
@@ -369,8 +411,10 @@ export default {
     ctx.state = {
       ...E.newGame({ order: ctx.players.map((p) => p.id), seed: Math.floor(Math.random() * 2 ** 31) }),
       raced: [], // players whose phone says it has finished a race before (hello)
-      teach: null, // a newcomer is racing: decided when the start pads are picked
-      brief: null, // the Briefing: { next phase, votes to skip it }
+      practiced: [], // players whose phone has driven the test drive, before or here (hello, practice)
+      practice: {}, // id -> how many of its drills that phone has done here (the big screen shows it)
+      teach: null, // a newcomer is racing: decided when the draw is over and the race begins
+      brief: null, // the Briefing: { next phase, votes to skip it, stage: 'film' | 'practice' }
       story: null, // what happened to each robot last round: { round, regs: { id: [5 lists of steps] } }
       auto: {}, // id -> the slots time filled at random last programming phase
       beatDue: 0, // when the current beat of the race ends
@@ -386,6 +430,7 @@ export default {
     const s = ctx.state;
     if ((s.phase !== 'setup' && s.phase !== 'start') || s.order.length >= 8) return false;
     if (!s.order.includes(player.id)) s.order.push(player.id);
+    if (s.phase === 'start') drawPads(s); // (it joined during the draw)
     autoOpts(ctx);
   },
 
@@ -407,6 +452,7 @@ export default {
       const s = ctx.state;
       s.raced = s.raced.filter((id) => id !== player.id);
       if (payload?.raced === true) s.raced.push(player.id);
+      if (payload?.practiced === true && !s.practiced.includes(player.id)) s.practiced.push(player.id);
       const p = payload?.prefs;
       if (p && typeof p === 'object') {
         const ok = {};
@@ -427,15 +473,6 @@ export default {
     begin(ctx, player) {
       if (player.isVip) begin(ctx);
     },
-    pick(ctx, player, payload) {
-      const s = ctx.state;
-      const n = Number(payload?.n);
-      if (s.phase !== 'start' || !s.order.includes(player.id)) return;
-      if (!getCourse(s.opts.course).starts.some((st) => st.n === n)) return;
-      if (Object.entries(s.picks).some(([id, m]) => m === n && id !== player.id)) return { error: 'Someone just took that one' };
-      s.picks[player.id] = n;
-      drive(ctx);
-    },
 
     // ----- the Briefing: a vote to skip it (or take the vote back) -----
     skip(ctx, player, payload) {
@@ -443,6 +480,15 @@ export default {
       if (s.phase !== 'brief' || !s.order.includes(player.id)) return;
       s.brief.votes = s.brief.votes.filter((id) => id !== player.id);
       if (payload?.on) s.brief.votes.push(player.id);
+      drive(ctx);
+    },
+
+    // ----- the test drive: how far this phone has got, and when it's through (done, or it chose to skip it) -----
+    practice(ctx, player, payload) {
+      const s = ctx.state;
+      const n = Math.floor(Number(payload?.level));
+      if (n >= 0 && n <= DRILLS.length) s.practice[player.id] = n;
+      if (payload?.done === true && !s.practiced.includes(player.id)) s.practiced.push(player.id);
       drive(ctx);
     },
 
@@ -527,15 +573,18 @@ export default {
     /** "Hurry up": the current deadline drops to 15 seconds. */
     hurry(ctx) {
       const s = ctx.state;
-      if (!['start', 'upgrade', 'program'].includes(s.phase)) return;
+      if (!['upgrade', 'program'].includes(s.phase)) return;
       const left = s.deadline - Date.now();
       if (s.deadline && left <= 15_000) return;
       s.deadline = Date.now() + 15_000;
       ctx.timer('deadline', 15_000, onDeadline);
     },
-    /** The Briefing played to the end, or someone at the big screen skipped it. */
-    briefDone: (ctx) => endBrief(ctx),
-    briefSkip: (ctx) => endBrief(ctx),
+    /** The Briefing's film played to the end, or someone at the big screen skipped (the film, then the test drive). */
+    briefDone: (ctx) => filmOver(ctx),
+    briefSkip(ctx) {
+      skipBrief(ctx);
+      drive(ctx);
+    },
     /** A callout is speaking: the current beat of the race lasts at least `ms` more (at most 4 s). */
     hold(ctx, payload) {
       const s = ctx.state;
@@ -561,7 +610,8 @@ export default {
       prio: s.order[s.prio] ?? null,
       cps: course.checkpoints.length,
       teach: s.teach ?? (fresh(s).length > 0 || !!s.opts.brief),
-      brief: tally ? { votes: tally.votes, need: tally.need } : null,
+      // (practice: drills done by each racer still driving the test drive; the stage waits for them)
+      brief: tally ? { votes: tally.votes, need: tally.need, stage: s.brief.stage, drills: DRILLS.length, practice: Object.fromEntries(needPractice(ctx).map((id) => [id, s.practice[id] ?? 0])) } : null,
       robots: s.order.map((id, seat) => publicRobot(ctx, id, seat, true)),
       beat: s.beat,
       prompt: s.prompt && { id: s.prompt.id, kind: s.prompt.kind, icon: s.prompt.icon ?? null, title: s.prompt.title, deadline: s.prompt.deadline },
@@ -586,7 +636,8 @@ export default {
       prio: s.order[s.prio] ?? null,
       cps: course.checkpoints.length,
       inRace: s.order.includes(player.id),
-      brief: tally ? { votes: tally.votes.length, need: tally.need, mine: tally.votes.includes(player.id) } : null,
+      // (practice: this phone drives the test drive now, from drill `level`)
+      brief: tally ? { votes: tally.votes.length, need: tally.need, mine: tally.votes.includes(player.id), stage: s.brief.stage, practice: s.brief.stage === 'practice' && needPractice(ctx).includes(player.id), level: s.practice[player.id] ?? 0 } : null,
       robots: s.order.map((id, seat) => publicRobot(ctx, id, seat, false)),
       me: R
         ? {
@@ -596,7 +647,6 @@ export default {
           auto: s.auto[player.id] ?? [],
         }
         : null,
-      myPick: s.picks[player.id] ?? null,
       prompt: p?.id === player.id ? { kind: p.kind, icon: p.icon ?? null, title: p.title, text: p.text, options: p.options, deadline: p.deadline, card: p.card, target: p.target, leader: p.leader, data: p.data } : null,
       waiting: p && p.id !== player.id ? { id: p.id, kind: p.kind, icon: p.icon ?? null, deadline: p.deadline } : null,
       beat: { n: s.beat.n, what: s.beat.what ?? null, reg: s.beat.reg },

@@ -1,5 +1,5 @@
-// What the phone's Guide knows: every "?" topic (a picture, 1-3 looping clips, one sentence of fine
-// print), the Book's sections, and what's on a square of the map. No DOM here, so tests can read it.
+// What the phone's Guide knows: every "?" topic (a picture, 1-3 looping clips, one sentence that says it),
+// the Book's subjects, and what's on a square of the map. No DOM here, so tests can read it.
 //   topic: { sec, pic, name?, clips: [[demoKey, caption]], fine, does? (what a Haywire does, step by step: said big),
 //            cap? (the Book tile's caption when there's no clip) }
 //   pic: { card: t } { g: glyph } { up: key } { cell: kind } { me: true } { robot: true } { slots: true }
@@ -23,12 +23,6 @@ export const SECTIONS = [
   { id: 'upgrades', icon: { up: true }, label: 'Upgrades' },
   { id: 'haywire', icon: { card: 'hw' }, label: 'Haywire' },
 ];
-/** The contextual sections that come first in the Book, when they apply. */
-export const EXTRA_SECTIONS = {
-  now: { id: 'now', icon: { g: 'eye' }, label: 'Now' },
-  last: { id: 'last', icon: { g: 'undo' }, label: 'Last round' },
-  film: { id: 'film', icon: { g: 'play' }, label: 'Film' },
-};
 
 const MOVE_FINE = (n) => `Move forward ${n}. You shove robots in the way; only walls stop you.`;
 const TURN_FINE = (side) => `A quarter turn to the robot's own ${side}, on the spot. Trust the line.`;
@@ -74,7 +68,7 @@ export const TOPICS = {
   'double-laser': { sec: 'board', long: true, pic: { cell: 'laser' }, clips: [['board-laser', 'First robot only']], cap: 'Double laser', fine: 'A double laser: two beams, so double damage. After every slot it fires along its line and hits the first robot in the way with 2 SPAM. Walls and robots block it.' },
   battery: { sec: 'board', pic: { cell: 'battery' }, clips: [['battery', 'Every slot']], fine: 'End a slot here: +1 energy. Stay, and get +1 again next slot.' },
   dock: { sec: 'board', pic: { cell: 'dock' }, clips: [['battery', 'Batteries too']], fine: 'Where everyone starts. Fall from here (inside its dashed edge): back on your start pad. Walls, edges and batteries work as anywhere.' },
-  pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Pick any free pad. You’ll face the board. Avoid sitting in a line behind others.' },
+  pad: { sec: 'board', pic: { cell: 'pad' }, clips: [['facing', 'Your front']], fine: 'Your start pad, drawn at random from the ones nearest flag 1. You face the board. Fall on the dock and you come back here.' },
   // ----- robots -----
   robot: { sec: 'robots', pic: { robot: true }, clips: [['push', 'Shove'], ['robot-laser', 'Laser']], fine: 'Other robots’ cards are secret. Robots shove and shoot each other; damage never knocks anyone out.' },
   rival: { sec: 'robots', pic: { robot: true }, clips: [], cap: 'Look closer', fine: 'Tap a robot on your map, or in your deck’s sheet, to see its flags, energy and installed upgrades. Its cards stay secret.' },
@@ -98,12 +92,12 @@ export const TOPICS = {
   arm: { sec: 'energy', pic: { g: 'play', arm: true }, clips: [['boink', 'Arm, then use']], fine: 'Tap the bar during the race to arm it; at your next turn your phone asks before your card.' },
   'your-upgrades': { sec: 'energy', pic: { up: true }, clips: [], cap: 'Yours', fine: '' }, // filled in from what you have installed
   // ----- options (the leader's toggles) -----
-  start: { sec: 'options', pic: { g: 'play' }, clips: [], cap: 'Start', fine: 'Starts the race. Nobody can join once start pads are being picked.' },
+  start: { sec: 'options', pic: { g: 'play' }, clips: [], cap: 'Start', fine: 'Starts the race: everyone is given a start pad, at random. Nobody can join once it has begun.' },
   course: { sec: 'options', pic: { course: true }, clips: [], cap: 'Course', fine: 'Dots: difficulty. Flag number: how many flags (more is longer).' },
   'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy; batteries and Power Up do nothing (the rulebook’s lighter game).' },
   'opt-safe': { sec: 'options', name: 'Map perimeter', pic: { g: 'wall' }, clips: [['safe-edges', 'Map perimeter']], fine: 'A wall all the way round the map: nobody drives or gets pushed off the edge. Pits still swallow.' },
   'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'Each round, when you lock in, any SPAM left in your hand is discarded instead of staying there.' },
-  'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: a rules tutorial before round 1, for everyone. Off: only when someone is new.' },
+  'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: the full narrated rules before round 1, for everyone. Off: a short one and a test drive, when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };
 

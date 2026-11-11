@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { io } from 'socket.io-client';
 import * as E from '../games/robo-rally/engine.js';
 import rules from '../games/robo-rally/rules.js';
-import { COURSES, PIECES, getCourse } from '../games/robo-rally/board.js';
+import { COURSES, PIECES, getCourse, padsByFlag } from '../games/robo-rally/board.js';
 import { cardType } from '../games/robo-rally/cards.js';
 import { previewProgram } from '../games/robo-rally/minimap.js';
 
@@ -404,7 +404,11 @@ function room(n, { raced = [], opts = {}, begin = true } = {}) {
   if (begin) t.act(0, 'begin');
   return t;
 }
-const pickAll = (t) => t.players.forEach((p, i) => t.act(i, 'pick', { n: i + 1 }));
+/** The draw is over (its timer fires) and the race begins. Robot i stands on pad i + 1, so a test knows where everyone is. */
+const endDraw = (t) => {
+  t.players.forEach((p, i) => (t.s.picks[p.id] = i + 1));
+  t.fire('deadline');
+};
 const everyone = (n) => Array.from({ length: n }, (_, i) => i);
 
 /** Move a card of type t into a robot's hand (from its hand, deck or discard; SPAM from the damage pile). */
@@ -435,8 +439,62 @@ function plain(v) {
 
 {
   const t = room(3, { raced: [0, 1, 2] });
-  pickAll(t);
+  endDraw(t);
   check(t.s.phase === 'program' && t.s.round === 1 && !t.hv().teach && t.hv().brief === null, 'no newcomer: no Briefing, programming starts');
+}
+{
+  // the draw: nobody picks a start pad. The racers get the pads nearest the first flag, handed out at random.
+  const c = getCourse('closing-time');
+  const flag = c.checkpoints[0];
+  check(same(padsByFlag(c).map((p) => `${p.n}:${p.steps}`), ['6:4', '5:5', '2:6', '4:6', '1:7', '3:7', '8:8', '7:9']), `the starter course: its pads, by the walk to flag 1 (got ${padsByFlag(c).map((p) => `${p.n}:${p.steps}`)})`);
+  check(c.starts.every((st) => st.x !== flag.x && st.y !== flag.y), 'the starter course: no pad has a straight run at flag 1');
+  for (const info of COURSES) {
+    const ps = padsByFlag(getCourse(info.id));
+    check(ps.length === getCourse(info.id).starts.length && ps.every((p, i) => Number.isFinite(p.steps) && (i === 0 || ps[i - 1].steps <= p.steps)), `${info.id}: every pad can walk to flag 1, nearest first`);
+  }
+  const t = room(4, { raced: everyone(4) });
+  const pads = t.hv().robots.map((r) => r.pick);
+  check(t.s.phase === 'start' && t.timers.get('deadline')?.ms === 4000 && !rules.actions.pick, 'the leader starts the race: the draw (4 s; no phone picks a pad)');
+  check(same([...pads].sort(), [2, 4, 5, 6]), `the draw: four robots on the starter course get the four pads nearest flag 1 (got ${pads})`);
+  check(same(t.pv(1).robots.map((r) => r.pick), pads), 'the draw: every phone sees where everyone starts');
+  t.host('hurry');
+  check(t.timers.get('deadline')?.ms === 4000, 'the draw: nothing to hurry');
+  t.fire('deadline');
+  const onPad = t.players.every((p, i) => {
+    const st = c.starts.find((x) => x.n === pads[i]);
+    const R = t.s.robots[p.id];
+    return R.x === st.x && R.y === st.y && R.start === pads[i];
+  });
+  check(t.s.phase === 'program' && onPad, 'the draw ends by itself: the race begins, each robot on its pad');
+}
+{
+  // ...at random: every robot can get every one of those pads, and a tie for the last pad goes either way
+  const seen = [new Set(), new Set(), new Set()];
+  let fair = true;
+  for (let seed = 1; seed <= 60; seed++) {
+    const t = room(3, { begin: false });
+    t.s.rng = seed;
+    t.act(0, 'begin');
+    const pads = t.hv().robots.map((r) => r.pick);
+    fair &&= new Set(pads).size === 3 && pads.includes(5) && pads.includes(6) && pads.includes(2) !== pads.includes(4);
+    pads.forEach((n, i) => seen[i].add(n));
+  }
+  check(fair, 'the draw: three robots get pads 5 and 6, and 2 or 4 (as near as each other)');
+  check(seen.every((set) => same([...set].sort(), [2, 4, 5, 6])), `the draw is random: over 60 draws each robot gets each of those pads (got ${seen.map((x) => [...x].sort().join('')).join(' ')})`);
+}
+{
+  // a phone that joins during the draw gets the nearest pad that's left; once the race has begun, nobody joins
+  const t = room(2, { raced: [0, 1] });
+  const before = { ...t.s.picks };
+  const late = { id: 'q8', name: 'Late', color: '#336699', connected: true, isVip: false };
+  t.players.push(late);
+  const joined = rules.onJoin(t.ctx, late);
+  check(joined !== false && t.s.picks.q0 === before.q0 && t.s.picks.q1 === before.q1 && [2, 4].includes(t.s.picks.q8), `joining during the draw: the nearest pad left, and nobody else moves (got ${JSON.stringify(t.s.picks)})`);
+  t.fire('deadline');
+  check(t.s.robots.q8 && t.s.robots.q8.start === t.s.picks.q8, '...and it races');
+  const later = { id: 'q9', name: 'Later', color: '#336699', connected: true, isVip: false };
+  t.players.push(later);
+  check(rules.onJoin(t.ctx, later) === false && !t.s.order.includes('q9'), 'the race has begun: a new phone waits for the next one');
 }
 {
   // setting up: upgrades start off while anyone is new; otherwise the leader's last-game settings
@@ -496,17 +554,17 @@ function plain(v) {
 {
   // upgrades off: no Power Up in anyone's deck (it would do nothing without energy)
   const off = room(2, { raced: [0, 1], opts: { upgrades: false } });
-  pickAll(off);
+  endDraw(off);
   const all = (R) => [...R.deck, ...R.discard, ...R.hand].map(cardType);
   check(Object.values(off.s.robots).every((R) => !all(R).includes('pu') && all(R).length === 19), 'upgrades off: no Power Up, 19 cards');
   const on = room(2, { raced: [0, 1], opts: { upgrades: true } });
-  pickAll(on);
+  endDraw(on);
   check(Object.values(on.s.robots).every((R) => all(R).includes('pu')), 'upgrades on: Power Up is in the deck');
 }
 {
   // a phone sees what's in its own piles (counts, not order), and everyone's installed upgrades
   const t = room(2, { raced: [0, 1] });
-  pickAll(t);
+  endDraw(t);
   const me = t.pv(0).me;
   const inDeck = Object.values(me.deckCards).reduce((a, b) => a + b, 0);
   check(inDeck === me.deck && me.discardCards && Array.isArray(t.pv(0).robots[1].ups), "a phone's view: what's in its deck and discard, and every robot's installed upgrades");
@@ -515,7 +573,7 @@ function plain(v) {
   const t = room(3, { raced: [0, 1, 2] });
   t.s.opts.brief = true; // the leader's Briefing toggle (setOpt, in setup)
   check(t.hv().teach === true, 'the Briefing toggle: the big screen teaches even with no newcomer');
-  pickAll(t);
+  endDraw(t);
   check(t.s.phase === 'brief' && t.s.round === 1, `the Briefing toggle: veterans get the Briefing too (got ${t.s.phase})`);
 }
 {
@@ -524,26 +582,38 @@ function plain(v) {
   t.act(2, 'hello', { raced: true });
   check(t.hv().teach === false, '...until it says it has raced');
   t.act(2, 'hello', { raced: false });
-  pickAll(t);
+  endDraw(t);
   const hv = t.hv();
-  check(t.s.phase === 'brief' && t.s.round === 1 && hv.teach && same(hv.brief, { votes: [], need: 2 }), `a newcomer is racing: the Briefing runs after the start pads (got ${t.s.phase})`);
-  check(same(t.pv(0).brief, { votes: 0, need: 2, mine: false }), "the phone's Briefing view: votes, votes needed, mine");
+  check(t.s.phase === 'brief' && t.s.round === 1 && hv.teach && same(hv.brief, { votes: [], need: 2, stage: 'film', drills: 3, practice: { q2: 0 } }), `a newcomer is racing: the Briefing runs after the draw, its film first (got ${t.s.phase})`);
+  check(same(t.pv(0).brief, { votes: 0, need: 2, mine: false, stage: 'film', practice: false, level: 0 }), "the phone's Briefing view: votes, votes needed, mine, the stage, whether it drives the test drive now");
   t.act(2, 'hello', { raced: true });
-  check(t.hv().teach === true, 'who is new is decided when the start pads are picked');
+  check(t.hv().teach === true, 'who is new is decided when the draw is over and the race begins');
   check(t.timers.get('deadline')?.ms === 150_000, 'the Briefing has a 150 s deadline');
   check(t.act(0, 'lock', { regs: t.s.robots.q0.hand.slice(0, 5).map((c) => [c]) })?.error && t.act(0, 'buy')?.error, 'nobody can program or shop during the Briefing');
 }
 for (const [n, k] of [[1, 1], [2, 2], [3, 2], [5, 3]]) {
   const t = room(n);
-  pickAll(t);
+  endDraw(t);
   for (let i = 0; i < k - 1; i++) t.act(i, 'skip', { on: true });
-  const still = t.s.phase === 'brief' && t.hv().brief.votes.length === k - 1 && t.hv().brief.need === k;
+  const still = t.s.phase === 'brief' && t.hv().brief.stage === 'film' && t.hv().brief.votes.length === k - 1 && t.hv().brief.need === k;
   t.act(k - 1, 'skip', { on: true });
-  check(still && t.s.phase === 'program', `${k} of ${n} votes skip the Briefing (and ${k - 1} don't)`);
+  // everyone here is new and hasn't driven the test drive: the film is skipped, the test drive comes, the votes start again
+  const drive = t.s.phase === 'brief' && t.hv().brief.stage === 'practice' && t.hv().brief.votes.length === 0 && t.timers.get('deadline')?.ms === 90_000;
+  check(still && drive, `${k} of ${n} votes skip the Briefing's film (and ${k - 1} don't): the test drive is next`);
+  for (let i = 0; i < k; i++) t.act(i, 'skip', { on: true });
+  check(t.s.phase === 'program', `${k} of ${n} votes skip the test drive too`);
+}
+{
+  const t = room(3, { raced: [0, 1, 2] });
+  t.s.opts.brief = true;
+  endDraw(t);
+  t.act(0, 'skip', { on: true });
+  t.act(1, 'skip', { on: true });
+  check(t.s.phase === 'program', 'nobody new: a majority skips the Briefing straight to programming');
 }
 {
   const t = room(3);
-  pickAll(t);
+  endDraw(t);
   t.act(0, 'skip', { on: true });
   const voted = t.pv(0).brief.mine && t.pv(1).brief.votes === 1 && same(t.hv().brief.votes, ['q0']);
   t.act(0, 'skip', { on: false });
@@ -553,32 +623,72 @@ for (const [n, k] of [[1, 1], [2, 2], [3, 2], [5, 3]]) {
   rules.onDisconnect(t.ctx, t.players[2]);
   check(t.s.phase === 'brief' && t.hv().brief.need === 2, 'a dropped phone lowers the votes needed (2 of 2 left)');
   t.act(0, 'skip', { on: true });
-  check(t.s.phase === 'program', '...and the remaining phones can still skip it');
+  check(t.s.phase === 'brief' && t.hv().brief.stage === 'practice', "...and the remaining phones can still skip the film");
 }
 for (const how of ['briefDone', 'briefSkip', 'deadline']) {
   const t = room(2);
-  pickAll(t);
+  endDraw(t);
   if (how === 'deadline') t.fire('deadline');
-  else t.host(how);
+  else {
+    t.host(how);
+    // the film is over: both phones are new, so they get the test drive, and the race waits for them
+    const hv = t.hv();
+    check(t.s.phase === 'brief' && hv.brief.stage === 'practice' && same(hv.brief.practice, { q0: 0, q1: 0 }) && t.pv(0).brief.practice === true, `${how}: the film is over, and the newcomers' phones get the test drive`);
+    t.host('briefDone'); // (the big screen says it again, after a reload: nothing happens)
+    t.act(0, 'practice', { level: 2 });
+    check(t.s.phase === 'brief' && t.hv().brief.practice.q0 === 2 && t.pv(0).brief.level === 2, `${how}: the drills a phone has done show on the big screen`);
+    t.act(0, 'practice', { level: 3, done: true });
+    check(t.s.phase === 'brief' && same(t.hv().brief.practice, { q1: 0 }) && t.pv(0).brief.practice === false && t.pv(1).brief.practice === true, `${how}: one phone is through, the other still drives`);
+    if (how === 'briefSkip') t.host('briefSkip');
+    else t.act(1, 'practice', { level: 0, done: true }); // (it skipped its test drive)
+  }
   check(t.s.phase === 'program' && t.s.brief === null && t.timers.get('deadline')?.ms === 120_000, `${how} ends the Briefing and starts the programming timer`);
 }
 {
+  const t = room(2, { raced: [0] });
+  t.act(1, 'hello', { raced: false, practiced: true });
+  endDraw(t);
+  check(t.s.phase === 'brief' && same(t.hv().brief.practice, {}), 'a newcomer who has driven the test drive before: the Briefing, and nobody to wait for after it');
+  t.host('briefDone');
+  check(t.s.phase === 'program', '...so the film ends the Briefing');
+}
+{
+  const t = room(3, { raced: [0], begin: false });
+  t.act(1, 'practice', { level: 3, done: true }); // while the leader chose the map
+  t.act(0, 'begin');
+  endDraw(t);
+  t.host('briefDone');
+  check(t.s.phase === 'brief' && same(t.hv().brief.practice, { q2: 0 }), 'a test drive driven while setting up counts: only the other newcomer drives after the film');
+  t.players[2].connected = false;
+  rules.onDisconnect(t.ctx, t.players[2]);
+  check(t.s.phase === 'program', 'the last phone still driving drops out: the race starts');
+}
+{
+  const t = room(2);
+  endDraw(t);
+  t.host('briefDone');
+  t.act(0, 'practice', { level: 99 });
+  check(t.hv().brief.practice.q0 === 0, 'a drill count out of range is ignored');
+  t.fire('deadline');
+  check(t.s.phase === 'program', 'the test drive ends by itself after 90 s');
+}
+{
   const t = room(2, { raced: [0, 1] });
-  pickAll(t);
+  endDraw(t);
   const v = t.pv(0);
   check(t.s.phase === 'program' && v.me.up.hand.length === 3 && v.me.en === 3 && v.me.hand.length === 9, 'round 1 has no shop: straight to programming, with 3 upgrades and 3 Energy kept');
   t.fire('deadline');
   t.race();
   check(t.s.phase === 'upgrade' && t.s.round === 2, `round 2 opens the shop (got ${t.s.phase} round ${t.s.round})`);
   const u = room(1, { raced: [0], opts: { upgrades: false } });
-  pickAll(u);
+  endDraw(u);
   u.fire('deadline');
   u.race();
   check(u.s.phase === 'program' && u.s.round === 2, 'without upgrades every round is programming');
 }
 {
   const t = room(2, { raced: [0, 1] });
-  pickAll(t);
+  endDraw(t);
   t.host('hold', { ms: 3000 });
   check(!t.timers.has('beat'), 'hold does nothing outside the race');
   t.fire('deadline');
@@ -597,7 +707,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
 {
   // Act Fast: which slots the timer filled at random
   const t = room(2, { raced: [0, 1] });
-  pickAll(t);
+  endDraw(t);
   const R = t.s.robots.q0;
   const hw = t.s.damage.find((c) => /^h/.test(cardType(c)));
   t.s.damage.splice(t.s.damage.indexOf(hw), 1);
@@ -612,7 +722,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
 {
   // A scripted round on the lab board: a push into a pit, a SPAM swap, a belt ride, robot lasers
   const t = room(4, { raced: everyone(4), opts: { course: 'lab', upgrades: false } });
-  pickAll(t);
+  endDraw(t);
   const s = t.s;
   s.prio = 0;
   s.damage.sort((a, b) => (cardType(a) === 'sp' ? 0 : 1) - (cardType(b) === 'sp' ? 0 : 1));
@@ -652,7 +762,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
 {
   // board lasers, a gear and a wall: one robot on the lab board
   const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
-  pickAll(t);
+  endDraw(t);
   const s = t.s;
   s.damage.sort((a, b) => (cardType(a) === 'sp' ? 0 : 1) - (cardType(b) === 'sp' ? 0 : 1));
   Object.assign(s.robots.q0, { x: 5, y: 1, d: 2 }); // in the wall laser's beam
@@ -664,7 +774,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
 }
 {
   const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
-  pickAll(t);
+  endDraw(t);
   const s = t.s;
   Object.assign(s.robots.q0, { x: 6, y: 7, d: 0 });
   plan(s, 'q0', ['m1', null, null, null, null]); // onto the green gear
@@ -675,7 +785,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
 }
 {
   const t = room(1, { raced: [0], opts: { course: 'lab', upgrades: false } });
-  pickAll(t);
+  endDraw(t);
   const s = t.s;
   Object.assign(s.robots.q0, { x: 8, y: 2, d: 0 });
   plan(s, 'q0', ['m3', null, null, null, null]);
@@ -688,7 +798,7 @@ for (const how of ['briefDone', 'briefSkip', 'deadline']) {
   // The busiest case: 8 robots, upgrades, the longest course, 10 rounds. Every phone's view stays small.
   const t = room(8, { raced: everyone(8), opts: { course: 'everything-must-go', upgrades: true } });
   t.s.rng = 20261025;
-  pickAll(t);
+  endDraw(t);
   let views = 0;
   let stories = 0;
   let clean = true;
@@ -785,19 +895,19 @@ try {
   await act(players[0], 'setOpt', { key: 'upgrades', value: true });
   check(await until(() => host.self.view.opts.course === 'blue-light-special' && host.self.view.opts.upgrades === true), 'the leader picks the course, and turns upgrades on');
   await act(players[0], 'begin');
-  check(await until(() => players[0].self?.view?.phase === 'start'), 'then everyone picks a start space');
-  await act(players[0], 'pick', { n: 1 });
-  const taken = await act(players[1], 'pick', { n: 1 });
-  check(taken?.error, 'two robots cannot pick the same start space');
-  await act(players[1], 'pick', { n: 2 });
-  await act(players[2], 'pick', { n: 3 });
-  // these phones never said hello, so they count as newcomers: the Briefing comes first
-  check(await until(() => players[0].self.view.phase === 'brief' && host.self.view.phase === 'brief'), 'newcomers racing: the Briefing starts after the start pads');
+  check(await until(() => players[0].self?.view?.phase === 'start' && host.self?.view?.phase === 'start'), 'then the draw for start pads');
+  const drawn = host.self.view.robots.map((r) => r.pick);
+  check(drawn.every((n) => n != null) && new Set(drawn).size === 3, `the draw gives each robot a pad of its own (got ${drawn})`);
+  // (no phone does anything: the draw ends by itself.) These phones never said hello, so they count as newcomers:
+  // the Briefing comes first
+  check(await until(() => players[0].self.view.phase === 'brief' && host.self.view.phase === 'brief'), 'newcomers racing: the Briefing starts after the draw');
   check(host.self.view.teach === true && host.self.view.brief?.need === 2, 'the big screen knows to teach, and that 2 of 3 votes skip the Briefing');
   await act(players[0], 'skip', { on: true });
   check(await until(() => host.self.view.brief?.votes.length === 1 && players[0].self.view.brief?.mine), 'a phone votes to skip');
   await act(players[1], 'skip', { on: true });
-  check(await until(() => players[0].self.view.phase === 'program' && players[0].self.view.round === 1), 'a majority skips it, and round 1 goes straight to programming (no shop)');
+  check(await until(() => host.self.view.brief?.stage === 'practice' && players[2].self.view.brief?.practice === true), "a majority skips the film: the newcomers' phones get the test drive");
+  for (const p of players) await act(p, 'practice', { level: 3, done: true });
+  check(await until(() => players[0].self.view.phase === 'program' && players[0].self.view.round === 1), 'everyone through the test drive: round 1 goes straight to programming (no shop)');
   const v0 = players[0].self.view;
   check(v0.me.up.hand.length === 3 && v0.me.en === 3, 'each robot gets 3 upgrades and 3 Energy');
   const me = players[0].self.view.me;

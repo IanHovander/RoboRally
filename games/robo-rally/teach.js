@@ -2,7 +2,8 @@
 //   - the voice line: Floor Control's only visual, a line of light at the top that ripples as it speaks,
 //     with subtitles under it only when the voice can't be heard (voice.js decides);
 //   - the first-time callouts: when a newcomer is racing (view.teach), the first laser hit, the first
-//     damage, the first fall... each gets one short spoken line, once per big-screen session, and the race
+//     damage, the first fall... each gets one short spoken line, once (and once more in each later race that
+//     someone new joins: the Briefing's film is short, so these lines carry the other rules), and the race
 //     holds for a moment so the room can take it in;
 //   - the junk-card flight: every time a robot takes damage, its junk cards fly from the robot to that
 //     player's token at the bottom (always on, for everyone);
@@ -214,7 +215,7 @@ export function flyJunk(layer, cards, from, tokenEl, { big = false, onLand } = {
 // The first-time callouts
 // ---------------------------------------------------------------------------------------------
 
-const fired = new Set(); // once per big-screen page session: survives races, resets on reload
+const fired = new Set(); // said already: once each, until a race with someone new begins (again(), from the Briefing)
 
 /**
  * The race's first-time moments, said once each (section 2.3 of docs/teaching/design.md).
@@ -295,6 +296,9 @@ export function createCallouts({ voice, line, send, arena, course }) {
   return {
     /** Has this callout been said this session? */
     said: (id) => fired.has(id),
+
+    /** A Briefing has begun (someone here is new): every first-time moment is said again in the race after it. */
+    again: () => fired.clear(),
 
     /** Should this robot's junk cards fly big (once: the first damage)? */
     bigJunk(id) {

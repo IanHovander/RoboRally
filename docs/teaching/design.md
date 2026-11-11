@@ -11,12 +11,75 @@ primary action at the bottom, and prefer a button going from disabled to enabled
 
 **Contents**
 
+0. [What changed after playing it](#0-what-changed-after-playing-it)
 1. [The combination](#1-the-combination)
 2. [The pieces, specified](#2-the-pieces-specified)
 3. [The voice: Floor Control](#3-the-voice-floor-control)
 4. [Fixes to existing teaching, and data the screens need](#4-fixes-to-existing-teaching-and-data-the-screens-need)
 5. [Build plan](#5-build-plan)
 6. [Decisions taken (and the one to confirm)](#6-decisions-taken)
+
+---
+
+## 0. What changed after playing it
+
+Played at real tables, two parts of this design held the game back: the Briefing and the phone Guide. This
+section says what replaced them. Where it disagrees with the sections below, this section is right; the rest
+is kept as the record of how the pieces were built (the film's shots, the topics, the clips and the callouts
+are all still used).
+
+**What went wrong**
+
+- **The Briefing was a lecture.** Seventy seconds of watching, fifteen rules, before anyone had touched a
+  card, with the phones showing an eye. People talked over it or voted it away, and newcomers then met the
+  programming screen for the first time with a timer running.
+- **"?" did not answer.** It dimmed the screen and waited for a second tap, with nothing saying so. The Book
+  behind it was one long page of about a hundred small clips.
+- **The words that said the answer were the faintest thing on the sheet.**
+
+**What it is now**
+
+- **A short film.** `briefing.js` plays six shots by default (about half a minute): online, roll call, flags,
+  program, own left, and a hand-over ("Your turn. Drive your robot to the flag."; "Questions?..." when nobody
+  is about to drive). The other shots (stop on a flag, order, priority, damage, Haywire, push, reboot, timer,
+  energy) play only when the leader switches "Rules tutorial" on, which is now the full tutorial for everyone.
+  Each of those rules is still said the first time it happens in the race (2.3).
+- **The test drive** (`drills.js`, `practice.js`). The programming screen itself on three tiny courses, run
+  by the real rules: five cards to a flag; a robot that starts facing you, so its left is your right; a belt
+  that carries you further than your cards. The same slots, cards, light line and lock as the race, so
+  nothing is learned twice. Stuck for five seconds, the next card of a known route bobs; a program that
+  misses runs anyway, then the cards come back and the nudges lead the way. It appears:
+  - on a newcomer's phone while it waits for the leader to choose a map (`player.js`, `wantsDrive`);
+  - in the Briefing's second stage (`rules.js`: `brief.stage` goes `film` then `practice`), for newcomers
+    whose phone hasn't driven it. The big screen shows a pip a drill over each of their tokens and a
+    countdown; the race starts when they are through, or after 90 s, or on a majority vote;
+  - any time, from Help.
+  A phone that drives it (or skips it) remembers (`rr.practiced`) and says so in `hello`.
+- **Help** (`guide.js`). "?" opens a sheet at once: the clip and the sentence for what this screen wants from
+  you now, then four ways on: *What's this?* (Point mode, with "Tap anything" in its tray), *How to play*
+  (the lobby film's four scenes, one at a time, a sentence under each), *Practice* (the test drive) and
+  *All rules*. Under them, the topics of what's on the screen, and a replay of each slot of the last round.
+- **The Book is an index.** Thirteen subjects as icons; a tap opens that subject's page of clips. Now, Last
+  round and Film are no longer Book sections: they are Help.
+- **The sentence under the clips is readable** (`.gd-fine`: full brightness, a size up).
+- **The callouts start again for each newcomer.** They were said once per big-screen session, so someone who
+  joined for the third race never heard them. Now each Briefing clears them (`teach.js`, `again()`): the short
+  film leaves those rules to the callouts, so they must be said.
+- **Start pads are drawn, not picked** (`rules.js`, `drawPads`). Picking was up to 40 seconds of a choice a
+  newcomer can't judge, and on the starter course one pad (4, straight below flag 1) won most races. Now the
+  leader's ▶ gives the racers the pads nearest the first flag (`board.js`, `padsByFlag`), handed out at random;
+  for 4 seconds the big screen shows the course's name and the robots coming down onto their pads one at a
+  time, and each phone shows its own pad lit. The starter course's flag 1 moved to the middle, in front of the
+  dock, where no pad has a straight run at it.
+
+**Superseded below:** the 70-second Briefing as the default (1, 2.5, 3.2: its script is now the leader's
+option); "?" opening Point mode (1, 2.2.1, 2.2.2); the Book as one long page with a chip row and contextual
+sections (2.2.5); in the table of rejected ideas, "a guided tutorial round / practice level" (the test
+drive is one, without a second set of rules: it is the real programming screen and the real engine); and
+wherever players pick a start pad (the `pad` and `start` topics' words, "after pads are picked").
+
+**Still to do:** the hand-over line has no recording yet (`node scripts/render-voice.mjs` makes it); until
+then it is a chirp and a subtitle.
 
 ---
 

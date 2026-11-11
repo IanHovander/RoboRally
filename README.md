@@ -21,20 +21,34 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 - **Factory lobby:** the 3D course, phone joining, and animated lessons. No game chooser or team branding.
 - **Your robot:** tap ⇄ beside your name in the waiting room to choose an avatar. Your selection survives reconnecting.
 - **Players:** 2–6 is the rulebook's range; up to 8 work (8 start spaces), and 1 player can practice.
-- **Tests:** `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, checks
+- **Tests:** `node test/lessons.mjs` runs the teaching scenes and the test drive's drills through the rules.
+  `node test/robo-rally.mjs` checks the rules on a test board, plays random races on every course, checks
   the Briefing, holds and each phone's story of the race, and runs a full game through the server.
 - `node test/avatar.mjs` checks robot selection and reconnects. `npm test` retains framework coverage using
   example games in a test-only server; normal servers and the website build register only Robo Rally.
 
 ### How the game teaches
 
-Nobody has to read the rules. The lobby plays a wordless film of the basics. Each phone remembers whether it has
-finished a race; when a newcomer is racing, *Floor Control* (the store's after-hours computer) narrates a
-70-second Briefing on the big screen between picking start pads and round 1. A majority of phones can vote to
-skip it. During that race the same voice calls out each first-time moment once (the first laser hit, the first
-fall...), holding the race for a moment. On the phone, **?** lets you point at anything (a card, a slot, a square
-of the map) and answers with looping clips; the Book shows every clip. During the race, each slot on your phone
-collects marks for what happened to you, and tapping it replays it. The full design is `docs/teaching/design.md`.
+Nobody has to read the rules, and nobody sits through them. The lobby plays a wordless film of the basics. Each
+phone remembers whether it has finished a race. When a newcomer is racing, *Floor Control* (the store's
+after-hours computer) narrates a half-minute Briefing on the big screen between the draw for start pads and round 1:
+whose robot is whose, the flags in order, five cards in five slots. Then each newcomer's phone gets the **test
+drive**: the programming screen itself on three tiny courses, where you fill five slots, watch the light line,
+lock in, and see your robot run it (to a flag; then starting face to face with you, so its left is your right;
+then over a belt that carries it). It takes about half a minute; the big screen shows how far each newcomer has
+got, and the race starts when they are through (or after 90 seconds). A phone that is only waiting for the leader
+to choose a map gets the test drive then instead, so often nobody waits at all. A majority of phones can vote to
+skip the film, and again to skip the test drive. During the race the same voice calls out each first-time moment
+once (the first laser hit, the first fall...), holding the race for a moment: that is where the other rules are
+taught. The leader's "Rules tutorial" option plays the full 70-second narrated rules, for everyone, in place of
+the short film.
+
+On the phone, **?** opens Help: what this screen wants from you now (a looping clip and a sentence), and four
+ways on. *What's this?* lets you tap anything on the screen (a card, a slot, a square of the map) for its clips;
+*How to play* is the game in four clips; *Practice* is the test drive again; *All rules* is an index of subjects,
+each a page of clips. During the race, each slot on your phone collects marks for what happened to you, and
+tapping it replays it. The design is `docs/teaching/design.md` (its first section says what changed after
+playing it).
 
 ### Differences from the rulebook
 
@@ -48,8 +62,12 @@ collects marks for what happened to you, and tapping it replays it. The full des
   or back if that's blocked. It's a normal push (chains, Spiky, even into a pit). If the spot is still taken, the
   rebooting robot takes the nearest free space.
 - **Deflector Shield pays by itself** when a laser would hit you (the card says "may"). Switch it off in its sheet.
-- **Priority and start pads:** the first Priority holder is random (rulebook: the youngest player), seats follow
-  joining order, and start pads are first come, first served (rulebook: youngest first).
+- **Priority:** the first Priority holder is random (rulebook: the youngest player), and seats follow joining
+  order.
+- **Start pads are drawn, not picked** (rulebook: players choose, youngest first). When the leader starts the
+  race, the racers get the pads nearest the first flag, handed out at random, and the big screen shows the robots
+  coming down onto them (4 seconds). Nobody starts far behind the rest, and nobody has to judge a pad before
+  they know the game. On the starter course no pad has a straight run at flag 1.
 - **Shutdown is chosen instead of programming**, not declared after it. Same effect.
 - **Again after a Haywire repeats the whole Haywire** (for example Move 1, Rotate Right, Move 1). The rulebook only
   covers Double Program and Crab Legs (Again repeats the second card).

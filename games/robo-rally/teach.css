@@ -173,3 +173,7 @@
 .lm-rules .lm-card { width: 2.3rem; height: auto; }
 .lm-rules .lm-g { width: 1.8rem; height: 1.8rem; }
 
+/* the test drive (the Briefing's practice stage): a pip a drill over each newcomer's token, lit as it's done */
+.tc-drive { display: flex; gap: .3rem; padding-bottom: .55rem; }
+.tc-drive i { width: .62rem; height: .62rem; border-radius: 50%; border: 1px solid rgba(244, 239, 228, .4); transition: all .35s cubic-bezier(.2, .8, .2, 1); }
+.tc-drive i.on { background: var(--c); border-color: var(--c); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent); }

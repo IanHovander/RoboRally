@@ -161,7 +161,7 @@ export function createMimic(parent) {
     /** Everything off: empty slots, no hand, no deck, no junk. */
     reset() {
       gen++;
-      phone.classList.remove('locked', 'show', 'run', 'deck', 'timing', 'asking');
+      phone.classList.remove('locked', 'show', 'run', 'deck', 'timing');
       clearSlots();
       hand.innerHTML = '';
       deckTop.innerHTML = '';
@@ -332,7 +332,7 @@ export function createMimic(parent) {
       await pause(400);
     },
 
-    /** The "?" glows, a fingertip taps it, and a card in the hand gets the pointing outline. */
+    /** The "?" glows, and a fingertip taps it. */
     async tapAsk(pause = sleep) {
       phone.classList.add('show');
       if (!hand.children.length) {
@@ -343,11 +343,7 @@ export function createMimic(parent) {
       ask.classList.add('glow');
       await pause(500);
       await tap(ask, pause, true);
-      phone.classList.add('asking');
-      const target = hand.children[2] ?? hand.children[0];
-      target?.classList.add('ask');
       await pause(500);
-      if (target) await tap(target, pause, true);
       finger.className = 'lf-finger';
     },
   };

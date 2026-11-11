@@ -1,8 +1,10 @@
-// The phone's Guide: one "?" button. Tap it, then tap anything on the screen (a card, a slot, a square
-// of the map): that thing's questions are answered with looping clips. One tap deeper, the Book shows
-// every clip under mechanics headers. New things flag themselves once (a pulse, a chip under the "?").
+// The phone's Guide: one "?" button. It opens Help: what this screen wants from you now (a looping clip and a
+// sentence), and the ways on: point at anything on the screen ("What's this?"), the game in four clips ("How to
+// play"), the test drive (practice.js) and every rule by subject ("All rules": an index, then a page a subject).
+// Anything pointed at (or long-pressed) answers with its own clips. New things flag themselves once (a pulse, a
+// chip under the "?").
 //   in the game:  const guide = mountGuide(root, { getView, api, mapTopics, getPlanned });  guide.refresh() after each render
-//   the lobby:    openBook({ context: 'lobby', color })
+//   the lobby:    openBook({ context: 'lobby', color })   (Help, without the pointing)
 // Anything with data-ask="topic[:arg]" can be pointed at; data-tap="ask" also opens it on a plain tap.
 import { html, raw, loadCss } from '../../js/ui.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES } from './glyphs.js';
@@ -10,8 +12,9 @@ import { mountDemo, hasDemo, setDemoFocus, miniCourse, filmCount } from './demo.
 import { drawCourse } from './minimap.js';
 import { getCourse } from './board.js';
 import { UPGRADES, HAYWIRE, cardType } from './cards.js';
-import { TOPICS, SECTIONS, EXTRA_SECTIONS, sectionTopics, bookTiles, cardTopic } from './topics.js';
+import { TOPICS, SECTIONS, sectionTopics, bookTiles, cardTopic } from './topics.js';
 import { mountReplay, ranCards, causesFor, markHtml } from './replay.js';
+import { mountPractice } from './practice.js';
 
 const g = (name, cls = '') => raw(svgGlyph(name, cls));
 const card = (t, cls = '') => raw(cardSvgHtml(t, cls));
@@ -23,6 +26,15 @@ const store = {
     try { localStorage.setItem(key, value); } catch {}
   },
 };
+// "How to play": the lobby film's scenes (demo.js film-1..4), a sentence each
+const FILM_SAYS = [
+  'Five cards, in order, drive your robot to the flag.',
+  'After every card the floor moves too: belts carry, gears turn, lasers fire.',
+  'Damage is junk cards. SPAM clogs your hand; a Haywire jams a slot.',
+  'Robots shove each other. Reach the flags in order: first to the last one wins.',
+];
+// what a screen wants from you: the topic Help leads with
+const LEAD = { start: 'pad', brief: 'look-up', upgrade: 'shop', program: 'slots', activate: 'look-up', over: 'goal' };
 let cssLoaded = null;
 const loadStyles = () => (cssLoaded ??= loadCss(new URL('./guide.css', import.meta.url).href));
 
@@ -96,7 +108,10 @@ export function mountGuide(root, o = {}) {
   let pointing = false;
   let outlined = [];
   let sheet = null; // { el, kind: 'entry' | 'replay', from }
-  let book = null; // { el }
+  let book = null; // { el, body, sec (the subject on its page, or null: the index), viaIndex }
+  let home = null; // Help's first sheet: { el }
+  let films = null; // "How to play": { el }
+  let driving = null; // the test drive, over everything: { el, ui }
   let chip = null; // { el, open, timer, phase }
   let lastPhase = null;
   let pressed = null;
@@ -110,8 +125,17 @@ export function mountGuide(root, o = {}) {
   const markOpened = () => store.set('rr.opened', '1');
 
   // ----- the back gesture closes whatever is on top -----
+  // Each open layer has a place in the browser's history. A layer that closes as another opens (Help to pointing,
+  // a sheet to the Book) hands its place over, so the history is never gone back through and added to in the same
+  // moment (the two can cross, and a later "back" would then leave the game's page).
+  let spare = 0; // places left by layers closed just now
+  let spareTimer = 0;
   function pushLayer(name) {
     stack.push(name);
+    if (spare > 0) {
+      spare--;
+      return;
+    }
     try {
       history.pushState({ gd: stack.length }, '');
     } catch {}
@@ -120,14 +144,21 @@ export function mountGuide(root, o = {}) {
     const i = stack.lastIndexOf(name);
     if (i < 0) return;
     stack.splice(i, 1);
-    if (!fromHistory) {
+    if (fromHistory) return;
+    spare++;
+    clearTimeout(spareTimer);
+    spareTimer = setTimeout(() => {
+      // nothing took these places: back through them (one step, one popstate, ignored)
+      const n = spare;
+      spare = 0;
+      if (!n) return;
       ignorePops++;
       try {
-        history.back();
+        history.go(-n);
       } catch {
         ignorePops--;
       }
-    }
+    }, 0);
   }
   const onPop = () => {
     if (ignorePops > 0) {
@@ -137,8 +168,13 @@ export function mountGuide(root, o = {}) {
     const top = stack.at(-1);
     if (top === 'point') closePoint(true);
     else if (top === 'sheet') closeSheet(true);
-    else if (top === 'book') closeBook(true);
+    else if (top === 'drive') closeDrive(true);
+    else if (top === 'films') closeFilms(true);
+    else if (top === 'book') backInBook(true);
+    else if (top === 'help') closeHelp(true);
   };
+  /** Only what's on top animates: the test drive, a sheet, the films, the Book, Help. */
+  const refocus = () => setDemoFocus(driving?.el ?? sheet?.el ?? films?.el ?? book?.el ?? home?.el ?? null);
   window.addEventListener('popstate', onPop);
 
   // ----- where the "?" is -----
@@ -246,9 +282,8 @@ export function mountGuide(root, o = {}) {
     return hit && (el.contains(hit) || hit.contains(el) || hit.closest?.('[data-ask]') === el) ? r : null;
   };
   function openPoint() {
-    const v = getView();
-    if (v?.prompt) return openEntry(promptTopic(v.prompt), {});
     if (pointing) return closePoint();
+    closeHelp();
     markOpened();
     pointing = true;
     layer.classList.add('pointing');
@@ -258,7 +293,7 @@ export function mountGuide(root, o = {}) {
     wrap.className = 'gd-point';
     wrap.innerHTML = String(html`
       <div class="gd-dim"></div><div class="gd-outlines"></div><div class="gd-capture"></div>
-      <div class="gd-tray"><button class="gd-pill" data-gd="book" aria-label="Book">${g('book')}</button><button class="gd-round" data-gd="close-point" aria-label="Close">${g('cross')}</button></div>`);
+      <div class="gd-tray"><span class="gd-tray-say">${g('tap')}Tap anything</span><button class="gd-round" data-gd="close-point" aria-label="Close">${g('cross')}</button></div>`);
     layer.append(wrap);
     wrap.querySelector('.gd-capture').addEventListener('click', onPointTap);
     outline(true);
@@ -363,8 +398,8 @@ export function mountGuide(root, o = {}) {
     el.dataset.also = also.join(' ');
     sheet = { el, kind: 'entry', from, id };
     mountClips(el);
-    setDemoFocus(el);
-    swipeToClose(el.querySelector('.gd-sheet-box'));
+    refocus();
+    swipeToClose(el.querySelector('.gd-sheet-box'), closeSheet);
     if (!replacing) pushLayer('sheet');
     o.api?.vibrate?.(6);
   }
@@ -375,11 +410,11 @@ export function mountGuide(root, o = {}) {
     sheet = null;
     if (!replacing) {
       popLayer('sheet', fromHistory);
-      setDemoFocus(book?.el ?? null);
+      refocus();
       if (was.from === 'point' && pointing) outline(false);
     }
   }
-  function swipeToClose(box) {
+  function swipeToClose(box, close) {
     let y0 = null;
     box.addEventListener('touchstart', (e) => {
       y0 = box.scrollTop <= 0 ? e.touches[0].clientY : null;
@@ -394,7 +429,7 @@ export function mountGuide(root, o = {}) {
       const dy = (e.changedTouches[0]?.clientY ?? y0) - y0;
       box.style.transform = '';
       y0 = null;
-      if (dy > 90) closeSheet();
+      if (dy > 90) close();
     });
   }
 
@@ -429,15 +464,16 @@ export function mountGuide(root, o = {}) {
     sheet = { el, kind: 'replay', from, reg };
     const ghosts = plannedFor(story?.round, reg);
     mountReplay(el.querySelector('canvas'), { course: getCourse(v.opts.course), steps, planned: ghosts, color: color(), form: formOf(you() ?? {}), robots, perimeter: !!v.opts.lessDeadly, inert: !v.opts.upgrades });
-    setDemoFocus(el);
-    swipeToClose(el.querySelector('.gd-sheet-box'));
+    refocus();
+    swipeToClose(el.querySelector('.gd-sheet-box'), closeSheet);
     if (!replacing) pushLayer('sheet');
   }
   function plannedFor(round, reg) {
     return round != null ? o.getPlanned?.(round, reg) ?? [] : [];
   }
 
-  // ----- the Book -----
+  // ----- Help: what this screen wants from you now, and the ways on -----
+  /** The topics of what's on the screen I came from (Help's strip). */
   function nowTopics() {
     const v = getView();
     const m = v?.me;
@@ -447,6 +483,12 @@ export function mountGuide(root, o = {}) {
     };
     if (chip?.open) add(chip.open);
     if (o.shell) return out;
+    if (pl().querySelector('.pr')) {
+      // the test drive is on the screen: its slots, its line
+      add('slots');
+      add('line');
+      return out;
+    }
     if (v?.phase === 'program' && m && !m.mustReturn) {
       // programming: the slots, the line, the lock, the timer, each kind of card in my hand, what's special now
       add('slots');
@@ -472,89 +514,227 @@ export function mountGuide(root, o = {}) {
     }
     return out;
   }
-  async function openBook({ scrollTo = null } = {}) {
+  /** What this screen is for: the topic Help leads with. */
+  function leadTopic() {
+    const v = getView();
+    if (o.shell || !v) return 'goal';
+    if (pl().querySelector('.pr')) return 'slots';
+    if (!v.inRace && v.phase !== 'setup') return 'watch';
+    if (v.phase === 'setup') return you()?.isVip ? 'goal' : 'watch';
+    if (v.phase === 'activate' && v.me && !v.me.on) return 'fall';
+    return LEAD[v.phase] ?? 'goal';
+  }
+  const clipsOf = (ask) => resolve(...ask.split(':'))?.clips.filter(([k]) => hasDemo(k)) ?? [];
+  /** A tile: a topic's looping clip (or its picture) and a caption of a few words. Tapping it opens the topic. */
+  const tileHtml = ({ ask, id, clip, cap }) => {
+    const arg = ask.split(':')[1];
+    const t = resolve(id, arg);
+    return html`<button class="gd-tile" data-gd="tile" data-arg="${ask}" data-topic="${id}" data-clip="${clip?.[0] ?? ''}">
+      ${clip ? html`<canvas data-demo="${clip[0]}" data-lazy="1"></canvas>` : html`<span class="gd-tile-pic">${pic(t.pic, arg)}</span>`}
+      <span class="gd-cap">${t.sec === 'haywire' && !t.name ? card(id, 'ic') : html`${t.sec === 'cards' && card(id, 'ic')}${cap}`}</span></button>`;
+  };
+  /** Start the lazy clips (and my last round's replays) in a layer; root: its scroll box. */
+  function mountLazy(el, root) {
+    const v = getView();
+    for (const cv of el.querySelectorAll('canvas[data-demo][data-lazy]:not([data-on])')) {
+      cv.dataset.on = '1';
+      mountDemo(cv, cv.dataset.demo, color(), { safeEdges: v?.opts?.lessDeadly, form: formOf(you() ?? {}), lazy: true, root });
+    }
+    const story = v?.me?.story;
+    if (story) {
+      const robots = v.robots.map((r) => ({ ...r, form: formOf(r) }));
+      for (const cv of el.querySelectorAll('canvas[data-replay]:not([data-on])')) {
+        cv.dataset.on = '1';
+        const i = Number(cv.dataset.replay);
+        mountReplay(cv, { course: getCourse(v.opts.course), steps: story.regs?.[i] ?? [], planned: plannedFor(story.round, i), color: color(), form: formOf(you() ?? {}), robots, lazy: true, root, perimeter: !!v.opts.lessDeadly, inert: !v.opts.upgrades });
+      }
+    }
+    mountClips(el);
+  }
+
+  function openHelp() {
     markOpened();
     closePoint();
+    closeSheet();
+    if (home) home.el.remove();
+    else pushLayer('help');
     const v = getView();
-    const lobby = o.shell || !v || !v.inRace || (v.phase === 'setup' && !you()?.isVip);
-    const story = v?.me?.story;
-    const showLast = !!story && ((v.phase === 'program' && v.round >= 2) || v.phase === 'activate');
-    const films = lobby ? await filmCount() : 0;
-    const now = lobby && o.shell ? [] : nowTopics();
-    const secs = [];
-    if (now.length) secs.push({ ...EXTRA_SECTIONS.now, tiles: now });
+    const lead = leadTopic();
+    const [first, ...rest] = bookTiles([lead, ...nowTopics().filter((a) => a !== lead)], clipsOf);
+    const t = resolve(lead);
     // last round: a replay per slot I was on the board for (an empty slot would replay nothing)
+    const story = v?.me?.story;
+    const showLast = !o.shell && !!story && ((v.phase === 'program' && v.round >= 2) || v.phase === 'activate');
     const replays = showLast ? [0, 1, 2, 3, 4].filter((i) => story.regs?.[i]?.length) : [];
-    if (replays.length) secs.push({ ...EXTRA_SECTIONS.last, replays });
-    if (films) secs.push({ ...EXTRA_SECTIONS.film, films });
-    for (const s of SECTIONS) secs.push({ ...s, tiles: sectionTopics(s.id) });
+    const el = document.createElement('div');
+    el.className = 'gd-sheet gd-help';
+    el.innerHTML = String(html`
+      <div class="gd-sheet-box gd-home">
+        ${t && html`<button class="gd-now" data-gd="tile" data-arg="${lead}" data-topic="${lead}">
+          ${first?.clip ? html`<canvas data-demo="${first.clip[0]}"></canvas>` : html`<span class="gd-tile-pic">${pic(t.pic)}</span>`}
+          <span class="gd-say">${t.does ?? t.fine}</span></button>`}
+        <div class="gd-menu">
+          ${!o.shell && html`<button class="gd-act" data-gd="point">${g('tap')}<span>What’s this?</span></button>`}
+          <button class="gd-act" data-gd="films">${g('play')}<span>How to play</span></button>
+          <button class="gd-act" data-gd="drive">${g('flag')}<span>Practice</span></button>
+          <button class="gd-act" data-gd="book">${g('book')}<span>All rules</span></button>
+        </div>
+        ${rest.length > 0 && html`<div class="gd-strip"><span class="gd-strip-ic">${g('eye')}</span>${rest.slice(0, 10).map(tileHtml)}</div>`}
+        ${replays.length > 0 && html`<div class="gd-strip last"><span class="gd-strip-ic">${g('undo')}</span>${replays.map((i) => html`<button class="gd-tile" data-gd="replay" data-arg="${i}"><canvas data-replay="${i}"></canvas><span class="gd-cap">${i + 1}</span></button>`)}</div>`}
+        <div class="gd-row"><button class="gd-x" data-gd="close-help" aria-label="Close">${g('cross')}</button></div>
+      </div>`);
+    layer.append(el);
+    home = { el };
+    const box = el.querySelector('.gd-sheet-box');
+    mountLazy(el, box);
+    refocus();
+    swipeToClose(box, closeHelp);
+    o.api?.vibrate?.(6);
+  }
+  function closeHelp(fromHistory) {
+    if (!home) return;
+    home.el.remove();
+    home = null;
+    popLayer('help', fromHistory);
+    refocus();
+  }
+
+  // ----- "How to play": the game in four clips, one at a time (swipe), a sentence under each -----
+  async function openFilms() {
+    const n = await filmCount();
+    if (!n) return;
+    if (films) films.el.remove();
+    else pushLayer('films');
+    const el = document.createElement('div');
+    el.className = 'gd-book gd-films';
+    const a = askRect();
+    el.innerHTML = String(html`
+      <header class="gd-book-top"><span class="gd-book-ic">${g('play')}</span><button class="gd-book-x" data-gd="close-films" aria-label="Close" style="right:${Math.max(4, layer.getBoundingClientRect().right - a.right)}px">${g('cross')}</button></header>
+      <div class="gd-reel">${Array.from({ length: n }, (_, i) => html`<figure class="gd-film"><canvas data-film="${i + 1}"></canvas><figcaption><b>${i + 1}</b><span>${FILM_SAYS[i] ?? ''}</span></figcaption></figure>`)}</div>
+      <nav class="gd-dots">${Array.from({ length: n }, (_, i) => html`<button data-gd="film" data-arg="${i}" aria-label="Clip ${i + 1}"><i></i></button>`)}</nav>`);
+    layer.append(el);
+    const reel = el.querySelector('.gd-reel');
+    const canvases = [...el.querySelectorAll('canvas[data-film]')];
+    const dots = [...el.querySelectorAll('.gd-dots button')];
+    const stops = canvases.map(() => null);
+    let at = -1;
+    // the clip in view plays from its start; the others hold still
+    const show = () => {
+      const i = Math.max(0, Math.min(n - 1, Math.round(reel.scrollLeft / Math.max(1, reel.clientWidth))));
+      dots.forEach((b, k) => b.classList.toggle('on', k === i));
+      if (i === at) return;
+      at = i;
+      canvases.forEach((cv, k) => {
+        stops[k]?.();
+        stops[k] = mountDemo(cv, `film-${k + 1}`, color(), { form: formOf(you() ?? {}), lazy: k !== i, root: reel });
+      });
+    };
+    reel.addEventListener('scroll', show, { passive: true });
+    films = { el, reel };
+    refocus();
+    show();
+  }
+  function closeFilms(fromHistory) {
+    if (!films) return;
+    films.el.remove();
+    films = null;
+    popLayer('films', fromHistory);
+    refocus();
+  }
+
+  // ----- the test drive (practice.js), from Help: any time, as often as you like -----
+  function openDrive() {
+    if (driving) return;
+    const el = document.createElement('div');
+    el.className = 'gd-book gd-drive';
+    const a = askRect();
+    el.innerHTML = String(html`
+      <header class="gd-book-top"><span class="gd-book-ic">${g('flag')}</span><button class="gd-book-x" data-gd="close-drive" aria-label="Close" style="right:${Math.max(4, layer.getBoundingClientRect().right - a.right)}px">${g('cross')}</button></header>
+      <div class="gd-drive-box"></div>`);
+    layer.append(el);
+    const ui = mountPractice(el.querySelector('.gd-drive-box'), {
+      color: color(),
+      form: formOf(you() ?? {}),
+      vibrate: (p) => o.api?.vibrate?.(p),
+      onDone() {
+        // this phone has driven it: the Briefing's practice stage won't wait for it
+        store.set('rr.practiced', '1');
+        o.api?.send?.('practice', { level: ui.level, done: true });
+        setTimeout(() => driving?.ui === ui && closeDrive(), 1500);
+      },
+    });
+    driving = { el, ui };
+    pushLayer('drive');
+    refocus();
+  }
+  function closeDrive(fromHistory) {
+    if (!driving) return;
+    driving.ui.destroy();
+    driving.el.remove();
+    driving = null;
+    popLayer('drive', fromHistory);
+    refocus();
+  }
+
+  // ----- the Book: every rule, by subject. An index of the subjects, then a page of clips for one -----
+  function openBook({ scrollTo = null } = {}) {
+    markOpened();
+    closePoint();
     if (book) book.el.remove();
+    else pushLayer('book');
     const el = document.createElement('div');
     el.className = 'gd-book';
     const a = askRect();
-    // each clip once per section: a topic whose clip is already there shows its next one, or no tile
-    const clipsOf = (ask) => resolve(...ask.split(':'))?.clips.filter(([k]) => hasDemo(k)) ?? [];
-    const tile = ({ ask, id, clip, cap }) => {
-      const arg = ask.split(':')[1];
-      const t = resolve(id, arg);
-      return html`<button class="gd-tile" data-gd="tile" data-arg="${ask}" data-topic="${id}" data-clip="${clip?.[0] ?? ''}">
-        ${clip ? html`<canvas data-demo="${clip[0]}" data-lazy="1"></canvas>` : html`<span class="gd-tile-pic">${pic(t.pic, arg)}</span>`}
-        <span class="gd-cap">${t.sec === 'haywire' && !t.name ? card(id, 'ic') : html`${t.sec === 'cards' && card(id, 'ic')}${cap}`}</span></button>`;
-    };
     el.innerHTML = String(html`
-      <header class="gd-book-top"><span class="gd-book-ic">${g('book')}</span><button class="gd-book-x" data-gd="close-book" aria-label="Close" style="right:${Math.max(4, layer.getBoundingClientRect().right - a.right)}px">${g('cross')}</button></header>
-      <nav class="gd-chips">${secs.map((s) => html`<button data-gd="sec" data-arg="${s.id}">${iconHtml(s.icon)}<span>${s.label}</span></button>`)}</nav>
-      <div class="gd-book-body">${secs.map((s) => html`
-        <section class="gd-sec" data-sec="${s.id}">
-          <h3>${iconHtml(s.icon)}<span>${s.label}</span></h3>
-          <div class="gd-tiles">
-            ${s.tiles && bookTiles(s.tiles, clipsOf).map(tile)}
-            ${s.replays && s.replays.map((i) => html`<button class="gd-tile" data-gd="replay" data-arg="${i}"><canvas data-replay="${i}"></canvas><span class="gd-cap">${i + 1}</span></button>`)}
-            ${s.films && Array.from({ length: s.films }, (_, i) => html`<button class="gd-tile film"><canvas data-demo="film-${i + 1}" data-lazy="1"></canvas><span class="gd-cap">${i + 1}</span></button>`)}
-          </div>
-        </section>`)}</div>`);
+      <header class="gd-book-top"><button class="gd-book-back" data-gd="book-index" aria-label="Back">${g('left')}</button><span class="gd-book-ic">${g('book')}</span><b class="gd-book-title"></b>
+        <button class="gd-book-x" data-gd="close-book" aria-label="Close" style="right:${Math.max(4, layer.getBoundingClientRect().right - a.right)}px">${g('cross')}</button></header>
+      <nav class="gd-index">${SECTIONS.map((s) => html`<button class="gd-idx" data-gd="sec" data-arg="${s.id}">${iconHtml(s.icon)}<span>${s.label}</span></button>`)}</nav>
+      <div class="gd-book-body"></div>`);
     layer.append(el);
-    const body = el.querySelector('.gd-book-body');
-    book = { el, body };
-    // lazy clips: only those in view animate
-    for (const cv of el.querySelectorAll('canvas[data-demo]')) {
-      cv.dataset.on = '1';
-      mountDemo(cv, cv.dataset.demo, color(), { safeEdges: v?.opts?.lessDeadly, form: formOf(you() ?? {}), lazy: true, root: body });
-    }
-    if (showLast) {
-      const robots = v.robots.map((r) => ({ ...r, form: formOf(r) }));
-      for (const cv of el.querySelectorAll('canvas[data-replay]')) {
-        const i = Number(cv.dataset.replay);
-        mountReplay(cv, { course: getCourse(v.opts.course), steps: story.regs?.[i] ?? [], planned: plannedFor(story.round, i), color: color(), form: formOf(you() ?? {}), robots, lazy: true, root: body, perimeter: !!v.opts.lessDeadly, inert: !v.opts.upgrades });
-      }
-    }
-    drawCellPics(el);
-    setDemoFocus(el);
-    if (!stack.includes('book')) pushLayer('book');
-    // the chip of the section in view is lit
-    const chips = [...el.querySelectorAll('.gd-chips button')];
-    const sections = [...el.querySelectorAll('.gd-sec')];
-    const light = () => {
-      const top = body.getBoundingClientRect().top + 12;
-      let cur = sections[0];
-      for (const s of sections) if (s.getBoundingClientRect().top <= top) cur = s;
-      for (const c of chips) {
-        const on = c.dataset.arg === cur?.dataset.sec;
-        if (on && !c.classList.contains('on')) c.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-        c.classList.toggle('on', on);
-      }
-    };
-    body.addEventListener('scroll', light, { passive: true });
-    light();
-    if (scrollTo) {
-      const target = el.querySelector(`.gd-tile[data-arg="${CSS.escape(scrollTo)}"]`) ?? el.querySelector(`.gd-tile[data-topic="${CSS.escape(scrollTo.split(':')[0])}"]`);
-      if (target) {
-        // the mechanics section's tile, not "Now"
-        const deep = [...el.querySelectorAll(`.gd-tile[data-topic="${CSS.escape(scrollTo.split(':')[0])}"]`)].find((t) => !t.closest('[data-sec="now"]')) ?? target;
-        deep.scrollIntoView({ block: 'center' });
-        deep.classList.add('pulse');
-        setTimeout(() => deep.classList.remove('pulse'), 1600);
-      }
+    book = { el, body: el.querySelector('.gd-book-body'), title: el.querySelector('.gd-book-title'), sec: null, viaIndex: false };
+    // from a topic (an entry's book): straight to its subject's page, that tile pulsing
+    const sec = TOPICS[scrollTo?.split(':')[0]]?.sec;
+    if (sec && SECTIONS.some((x) => x.id === sec)) showSection(sec, scrollTo);
+    else showIndex();
+    refocus();
+  }
+  function showIndex() {
+    if (!book) return;
+    book.sec = null;
+    book.viaIndex = false;
+    book.el.dataset.view = 'index';
+    book.body.innerHTML = '';
+    book.title.innerHTML = '';
+  }
+  function showSection(id, pulse = null) {
+    const s = SECTIONS.find((x) => x.id === id);
+    if (!book || !s) return;
+    book.viaIndex = book.el.dataset.view === 'index';
+    book.sec = id;
+    book.el.dataset.view = 'sec';
+    book.body.dataset.sec = id;
+    book.title.innerHTML = String(html`${iconHtml(s.icon)}<span>${s.label}</span>`);
+    // each clip once: a topic whose clip is already there shows its next one, or no tile
+    book.body.innerHTML = String(html`<div class="gd-tiles">${bookTiles(sectionTopics(id), clipsOf).map(tileHtml)}</div>`);
+    book.body.scrollTop = 0;
+    mountLazy(book.el, book.body);
+    if (!pulse) return;
+    const topic = pulse.split(':')[0];
+    const tile = book.body.querySelector(`.gd-tile[data-arg="${CSS.escape(pulse)}"]`) ?? book.body.querySelector(`.gd-tile[data-topic="${CSS.escape(topic)}"]`);
+    if (!tile) return;
+    tile.scrollIntoView({ block: 'center' });
+    tile.classList.add('pulse');
+    setTimeout(() => tile.classList.remove('pulse'), 1600);
+  }
+  /** Back: from a subject's page to the index it was opened from; otherwise the Book closes. */
+  function backInBook(fromHistory) {
+    if (!book?.sec || !book.viaIndex) return closeBook(fromHistory);
+    showIndex();
+    if (fromHistory) {
+      // (the back gesture used up the Book's place in the history: it's still open, so it gets it back)
+      try {
+        history.pushState({ gd: stack.length }, '');
+      } catch {}
     }
   }
   function closeBook(fromHistory) {
@@ -562,7 +742,7 @@ export function mountGuide(root, o = {}) {
     book.el.remove();
     book = null;
     popLayer('book', fromHistory);
-    setDemoFocus(sheet?.el ?? null);
+    refocus();
   }
 
   // ----- clicks inside the guide's own layers -----
@@ -572,6 +752,10 @@ export function mountGuide(root, o = {}) {
       e.stopPropagation();
       return closeSheet();
     }
+    if (home && e.target === home.el) {
+      e.stopPropagation();
+      return closeHelp();
+    }
     const b = e.target.closest('[data-gd]');
     if (!b) return;
     e.stopPropagation();
@@ -580,6 +764,14 @@ export function mountGuide(root, o = {}) {
       case 'close-point': return closePoint();
       case 'close-sheet': return closeSheet();
       case 'close-book': return closeBook();
+      case 'close-help': return closeHelp();
+      case 'close-films': return closeFilms();
+      case 'close-drive': return closeDrive();
+      case 'point': return openPoint();
+      case 'films': return openFilms();
+      case 'drive': return openDrive();
+      case 'film': return films?.reel.scrollTo({ left: Number(arg) * films.reel.clientWidth, behavior: 'smooth' });
+      case 'book-index': return backInBook();
       case 'book': {
         const from = sheet?.id ?? arg ?? null;
         closeSheet();
@@ -588,14 +780,10 @@ export function mountGuide(root, o = {}) {
       case 'also': return openEntry(arg, { also: JSON.parse(b.dataset.also ?? '[]'), from: sheet?.from });
       case 'tile': {
         const [id, a] = arg.split(':');
-        return openEntry(id, { arg: a, from: 'book' });
+        return openEntry(id, { arg: a, from: book ? 'book' : 'help' });
       }
-      case 'replay': return openReplay(Number(arg), sheet?.from ?? (book ? 'book' : null));
-      case 'sec': {
-        const s = book?.el.querySelector(`.gd-sec[data-sec="${arg}"]`);
-        if (s) book.body.scrollTo({ top: s.offsetTop - 4, behavior: 'smooth' });
-        return;
-      }
+      case 'replay': return openReplay(Number(arg), sheet?.from ?? (book ? 'book' : home ? 'help' : null));
+      case 'sec': return showSection(arg);
       case 'chip': {
         const open = chip?.open;
         foldChip();
@@ -615,7 +803,10 @@ export function mountGuide(root, o = {}) {
     }
     if (e.target.closest('[data-guide="ask"]')) {
       e.stopPropagation();
-      return openPoint();
+      const v = getView();
+      if (v?.prompt) return openEntry(promptTopic(v.prompt), {}); // a decision is waiting: what it's about
+      if (pointing) return closePoint();
+      return home ? closeHelp() : openHelp();
     }
     const passive = e.target.closest('[data-tap="ask"][data-ask]');
     if (passive && !pointing) {
@@ -766,14 +957,16 @@ export function mountGuide(root, o = {}) {
       const [id, arg] = ask.split(':');
       return id === 'replay' ? openReplay(Number(arg)) : openEntry(id, { arg });
     },
+    openHelp,
     openBook,
     openReplay,
     get busy() {
-      return pointing || !!sheet || !!book;
+      return pointing || !!sheet || !!book || !!home || !!films || !!driving;
     },
     destroy() {
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('resize', onResize);
+      driving?.ui.destroy();
       foldChip();
       layer.remove();
       setDemoFocus(null);
@@ -790,13 +983,13 @@ function parseList(text) {
   }
 }
 
-// ---------- the lobby's waiting screen (the shell): the Book, straight away ----------
+// ---------- the lobby's waiting screen (the shell): Help, without the pointing (nothing there to point at) ----------
 let shellGuide = null;
 const shellApi = { you: null, vibrate: (p) => { try { navigator.vibrate?.(p); } catch {} } };
-/** Open the Book from outside the game (public/js/play.js). o: { context: 'lobby', color, you } */
+/** Open Help from outside the game (public/js/play.js calls it openBook). o: { context: 'lobby', color, you } */
 export function openBook(o = {}) {
   if (o.color) document.documentElement.style.setProperty('--me', o.color);
   shellApi.you = o.you ?? (o.color ? { color: o.color } : null);
   shellGuide ??= mountGuide(document.body, { shell: true, getView: () => null, api: shellApi });
-  return shellGuide.openBook();
+  return shellGuide.openHelp();
 }

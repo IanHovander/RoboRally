@@ -3,6 +3,7 @@
 // race's first-time callouts (teach.js): who hears them, how often, and how long they hold the race.
 //   node test/lessons.mjs
 import { LESSONS, BRIEF, runLesson, lessonCourse } from '../games/robo-rally/lessons.js';
+import { DRILLS, drillLine, drillHint, drillStart, tryDrill } from '../games/robo-rally/drills.js';
 import { getCourse } from '../games/robo-rally/board.js';
 
 let failures = 0;
@@ -102,7 +103,8 @@ check(LESSONS.map((l) => l.id).join() === 'lesson-program,lesson-board,lesson-da
 }
 
 // The race's first-time callouts (teach.js), fed views by hand: no newcomer, no callouts (but the winner);
-// a newcomer: each moment said once, holds of at most 4 s, and a second race in the session repeats nothing.
+// a newcomer: each moment said once, holds of at most 4 s, and a second race in the session repeats nothing
+// (unless a new Briefing came before it).
 {
   const { createCallouts, spoken } = await import('../games/robo-rally/teach.js');
   const said = [];
@@ -141,6 +143,11 @@ check(LESSONS.map((l) => l.id).join() === 'lesson-program,lesson-board,lesson-da
   said.length = 0;
   await race(true);
   check(said.join() === 'call-win', `callouts: a second race in the session repeats nothing but the winner (${said.join()})`);
+  // ...until a Briefing begins again (someone new has joined): then the next race says them all once more
+  said.length = 0;
+  make().again();
+  await race(true);
+  check(['order', 'shot', 'damage', 'board', 'fall', 'win'].every((id) => said.includes(`call-${id}`)), `callouts: after a new Briefing, the next race says each first time again (${said.join()})`);
 }
 
 // Sounds: a robot moving or turning makes none (the race, the film and the Briefing all go through sceneSound);
@@ -163,6 +170,52 @@ check(LESSONS.map((l) => l.id).join() === 'lesson-program,lesson-board,lesson-da
   const want = { damage: 'hurt', fall: 'fall', reboot: 'reboot', checkpoint: 'checkpoint', win: 'win' };
   const got = Object.entries(want).filter(([kind, s]) => soundOf(kind) === s);
   check(got.length === Object.keys(want).length, `sounds: damage, a fall, a reboot, a flag and the win each have one (${got.map(([k]) => k).join()})`);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The test drive's drills (drills.js): each can be won, its nudges lead there, and each shows its one thing
+// ---------------------------------------------------------------------------------------------
+check(DRILLS.length === 3, 'the test drive has three drills');
+for (const d of DRILLS) {
+  const handOf = (types) => {
+    const used = new Set();
+    return types.map((t) => {
+      const i = d.hand.findIndex((h, k) => h === t && !used.has(k));
+      used.add(i);
+      return i;
+    });
+  };
+  const sol = handOf(d.solution);
+  check(d.hand.length === 7 && d.solution.length === 5 && sol.every((i) => i >= 0), `${d.id}: a hand of 7 that holds its known route`);
+  check(tryDrill(d, d.solution).won, `${d.id}: the known route ends on the flag, by the real rules`);
+  const line = drillLine(d, d.solution);
+  const flag = lessonCourse(d).checkpoints[0];
+  check(line.wins && line.ghosts.at(-1).x === flag.x && line.ghosts.at(-1).y === flag.y, `${d.id}: the light line of the known route ends on the flag (and stops there)`);
+  // following the nudges from empty slots fills the known route, then says lock
+  const slots = [null, null, null, null, null];
+  let steps = 0;
+  for (; steps < 8; steps++) {
+    const h = drillHint(d, slots);
+    if (h.lock || h.card == null) break;
+    slots[slots.indexOf(null)] = h.card;
+  }
+  check(steps === 5 && drillHint(d, slots).lock && tryDrill(d, slots.map((i) => d.hand[i])).won, `${d.id}: the nudges lead to a program that wins`);
+  // a card that leaves the route is the one to take back
+  const wrong = d.hand.findIndex((t) => t !== d.solution[0]);
+  check(drillHint(d, [wrong, null, null, null, null]).slot === 0, `${d.id}: a first card off the route is nudged back out`);
+  // the cards in the order they lie in the hand don't win (there is something to work out)
+  check(!tryDrill(d, [...d.hand.slice(2, 7)]).won, `${d.id}: any five cards don't win it`);
+  check(!drillLine(d, [null, d.solution[1]]).ghosts.length, `${d.id}: the line starts at slot 1 (a gap stops it)`);
+}
+{
+  const [go, left, belt] = DRILLS;
+  check(drillStart(go).d === 0 && drillStart(left).d === 2, "drill 1 faces away from you; drill 2 faces you (its left is the screen's right)");
+  const trap = drillLine(left, ['rr', 'm3']);
+  check(trap.ghosts.at(-1).fell, 'drill 2: turning the wrong way and driving on falls off the edge (the line shows the cross)');
+  const ride = drillLine(belt, ['m1']).ghosts[0];
+  check(ride.x === 1 && ride.y === 2, 'drill 3: one step onto the belt, and it carries you one more');
+  const moves = belt.hand.filter((t) => /^m\d$/.test(t)).reduce((n, t) => n + Number(t[1]), 0);
+  check(moves < 5, 'drill 3: the hand has too few moves to reach the flag without the belt');
 }
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
