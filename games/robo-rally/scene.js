@@ -4117,8 +4117,8 @@ export class Arena {
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
-    // the lasers' dashes drift away from their lenses (half a square a second; a dash is 0.24 of a square)
-    for (const d of this.beams ?? []) d.offset.y = (d.offset.y - (dt * 0.5) / 0.24) % 1;
+    // the lasers' dashes drift slowly away from their lenses (a quarter of a square a second; a dash is 0.24 of a square)
+    for (const d of this.beams ?? []) d.offset.y = (d.offset.y - (dt * 0.25) / 0.24) % 1;
     for (const cm of this.curveMats ?? []) {
       // the bend's chevrons move in step with its straight belts' (the same scroll), so they pass between them seamlessly
       const belt = this.belts.find((b) => b.fast === cm.fast);
