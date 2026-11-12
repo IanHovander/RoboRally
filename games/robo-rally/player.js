@@ -1,6 +1,6 @@
 // A phone in Lumen. Only what is private, as little as possible:
 //   setup (the first player): choose the course · start: the pad the draw gave you · upgrades: a small shop ·
-//   program: tap (or drag) five cards into five slots while a little light table draws where they'll take you ·
+//   program: drag (or tap) five cards into five slots while a little light table draws where they'll take you ·
 //   the race: your five slots, and under each one what happened to you (tap one to see it again) ·
 //   decisions: a sheet · the end: where you came, your awards, and (the leader) race again or go home.
 // The "?" at the top right answers questions about anything on the screen (guide.js).
@@ -14,6 +14,7 @@ import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from '
 import { mountDemo, hasDemo, AWARDS } from './demo.js';
 import { mountGuide } from './guide.js';
 import { mountPractice } from './practice.js';
+import { mountCardDrag } from './dragcards.js';
 import { createCoach, tipsOn, tipSeen, skipBasics } from './coach.js';
 import { planRisks, riskText } from './tips.js';
 import { topicAtCell, cardTopic } from './topics.js';
@@ -960,82 +961,20 @@ export default function (root, api) {
     }
   }
 
-  // ---------- drag a card onto a slot (a tap still drops it in the next free one) ----------
-  // From the hand onto a slot: it goes there (a card already there goes back to the hand). From one slot
-  // onto another: the two swap. From a slot to anywhere else: back to the hand.
-  let drag = null;
-  let draggedAt = 0;
-  const slotUnder = (x, y) => {
-    const s = document.elementFromPoint(x, y)?.closest('.pl-regs .pl-slot');
-    return s && root.contains(s) && !s.classList.contains('locked') ? s : null;
-  };
-  root.addEventListener('pointerdown', (e) => {
-    if (e.button > 0 || drag || view?.phase !== 'program' || me()?.done || me()?.mustReturn) return;
-    const el = e.target.closest('.pl-prog .pl-card[data-ui="card"]:not(:disabled), .pl-prog .pl-slot.full:not(.locked)');
-    if (!el || e.target.closest('[data-ui="crab"]')) return;
-    const fromSlot = el.classList.contains('pl-slot') ? Number(el.dataset.arg) : null;
-    if (fromSlot != null && prog.regs[fromSlot].length !== 1) return; // a Crab Legs pair stays put
-    drag = { el, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, id: fromSlot == null ? el.dataset.arg : prog.regs[fromSlot][0], fromSlot, ghost: null, over: null };
+  // ---------- drag a card to a slot (dragcards.js; a tap still drops it in the next free one) ----------
+  const cardDrag = mountCardDrag(root, {
+    scope: '.pl-prog',
+    attr: 'arg',
+    can: () => view?.phase === 'program' && !!me() && !me().done && !me().mustReturn,
+    state: () => ({ regs: prog.regs, locked: me().regs.map((r) => r.locked) }),
+    commit(plan) {
+      prog.regs = plan.regs;
+      prog.target = null;
+      prog.stack = null;
+      changed();
+    },
+    vibrate: (p) => api.vibrate(p),
   });
-  const onDragMove = (e) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    if (!drag.ghost) {
-      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 8) return;
-      const pic = drag.el.querySelector('.lm-card');
-      if (!pic) return (drag = null);
-      const r = pic.getBoundingClientRect();
-      drag.ghost = pic.cloneNode(true);
-      drag.ghost.classList.add('pl-drag');
-      Object.assign(drag.ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
-      document.body.append(drag.ghost);
-      drag.el.classList.add('dragging');
-      api.vibrate(6);
-    }
-    e.preventDefault();
-    drag.ghost.style.transform = `translate(${e.clientX - drag.x0}px, ${e.clientY - drag.y0}px) scale(1.08)`;
-    const over = slotUnder(e.clientX, e.clientY);
-    if (over !== drag.over) {
-      drag.over?.classList.remove('drop');
-      over?.classList.add('drop');
-      drag.over = over;
-    }
-  };
-  addEventListener('pointermove', onDragMove, { passive: false });
-  const endDrag = (e) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    const d = drag;
-    drag = null;
-    if (!d.ghost) return; // a tap: the click does the rest
-    draggedAt = performance.now();
-    d.over?.classList.remove('drop');
-    d.el.classList.remove('dragging');
-    const rect = d.ghost.getBoundingClientRect();
-    d.ghost.remove();
-    const to = e.type === 'pointerup' ? slotUnder(e.clientX, e.clientY) : null;
-    const i = to ? Number(to.dataset.arg) : null;
-    if (me()?.done || view?.phase !== 'program') return;
-    if (i != null && i !== d.fromSlot) {
-      if (d.fromSlot != null) [prog.regs[i], prog.regs[d.fromSlot]] = [prog.regs[d.fromSlot], prog.regs[i]];
-      else prog.regs[i] = [d.id];
-      flip = { rect, slot: i };
-    } else if (i == null && d.fromSlot != null) {
-      prog.regs[d.fromSlot] = [];
-      flyBack = [{ id: d.id, rect }];
-    } else return render();
-    prog.target = null;
-    prog.stack = null;
-    api.vibrate(8);
-    changed();
-  };
-  addEventListener('pointerup', endDrag);
-  addEventListener('pointercancel', endDrag);
-  // a drag ends with a click where it started: that isn't a tap
-  root.addEventListener('click', (e) => {
-    if (performance.now() - draggedAt < 400 && e.target.closest?.('.pl-prog')) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  }, true);
 
   // ---------- taps ----------
 
@@ -1469,101 +1408,61 @@ export default function (root, api) {
 
   // ----- start: the draw has handed out the pads; mine is lit on the dock (the whole course above, so you know where you're going) -----
   function renderStart() {
-    layout('start', () => html`<div class="pl-start">
-      <div class="pl-overview" data-ask="course"><canvas></canvas></div>
-      <div class="pl-dock-box"><div class="pl-dock-wrap" data-ask="map"><canvas class="pl-dock"></canvas><div class="pl-pads"></div></div></div></div>`);
+    layout('start', () => html`<div class="pl-start" data-ask="map"><div class="pl-start-map"><canvas class="pl-dock"></canvas><div class="pl-pads"></div></div></div>`);
     const c = course();
     const mine = view.robots.find((r) => r.id === api.you?.id)?.pick;
-    drawOverview(body.querySelector('.pl-overview canvas'), c, mine);
     const cv = body.querySelector('canvas.pl-dock');
-    const box = body.querySelector('.pl-dock-box');
-    const dock = c.boards.find((b) => b.dock) ?? { x: 0, y: 0, w: c.w, h: c.h };
-    // the dock and a little of the floor beside it
-    const tall = dock.h > dock.w;
-    const view0 = tall ? { x: dock.x, y: dock.y, w: dock.w + 2, h: dock.h } : { x: dock.x, y: dock.y - 2, w: dock.w, h: dock.h + 2 };
+    const box = body.querySelector('.pl-start');
+    // the whole course as tall as the phone: it starts on my pad, and a drag slides it to see the way ahead
     const W = box.clientWidth || 340;
     const H = box.clientHeight || 500;
-    const tile = Math.max(40, Math.floor(Math.min(W / view0.w, H / view0.h, 72)));
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const cw = tile * view0.w;
-    const ch = tile * view0.h;
-    const ox = -view0.x * tile;
-    const oy = -view0.y * tile;
+    const tile = Math.floor(clamp((H - 24) / c.h, 28, 72));
+    const cw = tile * c.w;
+    const ch = tile * c.h;
+    const ox = 0;
+    const oy = 0;
     const key = JSON.stringify([W, H, c.id, mapLook()]);
     if (cv.dataset.key !== key) {
       cv.dataset.key = key;
+      const s = Math.min(window.devicePixelRatio || 1, 3, Math.sqrt(8e6 / (cw * ch))); // (a phone's canvases have a memory limit)
       cv.style.width = `${cw}px`;
       cv.style.height = `${ch}px`;
-      cv.width = Math.round(cw * dpr);
-      cv.height = Math.round(ch * dpr);
+      cv.width = Math.round(cw * s);
+      cv.height = Math.round(ch * s);
       const ctx = cv.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawCourse(ctx, c, { tile, ox, oy, noStarts: true, ...mapLook() });
+      ctx.setTransform(cv.width / cw, 0, 0, cv.height / ch, 0, 0);
+      drawCourse(ctx, c, { tile, noStarts: true, cpNext: 1, ...mapLook() });
     }
     maps.set(cv, { tile, ox, oy, robots: [], ghosts: [] });
+    const at = c.starts.find((s) => s.n === mine) ?? c.boards.find((b) => b.dock) ?? { x: c.w / 2, y: c.h / 2 };
+    const spot = JSON.stringify([key, mine]);
+    if (box.dataset.spot !== spot) {
+      box.dataset.spot = spot;
+      box.scrollLeft = (at.x + 0.5) * tile - W / 2;
+      box.scrollTop = (at.y + 0.5) * tile - H / 2;
+    }
     // each start space shows its robot: mine lit, the others dimmed (an empty one keeps its number)
     const taken = new Map(view.robots.filter((r) => r.pick != null).map((r) => [r.pick, r]));
     set(body.querySelector('.pl-pads'), html`${c.starts.map((st) => {
       const r = taken.get(st.n);
       const isMe = r && r.id === api.you?.id;
-      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;${r ? `--c:${r.color}` : ''}`;
+      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;--d:${st.d};${r ? `--c:${r.color}` : ''}`;
       return html`<span class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'}" style="${style}" data-ask="pad">${r ? bot(r) : html`<span>${st.n}</span>`}</span>`;
     })}`);
   }
 
-  /** The whole course, small: flag numbers, the dock outlined, my pad lit. Not a control. */
-  function drawOverview(cv, c, mine) {
-    const box = cv.parentElement;
-    const W = box.clientWidth || 340;
-    const maxH = Math.round(window.innerHeight * 0.22);
-    const tile = Math.min(W / c.w, maxH / c.h);
-    const w = Math.round(tile * c.w);
-    const h = Math.round(tile * c.h);
-    const key = JSON.stringify([W, maxH, c.id, mine, api.you?.color, mapLook()]);
-    if (cv.dataset.key === key) return;
-    cv.dataset.key = key;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    cv.style.width = `${w}px`;
-    cv.style.height = `${h}px`;
-    cv.width = Math.round(w * dpr);
-    cv.height = Math.round(h * dpr);
-    const ctx = cv.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawCourse(ctx, c, { tile, glow: tile >= 8, ...mapLook() });
-    const dock = c.boards.find((b) => b.dock);
-    if (dock) {
-      ctx.strokeStyle = 'rgba(244,239,228,.8)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 3]);
-      ctx.strokeRect(dock.x * tile + 0.75, dock.y * tile + 0.75, dock.w * tile - 1.5, dock.h * tile - 1.5);
-      ctx.setLineDash([]);
-    }
-    const st = c.starts.find((s) => s.n === mine);
-    if (st) {
-      ctx.fillStyle = api.you?.color ?? '#fff';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = tile;
-      ctx.beginPath();
-      ctx.arc((st.x + 0.5) * tile, (st.y + 0.5) * tile, Math.max(3, tile * 0.42), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    // flag numbers, big enough to read
-    for (const cp of c.checkpoints) {
-      const x = (cp.x + 0.5) * tile;
-      const y = (cp.y + 0.5) * tile;
-      const r = Math.max(6, tile * 0.6);
-      ctx.fillStyle = '#f4efe4';
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0b0e13';
-      ctx.font = `600 ${Math.round(r * 1.25)}px Lumen, Roboto, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(cp.n), x, y + r * 0.06);
-    }
-  }
+  // a mouse drags the start map as a finger scrolls it
+  let startDrag = null;
+  root.addEventListener('pointerdown', (e) => {
+    const box = e.pointerType === 'mouse' && e.target.closest?.('.pl-start');
+    if (box) startDrag = { box, x: e.clientX + box.scrollLeft, y: e.clientY + box.scrollTop };
+  });
+  root.addEventListener('pointermove', (e) => {
+    if (!startDrag) return;
+    startDrag.box.scrollLeft = startDrag.x - e.clientX;
+    startDrag.box.scrollTop = startDrag.y - e.clientY;
+  });
+  for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => (startDrag = null));
 
   // ----- the test drive (practice.js): the programming screen on three tiny courses, for a phone that has never
   // raced. While the leader chooses a map (nothing else to do then), and in the Briefing's practice stage, which
@@ -1752,6 +1651,7 @@ export default function (root, api) {
       });
       flyBack = null;
     }
+    cardDrag.refresh();
     tickDice();
   }
 
@@ -2018,10 +1918,7 @@ export default function (root, api) {
     },
     destroy() {
       window.removeEventListener('resize', onPicResize);
-      removeEventListener('pointermove', onDragMove);
-      removeEventListener('pointerup', endDrag);
-      removeEventListener('pointercancel', endDrag);
-      drag?.ghost?.remove();
+      cardDrag.destroy();
       clearTimeout(draftTimer);
       clearInterval(diceTimer);
       coach.destroy();

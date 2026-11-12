@@ -252,6 +252,7 @@ const actingIds = (robots, prio = 0) => robots.map((_, k) => robots[(prio + k) %
  *                   slot, and receives L0's junk cards
  *   slow(step)      whether this program step is filled slowly, by a fingertip
  *   fast            the fingertip runs at the Briefing's quicker pace
+ *   instant         the phone's program steps land at once, already done (the lobby film seeking)
  *   line            grow a dotted path of light on the glass as each card is placed (robot 0)
  *   regs(n)         show the register strip with register n lit (null hides it)
  *   onBeat(st, i)   called as each beat starts (for a shot's extra effects)
@@ -286,6 +287,7 @@ export async function playRun(arena, run, o = {}) {
             fast: o.fast,
             locked: st.locked[0],
             pause,
+            instant: o.instant,
             color: cast(0).color,
             onPlace: line ? (placed) => arena.ghostPath(placedGhosts(run, start, placed), cast(0).color) : null,
           });

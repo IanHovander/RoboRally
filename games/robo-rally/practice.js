@@ -1,6 +1,7 @@
 // The test drive: the tutorial you do instead of watch. A phone gets the programming screen itself (the same
 // cards, five slots, light line and lock) on three tiny courses (drills.js), and the robot runs what was
 // programmed by the real rules. A wrong program runs too, then the cards come back and the next right card bobs.
+// Cards are dragged to the slots, or tapped, as in a race (dragcards.js).
 // Little to read: the coach (coach.js) says each step of the first course once, and one thing about each of the
 // others; a card bobs when you're stuck, the lock lights when five slots are full.
 //   const p = mountPractice(box, { color, form, level, vibrate, onLevel(n), onDone(), onSkip() });  p.destroy()
@@ -10,6 +11,7 @@ import { cardSvgHtml, svgGlyph } from './glyphs.js';
 import { lessonFrames, paintComp } from './demo.js';
 import { DRILLS, drillCourse, drillStart, drillLine, drillHint, tryDrill } from './drills.js';
 import { createCoach } from './coach.js';
+import { mountCardDrag } from './dragcards.js';
 
 const SPEED = 1.3; // the run's clock runs this much faster than a rule clip's
 const IDLE_MS = 5000; // nothing tapped for this long: a nudge
@@ -125,6 +127,7 @@ export function mountPractice(box, o = {}) {
       });
       back = null;
     }
+    cardDrag.refresh();
     const moved = !running && drillLine(d, types()).ghosts.some((gh) => (gh.path?.length ?? 0) > 1);
     coach.refresh(mode === 'done' ? null : { screen: 'drive', level, placed: slots.filter((i) => i != null).length, moved, full: full(), running });
   }
@@ -274,6 +277,19 @@ export function mountPractice(box, o = {}) {
     o.onDone?.();
   }
 
+  // a card dragged to a slot, between two cards or onto one (a tap still drops it in the next free slot)
+  const cardDrag = mountCardDrag(root, {
+    scope: '.pr-prog',
+    attr: 'i',
+    can: () => alive && mode === 'plan',
+    state: () => ({ regs: slots.map((i) => (i == null ? [] : [String(i)])), locked: slots.map(() => false) }),
+    commit(plan) {
+      slots = plan.regs.map((l) => (l.length ? Number(l[0]) : null));
+      changed();
+    },
+    vibrate: o.vibrate,
+  });
+
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-pr]');
     if (!el || !root.contains(el)) return;
@@ -303,6 +319,7 @@ export function mountPractice(box, o = {}) {
       cancelAnimationFrame(raf);
       clearTimeout(idle);
       ro?.disconnect();
+      cardDrag.destroy();
       coach.destroy();
       root.remove();
     },

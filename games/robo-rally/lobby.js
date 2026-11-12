@@ -296,7 +296,9 @@ export function mountLumenLobby(stage, ui) {
     let prog = -1;
     for (let k = i - 1; k >= 0 && prog < 0; k--) if (run.steps[k].kind === 'program') prog = k;
     if (prog >= 0) {
-      await playRun(arena, run, { pause: instant, cast, mimic, slow: () => false, line: !!lesson.line, from: prog, to: prog + 1 });
+      await playRun(arena, run, { pause: instant, instant: true, cast, mimic, slow: () => false, line: !!lesson.line, from: prog, to: prog + 1 });
+      // SPAM from an earlier round still sits on the deck (a Haywire from then is in the program's locked slots)
+      if (run.steps.slice(0, prog).some((st) => st.beat?.fx.some((f) => f.k === 'dmg' && f.id === 'L0' && f.sp))) mimic.junkNow({ sp: 1 });
       // what happened since: the register running, junk cards on the phone, a flag already reached
       let reg = null;
       for (let k = prog + 1; k < i; k++) {
@@ -312,7 +314,7 @@ export function mountLumenLobby(stage, ui) {
         const program = run.steps[prog];
         const robots = robotsAt(before);
         arena.showCards(robots.map((r, k) => ({ id: r.id, types: r.on ? [program.shown[k][reg]].filter(Boolean) : [] })));
-        mimic.lit(reg, program.locked[0]?.[reg]);
+        mimic.lit(reg, program.locked[0]?.[reg], true);
         showRegs(reg);
       }
     }

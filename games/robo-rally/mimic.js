@@ -135,6 +135,31 @@ export function createMimic(parent) {
     finger.classList.remove('press');
   }
 
+  /** The hand dealt for these slot types: the real cards and two decoys, in a stable shuffle (not sorted). */
+  function handHtml(types) {
+    const real = types.filter(Boolean);
+    const decoys = DECOYS.filter((t) => !real.includes(t)).slice(0, 2);
+    const all = [...real, ...decoys];
+    const order = [3, 0, 5, 1, 6, 2, 4].filter((i) => i < all.length);
+    return order.map((i, n) => `<span class="lf-card" data-i="${i}" style="--n:${n}">${cardSvgHtml(all[i])}</span>`).join('');
+  }
+
+  function lockSlots(locked) {
+    locked.forEach((t, k) => {
+      if (!t || slots[k].classList.contains('locked')) return;
+      slots[k].className = 'locked';
+      slots[k].innerHTML = hwBack();
+      slots[k].dataset.hw = t;
+    });
+  }
+
+  /** Nothing on the phone moves until the next frame: what changes now just is (the film jumping in time). */
+  function still() {
+    phone.classList.add('still');
+    const version = gen;
+    requestAnimationFrame(() => requestAnimationFrame(() => version === gen && phone.classList.remove('still')));
+  }
+
   function flyInto(card, slot, type) {
     const a = card.getBoundingClientRect();
     const b = slot.getBoundingClientRect();
@@ -161,7 +186,7 @@ export function createMimic(parent) {
     /** Everything off: empty slots, no hand, no deck, no junk. */
     reset() {
       gen++;
-      phone.classList.remove('locked', 'show', 'run', 'deck', 'timing');
+      phone.classList.remove('locked', 'show', 'run', 'deck', 'timing', 'still');
       clearSlots();
       hand.innerHTML = '';
       deckTop.innerHTML = '';
@@ -187,24 +212,29 @@ export function createMimic(parent) {
     /**
      * Deal a hand, then put the cards in the slots: slowly with a fingertip, or quickly. types: [type|null ×5]
      * (null: a slot that's locked, left alone). locked: [type|null ×5], the Haywire face down in a slot.
-     * onPlace(placed): after each card lands, with the types placed so far.
+     * onPlace(placed): after each card lands, with the types placed so far. instant: the phone as it is once
+     * programmed, at once (no deal, no fingertip, no flights), for the lobby film jumping into a scene.
      */
-    async program(types, { slow = false, fast = false, locked = [], pause = sleep, color, onPlace } = {}) {
+    async program(types, { slow = false, fast = false, locked = [], pause = sleep, color, onPlace, instant = false } = {}) {
       api.setColor(color);
       phone.classList.remove('locked', 'run');
       clearSlots(true);
-      locked.forEach((t, k) => {
-        if (!t || slots[k].classList.contains('locked')) return;
-        slots[k].className = 'locked';
-        slots[k].innerHTML = hwBack();
-        slots[k].dataset.hw = t;
-      });
-      const real = types.filter(Boolean);
-      const decoys = DECOYS.filter((t) => !real.includes(t)).slice(0, 2);
-      const all = [...real, ...decoys];
-      // a stable shuffle so the hand doesn't look sorted
-      const order = [3, 0, 5, 1, 6, 2, 4].filter((i) => i < all.length);
-      hand.innerHTML = order.map((i, n) => `<span class="lf-card" data-i="${i}" style="--n:${n}">${cardSvgHtml(all[i])}</span>`).join('');
+      lockSlots(locked);
+      hand.innerHTML = handHtml(types);
+      if (instant) {
+        still();
+        let r = 0;
+        types.forEach((t, k) => {
+          if (!t) return;
+          hand.querySelector(`[data-i="${r++}"]`)?.classList.add('gone');
+          slots[k].className = 'full';
+          slots[k].innerHTML = cardSvgHtml(t);
+        });
+        finger.className = 'lf-finger';
+        phone.classList.add('show', 'locked', 'run');
+        onPlace?.(types.map((t) => t ?? null));
+        return;
+      }
       phone.classList.add('show');
       await pause(slow ? (fast ? 500 : 1300) : 700);
       let r = 0;
@@ -229,8 +259,8 @@ export function createMimic(parent) {
       phone.classList.add('run');
     },
 
-    /** Slot i is running now (earlier ones done; -1: none). A locked slot turns face up as it runs. */
-    lit(i, lockedType) {
+    /** Slot i is running now (earlier ones done; -1: none). A locked slot turns face up as it runs (at once if instant). */
+    lit(i, lockedType, instant = false) {
       slots.forEach((s, k) => {
         s.classList.toggle('now', k === i);
         s.classList.toggle('done', i >= 0 && k < i);
@@ -238,6 +268,11 @@ export function createMimic(parent) {
       const s = slots[i];
       if (s?.classList.contains('locked') && !s.classList.contains('flip')) {
         s.classList.add('flip');
+        if (instant) {
+          still();
+          s.innerHTML = cardSvgHtml(lockedType ?? s.dataset.hw ?? 'h01');
+          return;
+        }
         const version = gen;
         setTimeout(() => {
           if (version === gen) s.innerHTML = cardSvgHtml(lockedType ?? s.dataset.hw ?? 'h01');
@@ -273,25 +308,19 @@ export function createMimic(parent) {
       }
     },
 
-    /**
-     * The same junk, already there (no flight): for the lobby film jumping into the middle of a scene.
-     * Waits for cards still settling into their slots, so a Haywire's slot isn't covered again.
-     */
+    /** The same junk, already there (no flight): for the lobby film jumping into the middle of a scene. */
     junkNow({ sp = 0, hw = 0, reg = 0 }) {
-      const version = gen;
-      setTimeout(() => {
-        if (version !== gen) return;
-        if (sp) {
-          phone.classList.add('deck');
-          deckTop.innerHTML = cardSvgHtml('sp');
-        }
-        if (hw) {
-          const slot = slots[Math.max(0, Math.min(4, reg))];
-          slot.className = 'locked';
-          slot.innerHTML = hwBack();
-          slot.dataset.hw = slot.dataset.hw ?? 'h01';
-        }
-      }, 460);
+      still();
+      if (sp) {
+        phone.classList.add('deck');
+        deckTop.innerHTML = cardSvgHtml('sp');
+      }
+      if (hw) {
+        const slot = slots[Math.max(0, Math.min(4, reg))];
+        slot.className = 'locked';
+        slot.innerHTML = hwBack();
+        slot.dataset.hw = slot.dataset.hw ?? 'h01';
+      }
     },
 
     /** The empty slots fill at random when the timer runs out: the clock line shrinks, they flicker, they settle. */

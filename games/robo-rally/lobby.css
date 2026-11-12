@@ -30,6 +30,7 @@
   border-radius: 1rem; background: rgba(244, 239, 228, .14);
 }
 .lf-phone.show { opacity: 1; }
+.lf-phone.still, .lf-phone.still * { transition: none !important; animation: none !important; } /* (mimic.js: the film jumped in time) */
 .lf-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .35rem; }
 .lf-slots i {
   display: grid; place-items: center; min-width: 0; aspect-ratio: 3 / 4; border-radius: .45rem;
@@ -114,15 +115,21 @@
 .lm-card.lf-back { background: var(--violet); background-image: repeating-linear-gradient(45deg, rgba(21, 24, 29, .18) 0 3px, transparent 3px 8px); }
 
 /* the scene's 1-5 strip above the board, as in a race (style.css's .lm-regs isn't loaded in the lobby) */
-.lf-regs { position: absolute; display: flex; gap: .8rem; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity .6s; }
+.lf-regs { position: absolute; display: flex; gap: .4rem; width: 16rem; height: 2.2rem; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity .6s; }
 .lf-regs.on { opacity: 1; }
+/* a line of light in five lengths: the one running is lit and carries its number, the ones run are gone */
 .lf-regs i {
-  display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 50%;
-  font-style: normal; font-weight: 300; font-size: 1.05rem; color: var(--faint);
-  border: 1px solid var(--hair2); transition: all .5s cubic-bezier(.2, .8, .2, 1);
+  position: relative; flex: 1; padding-top: .35rem; text-align: center;
+  font-style: normal; font-weight: 200; font-size: 1.3rem; font-variant-numeric: tabular-nums;
+  color: transparent; transition: color .5s;
 }
-.lf-regs i.done { color: transparent; border-color: transparent; background: rgba(244, 239, 228, .28); transform: scale(.32); }
-.lf-regs i.now { color: var(--ink); background: var(--light); border-color: var(--light); font-weight: 500; transform: scale(1.18); box-shadow: 0 0 24px rgba(244, 239, 228, .55); }
+.lf-regs i::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; transform-origin: 0 50%;
+  background: rgba(244, 239, 228, .22); transition: transform .6s cubic-bezier(.2, .8, .2, 1), background .5s, box-shadow .5s;
+}
+.lf-regs i.done::before { transform: scaleX(0); }
+.lf-regs i.now { color: var(--light); }
+.lf-regs i.now::before { background: var(--light); box-shadow: 0 0 10px rgba(244, 239, 228, .7); }
 
 /* The scenes: one dot each, under the board. The lit one is a bar that fills as its scene plays.
    They're buttons (mouse, touch, keys): hovering one lifts it, clicking jumps to that scene. */
