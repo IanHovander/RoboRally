@@ -15,8 +15,9 @@ import { readBeat, clockU, clockTime, clockTotal, pathAt, lastTick } from './cha
 
 const TAU = Math.PI * 2;
 const LASER_GAP = 0.17; // how far apart a double laser's two beams (and its two lenses) sit, in squares
-const BEAD_GAP = 1.1; // the beads of light drifting down a resting laser beam: this far apart, in squares
-const BEAD_SPEED = 0.4; // and this many squares a second
+const BOLT_GAP = 1.4; // the bolts of light drifting down a resting laser beam: this far apart, in squares
+const BOLT_SPEED = 0.5; // this many squares a second
+const BOLT_LEN = 0.4; // and this long
 const FONT = 'Lumen';
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
@@ -1675,6 +1676,7 @@ export class Arena {
     // wall lasers: a small dark housing with a red eye
     const housingMat = new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: 0.3, metalness: 0.3 });
     const lensMat = new THREE.MeshBasicMaterial({ color: hdr(PALETTE.laser, 3) });
+    const boltGeo = { core: new THREE.CapsuleGeometry(0.011, BOLT_LEN, 3, 8), glow: new THREE.CapsuleGeometry(0.03, BOLT_LEN, 4, 10) };
     for (const L of c.lasers) {
       const side = turn(L.d, 2);
       const p = this.pos(L.x, L.y);
@@ -1711,16 +1713,19 @@ export class Arena {
         beam.position.copy(from).add(to).multiplyScalar(0.5);
         beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
         this.board.add(beam);
-        // beads of light travel down it from the lens, a soft glow that reads from any side (dashes alone vanish on a beam
-        // pointing at the camera)
-        const beads = [];
-        for (let k = 0; k <= Math.ceil(len / BEAD_GAP); k++) {
-          const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: hdr(PALETTE.laser, 2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-          s.scale.setScalar(0.24);
-          this.board.add(s);
-          beads.push(s);
+        // bolts travel down it from the lens: a white-hot core in a red glow, long along the beam (dashes alone vanish on
+        // a beam pointing at the camera; a bolt end-on is still a bright spot)
+        const dir = to.clone().sub(from).normalize();
+        const bolts = [];
+        for (let k = 0; k <= Math.ceil(len / BOLT_GAP); k++) {
+          const core = new THREE.Mesh(boltGeo.core, new THREE.MeshBasicMaterial({ color: hdr('#ffffff', 2.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+          const glow = new THREE.Mesh(boltGeo.glow, new THREE.MeshBasicMaterial({ color: hdr(PALETTE.laser, 2), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+          const bolt = new THREE.Group().add(glow, core);
+          bolt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          this.board.add(bolt);
+          bolts.push(bolt);
         }
-        this.beams.push({ from, dir: to.clone().sub(from).normalize(), len, beads });
+        this.beams.push({ from, dir, len, bolts });
       }
     }
 
@@ -4128,15 +4133,17 @@ export class Arena {
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
-    // the lasers' beads drift slowly away from their lenses, fading in at the lens and out where the beam stops
-    const run = (t * BEAD_SPEED) % BEAD_GAP;
+    // the lasers' bolts drift slowly away from their lenses, fading in at the lens and out where the beam stops
+    const run = (t * BOLT_SPEED) % BOLT_GAP;
     for (const B of this.beams ?? []) {
-      B.beads.forEach((s, k) => {
-        const d = run + k * BEAD_GAP;
-        s.visible = d < B.len;
-        if (!s.visible) return;
-        s.position.copy(B.from).addScaledVector(B.dir, d);
-        s.material.opacity = Math.min(1, d / 0.3, (B.len - d) / 0.3) * traced;
+      B.bolts.forEach((bolt, k) => {
+        const d = run + k * BOLT_GAP; // where its head is
+        bolt.visible = d < B.len;
+        if (!bolt.visible) return;
+        bolt.position.copy(B.from).addScaledVector(B.dir, d - BOLT_LEN / 2);
+        const fade = Math.max(0, Math.min(1, d / BOLT_LEN, (B.len - d) / 0.3)) * traced;
+        bolt.children[0].material.opacity = 0.6 * fade;
+        bolt.children[1].material.opacity = fade;
       });
     }
     for (const cm of this.curveMats ?? []) {
