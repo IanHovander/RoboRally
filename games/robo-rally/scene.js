@@ -30,7 +30,7 @@ const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
 const BOT_SCALE = 1.3;
 // everything one board is (setCourse builds it; the board on stage keeps it in these fields of the arena)
 const BOARD_KEYS = ['course', 'board', 'topMat', 'belts', 'curveMats', 'gears', 'pushers', 'columns', 'batteries', 'batteryMat', 'emitters',
-  'throughHole', 'pits', 'areas', 'wallMats', 'perimeterGroup', 'perimeterShown', 'markCost', 'markPlaces', 'marks', 'startTags', 'startKey',
+  'beams', 'throughHole', 'pits', 'areas', 'wallMats', 'perimeterGroup', 'perimeterShown', 'markCost', 'markPlaces', 'marks', 'startTags', 'startKey',
   'lightLine', 'builtInert', 'warm'];
 
 export const PALETTE = {
@@ -652,13 +652,18 @@ function drawCurve(g, color, fromLeft, fast, s) {
   g.stroke();
   g.globalAlpha = 1;
 }
-/** A resting laser beam's dashes: lit, gap, repeated along the beam. */
+/** A resting laser beam's dashes: lit, gap, repeated along the beam. Each dash is bright at its head and fades behind,
+ * and they drift away from the lens, so the beam reads as going one way even when nothing moves. */
 let dashTex = null;
 function laserDashTexture() {
   if (dashTex) return dashTex;
   const c = canvas(4, 32);
   const g = c.getContext('2d');
-  g.fillStyle = '#fff';
+  // the top of the canvas is the far end of the beam (the texture is flipped), so the head is at the top
+  const fade = g.createLinearGradient(0, 0, 0, 19);
+  fade.addColorStop(0, 'rgba(255,255,255,1)');
+  fade.addColorStop(1, 'rgba(255,255,255,.15)');
+  g.fillStyle = fade;
   g.fillRect(0, 0, 4, 19);
   dashTex = tex(c, { repeat: true });
   return dashTex;
@@ -1434,7 +1439,7 @@ export class Arena {
   buildBoard(c, later = false) {
     const rec = {
       course: c, board: new THREE.Group(), topMat: null, belts: [], curveMats: [], gears: new Map(), pushers: new Map(), columns: [],
-      batteries: [], batteryMat: null, emitters: [], throughHole: null, pits: null, areas: [], wallMats: null, perimeterGroup: null,
+      batteries: [], batteryMat: null, emitters: [], beams: [], throughHole: null, pits: null, areas: [], wallMats: null, perimeterGroup: null,
       perimeterShown: null, markCost: new Map(), markPlaces: new Map(), marks: new Map(), startTags: null, startKey: null, lightLine: null,
       builtInert: !!this.inertBatteries, warm: false,
     };
@@ -1704,6 +1709,7 @@ export class Arena {
         beam.position.copy(from).add(to).multiplyScalar(0.5);
         beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
         this.board.add(beam);
+        this.beams.push(dashes);
       }
     }
 
@@ -4111,6 +4117,8 @@ export class Arena {
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
+    // the lasers' dashes drift away from their lenses (half a square a second; a dash is 0.24 of a square)
+    for (const d of this.beams ?? []) d.offset.y = (d.offset.y - (dt * 0.5) / 0.24) % 1;
     for (const cm of this.curveMats ?? []) {
       // the bend's chevrons move in step with its straight belts' (the same scroll), so they pass between them seamlessly
       const belt = this.belts.find((b) => b.fast === cm.fast);
