@@ -36,7 +36,7 @@ export function shuffle(s, list) {
 export function newGame({ order, opts = {}, seed = Date.now() }) {
   return {
     phase: 'setup', // setup -> start -> (upgrade -> program -> activate)* -> over
-    opts: { course: 'closing-time', upgrades: true, timer: 120, lessDeadly: false, lessSpam: false, ...opts },
+    opts: { course: 'closing-time', upgrades: true, timer: 120, lessDeadly: false, lessSpam: false, haywires: false, ...opts },
     order: [...order], // seats, clockwise
     prio: 0, // index in order of the Priority Token holder
     round: 0,
@@ -77,10 +77,13 @@ export function startRace(s, env) {
     if (s.picks[id] == null) s.picks[id] = free.shift()?.n;
     const st = c.starts.find((x) => x.n === s.picks[id]) ?? c.starts[0];
     s.robots[id] = newRobot(s, id, st);
+    if (c.mode === 'ctf') s.robots[id].hunt = st.n; // Capture the Flag: the robot on pad n goes for flag n
   }
+  // Damage is SPAM only, unless the Haywires are asked for (opts.haywires): as many SPAM as both piles had
+  const haywires = Object.keys(HAYWIRE);
   s.damage = shuffle(s, [
-    ...Array.from({ length: SPAM_COUNT }, () => `sp.${++s.serial}`),
-    ...Object.keys(HAYWIRE).map((t) => `${t}.${++s.serial}`),
+    ...Array.from({ length: SPAM_COUNT + (s.opts.haywires ? 0 : haywires.length) }, () => `sp.${++s.serial}`),
+    ...(s.opts.haywires ? haywires.map((t) => `${t}.${++s.serial}`) : []),
   ]);
   s.upDeck = shuffle(s, UPGRADE_IDS);
   if (s.opts.upgrades) for (const R of robotList(s)) R.up.hand.push(...s.upDeck.splice(0, 3));
@@ -954,6 +957,7 @@ function stepRobot(s, env, R, d, o = {}) {
   spiky(s, env, [R, ...chain]);
   for (let i = chain.length - 1; i >= 0; i--) {
     const X = chain[i];
+    dropFlag(s, env, X, 'shoved');
     if (X.on) placeRobot(s, env, X, X.x + DX[d], X.y + DY[d]);
   }
   placeRobot(s, env, R, nx, ny, o);
@@ -1037,6 +1041,7 @@ function adjacentRobots(s, env, R) {
 
 function fall(s, env, R, kind) {
   if (!R.on) return;
+  dropFlag(s, env, R, 'fell');
   R.on = false;
   const b = cellAt(env.course, R.x, R.y)?.b ?? R.lastBoard ?? 0;
   R.reboot = { b, round: s.round };
@@ -1127,6 +1132,7 @@ export function takeDamage(s, env, R, n, source) {
       return;
     }
   }
+  dropFlag(s, env, R, source === 'laser' || source === 'weapon' ? 'shot' : 'hit');
   let sp = 0;
   let hw = 0;
   for (let i = 0; i < n; i++) {
@@ -1374,7 +1380,53 @@ function fireSpecial(s, env, R, key) {
 
 // ----- end of register -----
 
+// ----- Capture the Flag -----
+// cp counts a robot's progress: 0 going for its flag, 1 carrying it home, 2 home with it (the win).
+
+export const isCtf = (env) => env.course.mode === 'ctf';
+export const CTF_STEPS = 2;
+
+/** Where a Capture the Flag robot is heading now: its flag, or (carrying it) its start pad. */
+export function ctfGoal(env, R) {
+  if (R.cp === 0) return env.course.checkpoints.find((p) => p.n === R.hunt) ?? null;
+  return env.course.starts.find((st) => st.n === R.start) ?? null;
+}
+
+/** Shot, shoved, hurt or fell while carrying a flag: the flag goes back where it started. */
+function dropFlag(s, env, R, why) {
+  if (!isCtf(env) || R.cp !== 1 || s.phase === 'over') return;
+  R.cp = 0;
+  const home = env.course.checkpoints.find((p) => p.n === R.hunt);
+  fx(s, { k: 'flagback', id: R.id, n: R.hunt, x: home?.x, y: home?.y, why });
+  say(s, env, `${nameOf(env, R.id)} was ${why} and dropped the flag`);
+}
+
+function runCtf(s, env) {
+  for (const id of priorityOrder(s)) {
+    const R = s.robots[id];
+    if (!R.on || R.shutdown) continue;
+    const goal = ctfGoal(env, R);
+    if (!goal || goal.x !== R.x || goal.y !== R.y) continue;
+    R.cp++;
+    fx(s, { k: 'cp', id, n: R.cp === 1 ? R.hunt : 0 });
+    if (R.cp === 1) {
+      say(s, env, `${nameOf(env, id)} grabbed a flag`);
+      s.cap = `${nameOf(env, id)} has the flag!`;
+      continue;
+    }
+    s.winner = id;
+    s.phase = 'over';
+    s.queue = [];
+    s.prompt = null;
+    fx(s, { k: 'win', id });
+    s.cap = `${nameOf(env, id)} captured the flag!`;
+    say(s, env, `${nameOf(env, id)} captured the flag and wins!`);
+    return;
+  }
+}
+
 function runCheckpoints(s, env) {
+  if (isCtf(env)) return runCtf(s, env);
   const total = env.course.checkpoints.length;
   for (const id of priorityOrder(s)) {
     const R = s.robots[id];

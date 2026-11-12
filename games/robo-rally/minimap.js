@@ -297,9 +297,12 @@ export function drawCourse(g, course, o = {}) {
   for (const cp of course.checkpoints) {
     const cx = px(cp.x + 0.5);
     const cy = py(cp.y + 0.5);
+    // Capture the Flag (o.ctf: { n: { color, carried } }): a flag in its hunter's color, gone while carried
+    const ctf = o.ctf?.[cp.n];
+    if (ctf?.carried) continue;
     // every flag looks the same until you've reached it; then it's filled with your color
-    const done = o.cpDone?.(cp.n);
-    const mine = o.ghostColor ?? C.light;
+    const done = ctf ? true : o.cpDone?.(cp.n);
+    const mine = ctf?.color ?? o.ghostColor ?? C.light;
     g.save();
     if (glow) {
       g.shadowColor = done ? mine : C.light;
@@ -381,6 +384,33 @@ export function drawCourse(g, course, o = {}) {
       g.restore();
     }
     drawRobot(g, r.form ?? formOf(r), cx, cy, T * 0.36, (r.d ?? 0) * (Math.PI / 2), r.color, { glow, me: r.me, alpha: r.away ? 0.45 : 1 });
+  }
+  // ...and a carried flag flies over its carrier
+  if (o.ctf) {
+    for (const r of o.robots ?? []) {
+      if (r.cp !== 1 || r.on === false || r.x == null) continue;
+      const fx0 = px(r.x + 0.62);
+      const fy0 = py(r.y + 0.08);
+      g.save();
+      g.strokeStyle = C.light;
+      g.lineWidth = lw(0.04);
+      g.beginPath();
+      g.moveTo(fx0, fy0 + T * 0.42);
+      g.lineTo(fx0, fy0);
+      g.stroke();
+      g.fillStyle = r.color;
+      if (glow) {
+        g.shadowColor = r.color;
+        g.shadowBlur = T * 0.3;
+      }
+      g.beginPath();
+      g.moveTo(fx0, fy0);
+      g.lineTo(fx0 + T * 0.32, fy0 + T * 0.1);
+      g.lineTo(fx0, fy0 + T * 0.2);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
   }
   g.restore();
 }

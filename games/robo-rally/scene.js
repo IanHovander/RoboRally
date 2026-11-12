@@ -70,6 +70,38 @@ function tex(c, { repeat = false, srgb = true } = {}) {
  * it, so the pill gets an edge in that color and a small pointer under it, aimed down at what it names (a robot's
  * name never reads as the name of the gear or ring it happens to float over).
  */
+/**
+ * A flag on a pole: a bright banner in its owner's color. Stands at a flag's home space, or rides on the carrier's
+ * back ({ carried }: taller, leaning back, so it reads at a glance whose robot has it).
+ */
+function makePennant(color, { carried = false } = {}) {
+  const g = new THREE.Group();
+  const poleH = carried ? 1.55 : 1.3;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(carried ? 0.03 : 0.018, carried ? 0.03 : 0.018, poleH, 8).translate(0, poleH / 2, 0), new THREE.MeshBasicMaterial({ color: hdr('#f4efe4', 1.6) }));
+  g.add(pole);
+  const banner = new THREE.Mesh(
+    new THREE.BufferGeometry().setFromPoints(carried
+      ? [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.95, -0.3, 0), new THREE.Vector3(0, -0.6, 0)]
+      : [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.62, -0.19, 0), new THREE.Vector3(0, -0.38, 0)]),
+    new THREE.MeshBasicMaterial({ color: hdr(color, 2.2), side: THREE.DoubleSide }),
+  );
+  banner.geometry.computeVertexNormals();
+  banner.position.y = poleH - 0.02;
+  g.add(banner);
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(carried ? 1.6 : 1.1, carried ? 1.6 : 1.1), new THREE.MeshBasicMaterial({ map: glowTexture(), color: hdr(color, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.position.y = poleH - 0.2;
+  glow.position.x = 0.25;
+  g.add(glow);
+  g.userData.color = color;
+  g.userData.paint = (c) => {
+    g.userData.color = c;
+    banner.material.color.copy(hdr(c, 2.2));
+    glow.material.color.copy(hdr(c, 0.9));
+  };
+  if (carried) g.position.set(0, 0.35, 0);
+  return g;
+}
+
 function labelSprite(text, { color = '#f4efe4', height = 0.2, weight = 500, pill = true, size = 64, track = 0.06, owner = null } = {}) {
   const probe = canvas(8, 8).getContext('2d');
   probe.font = `${weight} ${size}px ${FONT}, sans-serif`;
@@ -2575,6 +2607,60 @@ export class Arena {
     this.board.add(g);
   }
 
+  /**
+   * Capture the Flag: each flag's column wears the color of the robot hunting it, and stands empty while that robot
+   * carries it; the carrier wears the flag on its back. robots: the view's robots ({ id, color, hunt, cp }).
+   */
+  setCtf(robots) {
+    for (const col of this.columns) {
+      const hunter = robots.find((r) => r.hunt === col.n);
+      const carried = !!hunter && hunter.cp === 1;
+      const color = hunter?.color ?? PALETTE.light;
+      col.ctfColor = hunter?.color ?? null;
+      col.col.visible = !carried;
+      col.halo.visible = !carried;
+      if (!col.pennant) {
+        col.pennant = makePennant(color);
+        col.pennant.position.copy(col.col.position);
+        col.pennant.scale.setScalar(BOT_SCALE * 1.15);
+        this.board.add(col.pennant);
+      }
+      if (col.pennant.userData.color !== color) col.pennant.userData.paint(color);
+      col.pennant.visible = !carried;
+    }
+    for (const r of robots) {
+      const b = this.bots.get(r.id);
+      if (b) b.flagWant = r.cp === 1 ? r.color : null;
+    }
+  }
+
+  /** Put the flag on a robot's back, or take it off (once the robot's own moment is over: a shove, a fall). */
+  tendFlag(b) {
+    const want = b.flagWant ?? null;
+    const have = b.flag?.userData.color ?? null;
+    if (b.flag && this.camera) {
+      // the banner turns to the camera, whichever way the robot faces (it reads as a flag, never edge-on)
+      const p = b.group.position;
+      const yaw = Math.atan2(this.camera.position.x - p.x, this.camera.position.z - p.z);
+      b.flag.rotation.set(0, yaw - b.group.rotation.y, 0);
+    }
+    if (want === have) return;
+    if (!want && b.busyUntil > this.time) return; // dropped: it goes when the hit lands, not before
+    if (b.flag) {
+      b.model.body.remove(b.flag);
+      b.flag.traverse((o) => {
+        o.geometry?.dispose();
+        o.material?.dispose();
+      });
+      b.flag = null;
+    }
+    if (want) {
+      b.flag = makePennant(want, { carried: true });
+      b.model.body.add(b.flag);
+      this.ring(b.group.position, want, 2.5, 0.03, 1.2);
+    }
+  }
+
   /** Which checkpoints each robot has (colored rings at the foot of each column). */
   setTaken(robots) {
     for (const col of this.columns) {
@@ -3300,6 +3386,14 @@ export class Arena {
           break;
         case 'cp':
           if (b) this.checkpoint(b, f.n);
+          break;
+        case 'flagback':
+          // the flag flies home: a burst where the robot lost it, a ring where it lands
+          if (b) {
+            this.burst(b.group.position, b.color, 1.4, 0.5);
+            this.popGlyph(b, 'flag', b.color, '');
+          }
+          if (f.x != null) this.later(0.5, () => this.ring(this.pos(f.x, f.y), b?.color ?? PALETTE.light, 3, 0.03, 1.4));
           break;
         case 'say':
           if (b) this.say(b, f);
@@ -4189,8 +4283,9 @@ export class Arena {
         col.aura.material.color.set(PALETTE.light).multiplyScalar(col.tgt * (0.15 + breath * (0.75 + 0.55 * col.lead)) * (0.45 + 0.55 * lit) * traced);
         col.aura.scale.setScalar(1 + breath * 0.035 * col.tgt);
       }
-      col.halo.material.color.set(PALETTE.light).multiplyScalar(0.12 + col.tgt * breath * (0.22 + 0.18 * col.lead));
-      const base = new THREE.Color(PALETTE.light).lerp(col.flashColor, flash);
+      const tint = col.ctfColor ?? PALETTE.light; // Capture the Flag: the hunter's color (setCtf)
+      col.halo.material.color.set(tint).multiplyScalar((col.ctfColor ? 0.3 : 0.12) + col.tgt * breath * (0.22 + 0.18 * col.lead));
+      const base = new THREE.Color(tint).lerp(col.flashColor, flash);
       const stutter = col.flicker != null && t - col.flicker < 1 ? (Math.sin((t - col.flicker) * 38) > 0 ? 1.3 : 0.15) : 1;
       col.mat.color.copy(base).multiplyScalar((breathe + flash * 2.2 * (col.flashK ?? 1)) * (0.45 + 0.55 * lit) * stutter * traced);
       col.col.scale.set(1 + flash * 0.8, 1 + flash * 0.15, 1);
@@ -4228,6 +4323,7 @@ export class Arena {
   }
 
   animateBot(b, t, dt) {
+    this.tendFlag(b);
     let px = b.x;
     let py = b.y;
     let rot = b.rot;

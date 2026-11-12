@@ -188,7 +188,7 @@ export function runLesson(lesson, seed = 7) {
   const course = lessonCourse(lesson);
   const ids = lesson.robots.map((_, i) => `L${i}`);
   const env = { course, connected: () => false, now: () => 0, name: (id) => id };
-  const s = E.newGame({ order: ids, opts: { upgrades: false, timer: 0 }, seed });
+  const s = E.newGame({ order: ids, opts: { upgrades: false, timer: 0, haywires: true }, seed }); // (the scripted damage lesson deals a Haywire)
   ids.forEach((id, i) => (s.picks[id] = i + 1));
   E.startRace(s, env);
   s.prio = 0;

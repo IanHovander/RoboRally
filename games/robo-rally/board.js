@@ -24,6 +24,25 @@ const ARROW = { '^': 0, '>': 1, v: 2, '<': 3 };
 // pushers: [x, y, 'side', [registers]]  a push panel on that side's wall, pushing robots away from it
 // reboot:  [x, y, 'dir']       the Reboot token and its arrow
 export const PIECES = {
+  // Capture the Flag: a narrow 4 x 10 floor. Robots start in two corners and race for the flags in the
+  // other two (S1 hunts flag 1, S2 hunts flag 2), then carry them home. startDirs turns a start pad.
+  field: {
+    name: 'The Long Aisle',
+    grid: [
+      'F1 .. .. S2',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      '.. .. .. ..',
+      'S1 .. .. F2',
+    ],
+    startDirs: { 2: 'S' },
+  },
+
   dock: {
     name: 'Loading Dock',
     dock: true,
@@ -120,6 +139,16 @@ export const PIECES = {
 // coordinates. A tall course is turned on its side afterwards so it fits a wide TV, Docking Bay on the left.
 export const COURSES = [
   {
+    id: 'capture-the-flag',
+    name: 'Capture the Flag',
+    mode: 'ctf',
+    level: 'Starter',
+    length: 'Short',
+    blurb: 'Two robots, two flags. Grab the far flag and bring it home. Get shot, shoved or fall, and it goes back.',
+    pieces: [['field', 0, 0]],
+    checkpoints: [[0, 0], [3, 9]], // flag n is hunted by the robot on start pad n
+  },
+  {
     id: 'closing-time',
     name: 'Closing Time',
     level: 'Starter',
@@ -205,13 +234,13 @@ function parsePiece(def) {
 
 function parseCell(code, def) {
   const cell = { k: 'floor', walls: 0 };
-  if (code === '..') return cell;
+  if (code === '..' || code[0] === 'F') return cell;
   if (code === 'XX') return { ...cell, k: 'pit' };
   if (code === 'EE') return { ...cell, k: 'battery' };
   if (code === 'G+') return { ...cell, k: 'gear', spin: 1 };
   if (code === 'G-') return { ...cell, k: 'gear', spin: -1 };
   if (code[0] === 'g' || code[0] === 'b') return { ...cell, k: 'belt', fast: code[0] === 'b', d: ARROW[code[1]] };
-  if (code[0] === 'S') return { ...cell, k: 'start', n: Number(code[1]), d: 0 };
+  if (code[0] === 'S') return { ...cell, k: 'start', n: Number(code[1]), d: LETTER[def.startDirs?.[code[1]]] ?? 0 };
   throw new Error(`${def.name}: unknown cell "${code}"`);
 }
 
@@ -322,7 +351,7 @@ export function getCourse(id) {
     if (c?.k === 'start') starts.push({ x: i % w, y: Math.floor(i / w), d: c.d, n: c.n });
   });
   starts.sort((a, b) => a.n - b.n);
-  const course = { id: info.id, name: info.name, level: info.level, length: info.length, w, h, cells, lasers, pushers, checkpoints, starts, boards };
+  const course = { id: info.id, name: info.name, mode: info.mode ?? 'race', level: info.level, length: info.length, w, h, cells, lasers, pushers, checkpoints, starts, boards };
   course.tokens = new Map(); // space index -> 'checkpoint' | 'reboot': board elements under a token don't work
   for (const cp of checkpoints) course.tokens.set(cp.y * w + cp.x, 'checkpoint');
   for (const b of boards) if (b.reboot) course.tokens.set(b.reboot.y * w + b.reboot.x, 'reboot');
@@ -364,8 +393,15 @@ export const boardOf = (c, x, y) => {
 export function stepsToFlag(c, n) {
   c.flagSteps ??= {};
   if (c.flagSteps[n]) return c.flagSteps[n];
+  return (c.flagSteps[n] = stepsToSpace(c, c.checkpoints[n - 1]));
+}
+
+/** How far every space is from one space ({x, y}), as stepsToFlag. */
+export function stepsToSpace(c, flag) {
+  c.spaceSteps ??= {};
+  const key = flag ? `${flag.x},${flag.y}` : '-';
+  if (c.spaceSteps[key]) return c.spaceSteps[key];
   const steps = new Array(c.w * c.h).fill(Infinity);
-  const flag = c.checkpoints[n - 1];
   const queue = flag ? [[flag.x, flag.y]] : [];
   if (flag) steps[flag.y * c.w + flag.x] = 0;
   while (queue.length) {
@@ -379,7 +415,7 @@ export function stepsToFlag(c, n) {
       queue.push([nx, ny]);
     }
   }
-  return (c.flagSteps[n] = steps);
+  return (c.spaceSteps[key] = steps);
 }
 
 /**

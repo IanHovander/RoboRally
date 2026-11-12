@@ -257,9 +257,9 @@ export default function (root, api) {
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
     const risks = risksFor(m).map((r) => ({ x: r.x, y: r.y, color: r.by ? robotById(r.by)?.color ?? '#f4efe4' : '#ff7a6b' }));
-    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), areaLit: mapLit, ...mapLook() };
+    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook() };
     // the whole course at this size, drawn once (with a square's margin for glows), then copied in where it sits
-    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color]), ghosts, risks, ring, m?.cp, api.you?.color]);
+    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color, r.cp]), ghosts, risks, ring, m?.cp, api.you?.color]);
     let cache = mapCache.get(canvas);
     if (!cache || (cache.key !== cacheKey && !(quick && cache.c === c))) {
       const pad = Math.ceil(tile);
@@ -762,6 +762,8 @@ export default function (root, api) {
    * pulses round that flag (the map shows the whole course first if the flag is out of view).
    */
   let goalTimer = 0;
+  /** Capture the Flag, for the map: each flag's hunter color, and whether it's being carried. */
+  const ctfLook = () => (view.ctf ? Object.fromEntries(view.robots.filter((r) => r.hunt).map((r) => [r.hunt, { color: r.color, carried: r.cp === 1 }])) : null);
   function showGoal() {
     const m = me();
     if (!m || !view.cps) return;
@@ -771,11 +773,15 @@ export default function (root, api) {
     root.querySelector('.pl-goal')?.remove();
     const note = document.createElement('div');
     note.className = 'pl-goal';
-    note.innerHTML = String(html`${g('flag')}<span>${n === view.cps ? 'Last flag' : 'Next flag'}</span><b>${n}</b>`);
+    // Capture the Flag: first your flag (in your color on the map), then your start pad
+    if (view.ctf) note.innerHTML = String(html`${g('flag')}<span>${m.cp ? 'Bring it home' : 'Grab your flag'}</span>`);
+    else note.innerHTML = String(html`${g('flag')}<span>${n === view.cps ? 'Last flag' : 'Next flag'}</span><b>${n}</b>`);
     root.append(note);
     clearTimeout(goalTimer);
     goalTimer = setTimeout(() => note.remove(), 2800);
-    const cp = course().checkpoints.find((x) => x.n === n);
+    const cp = view.ctf
+      ? m.cp ? course().starts.find((x) => x.n === m.home) : course().checkpoints.find((x) => x.n === m.hunt)
+      : course().checkpoints.find((x) => x.n === n);
     let canvas = body.querySelector('.pl-map canvas');
     if (!cp || !canvas) return;
     const seen = (info) => {

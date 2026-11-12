@@ -5,7 +5,7 @@
 // after the Briefing's film), and each robot's story of the last round, for its phone.
 // And it gives the race an ending: the finishing order, a few awards, the race's biggest moment to show again,
 // and a rematch.
-import { COURSES, getCourse, padsByFlag, stepsToFlag } from './board.js';
+import { COURSES, getCourse, padsByFlag, stepsToFlag, stepsToSpace } from './board.js';
 import { cardType, UPGRADES } from './cards.js';
 import { readBeat } from './chaos.js';
 import { DRILLS } from './drills.js';
@@ -376,7 +376,9 @@ function standings(s, e) {
   const c = e.course;
   const rows = E.robotList(s).map((R) => {
     const at = R.on ? R : E.rebootPoint(s, e, R) ?? R.archive;
-    const steps = R.cp >= c.checkpoints.length ? 0 : stepsToFlag(c, R.cp + 1)[at.y * c.w + at.x] ?? Infinity;
+    const steps = c.mode === 'ctf'
+      ? R.cp >= E.CTF_STEPS ? 0 : stepsToSpace(c, E.ctfGoal(e, R))[at.y * c.w + at.x] ?? Infinity
+      : R.cp >= c.checkpoints.length ? 0 : stepsToFlag(c, R.cp + 1)[at.y * c.w + at.x] ?? Infinity;
     return { id: R.id, cp: R.cp, steps };
   });
   rows.sort((a, b) => b.cp - a.cp || a.steps - b.steps);
@@ -741,7 +743,8 @@ export default {
       browse: s.phase === 'setup' ? s.browse ?? null : null, // (the big screen only: the phones never see it)
       deadline: s.deadline,
       prio: s.order[s.prio] ?? null,
-      cps: course.checkpoints.length,
+      cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
+      ctf: course.mode === 'ctf',
       teach: s.teach ?? (fresh(s).length > 0 || !!s.opts.brief),
       // (practice: drills done by each racer still driving the test drive; the stage waits for them)
       brief: tally ? { votes: tally.votes, need: tally.need, stage: s.brief.stage, drills: DRILLS.length, practice: Object.fromEntries(needPractice(ctx).map((id) => [id, s.practice[id] ?? 0])) } : null,
@@ -775,7 +778,8 @@ export default {
       opts: s.opts,
       deadline: s.deadline,
       prio: s.order[s.prio] ?? null,
-      cps: course.checkpoints.length,
+      cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
+      ctf: course.mode === 'ctf',
       inRace: s.order.includes(player.id),
       // (practice: this phone drives the test drive now, from drill `level`)
       brief: tally ? { votes: tally.votes.length, need: tally.need, mine: tally.votes.includes(player.id), stage: s.brief.stage, practice: s.brief.stage === 'practice' && needPractice(ctx).includes(player.id), level: s.practice[player.id] ?? 0 } : null,
@@ -812,7 +816,7 @@ function publicRobot(ctx, id, seat, forHost) {
   const base = { id, seat, name: p?.name ?? '?', color: p?.color ?? '#888888', avatar: p?.avatar, away: !p?.connected };
   if (forHost) base.auto = s.auto[id] ?? []; // the slots time filled at random
   if (!R) return { ...base, pick: s.picks[id] ?? null };
-  const out = { ...base, x: R.x, y: R.y, d: R.d, on: R.on, rb: !!R.reboot, sd: R.shutdown, cp: R.cp, en: R.energy, ready: R.done };
+  const out = { ...base, x: R.x, y: R.y, d: R.d, on: R.on, rb: !!R.reboot, sd: R.shutdown, cp: R.cp, en: R.energy, ready: R.done, hunt: R.hunt, home: R.start };
   if (!forHost) return { ...out, ups: [...R.up.perm, ...R.up.temp] }; // installed upgrades are face up for all to see
   // each register: the revealed card types, or 1 for a face-down card (placed, or a waiting Haywire), or 0
   out.regs = R.regs.map((r, i) => {
@@ -849,6 +853,8 @@ function privateRobot(R) {
     sd: R.shutdown,
     en: R.energy,
     cp: R.cp,
+    hunt: R.hunt,
+    home: R.start,
     hand: R.hand,
     regs: R.regs.map((r) => ({ cards: r.cards, locked: r.locked, up: r.up, next: r.next })),
     deck: R.deck.length,

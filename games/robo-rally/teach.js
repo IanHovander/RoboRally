@@ -367,7 +367,11 @@ export function createCallouts({ voice, line, send, arena, course }) {
         });
       }
       const cp = fx.find((f) => f.k === 'cp' && !fx.some((w) => w.k === 'win' && w.id === f.id));
-      if (cp) {
+      if (v.ctf) {
+        // Capture the Flag: the first grab, and the first time a flag goes back
+        if (cp) fire('flag', 'Flag taken. Now bring it home.', { hold: 1500 });
+        if (fx.some((f) => f.k === 'flagback')) fire('flagback', 'Flag dropped. It goes back to its corner.', { hold: 1500 });
+      } else if (cp) {
         const total = course()?.checkpoints.length ?? 0;
         if (cp.n < total) {
           fire('flag', `Flag ${NUMBER[cp.n] ?? cp.n}. Next target: flag ${NUMBER[cp.n + 1] ?? cp.n + 1}.`, {

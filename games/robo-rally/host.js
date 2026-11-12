@@ -588,6 +588,7 @@ export default function (root, api) {
    */
   function flagTargets(v) {
     if (!['start', 'upgrade', 'program', 'activate'].includes(v.phase)) return null;
+    if (v.ctf) return v.robots.filter((r) => r.hunt && !r.cp).map((r) => ({ id: r.id, color: r.color, n: r.hunt, lead: false })); // carriers head home
     const racing = v.robots.filter((r) => (r.cp ?? 0) < v.cps);
     const most = Math.max(0, ...v.robots.map((r) => r.cp ?? 0));
     return racing.map((r) => ({ id: r.id, color: r.color, n: (r.cp ?? 0) + 1, lead: (r.cp ?? 0) === most }));
@@ -653,7 +654,8 @@ export default function (root, api) {
       arena.showStarts(v.phase === 'start' ? picks : null);
       arena.setReady(['program', 'upgrade'].includes(v.phase) ? new Set(v.robots.filter((r) => r.ready).map((r) => r.id)) : practising(v) ? new Set(v.robots.filter((r) => doneOf(v, r)).map((r) => r.id)) : null);
       arena.setDeciding(v.prompt?.id ?? null);
-      arena.setTaken(v.robots);
+      if (v.ctf) arena.setCtf(v.robots);
+      else arena.setTaken(v.robots);
       arena.setTargets(flagTargets(v));
       arena.showNames = v.phase !== 'setup';
       arena.namesAlways = v.phase === 'start' || (v.round === 1 && ['brief', 'program', 'activate'].includes(v.phase)); // the draw and round 1: whose robot is whose

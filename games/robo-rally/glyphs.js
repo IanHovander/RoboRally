@@ -294,6 +294,7 @@ export const SEAT_NOTES = [0, 2, 4, 7, 9, 12, 14, 16];
 // ---------- courses ----------
 // Lumen's own short names for the courses in board.js (by id), and how hard each one is (1-4).
 export const COURSE_TITLES = {
+  'capture-the-flag': 'Capture',
   'closing-time': 'First Light',
   'blue-light-special': 'Current',
   'inventory-day': 'Lattice',
