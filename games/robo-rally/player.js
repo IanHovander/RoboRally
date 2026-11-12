@@ -763,7 +763,12 @@ export default function (root, api) {
    */
   let goalTimer = 0;
   /** Capture the Flag, for the map: each flag's hunter color, and whether it's being carried. */
-  const ctfLook = () => (view.ctf ? Object.fromEntries(view.robots.filter((r) => r.hunt).map((r) => [r.hunt, { color: r.color, carried: r.cp === 1 }])) : null);
+  const ctfLook = () => {
+    if (!view.ctf) return null;
+    const hunters = view.robots.filter((r) => r.hunt);
+    // each flag is the other team's color: the robot that defends it, not the one hunting it
+    return Object.fromEntries(hunters.map((r) => [r.hunt, { color: hunters.find((o) => o.hunt !== r.hunt)?.color ?? '#f4efe4', carried: r.cp === 1 }]));
+  };
   function showGoal() {
     const m = me();
     if (!m || !view.cps) return;
@@ -774,7 +779,7 @@ export default function (root, api) {
     const note = document.createElement('div');
     note.className = 'pl-goal';
     // Capture the Flag: first your flag (in your color on the map), then your start pad
-    if (view.ctf) note.innerHTML = String(html`${g('flag')}<span>${m.cp ? 'Bring it home' : 'Grab your flag'}</span>`);
+    if (view.ctf) note.innerHTML = String(html`${g('flag')}<span>${m.cp ? 'Bring it home' : 'Grab their flag'}</span>`);
     else note.innerHTML = String(html`${g('flag')}<span>${n === view.cps ? 'Last flag' : 'Next flag'}</span><b>${n}</b>`);
     root.append(note);
     clearTimeout(goalTimer);

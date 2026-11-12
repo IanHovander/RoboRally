@@ -2608,15 +2608,17 @@ export class Arena {
   }
 
   /**
-   * Capture the Flag: each flag's column wears the color of the robot hunting it, and stands empty while that robot
-   * carries it; the carrier wears the flag on its back. robots: the view's robots ({ id, color, hunt, cp }).
+   * Capture the Flag: each flag wears the color of the team defending it (the robot that isn't hunting it), and its
+   * column stands empty while it's carried; the carrier wears that flag, the other team's color, on its back.
+   * robots: the view's robots ({ id, color, hunt, cp }).
    */
   setCtf(robots) {
+    const owner = (n) => robots.find((r) => r.hunt && r.hunt !== n);
     for (const col of this.columns) {
       const hunter = robots.find((r) => r.hunt === col.n);
       const carried = !!hunter && hunter.cp === 1;
-      const color = hunter?.color ?? PALETTE.light;
-      col.ctfColor = hunter?.color ?? null;
+      const color = owner(col.n)?.color ?? PALETTE.light;
+      col.ctfColor = owner(col.n)?.color ?? null;
       col.col.visible = !carried;
       col.halo.visible = !carried;
       if (!col.pennant) {
@@ -2630,7 +2632,7 @@ export class Arena {
     }
     for (const r of robots) {
       const b = this.bots.get(r.id);
-      if (b) b.flagWant = r.cp === 1 ? r.color : null;
+      if (b) b.flagWant = r.cp === 1 ? owner(r.hunt)?.color ?? PALETTE.light : null;
     }
   }
 
@@ -3389,11 +3391,14 @@ export class Arena {
           break;
         case 'flagback':
           // the flag flies home: a burst where the robot lost it, a ring where it lands
-          if (b) {
-            this.burst(b.group.position, b.color, 1.4, 0.5);
-            this.popGlyph(b, 'flag', b.color, '');
+          {
+            const fc = this.columns.find((c) => c.n === f.n)?.ctfColor ?? PALETTE.light; // the flag's own color
+            if (b) {
+              this.burst(b.group.position, fc, 1.4, 0.5);
+              this.popGlyph(b, 'flag', fc, '');
+            }
+            if (f.x != null) this.later(0.5, () => this.ring(this.pos(f.x, f.y), fc, 3, 0.03, 1.4));
           }
-          if (f.x != null) this.later(0.5, () => this.ring(this.pos(f.x, f.y), b?.color ?? PALETTE.light, 3, 0.03, 1.4));
           break;
         case 'say':
           if (b) this.say(b, f);

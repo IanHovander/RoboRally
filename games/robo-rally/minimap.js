@@ -398,9 +398,10 @@ export function drawCourse(g, course, o = {}) {
       g.moveTo(fx0, fy0 + T * 0.42);
       g.lineTo(fx0, fy0);
       g.stroke();
-      g.fillStyle = r.color;
+      const flagColor = o.ctf[r.hunt]?.color ?? C.light; // the flag it carries: the other team's color
+      g.fillStyle = flagColor;
       if (glow) {
-        g.shadowColor = r.color;
+        g.shadowColor = flagColor;
         g.shadowBlur = T * 0.3;
       }
       g.beginPath();
