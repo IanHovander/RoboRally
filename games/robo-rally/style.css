@@ -796,3 +796,10 @@
   .lm-roster { flex-wrap: wrap; row-gap: .6rem; bottom: 1rem; }
   .lm-tok { flex: 0 0 calc(25% - 1rem); }
 }
+
+/* two robots each: which of my robots this phone drives now (a check: locked in; a flag: carrying it) */
+.pl-bots { display: flex; gap: 6px; margin-left: 8px; }
+.pl-bot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); background: transparent; color: var(--c); font-family: inherit; font-weight: 600; font-size: 14px; line-height: 1; padding: 0; display: grid; place-items: center; position: relative; opacity: .7; }
+.pl-bot.on { background: var(--c); color: #0b0e13; opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
+.pl-bot.done::after { content: '✓'; position: absolute; right: -5px; bottom: -5px; font-size: 11px; width: 15px; height: 15px; border-radius: 50%; background: #f4efe4; color: #0b0e13; display: grid; place-items: center; }
+.pl-bot.flag::before { content: '⚑'; position: absolute; left: -6px; top: -7px; font-size: 13px; color: #f4efe4; }

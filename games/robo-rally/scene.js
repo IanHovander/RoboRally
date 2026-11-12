@@ -2615,8 +2615,7 @@ export class Arena {
   setCtf(robots) {
     const owner = (n) => robots.find((r) => r.hunt && r.hunt !== n);
     for (const col of this.columns) {
-      const hunter = robots.find((r) => r.hunt === col.n);
-      const carried = !!hunter && hunter.cp === 1;
+      const carried = robots.some((r) => r.hunt === col.n && r.cp === 1); // (two robots each: either may carry it)
       const color = owner(col.n)?.color ?? PALETTE.light;
       col.ctfColor = owner(col.n)?.color ?? null;
       col.col.visible = !carried;

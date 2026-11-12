@@ -588,7 +588,8 @@ export default function (root, api) {
    */
   function flagTargets(v) {
     if (!['start', 'upgrade', 'program', 'activate'].includes(v.phase)) return null;
-    if (v.ctf) return v.robots.filter((r) => r.hunt && !r.cp).map((r) => ({ id: r.id, color: r.color, n: r.hunt, lead: false })); // carriers head home
+    // Capture the Flag: robots going for a flag nobody carries (carriers head home)
+    if (v.ctf) return v.robots.filter((r) => r.hunt && !r.cp && !v.robots.some((o) => o.hunt === r.hunt && o.cp === 1)).map((r) => ({ id: r.id, color: r.color, n: r.hunt, lead: false }));
     const racing = v.robots.filter((r) => (r.cp ?? 0) < v.cps);
     const most = Math.max(0, ...v.robots.map((r) => r.cp ?? 0));
     return racing.map((r) => ({ id: r.id, color: r.color, n: (r.cp ?? 0) + 1, lead: (r.cp ?? 0) === most }));

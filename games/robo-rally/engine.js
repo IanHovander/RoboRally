@@ -61,7 +61,9 @@ export function newGame({ order, opts = {}, seed = Date.now() }) {
 
 const has = (R, key) => R.up.perm.includes(key);
 const hasTemp = (R, key) => R.up.temp.includes(key);
-export const robotList = (s) => s.order.map((id) => s.robots[id]).filter(Boolean);
+/** The racing robots' ids, in seat order: the players' ids, or (two robots each, s.bots) the robots'. */
+export const robotIds = (s) => s.bots ?? s.order;
+export const robotList = (s) => robotIds(s).map((id) => s.robots[id]).filter(Boolean);
 const nameOf = (env, id) => env.name?.(id) ?? id;
 
 function say(s, env, text) {
@@ -73,11 +75,11 @@ function say(s, env, text) {
 export function startRace(s, env) {
   const c = env.course;
   const free = c.starts.filter((st) => !Object.values(s.picks).includes(st.n));
-  for (const id of s.order) {
+  for (const id of robotIds(s)) {
     if (s.picks[id] == null) s.picks[id] = free.shift()?.n;
     const st = c.starts.find((x) => x.n === s.picks[id]) ?? c.starts[0];
     s.robots[id] = newRobot(s, id, st);
-    if (c.mode === 'ctf') s.robots[id].hunt = st.n; // Capture the Flag: the robot on pad n goes for flag n
+    if (c.mode === 'ctf') s.robots[id].hunt = teamOf(st.n); // Capture the Flag: odd pads go for flag 1, even for flag 2
   }
   // Damage is SPAM only, unless the Haywires are asked for (opts.haywires): as many SPAM as both piles had
   const haywires = Object.keys(HAYWIRE);
@@ -87,9 +89,9 @@ export function startRace(s, env) {
   ]);
   s.upDeck = shuffle(s, UPGRADE_IDS);
   if (s.opts.upgrades) for (const R of robotList(s)) R.up.hand.push(...s.upDeck.splice(0, 3));
-  s.prio = Math.floor(rand(s) * s.order.length);
+  s.prio = Math.floor(rand(s) * robotIds(s).length);
   s.round = 1;
-  say(s, env, `${nameOf(env, s.order[s.prio])} has the Priority Token`);
+  say(s, env, `${nameOf(env, robotIds(s)[s.prio])} has the Priority Token`);
   s.opts.upgrades ? startUpgrade(s, env) : startProgramming(s, env);
 }
 
@@ -249,7 +251,7 @@ export function useTemp(s, env, R, card, payload = {}) {
       R.energy = Math.min(MAX_ENERGY, R.energy + 3);
       break;
     case 're-initialize': {
-      const i = s.order.indexOf(payload.target);
+      const i = robotIds(s).indexOf(payload.target);
       if (i < 0) return 'Pick who gets the Priority Token';
       s.prio = i;
       say(s, env, `${nameOf(env, R.id)} gave the Priority Token to ${nameOf(env, payload.target)}`);
@@ -439,8 +441,9 @@ export function autoProgram(s, env, R) {
 // ---------- the Activation Phase ----------
 
 export function priorityOrder(s) {
-  const n = s.order.length;
-  return Array.from({ length: n }, (_, i) => s.order[(s.prio + i) % n]).filter((id) => s.robots[id]);
+  const ids = robotIds(s);
+  const n = ids.length;
+  return Array.from({ length: n }, (_, i) => ids[(s.prio + i) % n]).filter((id) => s.robots[id]);
 }
 
 export function beginActivation(s, env) {
@@ -541,7 +544,7 @@ function endRound(s, env) {
     R.armed = false;
     R.skipUp = false;
   }
-  s.prio = (s.prio + 1) % s.order.length;
+  s.prio = (s.prio + 1) % robotIds(s).length;
   s.round++;
   s.reg = -1;
   s.queue = [];
@@ -898,7 +901,7 @@ function rotate(s, R, n) {
 // ----- moving and pushing -----
 
 export function robotAt(s, x, y) {
-  for (const id of s.order) {
+  for (const id of robotIds(s)) {
     const R = s.robots[id];
     if (R?.on && R.x === x && R.y === y) return R;
   }
@@ -1385,12 +1388,17 @@ function fireSpecial(s, env, R, key) {
 
 export const isCtf = (env) => env.course.mode === 'ctf';
 export const CTF_STEPS = 2;
+/** A start pad's team (and the flag that team goes for): odd pads 1, even pads 2. */
+export const teamOf = (pad) => ((pad - 1) % 2) + 1;
 
 /** Where a Capture the Flag robot is heading now: its flag, or (carrying it) its start pad. */
 export function ctfGoal(env, R) {
   if (R.cp === 0) return env.course.checkpoints.find((p) => p.n === R.hunt) ?? null;
   return env.course.starts.find((st) => st.n === R.start) ?? null;
 }
+
+/** Is that flag on someone's back? (A team's two robots go for the same flag: only one can carry it.) */
+const flagTaken = (s, n) => robotList(s).some((X) => X.hunt === n && X.cp === 1);
 
 /** Shot, shoved, hurt or fell while carrying a flag: the flag goes back where it started. */
 function dropFlag(s, env, R, why) {
@@ -1405,8 +1413,14 @@ function runCtf(s, env) {
   for (const id of priorityOrder(s)) {
     const R = s.robots[id];
     if (!R.on || R.shutdown) continue;
-    const goal = ctfGoal(env, R);
-    if (!goal || goal.x !== R.x || goal.y !== R.y) continue;
+    if (R.cp === 0) {
+      const flag = env.course.checkpoints.find((p) => p.n === R.hunt);
+      if (!flag || flag.x !== R.x || flag.y !== R.y || flagTaken(s, R.hunt)) continue;
+    } else {
+      // carrying it: home is either of the team's start pads
+      const home = env.course.starts.some((st) => teamOf(st.n) === R.hunt && st.x === R.x && st.y === R.y);
+      if (!home) continue;
+    }
     R.cp++;
     fx(s, { k: 'cp', id, n: R.cp === 1 ? R.hunt : 0 });
     if (R.cp === 1) {

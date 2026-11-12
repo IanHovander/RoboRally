@@ -136,6 +136,8 @@ export default function (root, api) {
   }
 
   const me = () => view?.me;
+  /** My robot's id: the one this phone drives now (two robots each: view.focus), else the player's own. */
+  const myId = () => view?.focus ?? api.you?.id;
   // a robot that fell last round comes back in slot 1 of this one: until it does it's off the board, but it hasn't fallen
   const comingBack = (m) => !m.on && m.rb && view.reg <= 0 && !(m.story?.round === view.round && m.story.regs?.[0]?.some((st) => st[0] === 'f'));
   const course = () => getCourse(view.opts.course);
@@ -178,7 +180,7 @@ export default function (root, api) {
    */
   function risksFor(m) {
     if (!m || view.phase !== 'program' || m.done || m.mustReturn || !tipsOn() || !(veteran || tipSeen('others'))) return [];
-    return planRisks(course(), ghostsFor(m), view.robots.filter((r) => r.id !== api.you?.id));
+    return planRisks(course(), ghostsFor(m), view.robots.filter((r) => r.id !== myId()));
   }
   function ghostsFor(m) {
     const from = programStart(m);
@@ -254,7 +256,7 @@ export default function (root, api) {
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
     }
-    const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
+    const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === myId() }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
     const risks = risksFor(m).map((r) => ({ x: r.x, y: r.y, color: r.by ? robotById(r.by)?.color ?? '#f4efe4' : '#ff7a6b' }));
     const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook() };
@@ -767,7 +769,7 @@ export default function (root, api) {
     if (!view.ctf) return null;
     const hunters = view.robots.filter((r) => r.hunt);
     // each flag is the other team's color: the robot that defends it, not the one hunting it
-    return Object.fromEntries(hunters.map((r) => [r.hunt, { color: hunters.find((o) => o.hunt !== r.hunt)?.color ?? '#f4efe4', carried: r.cp === 1 }]));
+    return Object.fromEntries(hunters.map((r) => [r.hunt, { color: hunters.find((o) => o.hunt !== r.hunt)?.color ?? '#f4efe4', carried: hunters.some((o) => o.hunt === r.hunt && o.cp === 1) }]));
   };
   function showGoal() {
     const m = me();
@@ -892,7 +894,7 @@ export default function (root, api) {
 
   function syncProgram() {
     const m = me();
-    const key = `${view.round}:${view.phase}`;
+    const key = `${view.round}:${view.phase}:${view.focus ?? ''}`;
     if (prog.key !== key) {
       prog.key = key;
       prog.regs = m.draft?.regs?.map((l) => [...l]) ?? [[], [], [], [], []];
@@ -1002,6 +1004,12 @@ export default function (root, api) {
     switch (ui) {
       case 'goal':
         return showGoal();
+      case 'focus': // two robots each: drive the other one (what I placed for this one is saved first)
+        if (arg === view.focus) return;
+        api.vibrate(6);
+        clearTimeout(draftTimer);
+        if (view.phase === 'program' && m && !m.done) api.send('draft', { regs: prog.regs, rebootDir: prog.rebootDir });
+        return send('focus', { robot: arg });
       case 'opt': {
         const [key, rawValue] = arg.split('=');
         const value = rawValue === 'true' ? true : rawValue === 'false' ? false : /^\d+$/.test(rawValue) ? Number(rawValue) : rawValue;
@@ -1096,7 +1104,7 @@ export default function (root, api) {
         return openDeck();
       case 'robot': // another robot: what everyone can see of it
         api.vibrate(6);
-        return arg === api.you?.id ? openDeck() : openRobot(arg);
+        return arg === myId() ? openDeck() : openRobot(arg);
       case 'upinfo': // an upgrade someone has installed: the Guide's page for it
         return guide.open(arg);
       case 'maptap': { // a robot on my map (a drag that pans the map isn't a tap)
@@ -1104,7 +1112,7 @@ export default function (root, api) {
         const id = robotAt(el, e.clientX, e.clientY);
         if (!id) return;
         api.vibrate(6);
-        return id === api.you?.id ? openDeck() : openRobot(id);
+        return id === myId() ? openDeck() : openRobot(id);
       }
       case 'hold': // press and hold (see below); a plain tap only wiggles it
         return;
@@ -1205,7 +1213,7 @@ export default function (root, api) {
       body: () => {
         const m = me();
         if (!m) return '';
-        const others = view.robots.filter((r) => r.id !== api.you?.id && r.x != null);
+        const others = view.robots.filter((r) => r.id !== myId() && r.x != null);
         const mine = [...m.up.perm, ...m.up.temp];
         return html`
           ${pileHtml(m.deckCards)}
@@ -1255,7 +1263,7 @@ export default function (root, api) {
     let best = null;
     for (const q of t.robots) {
       const dist = Math.hypot(q.x - cx, q.y - cy);
-      if (dist < 0.75 && (!best || dist < best.dist)) best = { id: q.id ?? (q.me ? api.you?.id : null), dist };
+      if (dist < 0.75 && (!best || dist < best.dist)) best = { id: q.id ?? (q.me ? myId() : null), dist };
     }
     return best?.id ?? null;
   }
@@ -1301,6 +1309,7 @@ export default function (root, api) {
     const timed = ['upgrade', 'program'].includes(view.phase) && view.deadline && (view.phase !== 'program' || view.opts.timer);
     set(top, html`
       ${api.you && html`<span class="pl-me-wrap" data-ask="me">${raw(robotSvg(api.you, { cls: 'pl-me' }))}</span>`}
+      ${view.team?.length > 1 && view.inRace && view.phase !== 'setup' && html`<span class="pl-bots">${view.team.map((t) => html`<button class="pl-bot ${t.id === view.focus && 'on'} ${t.done && ['upgrade', 'program'].includes(view.phase) && 'done'} ${t.cp === 1 && 'flag'}" data-ui="focus" data-arg="${t.id}" aria-label="Robot ${t.n}" style="--c:${api.you?.color ?? '#f4efe4'}">${t.n}</button>`)}</span>`}
       ${m && flagsHtml(m)}
       <span class="pl-spacer"></span>
       ${m && view.opts.upgrades && view.phase === 'program' && html`<span class="pl-en" data-ask="energy" data-tap="ask">${g('bolt')}${m.en}</span>`}
@@ -1326,7 +1335,7 @@ export default function (root, api) {
         return programFull() ? 'Lock in' : 'Fill five slots';
       case 'activate': return m && !m.on && !comingBack(m) ? 'Back next round' : 'Watch the big screen';
       case 'over':
-        if (view.winner === api.you?.id) return 'You win';
+        if ((view.winnerBy ?? view.winner) === api.you?.id) return 'You win';
         return view.result?.place ? `${ordinal(view.result.place)} of ${view.result.of}` : 'Race over';
     }
     return '';
@@ -1421,7 +1430,7 @@ export default function (root, api) {
   function renderStart() {
     layout('start', () => html`<div class="pl-start" data-ask="map"><div class="pl-start-map"><canvas class="pl-dock"></canvas><div class="pl-pads"></div></div></div>`);
     const c = course();
-    const mine = view.robots.find((r) => r.id === api.you?.id)?.pick;
+    const mine = view.robots.find((r) => r.id === myId())?.pick;
     const cv = body.querySelector('canvas.pl-dock');
     const box = body.querySelector('.pl-start');
     // the whole course as tall as the phone: it starts on my pad, and a drag slides it to see the way ahead
@@ -1456,7 +1465,7 @@ export default function (root, api) {
     const taken = new Map(view.robots.filter((r) => r.pick != null).map((r) => [r.pick, r]));
     set(body.querySelector('.pl-pads'), html`${c.starts.map((st) => {
       const r = taken.get(st.n);
-      const isMe = r && r.id === api.you?.id;
+      const isMe = r && r.id === myId();
       const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;--d:${st.d};${r ? `--c:${r.color}` : ''}`;
       return html`<span class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'}" style="${style}" data-ask="pad">${r ? bot(r) : html`<span>${st.n}</span>`}</span>`;
     })}`);
@@ -1787,7 +1796,7 @@ export default function (root, api) {
   function renderOver(m) {
     layout('over', () => html`<div class="pl-over"></div>`);
     const w = robotById(view.winner);
-    const won = view.winner === api.you?.id;
+    const won = (view.winnerBy ?? view.winner) === api.you?.id;
     const res = view.result;
     const foe = res?.nemesis && robotById(res.nemesis.id);
     set(body.querySelector('.pl-over'), html`

@@ -24,23 +24,29 @@ const ARROW = { '^': 0, '>': 1, v: 2, '<': 3 };
 // pushers: [x, y, 'side', [registers]]  a push panel on that side's wall, pushing robots away from it
 // reboot:  [x, y, 'dir']       the Reboot token and its arrow
 export const PIECES = {
-  // Capture the Flag: a narrow 4 x 10 floor. Robots start in two corners and race for the flags in the
-  // other two (S1 hunts flag 1, S2 hunts flag 2), then carry them home. startDirs turns a start pad.
+  // Capture the Flag: 6 x 12, two teams of two. Team 1 starts on S1 and S3 and goes for flag 1 in the far corner;
+  // team 2 starts on S2 and S4 and goes for flag 2. Each flag sits in its defenders' back row. The floor is the same
+  // turned half round (fair to both teams): pits, a gear and a short belt in each half, two lasers across the middle,
+  // and a few walls for cover. startDirs turns a start pad.
   field: {
     name: 'The Long Aisle',
     grid: [
-      'F1 .. .. S2',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      '.. .. .. ..',
-      'S1 .. .. F2',
+      'F1 .. .. .. S4 S2',
+      '.. .. .. .. .. ..',
+      '.. .. XX .. .. ..',
+      '.. G+ .. g< g< ..',
+      '.. .. .. .. .. ..',
+      '.. EE .. .. XX ..',
+      '.. XX .. .. EE ..',
+      '.. .. .. .. .. ..',
+      '.. g> g> .. G+ ..',
+      '.. .. .. XX .. ..',
+      '.. .. .. .. .. ..',
+      'S1 S3 .. .. .. F2',
     ],
-    startDirs: { 2: 'S' },
+    walls: ['2,4:S', '3,7:N', '4,1:W', '1,10:E'],
+    lasers: [[0, 5, 'E', 1], [5, 6, 'W', 1]],
+    startDirs: { 2: 'S', 4: 'S' },
   },
 
   dock: {
@@ -144,9 +150,10 @@ export const COURSES = [
     mode: 'ctf',
     level: 'Starter',
     length: 'Short',
-    blurb: 'Two robots, two flags. Grab the far flag and bring it home. Get shot, shoved or fall, and it goes back.',
+    blurb: 'Two teams of two robots. Grab their flag and bring it home. Get shot, shoved or fall, and it goes back.',
+    teams: true, // each player races two robots (rules.js)
     pieces: [['field', 0, 0]],
-    checkpoints: [[0, 0], [3, 9]], // flag n is hunted by the robot on start pad n
+    checkpoints: [[0, 0], [5, 11]], // flag 1 is hunted by team 1 (odd pads), flag 2 by team 2 (even pads)
   },
   {
     id: 'closing-time',
@@ -351,7 +358,7 @@ export function getCourse(id) {
     if (c?.k === 'start') starts.push({ x: i % w, y: Math.floor(i / w), d: c.d, n: c.n });
   });
   starts.sort((a, b) => a.n - b.n);
-  const course = { id: info.id, name: info.name, mode: info.mode ?? 'race', level: info.level, length: info.length, w, h, cells, lasers, pushers, checkpoints, starts, boards };
+  const course = { id: info.id, name: info.name, mode: info.mode ?? 'race', teams: !!info.teams, level: info.level, length: info.length, w, h, cells, lasers, pushers, checkpoints, starts, boards };
   course.tokens = new Map(); // space index -> 'checkpoint' | 'reboot': board elements under a token don't work
   for (const cp of checkpoints) course.tokens.set(cp.y * w + cp.x, 'checkpoint');
   for (const b of boards) if (b.reboot) course.tokens.set(b.reboot.y * w + b.reboot.x, 'reboot');

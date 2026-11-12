@@ -26,6 +26,25 @@ const TIMERS = [0, 60, 120, 180];
 
 /** Racers whose phone hasn't said it has finished a race before (a phone that never said hello counts). */
 const fresh = (s) => s.order.filter((id) => !s.raced.includes(id));
+
+// ----- two robots each (a course with teams: Capture the Flag) -----
+// A player's first robot has the player's id; the second has `${id}~2`. s.bots lists the racing robots' ids
+// (s.order stays the players), and s.focus says which of its robots each phone is driving now.
+const ownerOf = (rid) => String(rid).split('~')[0];
+const isSecond = (rid) => String(rid).includes('~');
+const myRobots = (s, pid) => E.robotIds(s).filter((rid) => ownerOf(rid) === pid && s.robots[rid]);
+function robotName(ctx, rid) {
+  const name = ctx.player(ownerOf(rid))?.name ?? 'A robot';
+  return ctx.state.bots ? `${name} ${isSecond(rid) ? 2 : 1}` : name;
+}
+/** After a robot is done (locked in, or done shopping), the phone turns to its other robot, if it isn't. */
+function nextFocus(s, pid) {
+  const mine = myRobots(s, pid);
+  const cur = s.robots[s.focus?.[pid]];
+  if (cur && !cur.done) return;
+  const next = mine.find((rid) => !s.robots[rid].done);
+  if (next) s.focus[pid] = next;
+}
 /** Newcomers here now who haven't driven the test drive: the Briefing's practice stage waits for them. */
 const needPractice = (ctx) => fresh(ctx.state).filter((id) => ctx.player(id)?.connected && !ctx.state.practiced.includes(id));
 
@@ -33,16 +52,16 @@ function env(ctx) {
   const s = ctx.state;
   return {
     course: getCourse(s.opts.course),
-    connected: (id) => !!ctx.player(id)?.connected,
+    connected: (id) => !!ctx.player(ownerOf(id))?.connected,
     now: () => Date.now(),
-    name: (id) => ctx.player(id)?.name ?? 'A robot',
+    name: (id) => robotName(ctx, id),
   };
 }
 
 /** Every robot whose phone is connected passes the test (and at least one phone is). */
 function everyone(ctx, test) {
   const s = ctx.state;
-  const live = E.robotList(s).filter((R) => ctx.player(R.id)?.connected);
+  const live = E.robotList(s).filter((R) => ctx.player(ownerOf(R.id))?.connected);
   return live.length > 0 && live.every(test);
 }
 
@@ -95,6 +114,11 @@ function onDeadline(ctx) {
  * before gets the nearest one (someone new counts as last).
  */
 function drawPads(s) {
+  if (s.bots) {
+    // two teams: the first player's robots get pads 1 and 3, the second's 2 and 4
+    s.order.forEach((pid, seat) => s.bots.filter((rid) => ownerOf(rid) === pid).forEach((rid, k) => (s.picks[rid] ??= seat + 1 + k * 2)));
+    return;
+  }
   const waiting = s.order.filter((id) => s.picks[id] == null);
   const taken = Object.values(s.picks);
   // (shuffled, then sorted: pads equally far from the flag come in a random order)
@@ -447,11 +471,17 @@ function rematch(ctx) {
 
 function finish(ctx) {
   const s = ctx.state;
-  const name = ctx.player(s.winner)?.name;
+  const name = ctx.player(ownerOf(s.winner))?.name;
   ctx.end(name ? `${name} won the race!` : 'Race over');
 }
 
-const robotOf = (ctx, player) => ctx.state.robots[player.id] ?? null;
+/** The robot this phone drives now (two robots each: the one it's focused on). */
+function robotOf(ctx, player) {
+  const s = ctx.state;
+  const rid = s.focus?.[player.id];
+  if (rid && ownerOf(rid) === player.id && s.robots[rid]) return s.robots[rid];
+  return s.robots[player.id] ?? null;
+}
 const errorOr = (err) => (err ? { error: err } : undefined);
 
 function setOpt(ctx, payload) {
@@ -511,10 +541,14 @@ function begin(ctx) {
   if (s.phase !== 'setup') return;
   const course = getCourse(s.opts.course);
   // (a rematch: someone whose phone was gone when it was called, and still is, has left; their robot stays out)
-  const order = s.order.filter((id) => ctx.player(id) && (ctx.player(id).connected || !s.away.includes(id))).slice(0, course.starts.length);
+  // (two robots each: half as many players as pads)
+  const seats = course.teams ? Math.floor(course.starts.length / 2) : course.starts.length;
+  const order = s.order.filter((id) => ctx.player(id) && (ctx.player(id).connected || !s.away.includes(id))).slice(0, seats);
   if (!order.length) return;
   s.browse = null;
   s.order = order;
+  s.bots = course.teams ? order.flatMap((pid) => [pid, `${pid}~2`]) : undefined;
+  s.focus = {};
   s.phase = 'start';
   s.picks = {};
   drawPads(s);
@@ -538,6 +572,7 @@ function newState(order, seed, opts) {
     touched: {}, // options the leader has set by hand this game: never changed for them
     browse: null, // setting up: the leader is sliding the phone's map carousel ({ offset, course, at }; browse())
     doom: {}, // id -> { the robot that pushed it to a fall: how many times }
+    focus: {}, // two robots each: player id -> the robot its phone drives now
     play: null, // the race's biggest moment so far: { drama, round, beat, before, after } (noteBeat)
     result: null, // how the race ended, once it has: { rows, awards } (result())
     last: null, // a rematch: the race before this one ({ places: { id: place } })
@@ -567,7 +602,7 @@ export default {
   onDisconnect(ctx, player) {
     const s = ctx.state;
     s.browse = null; // (it may be the leader's phone, gone mid-slide: the big screen's map settles; a live slide sends it again)
-    if (s.prompt?.id === player.id) {
+    if (s.prompt && ownerOf(s.prompt.id) === player.id) {
       ctx.cancelTimer('prompt');
       E.timeoutPrompt(s, env(ctx));
       return pump(ctx);
@@ -647,7 +682,16 @@ export default {
       const R = robotOf(ctx, player);
       if (!R || ctx.state.phase !== 'upgrade') return;
       R.done = true;
+      nextFocus(ctx.state, player.id);
       drive(ctx);
+    },
+
+    // ----- two robots each: which one this phone drives now -----
+    focus(ctx, player, payload) {
+      const s = ctx.state;
+      const rid = String(payload?.robot ?? '');
+      if (ownerOf(rid) !== player.id || !s.robots[rid]) return { error: 'Not your robot' };
+      s.focus[player.id] = rid;
     },
 
     // ----- the Programming Phase -----
@@ -662,6 +706,7 @@ export default {
       if (!R) return;
       const err = E.lockProgram(ctx.state, env(ctx), R, payload && typeof payload === 'object' ? payload : {});
       if (err) return { error: err };
+      nextFocus(ctx.state, player.id);
       drive(ctx);
     },
     unlock(ctx, player) {
@@ -682,7 +727,8 @@ export default {
     // ----- the Activation Phase -----
     answer(ctx, player, payload) {
       const s = ctx.state;
-      const err = E.answerPrompt(s, env(ctx), player.id, String(payload?.v));
+      const rid = s.prompt && ownerOf(s.prompt.id) === player.id ? s.prompt.id : player.id;
+      const err = E.answerPrompt(s, env(ctx), rid, String(payload?.v));
       if (err) return { error: err };
       ctx.cancelTimer('prompt');
       pump(ctx);
@@ -742,16 +788,17 @@ export default {
       opts: s.opts,
       browse: s.phase === 'setup' ? s.browse ?? null : null, // (the big screen only: the phones never see it)
       deadline: s.deadline,
-      prio: s.order[s.prio] ?? null,
+      prio: E.robotIds(s)[s.prio] ?? null,
       cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
       ctf: course.mode === 'ctf',
       teach: s.teach ?? (fresh(s).length > 0 || !!s.opts.brief),
       // (practice: drills done by each racer still driving the test drive; the stage waits for them)
       brief: tally ? { votes: tally.votes, need: tally.need, stage: s.brief.stage, drills: DRILLS.length, practice: Object.fromEntries(needPractice(ctx).map((id) => [id, s.practice[id] ?? 0])) } : null,
-      robots: s.order.map((id, seat) => publicRobot(ctx, id, seat, true)),
+      robots: E.robotIds(s).map((id, seat) => publicRobot(ctx, id, seat, true)),
       beat: s.beat,
       prompt: s.prompt && { id: s.prompt.id, kind: s.prompt.kind, icon: s.prompt.icon ?? null, title: s.prompt.title, deadline: s.prompt.deadline },
       winner: s.winner,
+      winnerBy: s.winner && ownerOf(s.winner), // (two robots each: the player whose robot won)
       // the ending: the finishing order, each robot's place, the awards, and the moment to play again
       result: end && {
         order: end.rows.map((r) => r.id),
@@ -765,11 +812,11 @@ export default {
 
   playerView(ctx, player) {
     const s = ctx.state;
-    const R = s.robots[player.id];
+    const R = robotOf(ctx, player);
     const course = getCourse(s.opts.course);
     const p = s.prompt;
     const tally = s.brief && briefTally(ctx);
-    const story = s.story?.regs[player.id];
+    const story = R && s.story?.regs[R.id];
     const end = R && result(ctx);
     return {
       phase: s.phase,
@@ -777,31 +824,35 @@ export default {
       reg: s.reg,
       opts: s.opts,
       deadline: s.deadline,
-      prio: s.order[s.prio] ?? null,
+      prio: E.robotIds(s)[s.prio] ?? null,
       cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
       ctf: course.mode === 'ctf',
       inRace: s.order.includes(player.id),
       // (practice: this phone drives the test drive now, from drill `level`)
       brief: tally ? { votes: tally.votes.length, need: tally.need, mine: tally.votes.includes(player.id), stage: s.brief.stage, practice: s.brief.stage === 'practice' && needPractice(ctx).includes(player.id), level: s.practice[player.id] ?? 0 } : null,
-      robots: s.order.map((id, seat) => publicRobot(ctx, id, seat, false)),
+      robots: E.robotIds(s).map((id, seat) => publicRobot(ctx, id, seat, false)),
+      // two robots each: the one this phone drives now, and both of mine (to switch between them)
+      focus: R?.id ?? null,
+      team: s.bots ? myRobots(s, player.id).map((rid) => ({ id: rid, n: isSecond(rid) ? 2 : 1, done: s.robots[rid].done, on: s.robots[rid].on, cp: s.robots[rid].cp })) : null,
       me: R
         ? {
           ...privateRobot(R),
           rbAt: E.rebootPoint(s, env(ctx), R),
           story: story ? { round: s.story.round, regs: story } : null,
-          auto: s.auto[player.id] ?? [],
+          auto: s.auto[R.id] ?? [],
         }
         : null,
-      prompt: p?.id === player.id ? { kind: p.kind, icon: p.icon ?? null, title: p.title, text: p.text, options: p.options, deadline: p.deadline, card: p.card, target: p.target, leader: p.leader, data: p.data } : null,
-      waiting: p && p.id !== player.id ? { id: p.id, kind: p.kind, icon: p.icon ?? null, deadline: p.deadline } : null,
+      prompt: p && ownerOf(p.id) === player.id ? { kind: p.kind, icon: p.icon ?? null, title: p.title, text: p.text, options: p.options, deadline: p.deadline, card: p.card, target: p.target, leader: p.leader, data: p.data } : null,
+      waiting: p && ownerOf(p.id) !== player.id ? { id: p.id, kind: p.kind, icon: p.icon ?? null, deadline: p.deadline } : null,
       beat: { n: s.beat.n, what: s.beat.what ?? null, reg: s.beat.reg },
       winner: s.winner,
+      winnerBy: s.winner && ownerOf(s.winner), // (two robots each: the player whose robot won)
       // the ending, for this robot: its place (of how many), its awards, and the robot that pushed it to the most falls
       result: end && {
-        place: end.rows.find((r) => r.id === player.id)?.place ?? null,
+        place: Math.min(...end.rows.filter((r) => ownerOf(r.id) === player.id).map((r) => r.place)) || null, // (two robots each: the better)
         of: end.rows.length,
-        awards: end.awards.filter((a) => a.ids.includes(player.id)).map((a) => ({ k: a.k, n: a.n })),
-        nemesis: nemesis(s, player.id),
+        awards: end.awards.filter((a) => a.ids.some((id) => ownerOf(id) === player.id)).map((a) => ({ k: a.k, n: a.n })),
+        nemesis: nemesis(s, R?.id ?? player.id),
       },
       log: s.log.slice(-3),
     };
@@ -811,9 +862,9 @@ export default {
 /** What everyone may know about a robot. The big screen also sees each register as it's revealed. */
 function publicRobot(ctx, id, seat, forHost) {
   const s = ctx.state;
-  const p = ctx.player(id);
+  const p = ctx.player(ownerOf(id));
   const R = s.robots[id];
-  const base = { id, seat, name: p?.name ?? '?', color: p?.color ?? '#888888', avatar: p?.avatar, away: !p?.connected };
+  const base = { id, seat, name: p ? robotName(ctx, id) : '?', color: p?.color ?? '#888888', avatar: p?.avatar, away: !p?.connected };
   if (forHost) base.auto = s.auto[id] ?? []; // the slots time filled at random
   if (!R) return { ...base, pick: s.picks[id] ?? null };
   const out = { ...base, x: R.x, y: R.y, d: R.d, on: R.on, rb: !!R.reboot, sd: R.shutdown, cp: R.cp, en: R.energy, ready: R.done, hunt: R.hunt, home: R.start };
