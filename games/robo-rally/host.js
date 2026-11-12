@@ -3,9 +3,10 @@
 // is playing, the flags each has, and the time left. Sounds (sound.js) make heads turn at the big moments.
 // It also teaches, without words: numerals of light show the order robots act in, the "1" badge marks
 // the Priority, junk cards fly from a hit robot to its player's token, names stay up in round 1, and
-// shut-down robots look shut down. When a newcomer is racing, the narrator (voice.js) gives the Briefing
-// (briefing.js) before round 1 and calls out first-time moments in the race (teach.js). After the Briefing's
-// film, newcomers drive the test drive on their phones (practice.js): the roster shows how far each has got.
+// shut-down robots look shut down. When a newcomer is racing, a film plays before round 1 (phase 'brief'): the
+// 23-second reel (sizzle.js), or the narrator's full Briefing (briefing.js) when the leader has "Rules tutorial"
+// on; and the narrator (voice.js) calls out first-time moments in the race (teach.js). After the film,
+// newcomers drive the test drive on their phones (practice.js): the roster shows how far each has got.
 // When someone wins, the race gets an ending: the roster slides into finishing order, a few awards are given one
 // at a time, and the race's biggest moment plays again, slowly. Then the leader races again or goes home.
 import { html, raw, loadCss } from '../../js/ui.js';
@@ -18,6 +19,7 @@ import { voice } from './voice.js';
 import { createVoiceLine, createCallouts, createExplainer, flyJunk, junkCards, topMargin } from './teach.js';
 import { createMimic } from './mimic.js';
 import { startBriefing } from './briefing.js';
+import { startSizzle } from './sizzle.js';
 import { LEADER } from './lobby.js';
 
 const TIMERS = [0, 60, 120, 180];
@@ -156,7 +158,9 @@ export default function (root, api) {
     onClose: () => arena?.highlightArea(null),
   });
 
-  // ----- the Briefing (phase 'brief'): it borrows the arena, then hands it back -----
+  // ----- the film before round 1 (phase 'brief'): it borrows the arena, then hands it back. It is the reel
+  // (sizzle.js: the game in 23 seconds), or the narrator's Briefing when the leader asked for the full rules.
+  // Both take the same things and give back { stop(), next() }, so the rest of this file calls either "the Briefing" -----
   /** The Briefing's second stage: newcomers' phones have the test drive, and the room waits for them. */
   const practising = (v) => v?.phase === 'brief' && v.brief?.stage === 'practice';
   let briefing = null;
@@ -171,7 +175,7 @@ export default function (root, api) {
     if (briefing || briefOver || !arena) return;
     if (practising(v)) return; // (the film is over: the phones have the test drive)
     host.classList.add('briefing');
-    briefing = startBriefing({
+    briefing = (v.opts.brief ? startBriefing : startSizzle)({
       arena,
       view: () => view,
       robots: () => sceneRobots(view),
@@ -832,7 +836,7 @@ export default function (root, api) {
           upgrades: 'Upgrade shop: spend energy on upgrades',
           lessDeadly: 'Map perimeter: a wall all round, no falling off the edge',
           lessSpam: 'SPAM in hand discards: each round, unplayed SPAM leaves your hand',
-          brief: 'Rules tutorial: the full narrated rules before round 1, for everyone (off: a short one and a test drive on the phones, when someone is new)',
+          brief: 'Rules tutorial: the full narrated rules before round 1, for everyone (off: a short reel and a test drive on the phones, when someone is new)',
         };
         const toggle = (key, glyph) => html`<button class="lm-opt ${o[key] && 'on'}" data-host="${key}=${String(!o[key])}" title="${TIPS[key] ?? key}">${raw(svgGlyph(glyph))}</button>`;
         // the frame is made once (the map strip's pictures don't change); the titles, the strip's highlight and the

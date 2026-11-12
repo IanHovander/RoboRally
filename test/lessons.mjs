@@ -1,8 +1,11 @@
 // The big screen's teaching scenes, checked through the real rules: every lobby film scene (LESSONS) and
 // every Briefing scene (BRIEF) runs through engine.js, and each shows what it is meant to show. Then the
-// race's first-time callouts (teach.js): who hears them, how often, and how long they hold the race.
+// race's first-time callouts (teach.js): who hears them, how often, and how long they hold the race. Then the
+// reel before round 1 (sizzle.js): its shots, what each scene shows, and that its spoken lines are recorded.
 //   node test/lessons.mjs
+import fs from 'node:fs';
 import { LESSONS, BRIEF, runLesson, lessonCourse } from '../games/robo-rally/lessons.js';
+import { sizzlePlan, LINES } from '../games/robo-rally/sizzle.js';
 import { DRILLS, drillLine, drillHint, drillStart, tryDrill } from '../games/robo-rally/drills.js';
 import { getCourse } from '../games/robo-rally/board.js';
 
@@ -216,6 +219,27 @@ for (const d of DRILLS) {
   check(ride.x === 1 && ride.y === 2, 'drill 3: one step onto the belt, and it carries you one more');
   const moves = belt.hand.filter((t) => /^m\d$/.test(t)).reduce((n, t) => n + Number(t[1]), 0);
   check(moves < 5, 'drill 3: the hand has too few moves to reach the flag without the belt');
+}
+
+// ----- the reel before round 1 (sizzle.js): one timeline, every robot run by the real rules -----
+{
+  const P = sizzlePlan();
+  check(P.duration >= 20_000 && P.duration <= 25_000, `the reel is 20 to 25 seconds (${P.duration / 1000})`);
+  check(P.shots[0].t0 === 0 && P.shots.at(-1).t1 === P.duration && P.shots.every((s, i) => i === 0 || s.t0 === P.shots[i - 1].t1), `its shots follow each other without a gap (${P.shots.map((s) => s.name)})`);
+  check(P.cues.every((c, i) => c.t >= 0 && c.t <= P.duration && (i === 0 || c.t >= P.cues[i - 1].t)), 'its cues are in order, inside the reel');
+  check(P.shots.every((s) => s.name === 'title' || P.cues.some((c) => c.k === 'cut' && c.t === s.t0 && c.scene)), 'every shot but the title cuts to a scene');
+  const fx = (scene, k) => P.R[scene].steps.flatMap((st) => (st.kind === 'beat' ? st.beat.fx : [])).filter((f) => f.k === k);
+  check(fx('pit', 'shove').length > 0 && fx('pit', 'fall').some((f) => !f.edge), 'the cold open: a robot is shoved into a pit');
+  check(fx('program', 'play').length === 5 && fx('program', 'cp').length === 1, 'the phone shot: five cards run, and end on the flag');
+  check(fx('laser', 'beam').filter((f) => f.hit?.length).length >= 2, 'the crossfire: two robots shoot a third');
+  check(fx('shove', 'shove').length > 0 && fx('shove', 'fall').length === 0, 'the shove: a robot is shoved, and nobody falls');
+  check(fx('belt', 'fall').length === 1 && fx('belt', 'shove').length === 0, 'the belt: it carries a robot into a pit by itself');
+  check(fx('edge', 'shove').some((f) => f.ids.length === 2) && fx('edge', 'fall').some((f) => f.edge), 'off the edge: a chain of three, and the front one goes over');
+  check(fx('flags', 'cp').map((f) => f.n).join() === '1,2,3' && fx('flags', 'win').length === 1 && new Set(fx('flags', 'cp').map((f) => f.id)).size === 1, 'the flags: one robot takes 1, 2 and 3 in order, and wins');
+  // the narrator has recordings of every line the reel says (no new ones were made for it)
+  const clips = JSON.parse(fs.readFileSync(new URL('../games/robo-rally/voice/clips.json', import.meta.url), 'utf8'));
+  const spoken = P.cues.filter((c) => c.k === 'vo');
+  check(spoken.length > 0 && spoken.every((c) => LINES[c.key] && clips[LINES[c.key].text]), `every line the reel says is recorded (${spoken.map((c) => c.key)})`);
 }
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');

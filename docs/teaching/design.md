@@ -79,6 +79,12 @@ are all still used).
   hit, a push into a pit, a fall), and the owner found them confusing too. A thing with no picture yet is shown
   as a looping clip of it happening, with a name of two or three words (`demo.js`, `AWARDS`).
 
+- **The film before round 1 is a reel** (`sizzle.js`; the storyboard is `sizzle.md`): 23 seconds of the game's
+  best moments, cut quickly, that plant three things: your phone programs your robot, everyone runs at once,
+  and the flags go in order. It replaced the half-minute narrated film (the roll call, the flags on the real
+  course, five slots, "left is the robot's own"), which told more than it showed. Whose robot is whose is the
+  draw's job now; left and right are the test drive's. The narrated Briefing (`briefing.js`) is still the
+  leader's "Rules tutorial", in full.
 - **The phone has a coach** (`coach.js`, `tips.js`; the plan is `coach.md`). The first-time cues were a pulse
   and a picture chip under "?": wordless, and a player had to tap to learn anything. Now a tip in a few plain
   words comes up beside the thing it is about, on by default, once per phone, with a switch in Help. It walks

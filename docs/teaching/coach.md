@@ -11,8 +11,8 @@ Sorted by when it first matters. "Figured out" means the screen makes it obvious
 
 | When | What | Who says it |
 |---|---|---|
-| Before round 1 | That robot is mine | the big screen's roll call; my phone's color and shape |
-| Before round 1 | The flags, in order; first to the last one wins | the big screen's film |
+| Before round 1 | That robot is mine | the draw (each robot comes down onto its pad, named); names over the robots in round 1; my phone's color and shape |
+| Before round 1 | My phone programs my robot; everyone runs at once; the flags in order, first to the last one wins | the big screen's reel (`sizzle.md`) |
 | First program | Tap a card: it goes in slot 1 | the coach, at the hand |
 | First program | The line on my map is where I will go | the coach, at the map, once a card has drawn a line |
 | First program | Fill all five; slot 1 runs first | the coach, at the next empty slot |

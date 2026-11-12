@@ -105,7 +105,7 @@ export const TOPICS = {
   'opt-upgrades': { sec: 'options', pic: { g: 'bolt' }, clips: [['upgrades', 'Upgrades']], fine: 'Off: no shop and no energy. Batteries do nothing and Power Up leaves the deck. A simpler game.' },
   'opt-safe': { sec: 'options', name: 'Map perimeter', pic: { g: 'wall' }, clips: [['safe-edges', 'Map perimeter']], fine: 'A wall all the way round the map, so nobody goes off the edge. Pits are still pits.' },
   'opt-lessspam': { sec: 'options', name: 'Spam in hand discards', pic: { card: 'sp' }, clips: [['less-spam', 'Spam in hand discards']], fine: 'Each round, when you lock in, any junk left in your hand goes to your used cards instead of staying.' },
-  'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: the full narrated rules before round 1, for everyone. Off: a short one and a test drive, when someone is new.' },
+  'opt-brief': { sec: 'options', name: 'Rules tutorial', pic: { g: 'tutorial' }, clips: [], cap: 'Rules tutorial', fine: 'On: the full narrated rules before round 1, for everyone. Off: a short reel and a test drive, when someone is new.' },
   'opt-timer': { sec: 'options', pic: { g: 'timer' }, clips: [['timeout', 'At zero']], fine: 'Minutes to program each round (2 by default). ∞: no timer on the phones.' },
 };
 

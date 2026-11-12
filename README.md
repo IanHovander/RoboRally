@@ -31,18 +31,21 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 ### How the game teaches
 
 Nobody has to read the rules, and nobody sits through them. The lobby plays a wordless film of the basics. Each
-phone remembers whether it has finished a race. When a newcomer is racing, *Floor Control* (the store's
-after-hours computer) narrates a half-minute Briefing on the big screen between the draw for start pads and round 1:
-whose robot is whose, the flags in order, five cards in five slots. Then each newcomer's phone gets the **test
+phone remembers whether it has finished a race. When a newcomer is racing, the big screen plays a 23-second
+**reel** between the draw for start pads and round 1: a robot shoved into a pit, a phone filling five slots while
+the line grows on the board, everyone's cards running at once (a crossfire, a shove, a belt, a chain off the
+edge), then three flags in order and a win. Every robot in it is run by the real rules. *Floor Control* (the
+store's after-hours computer) says four short lines over it; with the sound off, two or three words stand in for
+each. Then each newcomer's phone gets the **test
 drive**: the programming screen itself on three tiny courses, where you fill five slots, watch the light line,
 lock in, and see your robot run it (to a flag; then starting face to face with you, so its left is your right;
 then over a belt that carries it). It takes about half a minute; the big screen shows how far each newcomer has
 got, and the race starts when they are through (or after 90 seconds). A phone that is only waiting for the leader
 to choose a map gets the test drive then instead, so often nobody waits at all. A majority of phones can vote to
-skip the film, and again to skip the test drive. During the race the same voice calls out each first-time moment
+skip the reel, and again to skip the test drive. During the race the same voice calls out each first-time moment
 once (the first laser hit, the first fall...), holding the race for a moment: that is where the other rules are
 taught. The leader's "Rules tutorial" option plays the full 70-second narrated rules, for everyone, in place of
-the short film.
+the reel.
 
 The phone has a **coach**: one tip at a time, a few plain words on a slip of light beside the thing they are
 about ("Tap a card. It goes in slot 1."). It walks a newcomer through their first program (in the test drive, or
@@ -313,9 +316,9 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
 - **`dev-host.html?to=race`** (on `npm run dev`) is the big screen the same way, no phones needed: `to=` setup, start,
   brief, program, race or over; `&n=8`, `&course=…`. Resize the window (or a phone held either way) to check the layout.
   `to=over` plays a staged first slot so the ending has standings, awards and a moment to show again.
-- **`dev-sizzle.html`** (on `npm run dev`) plays a 23-second intro reel for the big screen: a prototype that
-  nothing in the game uses yet. `&t=8000` starts it paused at 8 s; `docs/teaching/sizzle.md` has the storyboard
-  and how to hook it in.
+- **`dev-sizzle.html`** (on `npm run dev`) plays the 23-second reel that comes before round 1, by itself.
+  `&t=8000` starts it paused at 8 s; `docs/teaching/sizzle.md` has the storyboard. In the game it is at
+  `dev-host.html?to=brief`.
 - **`dev-phone.html?to=program`** (on `npm run dev`) is one Robo Rally phone running the real rules, no server
   needed. `to=` setup, start, brief, upgrade, program, race or over; `&n=8` players, `&course=…`, `&prompt=weapon`.
   `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier),

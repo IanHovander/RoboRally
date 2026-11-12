@@ -106,7 +106,7 @@ const runs = () =>
 export const AT = { open: 0, phone: 3000, laser: 9000, shove: 10250, belt: 11500, edge: 12500, flags: 14750, title: 20500, end: 23500 };
 
 /** The narrator's lines (recorded already: voice/clips.json). */
-const LINES = {
+export const LINES = {
   phone: { text: 'Each round, your phone deals cards. Fill five slots.', id: 'brief-5' },
   meet: { text: 'Robots shove. Into pits. Off the edge.', id: 'brief-11' },
   flags: { text: 'Objective: the flags, in order.', id: 'brief-3' },

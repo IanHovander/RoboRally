@@ -1,13 +1,13 @@
-// The Briefing's film: a narrated show on the big screen between the draw for start pads and round 1, played
-// when a newcomer is racing (the rules put the game in phase 'brief'). Floor Control, the store's
-// after-hours computer, says one short line per shot over the right animation: the real course with the
-// players' robots, and tiny lesson boards (lessons.js) run by the real rules.
-// It is short (about half a minute): whose robot is whose, the flags in order, five cards in five slots,
-// and that turns are the robot's own. Then newcomers learn the rest by doing: their phones get the test
-// drive (practice.js; the rules' practice stage), and the race's first-time callouts (teach.js) say each
-// other rule the first time it happens. With the leader's "Rules tutorial" option on, the film is the
-// full rules tutorial (about 70 seconds), for everyone: also no health (damage is junk cards), Haywire
-// jams a slot, the board moves after every slot, a flag counts only if you stop on it, and so on.
+// The Briefing's film: a narrated show on the big screen between the draw for start pads and round 1 (the
+// rules put the game in phase 'brief'). Floor Control, the store's after-hours computer, says one short line
+// per shot over the right animation: the real course with the players' robots, and tiny lesson boards
+// (lessons.js) run by the real rules.
+// The big screen plays it when the leader's "Rules tutorial" option is on: the full rules (about 70 seconds),
+// for everyone. Otherwise a newcomer gets the reel instead (sizzle.js), and learns the rest by doing: their
+// phone gets the test drive (practice.js; the rules' practice stage), and the race's first-time callouts
+// (teach.js) say each other rule the first time it happens.
+// (Without that option this file still has its short cut, about half a minute: whose robot is whose, the
+// flags in order, five cards in five slots, and that turns are the robot's own. Nothing plays it now.)
 // A majority of phones, Esc / Space / Enter, or the ⏭ button skip it; → jumps to the next shot.
 // It borrows the host's arena (one WebGL context) and hands it back as it found it.
 // Script and storyboard: docs/teaching/design.md, section 3.2.

@@ -1,6 +1,7 @@
 # The sizzle reel: 23.5 seconds before round 1
 
-Written 2026-11-11 as a prototype to watch before it replaces anything. Nothing in the game uses it yet.
+Written 2026-11-11 as a prototype, and made the film before round 1 the same day (section 3, A): when a
+newcomer is racing and the leader hasn't asked for the full rules, the big screen plays it in phase `brief`.
 
 - `games/robo-rally/sizzle.js`: the reel. `sizzlePlan()` is the whole reel as data; `startSizzle(o)` plays it on
   the host's arena, with the same options as `startBriefing`.
@@ -94,7 +95,7 @@ those instead; nothing needs them today.
 
 ## 3. How to hook it in
 
-Not applied. Three ways, smallest first.
+Three ways, smallest first. **A is what the game does** (since 2026-11-11); B and C are not applied.
 
 ### A. The reel is the Briefing's short film
 
@@ -192,8 +193,10 @@ Like `dev-host.html`, the page is copied into the website by `npm run build`.
   says it is audible: the four lines were asked for at 3.15, 10.40, 14.92 and 17.32 s with the right ids, and
   only ALL AT ONCE and the title were on the glass. That the phrases land on the cuts is arithmetic from the
   files' lengths, not something heard. `voice.say` adds a chirp and up to 90 ms before the first line.
-- **It is not hooked in.** Section 3 is a description. The reel has only run in `dev-sizzle.html`, which makes
-  the same things `host.js` makes (the layer, the phone, the 1-5 strip, a roster) but is not `host.js`.
+- **In `host.js`** (hook A) it was run in `dev-host.html?to=brief`: it played its eight shots at their times,
+  then the phones' test drive began and the arena was the race's again; Esc in the middle, and a majority of
+  phones voting to skip, both ended it cleanly; with "Rules tutorial" on, the narrated Briefing played instead.
+  That was with the sound locked, so the narrator's lines were never asked for there.
 - **The hand-back** was checked in the dev page after the reel played out and after Esc, Space and Enter in the
   middle: the course, the players' robots, `tempo`, `camMode`, `calmWin`, `tagsOnly`, `dim`, `focusOn`, the
   frame, the clock, the roster and the phone were as before. `host.js`'s `stopBriefing` then does its own
@@ -210,5 +213,6 @@ Like `dev-host.html`, the page is copied into the website by `npm run build`.
 - **A slow computer:** a cut rebuilds a small board in the same frame. That was unnoticeable here; it was not
   tried anywhere else. `BLINK` in `sizzle.js` puts a few frames of black on each cut if it shows.
 - **Reduced motion** is not considered.
-- **No test.** `sizzlePlan()` can be read by `node` (its cues are in order and every one belongs to the shot
-  it falls in: checked with a throwaway script, not by a file in `test/`).
+- **Tests:** `test/lessons.mjs` checks the plan (the length, the shots without a gap, the cues in order), that
+  each scene shows what it is for when run through the rules, and that the narrator has a recording of every
+  line it says. Nothing tests the playing of it.
