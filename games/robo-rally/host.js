@@ -637,10 +637,9 @@ export default function (root, api) {
       if (v.beat.n !== lastBeat) {
         lastBeat = v.beat.n;
         if (!first && (v.phase === 'activate' || v.phase === 'over')) {
-          // the cards turn over above the robots, so everyone sees what's coming (alone, it would only repeat)
+          // a register starts: no card turns over yet (each shows over its robot as it's played), but numerals of
+          // light at the robots' feet say who goes first, second, third
           if (v.beat.what?.k === 'reveal' && v.robots.length > 1) {
-            arena.showCards(v.robots.filter((r) => Array.isArray(r.regs?.[v.reg]) && r.regs[v.reg].length).map((r) => ({ id: r.id, types: r.regs[v.reg] })));
-            // ...and numerals of light at their feet say who goes first, second, third
             const order = priorityOrder(v);
             if (order.length > 1) arena.orderMarks(order.map((r) => r.id));
           }

@@ -595,7 +595,7 @@ export function step(s, env) {
     delete s.cap;
     delete s.what;
     if (list.length) {
-      s.beat = { n: s.beat.n + 1, fx: list, dur: beatTime(list, s), cap: cap ?? s.beat.cap, reg: s.reg, what: what ?? s.beat.what ?? null };
+      s.beat = { n: s.beat.n + 1, fx: list, dur: beatTime(list), cap: cap ?? s.beat.cap, reg: s.reg, what: what ?? s.beat.what ?? null };
       return s.beat;
     }
   }
@@ -605,7 +605,12 @@ export function step(s, env) {
 // what a task shows, for screens that draw it instead of saying it
 const WHAT = { reveal: 'reveal', belts: 'belt', push: 'push', gears: 'gear', blasers: 'blaser', fire: 'rlaser', batteries: 'battery', checkpoints: 'cp' };
 
-function beatTime(list, s) {
+// a card being played, before its robot moves: brisk, so the register runs at a clip
+const CARD_MS = 250;
+
+function beatTime(list) {
+  // a beat that only plays a card (and says something over it: Again, Double Program, Crab Legs, Brakes) is brief
+  if (list.every((f) => f.k === 'play' || f.k === 'say') && list.some((f) => f.k === 'play')) return CARD_MS;
   let ms = 350;
   const STEP = 330; // one space of movement (every path of a beat runs on one clock of steps)
   const shoved = new Set(list.filter((f) => f.k === 'shove').flatMap((f) => f.ids));
@@ -618,8 +623,10 @@ function beatTime(list, s) {
     else if (f.k === 'fall') ms = Math.max(ms, (f.at ?? 0) * STEP + (f.edge ? 1500 : 1350) + (shoved.has(f.id) ? 450 : 0));
     else if (f.k === 'shove') ms = Math.max(ms, (f.at ?? 1) * STEP + 450);
     else if (f.k === 'bonk') ms = Math.max(ms, (f.at ?? 1) * STEP + 400);
-    // one robot alone: its card shows when it's played, so the reveal is only a breath
-    else if (f.k === 'reveal') ms = Math.max(ms, s && s.order.length < 2 ? 450 : 1300);
+    // no card turns over at the start of a register (each shows as it's played): the reveal is only a breath
+    else if (f.k === 'reveal') ms = Math.max(ms, 450);
+    // a card played: it shows over its robot, and the robot sets off a moment later (the card stays up as it goes)
+    else if (f.k === 'play') ms = Math.max(ms, CARD_MS);
     else if (f.k === 'reboot') ms = Math.max(ms, 1400);
     else if (f.k === 'cp') ms = Math.max(ms, 1400);
     else if (f.k === 'win') ms = Math.max(ms, 3000);
@@ -634,8 +641,7 @@ function runTask(s, env, task) {
   const R = task.id ? s.robots[task.id] : null;
   switch (task.t) {
     case 'reveal': {
-      for (const X of robotList(s)) if (X.on && !X.shutdown && X.regs[s.reg].cards.length) X.regs[s.reg].up = true;
-      for (const X of robotList(s)) if (!X.on && X.reboot && X.reboot.round < s.round && s.reg === 0 && X.regs[0].cards.length) X.regs[0].up = true;
+      // the register starts: no card turns over yet, each one does as its robot plays it (taskCard)
       s.cap = `Register ${s.reg + 1}`;
       fx(s, { k: 'reveal', reg: s.reg });
       return;
@@ -735,6 +741,7 @@ function taskCard(s, env, R, task) {
   const reg = R.regs[s.reg];
   const cards = reg.cards;
   if (!cards.length) return;
+  reg.up = true; // face up as it's played, not before
   s.cap = `${nameOf(env, R.id)}: ${cards.map((c) => cardInfo(c).name).join(' + ')}`;
   s.what = { k: 'card', id: R.id, cards: cards.map(cardType) };
   fx(s, { k: 'play', id: R.id, cards: cards.map(cardType) });
