@@ -313,6 +313,9 @@ node test/load.mjs --join https://xxxx.trycloudflare.com --local http://localhos
 - **`dev-host.html?to=race`** (on `npm run dev`) is the big screen the same way, no phones needed: `to=` setup, start,
   brief, program, race or over; `&n=8`, `&course=…`. Resize the window (or a phone held either way) to check the layout.
   `to=over` plays a staged first slot so the ending has standings, awards and a moment to show again.
+- **`dev-sizzle.html`** (on `npm run dev`) plays a 23-second intro reel for the big screen: a prototype that
+  nothing in the game uses yet. `&t=8000` starts it paused at 8 s; `docs/teaching/sizzle.md` has the storyboard
+  and how to hook it in.
 - **`dev-phone.html?to=program`** (on `npm run dev`) is one Robo Rally phone running the real rules, no server
   needed. `to=` setup, start, brief, upgrade, program, race or over; `&n=8` players, `&course=…`, `&prompt=weapon`.
   `?to=race&story=demo` plays a scripted round so the race screen has a real story (`&reg=4` stops earlier),

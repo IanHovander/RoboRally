@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" class="host">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sizzle reel dev</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/host.css">
+<link rel="stylesheet" href="games/robo-rally/lobby.css">
+<link rel="stylesheet" href="games/robo-rally/style.css">
+<link rel="stylesheet" href="games/robo-rally/teach.css">
+<style>
+/* This page's own controls (not part of the reel): a start button, and a bar that shows while the mouse moves. */
+.dv-go { position: fixed; left: 50%; top: 50%; z-index: 50; transform: translate(-50%, -50%); width: 6rem; height: 6rem; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--hair2); background: rgba(10, 13, 18, .6); color: var(--light); display: grid; place-items: center; }
+.dv-go svg { width: 3rem; height: 3rem; }
+.dv-go[hidden] { display: none; }
+.dv { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; align-items: center; gap: .8rem; padding: .6rem 1rem;
+  font-size: .85rem; color: var(--dim); background: rgba(6, 8, 11, .72); opacity: 0; transition: opacity .3s; font-variant-numeric: tabular-nums; }
+.dv.on { opacity: 1; }
+.dv button { appearance: none; border: 1px solid var(--hair2); border-radius: 2rem; background: none; padding: .25rem .8rem; cursor: pointer; }
+.dv input { flex: 1; accent-color: var(--light); }
+.dv b { font-weight: 400; color: var(--light); min-width: 9rem; }
+</style>
+</head>
+<body>
+<section class="screen game-screen" id="game"><main id="stage" class="stage"><div class="game-root" data-phase="brief">
+  <div class="lm-host">
+    <div class="lm-3d"></div>
+    <div class="lm-veil"></div>
+    <div class="tc-black"></div>
+    <div class="lm-regs"></div>
+    <div class="lm-roster"></div>
+    <div class="tc-layer"></div>
+  </div>
+</div></main></section>
+<button class="dv-go" id="go" title="Play the reel" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M15 11 L29 20 L15 29 Z" fill="currentColor"/></svg></button>
+<div class="dv" id="dv">
+  <button id="dv-play">Pause</button>
+  <input id="dv-bar" type="range" min="0" max="24000" step="10" value="0">
+  <b id="dv-time"></b>
+</div>
+<script type="module">
+// The sizzle reel (games/robo-rally/sizzle.js) on a big screen built here: the real arena on a real course with
+// n robots on their pads, as the host has it when the Briefing would start. No server, no phones.
+//   dev-sizzle.html            a start button (so the browser lets the sound play), then the reel
+//     ?n=4                     racers (their colors star in it)
+//     &t=8000                  start paused at 8 s          &auto=1   start without the button (silent until a click)
+//     &loop=1                  play round and round         &course=closing-time
+//     &vo=0                    the narrator stays silent    &words=always | never  (default: words only for an unheard line)
+//     &ui=1                    keep the control bar up
+//   window.sizzle: seek(ms), play(), pause(), time (a number, or call it), duration, shots, shot(), start(ms, paused),
+//   stop(), events() (what the arena said happened, with times), state() (what the arena is like now: for checking the hand-back)
+import { getCourse, padsByFlag } from './games/robo-rally/board.js';
+import { robotSvg } from './games/robo-rally/glyphs.js';
+import { unlock, sceneSound, setLevel } from './games/robo-rally/sound.js';
+import { voice } from './games/robo-rally/voice.js';
+import { createVoiceLine } from './games/robo-rally/teach.js';
+import { createMimic } from './games/robo-rally/mimic.js';
+import { startSizzle, sizzlePlan } from './games/robo-rally/sizzle.js';
+
+const q = new URLSearchParams(location.search);
+const $ = (s) => document.querySelector(s);
+const host = $('.lm-host');
+const box3d = $('.lm-3d');
+const layer = $('.tc-layer');
+const regsEl = $('.lm-regs');
+const rosterEl = $('.lm-roster');
+const blackEl = $('.tc-black');
+const goBtn = $('#go');
+
+// ----- the racers, on the pads the draw would give them -----
+const colors = ['#51cf66', '#ff4d6d', '#4dabf7', '#ffd43b', '#cc5de8', '#ff922b', '#22d3ee', '#f783ac'];
+const names = ['Ivy', 'Ada', 'Bolt', 'Cog', 'Dex', 'Echo', 'Fuse', 'Gizmo'];
+const n = Math.max(1, Math.min(8, Number(q.get('n') ?? 4)));
+const course = getCourse(q.get('course') ?? 'closing-time');
+const pads = padsByFlag(course).slice(0, n).map((p) => course.starts.find((s) => s.n === p.n));
+const robots = pads.map((st, i) => ({ id: 'p' + i, name: names[i], color: colors[i], avatar: i, seat: i, x: st.x, y: st.y, d: st.d, on: true, cp: 0 }));
+const view = { phase: 'brief', round: 1, opts: { course: course.id }, robots };
+rosterEl.style.setProperty('--n', n);
+rosterEl.innerHTML = robots.map((r) => `<div class="lm-tok" style="--c:${r.color}"><div class="lm-tok-top"></div><div class="lm-tok-bot">${robotSvg(r)}</div><div class="lm-tok-name">${r.name}</div><div class="lm-tok-meta"></div></div>`).join('');
+
+// ----- what the host gives the Briefing, made here -----
+const line = createVoiceLine(host);
+voice.onCaption((text) => line.caption(text));
+const mimic = createMimic(host);
+const regs = (k) => {
+  regsEl.innerHTML = k == null ? '' : [0, 1, 2, 3, 4].map((i) => `<i class="${i === k ? 'now' : ''} ${i < k ? 'done' : ''}">${i + 1}</i>`).join('');
+};
+const blackout = (on, ms) => {
+  blackEl.style.transition = ms ? `opacity ${ms}ms ease` : 'none';
+  blackEl.classList.toggle('on', on);
+};
+setLevel(1);
+addEventListener('pointerdown', () => unlock());
+addEventListener('keydown', () => unlock());
+
+// ----- the arena, as host.js's make3d makes it -----
+await Promise.race([Promise.all([document.fonts.load('200 64px Lumen'), document.fonts.load('500 64px Lumen')]), new Promise((r) => setTimeout(r, 1500))]);
+const { Arena } = await import('./games/robo-rally/scene.js');
+const arena = new Arena(box3d);
+arena.on((kind, d) => sceneSound(kind, d, (id) => Number(String(id).replace(/\D/g, '')) || 0));
+arena.setCourse(course);
+arena.setFrame({ top: 0.3, bottom: 0.4, left: 0.04, right: 0.04, headroom: 2.95 });
+arena.camMode = 'drift';
+arena.showNames = arena.namesAlways = true;
+arena.syncRobots(robots);
+
+// ----- the reel -----
+let reel = null;
+function start(at = 0, paused = false) {
+  reel?.stop();
+  goBtn.hidden = true;
+  reel = startSizzle({
+    arena, layer, box3d, line, mimic, voice, regs, blackout,
+    view: () => view,
+    robots: () => robots,
+    loop: q.get('loop') === '1',
+    vo: q.get('vo') !== '0',
+    words: q.get('words') ?? 'auto',
+    at,
+    paused,
+    done() {
+      reel = null;
+      goBtn.hidden = false;
+    },
+    skip() {
+      reel = null;
+      goBtn.hidden = false;
+    },
+  });
+  return reel;
+}
+const plan = sizzlePlan();
+const time = () => reel?.time ?? 0;
+time.valueOf = time.toJSON = time; // (so sizzle.time reads as a number too)
+window.sizzle = {
+  duration: plan.duration,
+  shots: plan.shots.map((s) => ({ name: s.name, t0: s.t0, t1: s.t1 })),
+  time,
+  seek: (ms) => (reel ? reel.seek(ms) : start(ms, true), time()),
+  play: () => (reel ? reel.play() : start(0)),
+  pause: () => reel?.pause(),
+  shot: () => reel?.shot ?? null,
+  playing: () => !!reel?.playing,
+  start,
+  stop: () => {
+    reel?.stop();
+    reel = null;
+    goBtn.hidden = false;
+  },
+  events: () => (reel ? [...reel.events] : []),
+  state: () => ({
+    reel: !!reel, course: arena.course?.id, tempo: arena.tempo, camMode: arena.camMode, calmWin: arena.calmWin, tagsOnly: arena.tagsOnly, dim: arena.dim,
+    focusOn: arena.focusOn, frame: { ...arena.frame }, ownClock: arena.clock?.constructor?.name, bots: [...arena.bots.keys()],
+    hostClass: host.className, layer: layer.children.length, phone: mimic.el.className, regs: regsEl.children.length,
+  }),
+  arena,
+};
+
+// ----- this page's controls -----
+const dv = $('#dv');
+const bar = $('#dv-bar');
+const playBtn = $('#dv-play');
+const timeEl = $('#dv-time');
+bar.max = plan.duration;
+let idle = 0;
+if (q.get('ui') === '1') dv.classList.add('on');
+else {
+  addEventListener('pointermove', () => {
+    dv.classList.add('on');
+    clearTimeout(idle);
+    idle = setTimeout(() => dv.classList.remove('on'), 2500);
+  });
+}
+playBtn.addEventListener('click', () => (reel?.playing ? reel.pause() : window.sizzle.play()));
+bar.addEventListener('input', () => window.sizzle.seek(Number(bar.value)));
+goBtn.addEventListener('click', () => {
+  unlock();
+  start(0);
+});
+(function show() {
+  requestAnimationFrame(show);
+  if (document.activeElement !== bar) bar.value = time();
+  playBtn.textContent = reel?.playing ? 'Pause' : 'Play';
+  timeEl.textContent = `${(time() / 1000).toFixed(2)} s  ${reel?.shot ?? 'not playing'}`;
+})();
+
+if (q.has('t')) start(Number(q.get('t')), true);
+else if (q.get('auto') === '1' || q.get('loop') === '1') start(0);
+else goBtn.hidden = false;
+window.ready = true;
+</script>
+</body>
+</html>
