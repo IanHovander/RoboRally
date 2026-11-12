@@ -1,13 +1,15 @@
 // The test drive: the tutorial you do instead of watch. A phone gets the programming screen itself (the same
 // cards, five slots, light line and lock) on three tiny courses (drills.js), and the robot runs what was
 // programmed by the real rules. A wrong program runs too, then the cards come back and the next right card bobs.
-// Nothing to read: a card bobs when you're stuck, the lock lights when five slots are full.
+// Little to read: the coach (coach.js) says each step of the first course once, and one thing about each of the
+// others; a card bobs when you're stuck, the lock lights when five slots are full.
 //   const p = mountPractice(box, { color, form, level, vibrate, onLevel(n), onDone(), onSkip() });  p.destroy()
 // Shown while waiting (the leader is choosing a map), in the Briefing's practice stage, and from "?" (guide.js).
 import { html, raw, loadCss } from '../../js/ui.js';
 import { cardSvgHtml, svgGlyph } from './glyphs.js';
 import { lessonFrames, paintComp } from './demo.js';
 import { DRILLS, drillCourse, drillStart, drillLine, drillHint, tryDrill } from './drills.js';
+import { createCoach } from './coach.js';
 
 const SPEED = 1.3; // the run's clock runs this much faster than a rule clip's
 const IDLE_MS = 5000; // nothing tapped for this long: a nudge
@@ -65,6 +67,7 @@ export function mountPractice(box, o = {}) {
   let fly = null; // a card on its way into a slot: { rect, slot }
   let back = null; // cards on their way back to the hand: [{ i, rect }]
   const paint = { canvas, comp: null, color, form: o.form ?? 0, board: null, lazy: false, perimeter: false };
+  const coach = createCoach(root, { vibrate: o.vibrate });
 
   const types = () => slots.map((i) => (i == null ? null : d.hand[i]));
   const full = () => slots.every((i) => i != null);
@@ -122,6 +125,8 @@ export function mountPractice(box, o = {}) {
       });
       back = null;
     }
+    const moved = !running && drillLine(d, types()).ghosts.some((gh) => (gh.path?.length ?? 0) > 1);
+    coach.refresh(mode === 'done' ? null : { screen: 'drive', level, placed: slots.filter((i) => i != null).length, moved, full: full(), running });
   }
 
   // ----- nudges: the next card of the known route bobs (or a card that leaves it wiggles, or the lock pulses) -----
@@ -298,6 +303,7 @@ export function mountPractice(box, o = {}) {
       cancelAnimationFrame(raf);
       clearTimeout(idle);
       ro?.disconnect();
+      coach.destroy();
       root.remove();
     },
   };

@@ -7,7 +7,8 @@ import { previewProgram, filledRun, rebootFor } from '../games/robo-rally/minima
 import * as E from '../games/robo-rally/engine.js';
 import { haywireParts } from '../games/robo-rally/glyphs.js';
 import { marksFor, causesFor, replayPlan, ranCards, cropFor } from '../games/robo-rally/replay.js';
-import { COURSES, getCourse } from '../games/robo-rally/board.js';
+import { COURSES, getCourse, beamPath } from '../games/robo-rally/board.js';
+import { TIPS, BASICS, planRisks, riskText } from '../games/robo-rally/tips.js';
 import { UPGRADES, HAYWIRE, PROGRAM } from '../games/robo-rally/cards.js';
 
 let failures = 0;
@@ -330,6 +331,47 @@ for (const k of ['belt-green', 'belt-blue', 'gear', 'pit', 'battery', 'wall', 'p
       }
     }
   }
+}
+
+// ----- the coach's tips (tips.js): few words, each said in its place; and what it warns about a planned line -----
+{
+  check(new Set(TIPS.map((t) => t.id)).size === TIPS.length, 'every tip has its own id');
+  for (const t of TIPS) {
+    check(words(t.say) <= 14, `tip ${t.id}: at most 14 words (${words(t.say)})`);
+    check(!/[()!;]/.test(t.say), `tip ${t.id}: plain sentences (no brackets, semicolons or exclamation marks)`);
+    check(t.on.length > 0 && t.on.every((x) => ['drive', 'program', 'run', 'shop'].includes(x)), `tip ${t.id}: a screen it belongs to`);
+    check(!t.more || TOPICS[t.more], `tip ${t.id}: "more" opens a Help topic (${t.more})`);
+  }
+  check(BASICS.every((id) => TIPS.some((t) => t.id === id)), 'the basics a phone that has raced skips are tips');
+  // the first program, step by step: one tip fits each moment, in this order
+  const at = (s, seen = []) => TIPS.find((t) => !seen.includes(t.id) && t.on.includes(s.screen) && t.when({ has: {}, ...s }, new Set(seen)))?.id ?? null;
+  const drive = (o) => ({ screen: 'drive', level: 0, placed: 0, moved: false, full: false, running: false, ...o });
+  check(at(drive({})) === 'card', 'the test drive, nothing placed: tap a card');
+  check(at(drive({ placed: 1, moved: true })) === 'line', 'a card that moves is placed: the line');
+  check(at(drive({ placed: 1, moved: false })) === null, '...a turn alone draws no line: nothing to say yet');
+  check(at(drive({ placed: 5, moved: true, full: true })) === 'lock', 'five placed: lock in');
+  check(at(drive({ placed: 5, full: true, running: true })) === null, 'while the robot runs: nothing');
+  check(at(drive({ level: 1 }), BASICS) === 'own-left' && at(drive({ level: 2 }), BASICS) === 'floor', 'the second and third courses: one thing each');
+  const race = (o) => ({ screen: 'program', round: 1, veteran: false, placed: 0, moved: false, full: false, done: false, ...o });
+  check(at(race({})) === 'card' && at(race({ veteran: true })) === null, 'round 1: the same steps for a newcomer, none for a phone that has raced');
+  check(at(race({ round: 2, veteran: true })) === 'others', 'round 2: the line shows only you');
+  check(at(race({ round: 2, veteran: true }), ['others']) === 'tips', '...then, once: where tips are turned off');
+  check(at(race({ round: 2, veteran: true, has: { reboot: true } })) === 'reboot', '...but what needs doing now comes first (I fell: which way to face)');
+  check(at(race({ round: 2, veteran: true, done: true })) === null, 'locked in: nothing');
+
+  // planRisks: the line against the robots where they stand, and the wall lasers
+  const c = getCourse('closing-time');
+  const L = c.lasers[0];
+  const beam = beamPath(c, L.x, L.y, L.d);
+  const [bx, by] = [beam[1].x, beam[1].y];
+  const line = [{ n: 1, x: 3, y: 3, path: [[1, 3], [2, 3], [3, 3]] }, { n: 2, x: bx, y: by, path: [[3, 3], [bx, by]] }];
+  const risks = planRisks(c, line, [{ id: 'a', x: 2, y: 3, on: true }, { id: 'b', x: 3, y: 5, on: true }, { id: 'far', x: 12, y: 9, on: true }, { id: 'gone', x: 3, y: 3, on: false }]);
+  check(risks.map((r) => `${r.kind}:${r.by ?? ''}:${r.n}`).join() === 'block:a:1,laser::2,near:b:1', `a robot on my line, a laser I stop in, a robot close by (got ${risks.map((r) => `${r.kind}:${r.by ?? ''}:${r.n}`)})`);
+  check(risks[0].x === 2 && risks[0].y === 3 && risks[1].x === bx && risks[1].y === by, 'each risk says which square to frame');
+  check(planRisks(c, [{ n: 3, x: 3, y: 3, path: [[3, 2], [3, 3]] }], [{ id: 'b', x: 3, y: 5, on: true }]).length === 0, 'a robot close to slot 3 is not warned about (it will have moved)');
+  check(planRisks(c, [{ n: 1, x: 2, y: 3, unknown: true, path: [[1, 3]] }], [{ id: 'a', x: 2, y: 3, on: true }]).length === 0, 'a slot nobody can predict: no warning');
+  check(planRisks(c, [], [{ id: 'a', x: 2, y: 3, on: true }]).length === 0, 'no line: no warning');
+  check(riskText(risks[0], 'Ada') === 'Ada is in your way' && /Ada/.test(riskText(risks[2], 'Ada')) && !/undefined/.test(riskText(risks[1])), 'each risk in a few words');
 }
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');

@@ -44,6 +44,15 @@ once (the first laser hit, the first fall...), holding the race for a moment: th
 taught. The leader's "Rules tutorial" option plays the full 70-second narrated rules, for everyone, in place of
 the short film.
 
+The phone has a **coach**: one tip at a time, a few plain words on a slip of light beside the thing they are
+about ("Tap a card. It goes in slot 1."). It walks a newcomer through their first program (in the test drive, or
+in round 1 if they skipped it), tells them to look up, and in round 2 says the thing round 1 has just shown them:
+the line on the map is only their own robot, and others can shove them off it. From then on the phone warns,
+while you plan, when a robot stands on your line or close to it or you would stop in a laser, and frames that
+square on the map. Anything else gets a tip the first time it comes up (a junk card, a jammed slot, the shop).
+Each tip is said once per phone, tips are on until you turn them off in Help, and the plan is in
+`docs/teaching/coach.md`.
+
 On the phone, **?** opens Help: what this screen wants from you now (a looping clip and a sentence), and four
 ways on. *What's this?* lets you tap anything on the screen (a card, a slot, a square of the map) for its clips;
 *How to play* is the game in four clips; *Practice* is the test drive again; *All rules* is an index of subjects,

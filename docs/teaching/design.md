@@ -79,7 +79,15 @@ are all still used).
   hit, a push into a pit, a fall), and the owner found them confusing too. A thing with no picture yet is shown
   as a looping clip of it happening, with a name of two or three words (`demo.js`, `AWARDS`).
 
-**Superseded below:** the round-arrow Again glyph (the `⟳` rows in 2.2: the clips still say `⟳`, which now draws
+- **The phone has a coach** (`coach.js`, `tips.js`; the plan is `coach.md`). The first-time cues were a pulse
+  and a picture chip under "?": wordless, and a player had to tap to learn anything. Now a tip in a few plain
+  words comes up beside the thing it is about, on by default, once per phone, with a switch in Help. It walks
+  a newcomer through a first program, says "look up", and in round 2 says that the line shows only their own
+  robot. From then on the task line warns when a robot is on or near the planned line, or it stops in a laser.
+- **Every hand-written Help sentence was rewritten** to the rules in `coach.md` section 4 (say what to do, one
+  idea a sentence, one word for one thing).
+
+**Superseded below:** the first-time cues' chip under "?" (2.2); the round-arrow Again glyph (the `⟳` rows in 2.2: the clips still say `⟳`, which now draws
 "×2"); the 70-second Briefing as the default (1, 2.5, 3.2: its script is now the leader's
 option); "?" opening Point mode (1, 2.2.1, 2.2.2); the Book as one long page with a chip row and contextual
 sections (2.2.5); in the table of rejected ideas, "a guided tutorial round / practice level" (the test

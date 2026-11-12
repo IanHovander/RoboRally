@@ -1,9 +1,9 @@
 // The phone's Guide: one "?" button. It opens Help: what this screen wants from you now (a looping clip and a
 // sentence), and the ways on: point at anything on the screen ("What's this?"), the game in four clips ("How to
 // play"), the test drive (practice.js) and every rule by subject ("All rules": an index, then a page a subject).
-// Anything pointed at (or long-pressed) answers with its own clips. New things flag themselves once (a pulse, a
-// chip under the "?").
-//   in the game:  const guide = mountGuide(root, { getView, api, mapTopics, getPlanned });  guide.refresh() after each render
+// Anything pointed at (or long-pressed) answers with its own clips. New things are the coach's to point out
+// (coach.js: a tip in words beside the thing); Help has the switch that turns its tips off.
+//   in the game:  const guide = mountGuide(root, { getView, api, mapTopics, getPlanned, onTips });  guide.refresh() after each render
 //   the lobby:    openBook({ context: 'lobby', color })   (Help, without the pointing)
 // Anything with data-ask="topic[:arg]" can be pointed at; data-tap="ask" also opens it on a plain tap.
 import { html, raw, loadCss } from '../../js/ui.js';
@@ -15,6 +15,7 @@ import { UPGRADES, HAYWIRE, cardType } from './cards.js';
 import { TOPICS, SECTIONS, sectionTopics, bookTiles, cardTopic } from './topics.js';
 import { mountReplay, ranCards, causesFor, markHtml } from './replay.js';
 import { mountPractice } from './practice.js';
+import { tipsOn, setTips } from './coach.js';
 
 const g = (name, cls = '') => raw(svgGlyph(name, cls));
 const card = (t, cls = '') => raw(cardSvgHtml(t, cls));
@@ -30,7 +31,7 @@ const store = {
 const FILM_SAYS = [
   'Five cards, in order, drive your robot to the flag.',
   'After every card the floor moves too: belts carry, gears turn, lasers fire.',
-  'Damage is junk cards. SPAM clogs your hand; a Haywire jams a slot.',
+  'Damage is junk cards. Junk clogs your hand. A Haywire jams a slot.',
   'Robots shove each other. Reach the flags in order: first to the last one wins.',
 ];
 // what a screen wants from you: the topic Help leads with
@@ -112,7 +113,6 @@ export function mountGuide(root, o = {}) {
   let home = null; // Help's first sheet: { el }
   let films = null; // "How to play": { el }
   let driving = null; // the test drive, over everything: { el, ui }
-  let chip = null; // { el, open, timer, phase }
   let lastPhase = null;
   let pressed = null;
   let swallow = false;
@@ -481,7 +481,6 @@ export function mountGuide(root, o = {}) {
     const add = (ask) => {
       if (ask && !out.includes(ask) && TOPICS[ask.split(':')[0]]) out.push(ask);
     };
-    if (chip?.open) add(chip.open);
     if (o.shell) return out;
     if (pl().querySelector('.pr')) {
       // the test drive is on the screen: its slots, its line
@@ -579,6 +578,7 @@ export function mountGuide(root, o = {}) {
           <button class="gd-act" data-gd="drive">${g('flag')}<span>Practice</span></button>
           <button class="gd-act" data-gd="book">${g('book')}<span>All rules</span></button>
         </div>
+        <button class="gd-tips ${tipsOn() && 'on'}" data-gd="tips" role="switch" aria-checked="${String(tipsOn())}"><span>Tips while you play</span><i></i></button>
         ${rest.length > 0 && html`<div class="gd-strip"><span class="gd-strip-ic">${g('eye')}</span>${rest.slice(0, 10).map(tileHtml)}</div>`}
         ${replays.length > 0 && html`<div class="gd-strip last"><span class="gd-strip-ic">${g('undo')}</span>${replays.map((i) => html`<button class="gd-tile" data-gd="replay" data-arg="${i}"><canvas data-replay="${i}"></canvas><span class="gd-cap">${i + 1}</span></button>`)}</div>`}
         <div class="gd-row"><button class="gd-x" data-gd="close-help" aria-label="Close">${g('cross')}</button></div>
@@ -770,6 +770,14 @@ export function mountGuide(root, o = {}) {
       case 'point': return openPoint();
       case 'films': return openFilms();
       case 'drive': return openDrive();
+      case 'tips': {
+        // the coach's tips, on or off (the screen behind draws again: a tip goes, or the next one comes)
+        setTips(!tipsOn());
+        b.classList.toggle('on', tipsOn());
+        b.setAttribute('aria-checked', String(tipsOn()));
+        o.api?.vibrate?.(6);
+        return o.onTips?.(tipsOn());
+      }
       case 'film': return films?.reel.scrollTo({ left: Number(arg) * films.reel.clientWidth, behavior: 'smooth' });
       case 'book-index': return backInBook();
       case 'book': {
@@ -784,12 +792,6 @@ export function mountGuide(root, o = {}) {
       }
       case 'replay': return openReplay(Number(arg), sheet?.from ?? (book ? 'book' : home ? 'help' : null));
       case 'sec': return showSection(arg);
-      case 'chip': {
-        const open = chip?.open;
-        foldChip();
-        if (open) openEntry(open.split(':')[0], { arg: open.split(':')[1] });
-        return;
-      }
     }
   });
 
@@ -859,7 +861,7 @@ export function mountGuide(root, o = {}) {
   const onResize = () => pointing && outline(false);
   window.addEventListener('resize', onResize);
 
-  // ----- first-time cues: a pulse on the new thing, a chip under the "?" -----
+  // ----- the Guide's own reminder: the "?" pulses (what is new on the screen is the coach's to say: coach.js) -----
   function ring(rect, times = 2, cls = '') {
     if (!rect || !rect.width) return;
     rect = local(rect);
@@ -872,27 +874,7 @@ export function mountGuide(root, o = {}) {
   function pulseAsk(times = 3) {
     ring(askRect(), times, 'round');
   }
-  function showChip(picHtml, open) {
-    foldChip();
-    const a = local(askRect());
-    const el = document.createElement('button');
-    el.className = 'gd-chip';
-    el.dataset.gd = 'chip';
-    el.style.cssText = `top:${a.bottom + 2}px;right:${Math.max(4, layer.getBoundingClientRect().width - a.right)}px`;
-    el.innerHTML = String(html`${picHtml}<i>${g('ask')}</i>`);
-    layer.append(el);
-    mountClips(el);
-    chip = { el, open, phase: getView()?.phase, timer: setTimeout(foldChip, 12000) };
-  }
-  function foldChip() {
-    if (!chip) return;
-    clearTimeout(chip.timer);
-    const el = chip.el;
-    el.classList.add('fold');
-    setTimeout(() => el.remove(), 350);
-    chip = null;
-  }
-  function fire(id, { el, chipPic, open, times = 2, always = false } = {}) {
+  function fire(id, { el, times = 2, always = false } = {}) {
     if (!always && cued.has(id)) return false;
     if (always && session.has(id)) return false;
     session.add(id);
@@ -902,56 +884,25 @@ export function mountGuide(root, o = {}) {
     }
     if (el === 'ask') pulseAsk(times);
     else if (el) ring(el.getBoundingClientRect(), times);
-    if (chipPic) showChip(chipPic, open);
     return true;
   }
-  const q = (sel) => pl().querySelector(sel);
   function checkCues(v) {
     const m = v?.me;
     if (!v || !m || o.shell) return;
     const phase = v.phase;
-    const prog = phase === 'program' && !m.mustReturn;
-    if (prog) {
-      // the Guide's own reminder: on a phone that never opened it, every new page; else once ever
-      fire('guide', { el: 'ask', times: 3, always: !opened() });
-      const sp = q('.pl-hand [data-ask="sp"]');
-      if (sp) fire('spam-hand', { el: sp, chipPic: pic({ card: 'sp' }), open: 'sp' });
-      const ag = q('.pl-hand [data-ask="ag"]');
-      if (ag) fire('again', { el: ag, chipPic: pic({ card: 'ag' }), open: 'ag' });
-      const hw = q('.pl-slot.locked');
-      if (hw) fire('haywire-slot', { el: hw, chipPic: pic({ card: 'hw' }), open: hw.dataset.ask });
-      const rb = q('.pl-reboot');
-      if (m.rb && rb?.children.length) fire('reboot-dir', { el: rb, chipPic: pic({ g: 'reboot' }), open: 'reboot-dir' });
-      const left = v.deadline ? v.deadline - (o.api?.now?.() ?? Date.now()) : Infinity;
-      if (v.opts.timer && left <= 10_000 && left > 0 && !m.done && q('.pl-regs .pl-slot:not(.full):not(.locked)')) fire('timer', { el: q('[data-ask="timer"]'), chipPic: pic({ g: 'timer' }), open: 'timer' });
-    }
-    if (phase === 'upgrade' && !m.done) fire('shop', { el: q('.pl-energy'), chipPic: pic({ g: 'bolt' }), open: 'shop' });
-    if (phase === 'activate') {
-      const arm = q('.pl-arm');
-      if (m.canArm && arm) {
-        const k = m.up.temp.find((x) => ['move', 'turn'].includes(UPGRADES[x].when));
-        fire('arm', { el: arm, chipPic: pic({ up: k }), open: 'arm' });
-      }
-      if (!m.on) fire('fallen', { chipPic: pic({ g: 'reboot' }), open: 'fall' });
-    }
+    // on a phone that never opened it, every new page; else once ever
+    if (phase === 'program' && !m.mustReturn) fire('guide', { el: 'ask', times: 3, always: !opened() });
     if (lastPhase === 'brief' && phase !== 'brief') fire('brief-end', { el: 'ask', times: 3, always: !opened() });
   }
 
   return {
-    /** Call after every render: keeps Point mode's outlines in place and checks the first-time cues. */
+    /** Call after every render: keeps Point mode's outlines in place and checks its own reminders. */
     refresh() {
       const v = getView();
-      if (v?.phase !== lastPhase) {
-        if (pointing) closePoint();
-        if (chip && chip.phase !== v?.phase) foldChip();
-      }
+      if (v?.phase !== lastPhase && pointing) closePoint();
       if (pointing) requestAnimationFrame(() => outline(false));
       checkCues(v);
       lastPhase = v?.phase ?? null;
-    },
-    /** A cue the screen itself noticed (damage arriving on the race screen). */
-    cue(id, picSpec, open) {
-      fire(id, { chipPic: pic(picSpec), open });
     },
     open: (ask) => {
       const [id, arg] = ask.split(':');
@@ -967,7 +918,6 @@ export function mountGuide(root, o = {}) {
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('resize', onResize);
       driving?.ui.destroy();
-      foldChip();
       layer.remove();
       setDemoFocus(null);
     },

@@ -14,6 +14,8 @@ import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from '
 import { mountDemo, hasDemo, AWARDS } from './demo.js';
 import { mountGuide } from './guide.js';
 import { mountPractice } from './practice.js';
+import { createCoach, tipsOn, tipSeen, skipBasics } from './coach.js';
+import { planRisks, riskText } from './tips.js';
 import { topicAtCell, cardTopic } from './topics.js';
 import { marksFor, markHtml, mountFallen, ranCards } from './replay.js';
 
@@ -86,7 +88,13 @@ export default function (root, api) {
   const maps = new WeakMap(); // canvas -> how it's drawn (tile, ox, oy, robots, ghosts), to know what a tap hit
 
   // the Guide: "?", Point mode, the Book, first-time cues
-  const guide = mountGuide(root, { getView: () => view, api, mapTopics, getPlanned });
+  const guide = mountGuide(root, { getView: () => view, api, mapTopics, getPlanned, onTips: () => render() });
+  // the coach: one tip at a time, beside the thing it's about (on until it's turned off in Help). A phone that had
+  // raced before today doesn't get the steps of a first program
+  const veteran = store.get('rr.raced') === '1';
+  if (veteran) skipBasics();
+  const coach = createCoach(pl, { onMore: (ask) => guide.open(ask), vibrate: (p) => api.vibrate(p) });
+  let hitAt = -Infinity; // when damage last reached this phone (the coach says what it is, once)
 
   // this phone tells the rules whether it has finished a race before (newcomers get the Briefing). Each game
   // keeps its own list, so it's said again at every phase change (saying it twice is harmless).
@@ -161,6 +169,15 @@ export default function (root, api) {
   /** Where I'd start this round's program from (my robot, or my reboot spot facing the way I chose). */
   function programStart(m) {
     return m?.on ? m : m?.rb && m.rbAt ? { ...m.rbAt, d: prog.rebootDir } : null;
+  }
+  /**
+   * Where my line may not go as drawn, because the board isn't empty (tips.js): robots in its way or close to it,
+   * a wall laser it stops in. Only while I'm still planning, with tips on, and once the coach has said that the
+   * line shows only me (a phone that raced before today: from the start).
+   */
+  function risksFor(m) {
+    if (!m || view.phase !== 'program' || m.done || m.mustReturn || !tipsOn() || !(veteran || tipSeen('others'))) return [];
+    return planRisks(course(), ghostsFor(m), view.robots.filter((r) => r.id !== api.you?.id));
   }
   function ghostsFor(m) {
     const from = programStart(m);
@@ -238,9 +255,10 @@ export default function (root, api) {
     }
     const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === api.you?.id }));
     if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
-    const look = { robots, ghosts, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), areaLit: mapLit, ...mapLook() };
+    const risks = risksFor(m).map((r) => ({ x: r.x, y: r.y, color: r.by ? robotById(r.by)?.color ?? '#f4efe4' : '#ff7a6b' }));
+    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m ? n <= m.cp : false), areaLit: mapLit, ...mapLook() };
     // the whole course at this size, drawn once (with a square's margin for glows), then copied in where it sits
-    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color]), ghosts, ring, m?.cp, api.you?.color]);
+    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color]), ghosts, risks, ring, m?.cp, api.you?.color]);
     let cache = mapCache.get(canvas);
     if (!cache || (cache.key !== cacheKey && !(quick && cache.c === c))) {
       const pad = Math.ceil(tile);
@@ -1305,6 +1323,28 @@ export default function (root, api) {
     renderBody(m);
     renderSheet();
     guide.refresh();
+    coach.refresh(situation(m));
+  }
+
+  /** What the coach needs to know about this screen (tips.js). null: nothing to point at (Help or a sheet is up). */
+  function situation(m) {
+    if (!m || !view.inRace || guide.busy || view.prompt || localSheet || wantsDrive()) return null;
+    const hand = m.hand.map(cardType);
+    const left = view.deadline ? view.deadline - api.now() : Infinity;
+    switch (view.phase) {
+      case 'program':
+        if (m.mustReturn) return null;
+        return {
+          screen: 'program', round: view.round, veteran, placed: placed().size, full: programFull(), done: m.done,
+          moved: ghostsFor(m).some((gh) => (gh.path?.length ?? 0) > 1),
+          has: { spam: hand.includes('sp'), again: hand.includes('ag'), haywire: m.regs.some((r) => r.locked), reboot: m.rb, timerLow: !!view.opts.timer && left > 0 && left <= 10_000 },
+        };
+      case 'activate':
+        return { screen: 'run', round: view.round, veteran, has: { fallen: !m.on && !comingBack(m), arm: m.canArm, hit: performance.now() - hitAt < 6000 } };
+      case 'upgrade':
+        return { screen: 'shop', round: view.round, veteran, done: m.done };
+    }
+    return null;
   }
 
   function renderTop(m) {
@@ -1328,7 +1368,7 @@ export default function (root, api) {
       case 'setup': return api.you?.isVip ? 'Select a map' : 'The leader is choosing';
       case 'start': return 'You start here';
       case 'brief': return view.brief?.stage === 'practice' ? waitOthers : 'Watch the big screen';
-      case 'upgrade': return m?.done ? waitOthers : 'Upgrades';
+      case 'upgrade': return m?.done ? waitOthers : 'Upgrades: optional';
       case 'program':
         if (!m) return '';
         if (m.mustReturn) return 'Give back cards';
@@ -1342,7 +1382,12 @@ export default function (root, api) {
     return '';
   }
   function renderTask(m) {
-    const text = taskText(m);
+    // my line may not go as drawn: the coach's advice takes the task line's place (the worst thing first)
+    const risk = risksFor(m)[0];
+    const by = risk?.by ? robotById(risk.by) : null;
+    const text = risk ? riskText(risk, by?.name) : taskText(m);
+    task.classList.toggle('advice', !!risk);
+    task.style.setProperty('--c', by?.color ?? '');
     if (task.textContent !== text) {
       task.textContent = text;
       task.classList.remove('in');
@@ -1656,11 +1701,13 @@ export default function (root, api) {
       ${usable.map((k) => html`<button class="pl-chip" data-ui="inst" data-arg="${k}" data-ask="${k}">${demo(k, 'tiny')}<span>${UPGRADES[k].name}</span></button>`)}`);
     const used = placed();
     const hasMemory = m.up.perm.includes('memory-cards');
+    // round 1, nothing placed yet: a card bobs (a move: it draws a line on the map straight away)
+    const bob = view.round === 1 && !used.size ? m.hand.findIndex((id) => ['m1', 'm2', 'm3'].includes(cardType(id))) : -1;
     set(body.querySelector('.pl-hand'), html`${m.hand.map((id, n) => {
       const isUsed = used.has(id);
       const keepable = hasMemory && programFull() && !isDamage(id) && !isUsed;
       return html`<span class="pl-hand-slot">
-        <button class="pl-card ${isUsed && 'used'} ${view.round === 1 && n === 0 && !used.size && 'hint'}" data-ui="card" data-arg="${id}" data-ask="${cardTopic(id)}" ${isUsed || done ? 'disabled' : ''}>${card(id)}</button>
+        <button class="pl-card ${isUsed && 'used'} ${n === bob && 'hint'}" data-ui="card" data-arg="${id}" data-ask="${cardTopic(id)}" ${isUsed || done ? 'disabled' : ''}>${card(id)}</button>
         ${keepable && html`<button class="pl-keep ${prog.keep.has(id) && 'on'}" data-ui="keep" data-arg="${id}" data-ask="memory-cards" aria-label="Keep">${g('keep')}</button>`}
       </span>`;
     })}`);
@@ -1774,7 +1821,7 @@ export default function (root, api) {
       </div>`;
     })}`);
     for (const k of arriving) race.seenNext.add(k);
-    if (arriving.length) guide.cue('damage', { card: 'hw' }, 'damage');
+    if (arriving.length) hitAt = performance.now();
     // the middle: look up, or (when I've fallen) the way back in
     const lookBox = body.querySelector('.pl-look-box');
     const midKey = m.on ? 'look' : `fallen:${JSON.stringify(m.rbAt)}`;
@@ -1792,7 +1839,7 @@ export default function (root, api) {
     set(stackEl, html`<span class="pl-stack ${!m.spam && 'empty'}">${card('sp', 'xs')}${card('sp', 'xs')}</span><b class="${grew && 'tick'}">${m.spam}</b>`);
     if (grew) {
       dropSpam(stackEl);
-      guide.cue('damage', { card: 'sp' }, 'damage');
+      hitAt = performance.now();
     }
     race.spam = m.spam;
     const armable = m.canArm && m.on && m.up.temp.filter((k) => ['move', 'turn'].includes(UPGRADES[k].when));
@@ -1977,6 +2024,7 @@ export default function (root, api) {
       drag?.ghost?.remove();
       clearTimeout(draftTimer);
       clearInterval(diceTimer);
+      coach.destroy();
       guide.destroy();
     },
   };

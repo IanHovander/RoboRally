@@ -30,7 +30,8 @@ const laserGap = (T) => Math.max(T * LASER_GAP, DOUBLE_MIN_PX);
  * Draw a course. o: { tile, ox, oy, robots: [{x,y,d,color,on,me,avatar}], ghosts: [{x,y,d,n,fell,path}],
  * ghostColor, starts: {n: color}, cpNext, cpDone(n), glow (soft light effects; off for tiny previews),
  * perimeter (Map perimeter is on: a wall all round the course), inert (no upgrades: batteries do nothing, so they aren't drawn),
- * reboot (rebootFor(): the ring I'd come back on, lit in ghostColor; a planned fall gets a dotted link to it) }
+ * reboot (rebootFor(): the ring I'd come back on, lit in ghostColor; a planned fall gets a dotted link to it),
+ * risks: [{x, y, color}] (squares where the line may not go as drawn: a dashed frame) }
  */
 export function drawCourse(g, course, o = {}) {
   const T = o.tile ?? 32;
@@ -346,6 +347,23 @@ export function drawCourse(g, course, o = {}) {
 
   // where my program would take me: a line of light through the spaces, a dot per register
   if (o.ghosts?.length) drawGhostLine(g, course, o.ghosts, { tile: T, ox, oy, color: o.ghostColor, glow });
+
+  // where that line may not go as drawn (tips.js, planRisks): a dashed frame round the square, in the color of
+  // the robot that's in the way (or coral, for a laser I'd stop in)
+  for (const r of o.risks ?? []) {
+    g.save();
+    g.strokeStyle = r.color;
+    g.lineWidth = lw(0.07, 1.5);
+    g.setLineDash([T * 0.2, T * 0.16]);
+    if (glow) {
+      g.shadowColor = r.color;
+      g.shadowBlur = T * 0.3;
+    }
+    g.beginPath();
+    g.roundRect(px(r.x) + T * 0.06, py(r.y) + T * 0.06, T * 0.88, T * 0.88, T * 0.2);
+    g.stroke();
+    g.restore();
+  }
 
   // robots
   for (const r of o.robots ?? []) {
