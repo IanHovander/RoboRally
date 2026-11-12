@@ -5,7 +5,12 @@ import { ClientSocket, loadPeerJS, peerOptions, PROTOCOL, roomPeerId } from './c
 import { getRelay } from './relay.js';
 
 const SILENT_MS = 6000; // the big screen answers our clock question every 2 s; silence this long = gone
-const WELCOME_MS = 12_000; // give up on a connection attempt after this long and try again
+// Give up on a connection attempt after this long and try again. A healthy one takes about a second, so the
+// first try (often made the moment a phone wakes, before its network is back) gives up sooner than later ones.
+const PEER_MS = [5000, 10_000]; // reaching the introduction server
+const WELCOME_MS = [7000, 12_000]; // reaching the big screen
+const PROBE_MS = 1500; // back after a short switch: how long the big screen gets to answer before we start over
+const STALE_MS = 3000; // an attempt still unfinished when the phone wakes, begun this long ago, won't finish
 const RELOADED = 'gamenight.reloadedForVersion';
 // (a browser that refuses storage throws on touching it: that mustn't stop the connection)
 const reloaded = {
@@ -35,6 +40,9 @@ export class PeerSocket extends ClientSocket {
     this.lastHeard = 0;
     this.retryTimer = null;
     this.retries = 0;
+    this.attempt = 0; // counts attempts, so one abandoned while it waits is ignored when it finishes
+    this.attemptAt = 0;
+    this.probing = null;
 
     setInterval(() => this.watch(), 1000);
     const wake = () => this.wake();
@@ -65,17 +73,21 @@ export class PeerSocket extends ClientSocket {
 
   async open() {
     if (!this.wanted || this.dc || this.opening) return;
+    const attempt = ++this.attempt;
+    const patient = this.retries > 0 ? 1 : 0;
     this.opening = true;
+    this.attemptAt = Date.now();
     clearTimeout(this.retryTimer);
     this.retryTimer = null;
     try {
-      const peer = await this.newPeer();
+      const peer = await this.newPeer(PEER_MS[patient]);
+      if (attempt !== this.attempt) return;
       this.status(`Looking for room ${this.code}…`);
       const dc = peer.connect(roomPeerId(this.code), { reliable: true, serialization: 'json' });
       this.dc = dc;
       const welcome = setTimeout(() => {
         if (this.dc === dc && !this.connected) this.lost(dc, `Still looking for room ${this.code}. Is the big screen open?`);
-      }, WELCOME_MS);
+      }, WELCOME_MS[patient]);
       dc.on('open', async () => {
         const auth = await this.askAuth();
         if (this.dc === dc) dc.send({ t: 'hello', v: PROTOCOL, auth });
@@ -99,10 +111,11 @@ export class PeerSocket extends ClientSocket {
       dc.on('close', () => this.lost(dc));
       dc.on('error', () => this.lost(dc));
     } catch (err) {
+      if (attempt !== this.attempt) return;
       this.status(err.message);
       this.retryLater();
     } finally {
-      this.opening = false;
+      if (attempt === this.attempt) this.opening = false;
     }
   }
 
@@ -110,14 +123,16 @@ export class PeerSocket extends ClientSocket {
    * A fresh PeerJS connection to the introduction server for every attempt: after a phone has
    * been asleep its old one is often dead without knowing it.
    */
-  async newPeer() {
+  async newPeer(ms) {
     const Peer = await loadPeerJS();
     this.peer?.destroy();
-    const peer = new Peer(peerOptions({}, getRelay()));
+    // (our own id saves asking the server for one first)
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(36)).join('');
+    const peer = new Peer(roomPeerId(`phone-${id}`), peerOptions({}, getRelay()));
     this.peer = peer;
     peer.on('error', (err) => this.peerError(peer, err));
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Can't reach the service that connects phones. Trying again…")), 10_000);
+      const timer = setTimeout(() => reject(new Error("Can't reach the service that connects phones. Trying again…")), ms);
       peer.on('open', () => {
         clearTimeout(timer);
         resolve(peer);
@@ -189,18 +204,47 @@ export class PeerSocket extends ClientSocket {
   }
 
   watch() {
-    if (this.connected && Date.now() - this.lastHeard > SILENT_MS) this.lost(this.dc, null, 'ping timeout');
+    if (this.connected && !this.probing && Date.now() - this.lastHeard > SILENT_MS) this.lost(this.dc, null, 'ping timeout');
   }
 
   /** The phone woke up or came back to this tab: check the connection right away. */
   wake() {
-    if (this.connected && Date.now() - this.lastHeard > 2500) {
-      this.lost(this.dc, null, 'ping timeout');
-    } else if (!this.connected && !this.dc && this.wanted) {
-      clearTimeout(this.retryTimer);
-      this.retryTimer = null;
-      this.retries = 0;
-      this.open();
+    if (!this.wanted) return;
+    if (this.connected) {
+      const quiet = Date.now() - this.lastHeard;
+      const pc = this.dc?.peerConnection;
+      if (quiet > SILENT_MS || !this.dc?.open || ['failed', 'closed'].includes(pc?.connectionState)) this.startOver();
+      else if (quiet > 2500) this.probe();
+    } else if ((!this.dc && !this.opening) || Date.now() - this.attemptAt > STALE_MS) {
+      // only waiting to retry, or an attempt begun before the phone slept (those rarely finish): go now
+      this.startOver();
     }
+  }
+
+  /** Back after a short switch: the connection often survives one, so ask before starting over. */
+  probe() {
+    if (this.probing) return;
+    const dc = this.dc;
+    const since = this.lastHeard;
+    this.timeout(PROBE_MS).emit('clock', () => {}); // any answer counts (it moves lastHeard)
+    this.probing = setTimeout(() => {
+      this.probing = null;
+      if (this.dc === dc && this.lastHeard === since) this.startOver();
+    }, PROBE_MS);
+  }
+
+  /** Drop the connection, or the attempt under way, and make a fresh one now. */
+  startOver() {
+    clearTimeout(this.probing);
+    this.probing = null;
+    this.attempt++; // an attempt still waiting for the introduction server is ignored when it's done
+    this.opening = false;
+    if (this.dc) this.lost(this.dc, null, 'ping timeout');
+    this.peer?.destroy();
+    this.peer = null;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+    this.retries = 0;
+    this.open();
   }
 }
