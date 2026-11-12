@@ -15,6 +15,8 @@ import { readBeat, clockU, clockTime, clockTotal, pathAt, lastTick } from './cha
 
 const TAU = Math.PI * 2;
 const LASER_GAP = 0.17; // how far apart a double laser's two beams (and its two lenses) sit, in squares
+const BEAD_GAP = 1.1; // the beads of light drifting down a resting laser beam: this far apart, in squares
+const BEAD_SPEED = 0.4; // and this many squares a second
 const FONT = 'Lumen';
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
@@ -653,7 +655,7 @@ function drawCurve(g, color, fromLeft, fast, s) {
   g.globalAlpha = 1;
 }
 /** A resting laser beam's dashes: lit, gap, repeated along the beam. Each dash is bright at its head and fades behind,
- * and they drift away from the lens, so the beam reads as going one way even when nothing moves. */
+ * so the beam reads as going one way even in a still. */
 let dashTex = null;
 function laserDashTexture() {
   if (dashTex) return dashTex;
@@ -1709,7 +1711,16 @@ export class Arena {
         beam.position.copy(from).add(to).multiplyScalar(0.5);
         beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
         this.board.add(beam);
-        this.beams.push(dashes);
+        // beads of light travel down it from the lens, a soft glow that reads from any side (dashes alone vanish on a beam
+        // pointing at the camera)
+        const beads = [];
+        for (let k = 0; k <= Math.ceil(len / BEAD_GAP); k++) {
+          const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: hdr(PALETTE.laser, 2.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+          s.scale.setScalar(0.24);
+          this.board.add(s);
+          beads.push(s);
+        }
+        this.beams.push({ from, dir: to.clone().sub(from).normalize(), len, beads });
       }
     }
 
@@ -4117,8 +4128,17 @@ export class Arena {
       const p = belt.pulse ? Math.max(0, 1 - (t - belt.pulse) / 1.2) : 0;
       belt.mat.color.setScalar((1.15 + p * 1.4) * (0.3 + 0.7 * lit));
     }
-    // the lasers' dashes drift slowly away from their lenses (a quarter of a square a second; a dash is 0.24 of a square)
-    for (const d of this.beams ?? []) d.offset.y = (d.offset.y - (dt * 0.25) / 0.24) % 1;
+    // the lasers' beads drift slowly away from their lenses, fading in at the lens and out where the beam stops
+    const run = (t * BEAD_SPEED) % BEAD_GAP;
+    for (const B of this.beams ?? []) {
+      B.beads.forEach((s, k) => {
+        const d = run + k * BEAD_GAP;
+        s.visible = d < B.len;
+        if (!s.visible) return;
+        s.position.copy(B.from).addScaledVector(B.dir, d);
+        s.material.opacity = Math.min(1, d / 0.3, (B.len - d) / 0.3) * traced;
+      });
+    }
     for (const cm of this.curveMats ?? []) {
       // the bend's chevrons move in step with its straight belts' (the same scroll), so they pass between them seamlessly
       const belt = this.belts.find((b) => b.fast === cm.fast);
