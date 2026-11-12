@@ -128,8 +128,8 @@ const isReveal = (st) => st.kind === 'beat' && st.beat.what?.k === 'reveal';
 const hasFx = (st, k) => st.kind === 'beat' && st.beat.fx.some((f) => f.k === k);
 
 /**
- * Lay steps [from, to) of a run on the plan, from t (ms). Told as a trailer tells it: turning the cards over is a
- * breath; a robot's card shows over it as it goes (not before); and robots that don't touch each other set off
+ * Lay steps [from, to) of a run on the plan, from t (ms). Told as a trailer tells it: a register's start is a
+ * breath (no card turns over then); a robot's card shows over it as it goes (not before); and robots that don't touch each other set off
  * `stagger` ms apart instead of waiting their turn, still in the order the rules play them. The board's own
  * moves (belts, lasers, flags) wait for everyone, as they do in the game.
  *   tempo      how fast the arena's time runs in this shot (a beat lasts its dur / tempo)
@@ -498,7 +498,7 @@ export function startSizzle(o) {
       const st = run.steps[c.i];
       const robots = dress(st.robots, c.scene);
       const program = programBefore(run, c.i);
-      arena.showCards(robots.map((r, k) => ({ id: r.id, types: r.on ? [program.shown[k][st.reg]].filter(Boolean) : [] })));
+      arena.clearCards(); // last register's cards go; each new one shows over its robot as it goes
       const acting = robots.map((_, k) => robots[(program.prio + k) % robots.length]).filter((r) => r.on !== false).map((r) => r.id);
       if (acting.length > 1) arena.orderMarks(acting, { dur: 0.9 });
       arena.playBeat(st.beat, robots);

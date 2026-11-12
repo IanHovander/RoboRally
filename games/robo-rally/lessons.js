@@ -299,7 +299,7 @@ export async function playRun(arena, run, o = {}) {
       const b = st.beat;
       if (b.what?.k === 'reveal') {
         reg = st.reg;
-        arena.showCards(robots.map((r, k) => ({ id: r.id, types: r.on ? [program.shown[k][st.reg]].filter(Boolean) : [] })));
+        arena.clearCards(); // last register's cards go; each new one shows over its robot as it's played
         const acting = actingIds(robots, program.prio);
         if (acting.length > 1) arena.orderMarks(acting);
         mimic?.lit(st.reg, program.locked[0]?.[st.reg]);

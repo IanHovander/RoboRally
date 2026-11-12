@@ -564,12 +564,9 @@ export function lessonFrames(run) {
   const ui = { strip: null, under: [], lit: -1, line: null, token: null, reg: 0 };
   const frames = [{ bots: clone(bots), fx: [], ms: 700, ui: cloneUi(ui) }];
   const cps = {};
-  let cards = null;
+  let carry = []; // a card just played: it rides on the next frame, over its robot as it goes (not before)
   for (const st of run.steps) {
-    if (st.kind === 'program') {
-      cards = st.cards;
-      continue;
-    }
+    if (st.kind === 'program') continue;
     const next = {};
     for (const r of st.robots) {
       const b = bots[r.id];
@@ -579,12 +576,9 @@ export function lessonFrames(run) {
     }
     const fx = [];
     for (const f of st.beat.fx ?? []) {
-      if (f.k === 'reveal') {
-        ui.reg = (f.reg ?? st.reg ?? 0) + 1;
-        ids.forEach((id, i) => {
-          const t = cards?.[i]?.[f.reg ?? st.reg];
-          if (t && next[id]?.vis) fx.push({ k: 'card', id, type: t });
-        });
+      if (f.k === 'reveal') ui.reg = (f.reg ?? st.reg ?? 0) + 1; // no card turns over yet: each shows as it's played
+      else if (f.k === 'play') {
+        if (next[f.id]?.vis) fx.push({ k: 'card', id: f.id, type: f.cards[0] });
       } else if (f.k === 'beam') {
         fx.push({ k: 'beam', x0: f.x0, y0: f.y0, x1: f.x1, y1: f.y1, color: f.board ? '#ff3b30' : '#ff4a3a', thick: 1 });
         for (const h of f.hit ?? []) fx.push({ k: 'burst', id: h });
@@ -598,13 +592,19 @@ export function lessonFrames(run) {
       } else if (f.k === 'win') fx.push({ k: 'rings', id: f.id, n: 3, win: true });
       else if (f.k === 'en') fx.push({ k: 'pop', id: f.id, text: `⚡+${f.n ?? 1}` });
     }
+    if (st.beat.fx.length && st.beat.fx.every((f) => f.k === 'play' || f.k === 'say')) {
+      carry.push(...fx); // only a card played: it waits for the frame where its robot acts
+      continue;
+    }
+    fx.unshift(...carry);
+    carry = [];
     // a robot that fell is drawn shrinking from where it was
     for (const f of fx) if (f.k === 'fall' && next[f.id]) Object.assign(next[f.id], { x: bots[f.id].x, y: bots[f.id].y });
     const busy = fx.some((f) => ['card', 'pop', 'rings'].includes(f.k));
     frames.push({ bots: next, fx, ms: Math.max(busy ? 700 : 380, Math.min(1100, (st.beat.dur ?? 600) * 0.8)), ui: cloneUi(ui) });
     bots = next;
   }
-  frames.push({ bots: clone(bots), fx: [], ms: 1200, ui: cloneUi(ui) });
+  frames.push({ bots: clone(bots), fx: carry, ms: 1200, ui: cloneUi(ui) });
   return { c, frames, total: frames.reduce((s, f) => s + f.ms, 0), meId: ids[0], hand: false };
 }
 
