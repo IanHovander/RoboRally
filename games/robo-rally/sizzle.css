@@ -31,7 +31,7 @@
 .lf-phone.sz-phone.run .lf-hand, .lf-phone.sz-phone.run .lf-lock { transition-duration: .3s; }
 
 /* paused (the dev page, a test script): nothing is left half-way through a transition */
-.sz-still .lf-phone.sz-phone *, .sz-still .lm-regs i { transition: none !important; }
+.sz-still .lf-phone.sz-phone *, .sz-still .lm-regs i, .sz-still .lm-regs i::before { transition: none !important; }
 
 /* a phone held upright as the big screen: the phone lies under the board (lobby.css), the words go above it */
 @media (orientation: portrait) {
