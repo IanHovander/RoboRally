@@ -9,6 +9,7 @@
 import { html, raw } from '../../js/ui.js';
 import { COURSES, getCourse } from './board.js';
 import { cardType, isDamage, isHaywire, UPGRADES, HAYWIRE, PROGRAM } from './cards.js';
+import { HAND_SIZE } from './engine.js';
 import { drawCourse, previewProgram, filledRun, rebootFor, ringBoard } from './minimap.js';
 import { svgGlyph, cardSvgHtml, robotSvg, formOf, COURSE_TITLES, LEVELS } from './glyphs.js';
 import { mountDemo, hasDemo, AWARDS } from './demo.js';
@@ -202,7 +203,10 @@ export default function (root, api) {
     const m = me();
     const width = box.clientWidth || 340;
     const height = box.clientHeight || 260;
-    const key = JSON.stringify([mapZoom, mapView, mapLit, width, height, view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, view.robots.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
+    // the draw (no robots in the race yet): each stands on the start pad it was given
+    const pads = view.phase === 'start' ? course().starts : null;
+    const all = pads ? view.robots.map((r) => ({ ...r, ...pads.find((st) => st.n === r.pick) })) : view.robots;
+    const key = JSON.stringify([mapZoom, mapView, mapLit, width, height, myId(), view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, all.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
     if (!force && !quick && key === mapKey && canvas.dataset.drawn) return;
     mapKey = key;
     canvas.dataset.drawn = '1';
@@ -212,10 +216,10 @@ export default function (root, api) {
     let tile = zoom === 'all' ? fit : Math.max(30, Math.min(40, width / 8));
     // center on what matters to me: my robot and every square my planned line passes through. Zoomed in, the
     // view zooms out just enough (never past the whole course) to keep all of that line on the phone.
-    const from = programStart(m);
+    const from = programStart(m) ?? (pads && all.find((r) => r.id === myId() && r.x != null)) ?? null;
     const ghosts = view.phase === 'program' && from ? ghostsFor(m) : [];
     // the reboot ring I'd come back on: lit in my color (a planned fall links to it, and stays in view)
-    const ring = view.phase === 'program' && from ? rebootFor(c, from, ghosts, m.archive) : null;
+    const ring = (view.phase === 'program' || pads) && from ? rebootFor(c, from, ghosts, m?.archive ?? { x: from.x, y: from.y, d: from.d }) : null;
     let focus = { x: c.w / 2, y: c.h / 2 };
     let pts = [];
     if (from) {
@@ -256,10 +260,10 @@ export default function (root, api) {
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
     }
-    const robots = view.robots.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === myId() }));
-    if (from && !m.on && view.phase === 'program') robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
+    const robots = all.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === myId() }));
+    if (view.phase === 'program' && from && !m.on) robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
     const risks = risksFor(m).map((r) => ({ x: r.x, y: r.y, color: r.by ? robotById(r.by)?.color ?? '#f4efe4' : '#ff7a6b' }));
-    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook() };
+    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : pads ? 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook() };
     // the whole course at this size, drawn once (with a square's margin for glows), then copied in where it sits
     const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color, r.cp]), ghosts, risks, ring, m?.cp, api.you?.color]);
     let cache = mapCache.get(canvas);
@@ -1108,7 +1112,7 @@ export default function (root, api) {
       case 'upinfo': // an upgrade someone has installed: the Guide's page for it
         return guide.open(arg);
       case 'maptap': { // a robot on my map (a drag that pans the map isn't a tap)
-        if (pan.swallow) return;
+        if (pan.swallow || !m) return; // (the start screen: nobody's cards to show yet)
         const id = robotAt(el, e.clientX, e.clientY);
         if (!id) return;
         api.vibrate(6);
@@ -1426,63 +1430,20 @@ export default function (root, api) {
     return thumbs.get(tk);
   }
 
-  // ----- start: the draw has handed out the pads; mine is lit on the dock (the whole course above, so you know where you're going) -----
+  // ----- start: the draw has handed out the pads. It's the programming screen already, with nothing to do yet: my
+  // robot on its pad on my map (a drag looks ahead), the five slots empty, room for the hand. Programming only deals
+  // the cards in: the same layout, so nothing on the phone moves -----
   function renderStart() {
-    layout('start', () => html`<div class="pl-start" data-ask="map"><div class="pl-start-map"><canvas class="pl-dock"></canvas><div class="pl-pads"></div></div></div>`);
-    const c = course();
-    const mine = view.robots.find((r) => r.id === myId())?.pick;
-    const cv = body.querySelector('canvas.pl-dock');
-    const box = body.querySelector('.pl-start');
-    // the whole course as tall as the phone: it starts on my pad, and a drag slides it to see the way ahead
-    const W = box.clientWidth || 340;
-    const H = box.clientHeight || 500;
-    const tile = Math.floor(clamp((H - 24) / c.h, 28, 72));
-    const cw = tile * c.w;
-    const ch = tile * c.h;
-    const ox = 0;
-    const oy = 0;
-    const key = JSON.stringify([W, H, c.id, mapLook()]);
-    if (cv.dataset.key !== key) {
-      cv.dataset.key = key;
-      const s = Math.min(window.devicePixelRatio || 1, 3, Math.sqrt(8e6 / (cw * ch))); // (a phone's canvases have a memory limit)
-      cv.style.width = `${cw}px`;
-      cv.style.height = `${ch}px`;
-      cv.width = Math.round(cw * s);
-      cv.height = Math.round(ch * s);
-      const ctx = cv.getContext('2d');
-      ctx.setTransform(cv.width / cw, 0, 0, cv.height / ch, 0, 0);
-      drawCourse(ctx, c, { tile, noStarts: true, cpNext: 1, ...mapLook() });
-    }
-    maps.set(cv, { tile, ox, oy, robots: [], ghosts: [] });
-    const at = c.starts.find((s) => s.n === mine) ?? c.boards.find((b) => b.dock) ?? { x: c.w / 2, y: c.h / 2 };
-    const spot = JSON.stringify([key, mine]);
-    if (box.dataset.spot !== spot) {
-      box.dataset.spot = spot;
-      box.scrollLeft = (at.x + 0.5) * tile - W / 2;
-      box.scrollTop = (at.y + 0.5) * tile - H / 2;
-    }
-    // each start space shows its robot: mine lit, the others dimmed (an empty one keeps its number)
-    const taken = new Map(view.robots.filter((r) => r.pick != null).map((r) => [r.pick, r]));
-    set(body.querySelector('.pl-pads'), html`${c.starts.map((st) => {
-      const r = taken.get(st.n);
-      const isMe = r && r.id === myId();
-      const style = `left:${ox + st.x * tile}px;top:${oy + st.y * tile}px;width:${tile}px;height:${tile}px;--d:${st.d};${r ? `--c:${r.color}` : ''}`;
-      return html`<span class="pl-pad ${r ? (isMe ? 'mine' : 'taken') : 'free'}" style="${style}" data-ask="pad">${r ? bot(r) : html`<span>${st.n}</span>`}</span>`;
-    })}`);
+    const fresh = layout('program', progLayout);
+    pl.classList.remove('locked');
+    set(body.querySelector('.pl-regs'), html`${[0, 1, 2, 3, 4].map((i) => html`<button class="pl-slot" data-ask="slots"><i>${i + 1}</i></button>`)}`);
+    set(body.querySelector('.pl-reboot'), '');
+    set(body.querySelector('.pl-extra'), '');
+    set(body.querySelector('.pl-hand'), html`${Array.from({ length: HAND_SIZE }, () => html`<span class="pl-hand-slot waiting" aria-hidden="true"><button class="pl-card" disabled>${card('m1')}</button></span>`)}`);
+    body.querySelector('.pl-lock').dataset.ui = '';
+    for (const b of body.querySelectorAll('.pl-actions button')) b.disabled = true;
+    drawMap(body.querySelector('.pl-map canvas'), { force: fresh });
   }
-
-  // a mouse drags the start map as a finger scrolls it
-  let startDrag = null;
-  root.addEventListener('pointerdown', (e) => {
-    const box = e.pointerType === 'mouse' && e.target.closest?.('.pl-start');
-    if (box) startDrag = { box, x: e.clientX + box.scrollLeft, y: e.clientY + box.scrollTop };
-  });
-  root.addEventListener('pointermove', (e) => {
-    if (!startDrag) return;
-    startDrag.box.scrollLeft = startDrag.x - e.clientX;
-    startDrag.box.scrollTop = startDrag.y - e.clientY;
-  });
-  for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => (startDrag = null));
 
   // ----- the test drive (practice.js): the programming screen on three tiny courses, for a phone that has never
   // raced. While the leader chooses a map (nothing else to do then), and in the Briefing's practice stage, which
@@ -1572,6 +1533,19 @@ export default function (root, api) {
   }
 
   // ----- programming -----
+  // the programming screen's skeleton (the start screen is built on it too)
+  const progLayout = () => html`
+    <div class="pl-prog">
+      <div class="pl-regs"></div>
+      <div class="pl-map" data-ask="map"><canvas data-ui="maptap"></canvas><div class="pl-reboot" data-ask="reboot-dir"></div><button class="pl-zoom" data-ui="zoom" aria-label="Zoom">${g('zoom')}</button></div>
+      <div class="pl-extra"></div>
+      <div class="pl-hand"></div>
+      <div class="pl-actions">
+        <button class="pl-small" data-ui="clear" data-ask="clear" aria-label="Clear">${g('undo')}</button>
+        <button class="pl-lock" data-ui="lock" data-ask="lock" aria-label="Lock in">${g('check')}</button>
+        <button class="pl-small" data-ui="shutdown" data-ask="shutdown" aria-label="Shut down">${g('power')}</button>
+      </div>
+    </div>`;
   function renderProgram(m) {
     if (m.mustReturn) {
       layout('return', () => html`<div class="pl-return"><div class="pl-return-head">${g('hand')}<b></b></div><div class="pl-hand"></div><button class="pl-cta" data-ui="return">${g('check')}</button></div>`);
@@ -1580,18 +1554,7 @@ export default function (root, api) {
       body.querySelector('.pl-cta').disabled = prog.pick.length !== m.mustReturn;
       return;
     }
-    const fresh = layout('program', () => html`
-      <div class="pl-prog">
-        <div class="pl-regs"></div>
-        <div class="pl-map" data-ask="map"><canvas data-ui="maptap"></canvas><div class="pl-reboot" data-ask="reboot-dir"></div><button class="pl-zoom" data-ui="zoom" aria-label="Zoom">${g('zoom')}</button></div>
-        <div class="pl-extra"></div>
-        <div class="pl-hand"></div>
-        <div class="pl-actions">
-          <button class="pl-small" data-ui="clear" data-ask="clear" aria-label="Clear">${g('undo')}</button>
-          <button class="pl-lock" data-ui="lock" data-ask="lock" aria-label="Lock in">${g('check')}</button>
-          <button class="pl-small" data-ui="shutdown" data-ask="shutdown" aria-label="Shut down">${g('power')}</button>
-        </div>
-      </div>`);
+    const fresh = layout('program', progLayout);
     const done = m.done;
     pl.classList.toggle('locked', !!done);
     const hasCrab = m.up.perm.includes('crab-legs');
@@ -1634,6 +1597,7 @@ export default function (root, api) {
     lock.classList.toggle('live', programFull() && !done);
     lock.classList.toggle('done', !!done);
     lock.dataset.ui = done ? '' : 'lock';
+    lock.disabled = false; // (the start screen showed it unlit)
     if (done) {
       lock.setAttribute('data-action', 'unlock');
       lock.innerHTML = String(g(m.wantSd ? 'power' : 'edit'));
