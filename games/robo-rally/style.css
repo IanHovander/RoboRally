@@ -786,3 +786,34 @@
 .pl-bot.on { background: var(--c); color: #0b0e13; opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
 .pl-bot.done::after { content: '✓'; position: absolute; right: -5px; bottom: -5px; font-size: 11px; width: 15px; height: 15px; border-radius: 50%; background: #f4efe4; color: #0b0e13; display: grid; place-items: center; }
 .pl-bot.flag::before { content: '⚑'; position: absolute; left: -6px; top: -7px; font-size: 13px; color: #f4efe4; }
+
+/* passing the flag (Capture the Flag, passing.js): a flag tab hangs under each slot that ends with my team holding
+   the flag. Lit: a pass there would reach my other robot (it breathes until a slot is marked). Dashed: it wouldn't.
+   Filled: the slot my team passes at. Line of sight marks nothing: its filled tab shows where the flag goes by itself. */
+.pl-pass {
+  position: absolute; left: 50%; bottom: -.62rem; z-index: 2; display: grid; place-items: center; width: 1.6rem; height: 1.6rem;
+  border-radius: 50%; background: #0b0e13; color: color-mix(in srgb, var(--flag) 75%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--flag) 40%, transparent); transform: translateX(-50%); cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s, box-shadow .2s, opacity .2s;
+}
+.pl-pass::before { content: ""; position: absolute; inset: -.55rem; } /* a bigger target than it looks */
+.pl-pass .lm-g { width: .95rem; height: .95rem; }
+.pl-pass.miss { opacity: .55; }
+.pl-pass.land { border-style: solid; border-color: color-mix(in srgb, var(--flag) 60%, transparent); color: var(--flag); }
+.pl-pass.ok { border-style: solid; border-color: var(--flag); color: var(--flag); box-shadow: 0 0 .8rem color-mix(in srgb, var(--flag) 45%, transparent); animation: pl-pass-ask 1.7s ease-in-out infinite; }
+.pl-regs:has(.pl-pass.on) .pl-pass:not(.on) { animation: none; box-shadow: none; }
+.pl-pass.on { opacity: 1; border-style: solid; border-color: var(--flag); background: var(--flag); color: #0b0e13; box-shadow: 0 0 1.1rem color-mix(in srgb, var(--flag) 70%, transparent); animation: pl-pass-set .32s cubic-bezier(.2, 1.7, .4, 1); }
+.pl-pass.on.miss { background: color-mix(in srgb, var(--flag) 30%, #0b0e13); color: var(--light); box-shadow: none; } /* marked, but it wouldn't reach */
+.pl-pass.auto { cursor: default; pointer-events: none; }
+.pl.locked .pl-pass:not(.on) { opacity: 0; pointer-events: none; }
+@keyframes pl-pass-ask { 50% { transform: translateX(-50%) scale(1.14); box-shadow: 0 0 1.3rem color-mix(in srgb, var(--flag) 70%, transparent); } }
+@keyframes pl-pass-set { from { transform: translateX(-50%) scale(.5); } }
+/* the race: the slot my team passes at keeps its tab */
+.pl-regs.run .pl-pass { cursor: default; pointer-events: none; bottom: -.5rem; width: 1.3rem; height: 1.3rem; }
+.pl-regs.run .pl-pass .lm-g { width: .8rem; height: .8rem; }
+
+/* the big screen, passing the flag: which way of passing this race plays (host.html?pass=...) */
+.lm-passing { position: fixed; left: 1.1rem; top: .9rem; z-index: 30; display: flex; align-items: center; gap: .45rem; padding: .3rem .8rem .3rem .6rem; border-radius: 999px; background: rgba(8, 10, 14, .62); border: 1px solid rgba(244, 239, 228, .16); color: rgba(244, 239, 228, .62); font-size: .8rem; letter-spacing: .05em; pointer-events: none; }
+.lm-passing[hidden] { display: none; }
+.lm-passing b { color: #f4efe4; font-weight: 500; }
+.lm-passing .lm-g { width: .95rem; height: .95rem; }

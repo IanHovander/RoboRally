@@ -38,6 +38,10 @@ export const TIPS = [
   { id: 'shop', on: ['shop'], when: (s) => !s.done, say: 'Upgrades are optional. Tap the tick when you’re done.', at: '.pl-energy', side: 'below', more: 'shop' },
   { id: 'fallen', on: ['run'], when: (s) => s.has.fallen, say: 'You fell. You’re back next round, with two junk cards.', at: '.pl-look-box', side: 'inside', more: 'fall', ms: 9000 },
   { id: 'hit', on: ['run'], when: (s) => s.has.hit, say: 'You were hit. Damage is junk cards in your deck.', at: '.pl-deckstack', side: 'above', more: 'damage', ms: 7000 },
+  // ----- passing the flag (Capture the Flag, passing.js): the first time a flag tab shows -----
+  { id: 'pass-hand', on: ['program'], when: (s) => planning(s) && s.has.pass === 'hand' && s.has.passTabs && !s.has.passMarked, say: 'Tap a flag to hand it over after that slot. Lit: your robots touch.', at: ['.pl-pass.ok', '.pl-pass'], side: 'below' },
+  { id: 'pass-throw', on: ['program'], when: (s) => planning(s) && s.has.pass === 'throw' && s.has.passTabs && !s.has.passMarked, say: 'Tap a flag to throw it after that slot. It flies 4 squares ahead.', at: ['.pl-pass.ok', '.pl-pass'], side: 'below' },
+  { id: 'pass-sight', on: ['program'], when: (s) => planning(s) && s.has.pass === 'sight' && s.has.passTabs, say: 'In a clear line, your robots pass it by themselves.', at: '.pl-pass.auto', side: 'below', ms: 6000 },
   { id: 'arm', on: ['run'], when: (s) => s.has.arm, say: 'Tap to arm it. Your phone asks before your next card.', at: '.pl-arm', side: 'above', more: 'arm' },
 ];
 /** The four steps of a first program: a phone that has raced before doesn't need them (or to be told to look up). */

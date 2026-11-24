@@ -21,6 +21,7 @@ import { createMimic } from './mimic.js';
 import { startBriefing } from './briefing.js';
 import { startSizzle } from './sizzle.js';
 import { LEADER } from './lobby.js';
+import { PASS_KINDS, PASS_NAMES } from './passing.js';
 
 const TIMERS = [0, 60, 120, 180];
 const PHASE_MS = { upgrade: 60_000, brief: 90_000 }; // (brief: its practice stage)
@@ -589,7 +590,7 @@ export default function (root, api) {
   function flagTargets(v) {
     if (!['start', 'upgrade', 'program', 'activate'].includes(v.phase)) return null;
     // Capture the Flag: robots going for a flag nobody carries (carriers head home)
-    if (v.ctf) return v.robots.filter((r) => r.hunt && !r.cp && !v.robots.some((o) => o.hunt === r.hunt && o.cp === 1)).map((r) => ({ id: r.id, color: r.color, n: r.hunt, lead: false }));
+    if (v.ctf) return v.robots.filter((r) => r.hunt && !r.cp && !v.loose?.[r.hunt] && !v.robots.some((o) => o.hunt === r.hunt && o.cp === 1)).map((r) => ({ id: r.id, color: r.color, n: r.hunt, lead: false }));
     const racing = v.robots.filter((r) => (r.cp ?? 0) < v.cps);
     const most = Math.max(0, ...v.robots.map((r) => r.cp ?? 0));
     return racing.map((r) => ({ id: r.id, color: r.color, n: (r.cp ?? 0) + 1, lead: (r.cp ?? 0) === most }));
@@ -654,7 +655,7 @@ export default function (root, api) {
       arena.showStarts(v.phase === 'start' ? picks : null);
       arena.setReady(['program', 'upgrade'].includes(v.phase) ? new Set(v.robots.filter((r) => r.ready).map((r) => r.id)) : practising(v) ? new Set(v.robots.filter((r) => doneOf(v, r)).map((r) => r.id)) : null);
       arena.setDeciding(v.prompt?.id ?? null);
-      if (v.ctf) arena.setCtf(v.robots);
+      if (v.ctf) arena.setCtf(v.robots, v.loose);
       else arena.setTaken(v.robots);
       arena.setTargets(flagTargets(v));
       arena.showNames = v.phase !== 'setup';
@@ -1257,11 +1258,40 @@ export default function (root, api) {
   // for test scripts: what the big screen sees
   window.lumenHost = { view: () => view, arena: () => arena, voice, briefing: () => briefing, callouts, slide: () => ({ ...slide }), ending: () => ending && { stage: ending.stage, award: ending.award, replay: !!replay }, holdEnding, skipEnding };
 
+  // ----- passing the flag, to try (passing.js): host.html?pass=hand | throw | sight sets Capture the Flag up with that
+  // way of passing, and a small tag in the corner says which one this is -----
+  const passWanted = (() => {
+    try {
+      const p = new URLSearchParams(location.search).get('pass');
+      return PASS_KINDS.includes(p) ? p : null;
+    } catch {
+      return null;
+    }
+  })();
+  let passSetUp = false;
+  const passTag = document.createElement('div');
+  passTag.className = 'lm-passing';
+  root.append(passTag);
+  function passing(v) {
+    if (passWanted && v.phase === 'setup') {
+      if (!passSetUp) {
+        passSetUp = true;
+        api.send('setOpt', { key: 'course', value: 'capture-the-flag' });
+      }
+      if (v.opts.pass !== passWanted) api.send('setOpt', { key: 'pass', value: passWanted });
+    }
+    const kind = PASS_KINDS.includes(v.opts.pass) ? v.opts.pass : null;
+    const show = kind && v.opts.course === 'capture-the-flag' && v.phase !== 'over';
+    passTag.hidden = !show;
+    if (show) set(passTag, html`${raw(svgGlyph('flag'))}<span>Passing</span><b>${PASS_NAMES[kind]}</b>`);
+  }
+
   return {
     update(next) {
       if (!next?.opts) return; // no view yet (the game is starting)
       prev = view;
       view = next;
+      passing(next);
       if (next.phase === 'brief' && prev && prev.phase !== 'brief') callouts.again(); // someone is new: the race teaches from the start
       if (next.phase === 'start' && prev?.phase !== 'start') startDrop();
       if (next.phase === 'over' && prev?.phase !== 'over') startEnding();

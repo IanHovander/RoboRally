@@ -114,6 +114,9 @@ export function sceneSound(kind, d, seatOf = () => 0) {
     case 'yay': return once('yay', 250, () => sfx.yay(d.big));
     case 'energy': return once('energy', 150, () => sfx.energy());
     case 'shield': return once('shield', 150, () => sfx.shield());
+    case 'toss': return once('toss', 150, () => sfx.toss(d.n ?? 1));
+    case 'catch': return once('catch', 150, () => sfx.catch(seatOf(d.id)));
+    case 'flagdown': return once('flagdown', 150, () => sfx.flagdown(!!d.lost));
     // silent: move, turn, bump, bonk, strain, belt, gear, push, laser, reveal, play, teeter, plunge, thud,
     // gulp, poof, land, combo, slowmo (a fall and a reboot each get one calm sound instead)
   }
@@ -282,6 +285,26 @@ export const sfx = {
     const steps = [0, 4, 7, 12, 16, 19, 24, 28, 31, 36];
     steps.forEach((k, i) => chime(n + k, { at: i * 0.11, vol: 0.13, decay: 3.6 }));
     [0, 7, 12, 16].forEach((k) => chime(n + k - 12, { at: 1.3, vol: 0.12, decay: 5, bright: 0.3 }));
+  },
+  // ----- passing the flag (Capture the Flag) -----
+  /** The flag leaves a robot's hands: a rising whoosh, longer for a longer flight. */
+  toss(squares = 1) {
+    if (!live()) return;
+    noise({ dur: 0.18 + squares * 0.06, vol: 0.03, f0: 900, f1: 3200, q: 2, attack: 0.03, reverb: 0.3 });
+    glide({ from: 380, to: 760 + squares * 60, dur: 0.22 + squares * 0.05, vol: 0.035, type: 'triangle', reverb: 0.4 });
+  },
+  /** Caught: two bright notes in the catcher's key. */
+  catch(seat) {
+    if (!live()) return;
+    const n = NOTES[seat % NOTES.length];
+    chime(n + 7, { vol: 0.11, decay: 1.6, bright: 0.6 });
+    chime(n + 12, { at: 0.07, vol: 0.1, decay: 2, bright: 0.6 });
+  },
+  /** Down on the floor (a soft knock), or lost (lower, and a step down). */
+  flagdown(lost = false) {
+    if (!live()) return;
+    knock({ f: lost ? 220 : 420, vol: 0.08, decay: 0.12, reverb: 0.35 });
+    if (lost) chime(-7, { at: 0.08, vol: 0.06, decay: 1.2, bright: 0.3 });
   },
   // ----- robots meeting -----
   /** Robot pushes robot: a soft, round knock. */

@@ -10,6 +10,7 @@ import { cardType, UPGRADES } from './cards.js';
 import { readBeat } from './chaos.js';
 import { DRILLS } from './drills.js';
 import * as E from './engine.js';
+import { PASS_KINDS } from './passing.js';
 
 const START_MS = 4000; // the draw: the big screen shows who starts where, then the race begins
 const UPGRADE_MS = 60_000;
@@ -494,6 +495,7 @@ function setOpt(ctx, payload) {
   }
   if (['upgrades', 'lessDeadly', 'lessSpam', 'brief'].includes(key) && typeof value === 'boolean') s.opts[key] = value;
   if (key === 'timer' && TIMERS.includes(value)) s.opts.timer = value;
+  if (key === 'pass' && (value === null || PASS_KINDS.includes(value))) s.opts.pass = value; // Capture the Flag (passing.js)
   if (s.touched) s.touched[key] = true;
 }
 
@@ -699,11 +701,13 @@ export default {
       const R = robotOf(ctx, player);
       if (!R) return;
       if (R.reboot && [0, 1, 2, 3].includes(payload?.rebootDir)) R.rebootDir = payload.rebootDir;
+      if (payload && 'pass' in payload) E.setPass(ctx.state, env(ctx), R, payload.pass);
       return errorOr(E.saveDraft(ctx.state, R, payload?.regs));
     },
     lock(ctx, player, payload) {
       const R = robotOf(ctx, player);
       if (!R) return;
+      if (payload && typeof payload === 'object' && 'pass' in payload) E.setPass(ctx.state, env(ctx), R, payload.pass);
       const err = E.lockProgram(ctx.state, env(ctx), R, payload && typeof payload === 'object' ? payload : {});
       if (err) return { error: err };
       nextFocus(ctx.state, player.id);
@@ -791,6 +795,8 @@ export default {
       prio: E.robotIds(s)[s.prio] ?? null,
       cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
       ctf: course.mode === 'ctf',
+      pass: E.passKind(s, env(ctx)), // how the flag is passed (passing.js), or null
+      loose: s.loose ?? null, // flags lying on the floor: n -> { x, y }
       teach: s.teach ?? (fresh(s).length > 0 || !!s.opts.brief),
       // (practice: drills done by each racer still driving the test drive; the stage waits for them)
       brief: tally ? { votes: tally.votes, need: tally.need, stage: s.brief.stage, drills: DRILLS.length, practice: Object.fromEntries(needPractice(ctx).map((id) => [id, s.practice[id] ?? 0])) } : null,
@@ -827,13 +833,16 @@ export default {
       prio: E.robotIds(s)[s.prio] ?? null,
       cps: course.mode === 'ctf' ? E.CTF_STEPS : course.checkpoints.length,
       ctf: course.mode === 'ctf',
+      pass: E.passKind(s, env(ctx)), // how the flag is passed (passing.js), or null
+      loose: s.loose ?? null, // flags lying on the floor: n -> { x, y }
       inRace: s.order.includes(player.id),
       // (practice: this phone drives the test drive now, from drill `level`)
       brief: tally ? { votes: tally.votes.length, need: tally.need, mine: tally.votes.includes(player.id), stage: s.brief.stage, practice: s.brief.stage === 'practice' && needPractice(ctx).includes(player.id), level: s.practice[player.id] ?? 0 } : null,
       robots: E.robotIds(s).map((id, seat) => publicRobot(ctx, id, seat, false)),
       // two robots each: the one this phone drives now, and both of mine (to switch between them)
       focus: R?.id ?? null,
-      team: s.bots ? myRobots(s, player.id).map((rid) => ({ id: rid, n: isSecond(rid) ? 2 : 1, done: s.robots[rid].done, on: s.robots[rid].on, cp: s.robots[rid].cp })) : null,
+      // (and each one's plan so far, for the map: card types per slot, and the slot it passes the flag at)
+      team: s.bots ? myRobots(s, player.id).map((rid) => teamRobot(s, rid)) : null,
       me: R
         ? {
           ...privateRobot(R),
@@ -858,6 +867,13 @@ export default {
     };
   },
 };
+
+/** One of my two robots, for the 1 / 2 switch and for drawing its plan beside the other's (passing). */
+function teamRobot(s, rid) {
+  const R = s.robots[rid];
+  const plan = R.regs.map((r, i) => (r.locked ? r.cards : R.draft?.regs?.[i] ?? r.cards).map(cardType));
+  return { id: rid, n: isSecond(rid) ? 2 : 1, done: R.done, on: R.on, cp: R.cp, x: R.x, y: R.y, d: R.d, hunt: R.hunt, plan, passAt: R.passAt ?? null };
+}
 
 /** What everyone may know about a robot. The big screen also sees each register as it's revealed. */
 function publicRobot(ctx, id, seat, forHost) {
@@ -922,6 +938,7 @@ function privateRobot(R) {
     installed: R.installed,
     draft: R.draft,
     rebootDir: R.rebootDir,
+    passAt: R.passAt ?? null,
     wantSd: R.wantShutdown,
     armed: R.armed,
     skipUp: R.skipUp,

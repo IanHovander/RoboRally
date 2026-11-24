@@ -2612,14 +2612,15 @@ export class Arena {
    * column stands empty while it's carried; the carrier wears that flag, the other team's color, on its back.
    * robots: the view's robots ({ id, color, hunt, cp }).
    */
-  setCtf(robots) {
+  setCtf(robots, loose = null) {
     const owner = (n) => robots.find((r) => r.hunt && r.hunt !== n);
     for (const col of this.columns) {
       const carried = robots.some((r) => r.hunt === col.n && r.cp === 1); // (two robots each: either may carry it)
+      const at = loose?.[col.n] ?? null; // (passing: thrown, it lies on the floor where it landed; its corner stands empty)
       const color = owner(col.n)?.color ?? PALETTE.light;
       col.ctfColor = owner(col.n)?.color ?? null;
-      col.col.visible = !carried;
-      col.halo.visible = !carried;
+      col.col.visible = !carried && !at;
+      col.halo.visible = !carried && !at;
       if (!col.pennant) {
         col.pennant = makePennant(color);
         col.pennant.position.copy(col.col.position);
@@ -2627,12 +2628,99 @@ export class Arena {
         this.board.add(col.pennant);
       }
       if (col.pennant.userData.color !== color) col.pennant.userData.paint(color);
-      col.pennant.visible = !carried;
+      const p = at ? this.pos(at.x, at.y) : col.col.position;
+      col.pennant.position.set(p.x, col.col.position.y, p.z);
+      col.pennant.visible = !carried && !(col.flightUntil > this.time); // (in the air: it shows again where it comes down)
     }
     for (const r of robots) {
       const b = this.bots.get(r.id);
       if (b) b.flagWant = r.cp === 1 ? owner(r.hunt)?.color ?? PALETTE.light : null;
     }
+  }
+
+  /**
+   * Passing the flag (passing.js): it flies from the carrier in an arc, into its teammate's hands, down onto the
+   * floor, into an opponent (and then home to its corner), or nowhere at all (a hand-off with nobody beside the
+   * carrier, a throw into a wall: a shrug). f: the rules' { k: 'pass', id, to, n, kind, path, end, x, y, back }
+   */
+  passFlag(f) {
+    const from = this.bots.get(f.id);
+    const col = this.columns.find((c) => c.n === f.n);
+    const color = col?.ctfColor ?? PALETTE.light;
+    if (!from) return;
+    if (f.end === 'none' || f.end === 'wall') {
+      this.popGlyph(from, 'flag', color, '?');
+      from.anims.push({ kind: 'bump', t0: this.time, dur: 0.3 });
+      return;
+    }
+    const to = f.to ? this.bots.get(f.to) : null;
+    const [x1, y1] = f.path?.at(-1) ?? [f.x, f.y];
+    const a = from.group.position.clone().setY(0.75);
+    const b = (to ? to.group.position.clone() : this.pos(x1, y1)).setY(to ? 0.75 : 0.05);
+    const squares = Math.max(1, (f.path?.length ?? 2) - 1, Math.round(a.distanceTo(b)));
+    const dur = 0.42 + 0.11 * squares; // (a hand-off is quick; a long throw hangs in the air)
+    const peak = 0.5 + 0.32 * squares;
+    const caught = !!to && f.end !== 'block';
+    if (caught) to.flagAt = this.time + dur; // its flag goes on its back as it arrives (tendFlag)
+    if (col) col.flightUntil = this.time + dur + (f.back ? 0.9 : 0);
+    // the flag in the air: a pennant that leaves the carrier's back, turns as it flies, and leaves sparks behind it
+    const flag = makePennant(color);
+    flag.scale.setScalar(BOT_SCALE * 1.05);
+    flag.position.copy(a);
+    this.fxGroup.add(flag);
+    const spin = f.kind === 'throw' ? TAU * (0.75 + squares * 0.12) : Math.PI;
+    let spark = 0;
+    this.emit('toss', { id: from.id, n: squares });
+    this.burst(a, color, 0.7, 0.3);
+    this.effects.push({
+      t0: this.time,
+      dur,
+      update: (k) => {
+        const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; // ease in-out along the ground
+        flag.position.lerpVectors(a, b, e);
+        flag.position.y += Math.sin(Math.PI * k) * peak;
+        flag.rotation.set(Math.sin(k * Math.PI) * 0.5, spin * e, -Math.sin(k * Math.PI) * 0.35);
+        if (k - spark > 0.18) {
+          spark = k;
+          this.motes3(flag.position.clone(), color, 5, 0.7);
+        }
+      },
+      end: () => {
+        this.fxGroup.remove(flag);
+        flag.traverse((o) => {
+          o.geometry?.dispose();
+          o.material?.dispose();
+        });
+        if (caught) {
+          // caught: a ring in the flag's color, a hop, and a bright note
+          this.ring(to.group.position, color, 3, 0.03, 1.1);
+          this.motes3(to.group.position.clone().setY(0.9), color, 18, 1.2);
+          to.anims.push({ kind: 'bump', t0: this.time, dur: 0.3 });
+          this.emit('catch', { id: to.id });
+          return;
+        }
+        if (f.end === 'land') {
+          // on the floor: it drops in with a ring where it lies, and stands there until someone picks it up
+          this.ring(b, color, 2.2, 0.03, 1.0);
+          if (col?.pennant) {
+            col.pennant.position.set(b.x, col.col.position.y, b.z);
+            col.pennant.visible = true;
+          }
+          this.emit('flagdown', {});
+          return;
+        }
+        // knocked down, into a pit or over the edge: a burst there, and it flies home to its corner
+        this.burst(b.clone().setY(0.6), color, 1.4, 0.5);
+        if (to) this.popGlyph(to, 'flag', color, '');
+        this.emit('flagdown', { lost: true });
+        if (f.back?.x != null) {
+          this.later(0.5, () => {
+            this.ring(this.pos(f.back.x, f.back.y), color, 3, 0.03, 1.4);
+            if (col?.pennant && !col.pennant.visible) col.pennant.visible = true;
+          });
+        }
+      },
+    });
   }
 
   /** Put the flag on a robot's back, or take it off (once the robot's own moment is over: a shove, a fall). */
@@ -2647,6 +2735,7 @@ export class Arena {
     }
     if (want === have) return;
     if (!want && b.busyUntil > this.time) return; // dropped: it goes when the hit lands, not before
+    if (want && !have && b.flagAt > this.time) return; // passed to it: it goes on when the flag arrives
     if (b.flag) {
       b.model.body.remove(b.flag);
       b.flag.traverse((o) => {
@@ -3387,6 +3476,9 @@ export class Arena {
           break;
         case 'cp':
           if (b) this.checkpoint(b, f.n);
+          break;
+        case 'pass':
+          this.passFlag(f);
           break;
         case 'flagback':
           // the flag flies home: a burst where the robot lost it, a ring where it lands

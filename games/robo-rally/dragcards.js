@@ -117,7 +117,7 @@ export function mountCardDrag(root, o) {
   const onDown = (e) => {
     if (e.button > 0 || drag || !o.can()) return;
     const box = e.target.closest?.(o.scope);
-    if (!box || !root.contains(box) || e.target.closest('.pl-crab')) return;
+    if (!box || !root.contains(box) || e.target.closest('.pl-crab, .pl-pass')) return;
     const slot = e.target.closest('.pl-regs .pl-slot.full:not(.locked)');
     const card = slot ? null : e.target.closest('.pl-hand .pl-card:not(:disabled):not(.used)');
     if (!slot && !card) return;

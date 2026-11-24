@@ -20,6 +20,7 @@ import { createCoach, tipsOn, tipSeen, skipBasics } from './coach.js';
 import { planRisks, riskText } from './tips.js';
 import { topicAtCell, cardTopic } from './topics.js';
 import { marksFor, markHtml, mountFallen, ranCards } from './replay.js';
+import { planned as marksSlot, handTo, throwPath, sightTo } from './passing.js';
 
 const TIMERS = [0, 60, 120, 180];
 const ARROWS = ['m1', 'rr', 'bk', 'rl']; // a direction relative to you, as a card picture
@@ -82,7 +83,7 @@ export default function (root, api) {
   };
   let localSheet = null; // { head, demo, note, options: [{ label, run, primary, hold }] }
   let lastPromptKey = null;
-  const prog = { key: null, regs: [[], [], [], [], []], target: null, stack: null, keep: new Set(), hw: {}, rebootDir: 1, pick: [] };
+  const prog = { key: null, regs: [[], [], [], [], []], target: null, stack: null, keep: new Set(), hw: {}, rebootDir: 1, pick: [], pass: null };
   let draftTimer = null;
   let flip = null; // a card on its way from the hand to a slot: { rect, slot }
   let flyBack = null; // cards on their way back to the hand (undo): [{ id, rect }]
@@ -181,7 +182,9 @@ export default function (root, api) {
    */
   function risksFor(m) {
     if (!m || view.phase !== 'program' || m.done || m.mustReturn || !tipsOn() || !(veteran || tipSeen('others'))) return [];
-    return planRisks(course(), ghostsFor(m), view.robots.filter((r) => r.id !== myId()));
+    // (passing the flag: my other robot is on my side, and doesn't shoot me)
+    const mine = new Set(passKind() ? (view.team ?? []).map((t) => t.id) : [myId()]);
+    return planRisks(course(), ghostsFor(m), view.robots.filter((r) => !mine.has(r.id) && r.id !== myId()));
   }
   function ghostsFor(m) {
     const from = programStart(m);
@@ -191,6 +194,108 @@ export default function (root, api) {
     const n = filledRun(slots.map((l) => l.length > 0));
     return previewProgram(course(), from, slots.slice(0, n).map((l) => l.flatMap(previewType)), { lessDeadly: view.opts.lessDeadly, hover: m.up.perm.includes('hover-unit') });
   }
+  // ----- Capture the Flag, passing the flag (passing.js): what my two robots' plans would do with it -----
+  const passKind = () => (view?.ctf ? view.pass ?? null : null);
+  /** My other robot (two robots each), as my phone knows it: where it is and its plan so far. */
+  const mateOf = () => view?.team?.find((t) => t.id !== myId()) ?? null;
+  function mateGhosts(t) {
+    if (!t?.on || t.x == null) return [];
+    const n = filledRun(t.plan.map((l) => l.length > 0));
+    return previewProgram(course(), { x: t.x, y: t.y, d: t.d }, t.plan.slice(0, n), { lessDeadly: view.opts.lessDeadly });
+  }
+  /** Where a robot stands when each of the five slots ends (null: off the board, or past knowing), from its light line. */
+  function slotSpots(from, ghosts) {
+    let at = from ? { x: from.x, y: from.y, d: from.d } : null;
+    return [0, 1, 2, 3, 4].map((k) => {
+      const gh = ghosts[k];
+      if (gh) at = gh.fell || gh.unknown ? null : { x: gh.x, y: gh.y, d: gh.d };
+      else if (ghosts.length && k >= ghosts.length && ghosts.at(-1)?.fell) at = null;
+      return at;
+    });
+  }
+  /**
+   * The flag, slot by slot, as my two robots' plans stand: who would have it, and what a pass at each slot would do.
+   * Returns null when this race doesn't pass, or { slots: [outcome | null] (null: neither robot would have the flag
+   * when that slot ends), auto (Line of sight: the first pass that would happen by itself) }. An outcome is
+   * { k, ok, end, path, fromMe }, the shape minimap.drawPass draws.
+   */
+  function passPlan() {
+    const kind = passKind();
+    const m = me();
+    const mate = mateOf();
+    if (!kind || !m || !mate || view.phase !== 'program') return null;
+    const c = course();
+    const hunt = m.hunt;
+    const mine = slotSpots(programStart(m), ghostsFor(m));
+    const theirs = slotSpots(mate.on ? mate : null, mateGhosts(mate));
+    const spot = view.loose?.[hunt] ?? c.checkpoints.find((p) => p.n === hunt);
+    const foes = view.robots.filter((r) => r.hunt && r.hunt !== hunt && r.on !== false && r.x != null).map((r) => ({ id: r.id, x: r.x, y: r.y, hunt: r.hunt }));
+    const outcome = (k, holder) => {
+      const from = holder === 'me' ? mine[k] : theirs[k];
+      const to = holder === 'me' ? theirs[k] : mine[k];
+      const base = { k, fromMe: holder === 'me' };
+      if (kind === 'sight') {
+        const ok = !!(to && sightTo(c, { ...from, hunt }, [to], foes));
+        return { ...base, ok, end: ok ? 'catch' : 'none', path: [[from.x, from.y], [to?.x ?? from.x, to?.y ?? from.y]] };
+      }
+      if (kind === 'hand') {
+        const ok = !!(to && handTo(c, from, [to]));
+        return { ...base, ok, end: ok ? 'catch' : 'none', path: [[from.x, from.y], [to?.x ?? from.x, to?.y ?? from.y]] };
+      }
+      const t = throwPath(c, { ...from, id: '·from', hunt }, [...foes, ...(to ? [{ ...to, id: '·to', hunt }] : [])]);
+      return { ...base, ok: t.end === 'catch', end: t.end, path: t.path, dir: from.d };
+    };
+    // who has the flag as each slot ends, if nobody passes: a carrier that falls drops it; a robot that ends a slot
+    // on it picks it up (after that slot's pass, so it can pass from the next one on)
+    const slots = [];
+    let holder = m.cp === 1 ? 'me' : mate.cp === 1 ? 'mate' : null;
+    let auto = null;
+    for (let k = 0; k < 5; k++) {
+      if ((holder === 'me' && !mine[k]) || (holder === 'mate' && !theirs[k])) holder = null;
+      slots.push(holder ? outcome(k, holder) : null);
+      if (holder && kind === 'sight' && slots[k].ok) {
+        auto ??= slots[k];
+        holder = holder === 'me' ? 'mate' : 'me';
+      }
+      if (!holder && spot) {
+        if (mine[k] && mine[k].x === spot.x && mine[k].y === spot.y) holder = 'me';
+        else if (theirs[k] && theirs[k].x === spot.x && theirs[k].y === spot.y) holder = 'mate';
+      }
+    }
+    return { kind, slots, auto };
+  }
+
+  /**
+   * The flag tabs on my slots (passing the flag): a class list per slot, or '' for none. A tab shows on each slot that
+   * ends with one of my robots holding the flag: 'ok' where a pass would reach my other robot, 'land' where a throw
+   * would come down on the floor, 'miss' where it wouldn't; 'on' is the slot my team has marked. Line of sight has
+   * nothing to mark: its tab ('auto') shows where the flag would go by itself.
+   */
+  function passTabs() {
+    const plan = passPlan();
+    if (!plan) return ['', '', '', '', ''];
+    if (!marksSlot(plan.kind)) return [0, 1, 2, 3, 4].map((k) => (plan.auto?.k === k ? 'auto on ok' : ''));
+    // (a tab only under a slot I've filled: past the end of my line, where I'd be isn't known yet)
+    const filled = ghostsFor(me()).length;
+    return plan.slots.map((o, k) => {
+      if ((!o || k >= filled) && prog.pass !== k) return '';
+      const how = !o ? 'miss' : o.ok ? 'ok' : o.end === 'land' ? 'land' : 'miss';
+      return `${how} ${prog.pass === k ? 'on' : ''}`;
+    });
+  }
+
+  /** For my map while I plan (passing the flag): my other robot's line, and the pass my team has marked (or would make). */
+  function passLook(m) {
+    const plan = view.phase === 'program' && m ? passPlan() : null;
+    if (!plan) return {};
+    const flag = ctfLook()?.[m.hunt]?.color ?? '#f4efe4';
+    const shown = marksSlot(plan.kind) ? (prog.pass != null ? plan.slots[prog.pass] : null) : plan.auto;
+    return {
+      mate: { ghosts: mateGhosts(mateOf()), color: api.you?.color ?? '#f4efe4' },
+      pass: shown ? { ...shown, color: flag, slot: shown.k + 1 } : null,
+    };
+  }
+
   /**
    * Draw my map. It frames my robot and my light line by itself, until I pan or pinch it (mapView); then it stays
    * where I put it, unless a change to my program would take the line out of view. The course is drawn once into
@@ -206,7 +311,7 @@ export default function (root, api) {
     // the draw (no robots in the race yet): each stands on the start pad it was given
     const pads = view.phase === 'start' ? course().starts : null;
     const all = pads ? view.robots.map((r) => ({ ...r, ...pads.find((st) => st.n === r.pick) })) : view.robots;
-    const key = JSON.stringify([mapZoom, mapView, mapLit, width, height, myId(), view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, all.map((r) => [r.x, r.y, r.d, r.on, r.away]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir]);
+    const key = JSON.stringify([mapZoom, mapView, mapLit, width, height, myId(), view.phase, view.opts.course, view.opts.lessDeadly, view.opts.upgrades, all.map((r) => [r.x, r.y, r.d, r.on, r.away, r.cp]), m && [m.x, m.y, m.d, m.on, m.cp, m.done, m.up.perm], prog.regs, prog.hw, prog.rebootDir, prog.pass, view.pass && [view.team, view.loose]]);
     if (!force && !quick && key === mapKey && canvas.dataset.drawn) return;
     mapKey = key;
     canvas.dataset.drawn = '1';
@@ -222,8 +327,9 @@ export default function (root, api) {
     const ring = (view.phase === 'program' || pads) && from ? rebootFor(c, from, ghosts, m?.archive ?? { x: from.x, y: from.y, d: from.d }) : null;
     let focus = { x: c.w / 2, y: c.h / 2 };
     let pts = [];
+    const passing = passLook(m); // (passing the flag: my other robot's line and the pass are in view too)
     if (from) {
-      pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])]), ...(ring?.fall ? [[ring.x, ring.y]] : [])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
+      pts = [[from.x, from.y], ...ghosts.flatMap((gh) => [[gh.x, gh.y], ...(gh.path ?? [])]), ...(ring?.fall ? [[ring.x, ring.y]] : []), ...(passing.pass?.path ?? [])].map(([x, y]) => [clamp(x, 0, c.w - 1), clamp(y, 0, c.h - 1)]);
       const x0 = Math.min(...pts.map((p) => p[0]));
       const x1 = Math.max(...pts.map((p) => p[0])) + 1;
       const y0 = Math.min(...pts.map((p) => p[1]));
@@ -263,9 +369,9 @@ export default function (root, api) {
     const robots = all.filter((r) => r.x != null && r.on !== false).map((r) => ({ ...r, me: r.id === myId() }));
     if (view.phase === 'program' && from && !m.on) robots.push({ ...from, on: true, me: true, color: api.you?.color ?? '#fff', avatar: api.you?.avatar });
     const risks = risksFor(m).map((r) => ({ x: r.x, y: r.y, color: r.by ? robotById(r.by)?.color ?? '#f4efe4' : '#ff7a6b' }));
-    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : pads ? 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook() };
+    const look = { robots, ghosts, risks, reboot: ring, ghostColor: api.you?.color, cpNext: m ? m.cp + 1 : pads ? 1 : null, cpDone: (n) => (m && !view.ctf ? n <= m.cp : false), ctf: ctfLook(), areaLit: mapLit, ...mapLook(), ...passing };
     // the whole course at this size, drawn once (with a square's margin for glows), then copied in where it sits
-    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color, r.cp]), ghosts, risks, ring, m?.cp, api.you?.color]);
+    const cacheKey = JSON.stringify([tile, dpr, c.id, mapLit, mapLook(), robots.map((r) => [r.x, r.y, r.d, r.me, r.away, r.color, r.cp]), ghosts, risks, ring, m?.cp, api.you?.color, look.ctf, look.mate, look.pass]);
     let cache = mapCache.get(canvas);
     if (!cache || (cache.key !== cacheKey && !(quick && cache.c === c))) {
       const pad = Math.ceil(tile);
@@ -773,7 +879,7 @@ export default function (root, api) {
     if (!view.ctf) return null;
     const hunters = view.robots.filter((r) => r.hunt);
     // each flag is the other team's color: the robot that defends it, not the one hunting it
-    return Object.fromEntries(hunters.map((r) => [r.hunt, { color: hunters.find((o) => o.hunt !== r.hunt)?.color ?? '#f4efe4', carried: hunters.some((o) => o.hunt === r.hunt && o.cp === 1) }]));
+    return Object.fromEntries(hunters.map((r) => [r.hunt, { color: hunters.find((o) => o.hunt !== r.hunt)?.color ?? '#f4efe4', carried: hunters.some((o) => o.hunt === r.hunt && o.cp === 1), at: view.loose?.[r.hunt] ?? null }]));
   };
   function showGoal() {
     const m = me();
@@ -908,6 +1014,7 @@ export default function (root, api) {
       prog.hw = { ...m.hwChoice };
       prog.rebootDir = m.rebootDir ?? 1;
       prog.pick = [];
+      prog.pass = m.passAt ?? null; // (passing the flag: the slot my team passes it at)
     }
     prog.regs = prog.regs.map((l, i) => (m.regs[i].locked ? [] : l.filter((c) => m.hand.includes(c))));
     for (const c of [...prog.keep]) if (!m.hand.includes(c)) prog.keep.delete(c);
@@ -920,7 +1027,12 @@ export default function (root, api) {
   function saveDraft() {
     clearTimeout(draftTimer);
     // saved quietly: a draft that arrives just after I locked in (or as time ran out) is refused, and that's fine
-    draftTimer = setTimeout(() => api.send('draft', { regs: prog.regs, rebootDir: prog.rebootDir }), 250);
+    draftTimer = setTimeout(() => api.send('draft', draftPayload()), 250);
+  }
+
+  /** What I've placed so far, for the rules (and the flag's pass mark, when this race marks one). */
+  function draftPayload() {
+    return { regs: prog.regs, rebootDir: prog.rebootDir, ...(marksSlot(passKind()) ? { pass: prog.pass } : {}) };
   }
 
   function placeCard(id, el) {
@@ -971,7 +1083,7 @@ export default function (root, api) {
     const hw = {};
     for (const id of [...prog.regs.flat(), ...m.regs.flatMap((r) => r.cards)]) if (isHaywire(id) && prog.hw[id]) hw[id] = prog.hw[id];
     const ghosts = ghostsFor(m);
-    const res = await send('lock', { regs: prog.regs, keep: [...prog.keep], hw, rebootDir: prog.rebootDir });
+    const res = await send('lock', { ...draftPayload(), keep: [...prog.keep], hw });
     if (!res?.error) {
       planned.set(view.round, ghosts);
       api.vibrate([10, 40, 10]);
@@ -1012,7 +1124,7 @@ export default function (root, api) {
         if (arg === view.focus) return;
         api.vibrate(6);
         clearTimeout(draftTimer);
-        if (view.phase === 'program' && m && !m.done) api.send('draft', { regs: prog.regs, rebootDir: prog.rebootDir });
+        if (view.phase === 'program' && m && !m.done) api.send('draft', draftPayload());
         return send('focus', { robot: arg });
       case 'opt': {
         const [key, rawValue] = arg.split('=');
@@ -1037,6 +1149,14 @@ export default function (root, api) {
         return placeCard(arg, el);
       case 'reg':
         return tapRegister(Number(arg));
+      case 'pass': { // passing the flag: mark the slot it's passed at (tap it again to take the mark off)
+        e.stopPropagation();
+        if (m.done) return;
+        const i = Number(arg);
+        prog.pass = prog.pass === i ? null : i;
+        api.vibrate(prog.pass == null ? 6 : [8, 30, 14]);
+        return changed();
+      }
       case 'crab':
         e.stopPropagation();
         prog.stack = Number(arg);
@@ -1299,7 +1419,10 @@ export default function (root, api) {
         return {
           screen: 'program', round: view.round, veteran, placed: placed().size, full: programFull(), done: m.done,
           moved: ghostsFor(m).some((gh) => (gh.path?.length ?? 0) > 1),
-          has: { spam: hand.includes('sp'), again: hand.includes('ag'), haywire: m.regs.some((r) => r.locked), reboot: m.rb, timerLow: !!view.opts.timer && left > 0 && left <= 10_000 },
+          has: {
+            spam: hand.includes('sp'), again: hand.includes('ag'), haywire: m.regs.some((r) => r.locked), reboot: m.rb, timerLow: !!view.opts.timer && left > 0 && left <= 10_000,
+            pass: passKind(), passTabs: passTabs().some(Boolean), passMarked: prog.pass != null,
+          },
         };
       case 'activate':
         return { screen: 'run', round: view.round, veteran, has: { fallen: !m.on && !comingBack(m), arm: m.canArm, hit: performance.now() - hitAt < 6000 } };
@@ -1559,6 +1682,7 @@ export default function (root, api) {
     pl.classList.toggle('locked', !!done);
     const hasCrab = m.up.perm.includes('crab-legs');
     const nextTarget = done ? null : prog.target ?? freeRegs()[0];
+    const tabs = passTabs();
     set(body.querySelector('.pl-regs'), html`${[0, 1, 2, 3, 4].map((i) => {
       const r = m.regs[i];
       const list = r.locked ? r.cards : prog.regs[i];
@@ -1567,8 +1691,10 @@ export default function (root, api) {
       return html`<button class="pl-slot ${nextTarget === i && 'target'} ${r.locked && 'locked'} ${list.length && 'full'} ${prog.stack === i && 'stacking'}" data-ui="reg" data-arg="${i}" data-ask="${ask}" ${r.locked ? raw('data-tap="ask"') : ''}>
         ${list.length ? list.map((id) => card(id, list.length > 1 ? 'half' : '')) : html`<i>${i + 1}</i>`}
         ${canStack && html`<span class="pl-crab" data-ui="crab" data-arg="${i}" data-ask="crab-legs">${g('plus')}</span>`}
+        ${tabs[i] && html`<span class="pl-pass ${tabs[i]}" ${tabs[i].includes('auto') ? '' : raw(`data-ui="pass" data-arg="${i}"`)} aria-label="Pass the flag after slot ${i + 1}">${g('flag')}</span>`}
       </button>`;
     })}`);
+    pl.style.setProperty('--flag', ctfLook()?.[m.hunt]?.color ?? 'var(--light)');
     // reboot: choose which way to face when coming back
     set(body.querySelector('.pl-reboot'), m.rb ? html`${[0, 1, 2, 3].map((d) => html`<button class="pl-dir d${d} ${prog.rebootDir === d && 'on'}" data-ui="reboot" data-arg="${d}" aria-label="Face ${['north', 'east', 'south', 'west'][d]}">${g('m1')}</button>`)}` : '');
     // Haywire choices, a peek at the deck (SPAM Filter), one-use upgrades for now
@@ -1700,10 +1826,12 @@ export default function (root, api) {
         <span class="pl-slot ${now && 'now'} ${past && 'past'} ${shownCards.length && 'full'} ${gone && 'gone'}" data-ask="${ask}" ${(past || now) && !gone ? raw('data-tap="ask"') : ''}>
           ${shownCards.length ? shownCards.map((id) => card(id, shownCards.length > 1 ? 'half' : '')) : html`<i>${i + 1}</i>`}
           ${r.next && html`<span class="pl-next ${arrive && 'arrive'}" data-ask="haywire-slot:${cardType(r.next)}" data-tap="ask">${card(r.next, 'xs')}</span>`}
+          ${marksSlot(passKind()) && m.passAt === i && html`<span class="pl-pass on">${g('flag')}</span>`}
         </span>
         <span class="pl-marks">${!gone && raw(marks.map((x) => markHtml(x, view.robots)).join(''))}</span>
       </div>`;
     })}`);
+    if (view.ctf) pl.style.setProperty('--flag', ctfLook()?.[m.hunt]?.color ?? 'var(--light)');
     for (const k of arriving) race.seenNext.add(k);
     if (arriving.length) hitAt = performance.now();
     // the middle: look up, or (when I've fallen) the way back in

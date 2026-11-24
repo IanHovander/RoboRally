@@ -8,6 +8,7 @@
 
 import { DX, DY, turn, cellAt, activeCell, wallBetween, inside, DIR_NAMES } from './board.js';
 import { DECK, cardType, isDamage, isHaywire, HAYWIRE, PROGRAM, SPAM_COUNT, UPGRADES, UPGRADE_IDS, cardInfo } from './cards.js';
+import { PASS_KINDS, planned, handTo, throwPath, sightTo } from './passing.js';
 
 export const MAX_ENERGY = 10;
 export const PROMPT_MS = 12000;
@@ -87,6 +88,7 @@ export function startRace(s, env) {
     ...Array.from({ length: SPAM_COUNT + (s.opts.haywires ? 0 : haywires.length) }, () => `sp.${++s.serial}`),
     ...(s.opts.haywires ? haywires.map((t) => `${t}.${++s.serial}`) : []),
   ]);
+  if (c.mode === 'ctf') s.loose = {}; // Capture the Flag: flags thrown to the floor, n -> { x, y } (passing.js)
   s.upDeck = shuffle(s, UPGRADE_IDS);
   if (s.opts.upgrades) for (const R of robotList(s)) R.up.hand.push(...s.upDeck.splice(0, 3));
   s.prio = Math.floor(rand(s) * robotIds(s).length);
@@ -339,6 +341,7 @@ export function startProgramming(s, env) {
     R.armed = false;
     R.skipUp = false;
     if (R.reboot) R.rebootDir ??= 1;
+    R.passAt = null; // Capture the Flag: the slot this robot passes the flag at, if it has it then (setPass)
   }
 }
 
@@ -516,6 +519,7 @@ function nextRegister(s, env) {
     { t: 'blasers' },
     { t: 'rweapons' },
     { t: 'batteries' },
+    ...(passKind(s, env) ? [{ t: 'pass' }] : []), // Capture the Flag: the flag may change hands (passing.js)
     { t: 'checkpoints' },
   ];
 }
@@ -629,6 +633,8 @@ function beatTime(list) {
     else if (f.k === 'play') ms = Math.max(ms, CARD_MS);
     else if (f.k === 'reboot') ms = Math.max(ms, 1400);
     else if (f.k === 'cp') ms = Math.max(ms, 1400);
+    // a pass: the flag flies (a throw's arc takes longer the farther it goes), then lands or is caught
+    else if (f.k === 'pass') ms = Math.max(ms, f.end === 'none' || f.end === 'wall' ? 800 : 900 + (f.path?.length ?? 2) * 140 + (f.back ? 900 : 0));
     else if (f.k === 'win') ms = Math.max(ms, 3000);
     else if (f.k === 'replace') ms = Math.max(ms, 1200);
     else if (f.k === 'dmg') ms = Math.max(ms, 900);
@@ -697,6 +703,7 @@ function runTask(s, env, task) {
       }
       return;
     }
+    case 'pass': return runPass(s, env);
     case 'checkpoints': return runCheckpoints(s, env);
     case 'selfdiag': return askSelfDiag(s, env, R);
     case 'abort': {
@@ -1307,9 +1314,12 @@ const weaponHint = (k) =>
 
 function fireAll(s, env) {
   let shots = 0;
+  // passing the flag (a team game): robots don't shoot their teammates; a teammate in the way takes the shot harmlessly
+  const team = !!passKind(s, env);
   for (const id of priorityOrder(s)) {
     const R = s.robots[id];
     if (!R.on || R.shutdown) continue;
+    const foes = (hits) => (team ? hits.filter((X) => X.hunt !== R.hunt) : hits);
     const dmg = 1 + (has(R, 'double-barrel') ? 1 : 0) + R.overcharge;
     const rail = has(R, 'rail-gun');
     const dirs = R.kata || R.storm ? [0, 1, 2, 3].map((k) => turn(R.d, k)) : [R.d];
@@ -1318,7 +1328,9 @@ function fireAll(s, env) {
         shots += fireSpecial(s, env, R, R.weapon);
         continue;
       }
-      const { hits, end } = traceShot(s, env, R.x, R.y, d, { throughWalls: rail, throughRobots: rail });
+      const shot = traceShot(s, env, R.x, R.y, d, { throughWalls: rail, throughRobots: rail });
+      const { end } = shot;
+      const hits = foes(shot.hits);
       if (!hits.length) continue; // a laser that hits nothing isn't worth showing
       fx(s, { k: 'beam', src: R.id, x0: R.x, y0: R.y, x1: rail ? end.x : hits[0].x, y1: rail ? end.y : hits[0].y, d, n: dmg, hit: hits.map((h) => h.id) });
       for (const X of hits) {
@@ -1330,8 +1342,8 @@ function fireAll(s, env) {
     }
     if (has(R, 'rear-laser')) {
       const d = turn(R.d, 2);
-      const { hits } = traceShot(s, env, R.x, R.y, d, {});
-      if (hits.length) {
+      const hits = foes(traceShot(s, env, R.x, R.y, d, {}).hits);
+      if (hits.length && hits[0] === traceShot(s, env, R.x, R.y, d, {}).hits[0]) {
         fx(s, { k: 'beam', src: R.id, x0: R.x, y0: R.y, x1: hits[0].x, y1: hits[0].y, d, n: 1, hit: [hits[0].id], rear: true });
         takeDamage(s, env, hits[0], 1, 'laser');
         R.stats.hits++;
@@ -1407,6 +1419,11 @@ export function ctfGoal(env, R) {
 /** Is that flag on someone's back? (A team's two robots go for the same flag: only one can carry it.) */
 const flagTaken = (s, n) => robotList(s).some((X) => X.hunt === n && X.cp === 1);
 
+/** Where flag n lies when nobody carries it: on the floor where a throw left it, or in its corner. */
+export function flagSpot(s, env, n) {
+  return s.loose?.[n] ?? env.course.checkpoints.find((p) => p.n === n) ?? null;
+}
+
 /** Shot, shoved, hurt or fell while carrying a flag: the flag goes back where it started. */
 function dropFlag(s, env, R, why) {
   if (!isCtf(env) || R.cp !== 1 || s.phase === 'over') return;
@@ -1416,13 +1433,105 @@ function dropFlag(s, env, R, why) {
   say(s, env, `${nameOf(env, R.id)} was ${why} and dropped the flag`);
 }
 
+// ----- passing the flag (passing.js says how each way works) -----
+
+/** How this race passes the flag: 'hand', 'throw', 'sight', or null (it doesn't). */
+export const passKind = (s, env) => (isCtf(env) && PASS_KINDS.includes(s.opts.pass) ? s.opts.pass : null);
+
+/**
+ * A phone marks the slot its team passes the flag at (i: 0-4), or takes the mark off (null). The mark is the team's:
+ * whichever of its two robots has the flag when that slot ends passes it.
+ */
+export function setPass(s, env, R, i) {
+  if (!planned(passKind(s, env))) return 'This race has no passing';
+  if (s.phase !== 'program' || R.done) return 'Not now';
+  if (i !== null && !(Number.isInteger(i) && i >= 0 && i < 5)) return 'Pick a slot';
+  for (const X of robotList(s)) if (X.hunt === R.hunt) X.passAt = i;
+  return null;
+}
+
+/** The flag changes hands: the carrier's teammate has it now. */
+function handOver(s, env, R, to, f) {
+  R.cp = 0;
+  to.cp = 1;
+  fx(s, { k: 'pass', id: R.id, to: to.id, n: R.hunt, ...f });
+  s.cap = `${nameOf(env, R.id)} passed to ${nameOf(env, to.id)}`;
+  say(s, env, `${nameOf(env, R.id)} passed the flag to ${nameOf(env, to.id)}`);
+}
+
+/** The end of a slot: each carrier passes the flag, if this is when and it can (at most once each slot). */
+function runPass(s, env) {
+  const kind = passKind(s, env);
+  const c = env.course;
+  const busy = new Set(); // robots that passed or caught this slot
+  for (const id of priorityOrder(s)) {
+    const R = s.robots[id];
+    if (busy.has(id) || R.cp !== 1 || !R.on || R.shutdown || s.phase === 'over') continue;
+    const mates = robotList(s).filter((X) => X !== R && X.hunt === R.hunt && X.on && !X.shutdown);
+    if (kind === 'sight') {
+      const to = sightTo(c, R, mates, robotList(s).filter((X) => X.on && X !== R && !mates.includes(X)));
+      if (!to) continue;
+      handOver(s, env, R, to, { kind, path: [[R.x, R.y], [to.x, to.y]] });
+      busy.add(R.id).add(to.id);
+      continue;
+    }
+    if (R.passAt !== s.reg) continue;
+    busy.add(R.id);
+    if (kind === 'hand') {
+      const to = handTo(c, R, mates);
+      if (!to) {
+        fx(s, { k: 'pass', id: R.id, to: null, n: R.hunt, kind, end: 'none' }); // nobody beside it: it keeps the flag
+        continue;
+      }
+      handOver(s, env, R, to, { kind, path: [[R.x, R.y], [to.x, to.y]] });
+      busy.add(to.id);
+      continue;
+    }
+    // a throw
+    const t = throwPath(c, R, robotList(s).filter((X) => X.on));
+    const f = { kind, path: t.path, end: t.end };
+    if (t.end === 'wall') {
+      fx(s, { k: 'pass', id: R.id, to: null, n: R.hunt, ...f }); // a wall right in front: it keeps the flag
+      continue;
+    }
+    if (t.end === 'catch') {
+      handOver(s, env, R, s.robots[t.to.id], f);
+      busy.add(t.to.id);
+      continue;
+    }
+    R.cp = 0;
+    const home = c.checkpoints.find((p) => p.n === R.hunt);
+    if (t.end === 'land') {
+      s.loose[R.hunt] = { x: t.x, y: t.y };
+      fx(s, { k: 'pass', id: R.id, to: null, n: R.hunt, ...f, x: t.x, y: t.y });
+      s.cap = `${nameOf(env, R.id)} threw the flag`;
+      say(s, env, `${nameOf(env, R.id)} threw the flag`);
+      continue;
+    }
+    // knocked down by an opponent, into a pit or over the edge: back to its corner
+    fx(s, { k: 'pass', id: R.id, to: t.to?.id ?? null, n: R.hunt, ...f, x: t.x, y: t.y, back: { x: home?.x, y: home?.y } });
+    s.cap = t.end === 'block' ? `${nameOf(env, t.to.id)} blocked the throw` : 'The flag went back';
+    say(s, env, t.end === 'block' ? `${nameOf(env, t.to.id)} blocked ${nameOf(env, R.id)}'s throw` : `${nameOf(env, R.id)}'s throw went ${t.end === 'pit' ? 'into a pit' : 'off the board'}`);
+  }
+}
+
 function runCtf(s, env) {
+  // a flag on the floor: a defender standing on it sends it home
+  for (const [n, spot] of Object.entries(s.loose ?? {})) {
+    const X = robotList(s).find((R) => R.on && R.x === spot.x && R.y === spot.y && R.hunt !== Number(n));
+    if (!X) continue;
+    delete s.loose[n];
+    const home = env.course.checkpoints.find((p) => p.n === Number(n));
+    fx(s, { k: 'flagback', id: X.id, n: Number(n), x: home?.x, y: home?.y, from: spot, why: 'returned' });
+    say(s, env, `${nameOf(env, X.id)} sent the flag back`);
+  }
   for (const id of priorityOrder(s)) {
     const R = s.robots[id];
     if (!R.on || R.shutdown) continue;
     if (R.cp === 0) {
-      const flag = env.course.checkpoints.find((p) => p.n === R.hunt);
+      const flag = flagSpot(s, env, R.hunt);
       if (!flag || flag.x !== R.x || flag.y !== R.y || flagTaken(s, R.hunt)) continue;
+      if (s.loose?.[R.hunt]) delete s.loose[R.hunt];
     } else {
       // carrying it: home is either of the team's start pads
       const home = env.course.starts.some((st) => teamOf(st.n) === R.hunt && st.x === R.x && st.y === R.y);

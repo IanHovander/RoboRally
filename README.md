@@ -28,6 +28,25 @@ store after closing time. The big screen shows the race in 3D; each phone holds 
 - `node test/avatar.mjs` checks robot selection and reconnects. `npm test` retains framework coverage using
   example games in a test-only server; normal servers and the website build register only Robo Rally.
 
+### Passing the flag (Capture the Flag, three to try)
+
+In Capture the Flag each player drives two robots, and the flag can change hands between them. There are three
+ways to pass it, to try side by side. The big screen's address picks one (and picks the map):
+`host.html?pass=hand`, `host.html?pass=throw` or `host.html?pass=sight`. A tag in its corner says which one is on.
+
+- **Hand-off** (`hand`): a flag tab hangs under each slot that ends with your team holding the flag. Tap one, and when
+  that slot ends the carrier hands the flag to your other robot, if it's on one of the eight squares around it. A lit
+  tab means your two plans put them side by side there.
+- **Throw** (`throw`): the same tabs, but the carrier throws the flag up to 4 squares the way it faces. Your robot
+  catches it, an opponent knocks it home, or it lands on the floor for either of your robots to pick up (an
+  opponent who ends a slot on it sends it home).
+- **Line of sight** (`sight`): nothing to tap. When a slot ends with your robots in a clear straight line (up to 4
+  squares, no wall or robot between), the flag goes to the one nearer home.
+
+While you plan, the phone's map shows your other robot's plan as a dashed line and the pass as an arc (a ring where
+it's caught, a cross where it's lost). With passing on, teammates' lasers don't hit each other. The rules are in
+`games/robo-rally/passing.js`; `node test/passing.mjs` checks them.
+
 ### How the game teaches
 
 Nobody has to read the rules, and nobody sits through them. The lobby plays a wordless film of the basics. Each

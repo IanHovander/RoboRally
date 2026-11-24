@@ -295,11 +295,12 @@ export function drawCourse(g, course, o = {}) {
 
   // checkpoints
   for (const cp of course.checkpoints) {
-    const cx = px(cp.x + 0.5);
-    const cy = py(cp.y + 0.5);
-    // Capture the Flag (o.ctf: { n: { color, carried } }): a flag in its hunter's color, gone while carried
+    // Capture the Flag (o.ctf: { n: { color, carried, at } }): a flag in its hunter's color, gone while carried,
+    // and lying where it landed when it was thrown (at)
     const ctf = o.ctf?.[cp.n];
     if (ctf?.carried) continue;
+    const cx = px((ctf?.at ?? cp).x + 0.5);
+    const cy = py((ctf?.at ?? cp).y + 0.5);
     // every flag looks the same until you've reached it; then it's filled with your color
     const done = ctf ? true : o.cpDone?.(cp.n);
     const mine = ctf?.color ?? o.ghostColor ?? C.light;
@@ -348,8 +349,12 @@ export function drawCourse(g, course, o = {}) {
     }
   }
 
+  // two robots each, passing the flag: my other robot's plan, fainter and dashed, under mine
+  if (o.mate?.ghosts?.length) drawGhostLine(g, course, o.mate.ghosts, { tile: T, ox, oy, color: o.mate.color, glow: false, alpha: 0.5, dashed: true, numbers: false });
   // where my program would take me: a line of light through the spaces, a dot per register
   if (o.ghosts?.length) drawGhostLine(g, course, o.ghosts, { tile: T, ox, oy, color: o.ghostColor, glow });
+  // ...and where the flag would go when it's passed (passing.js)
+  if (o.pass) drawPass(g, o.pass, { tile: T, ox, oy, glow });
 
   // where that line may not go as drawn (tips.js, planRisks): a dashed frame round the square, in the color of
   // the robot that's in the way (or coral, for a laser I'd stop in)
@@ -412,6 +417,127 @@ export function drawCourse(g, course, o = {}) {
       g.fill();
       g.restore();
     }
+  }
+  g.restore();
+}
+
+/**
+ * Capture the Flag, a planned pass: the flag's flight as an arc from the carrier to where it ends up, at the end of
+ * the slot it's planned for. p: { path: [[x, y]...], end ('catch', 'land', 'block', 'pit', 'out', 'wall', 'none'),
+ * ok (the teammate gets it), color (the flag's), slot (1-5) }
+ */
+export function drawPass(g, p, o = {}) {
+  const T = o.tile ?? 32;
+  const ox = o.ox ?? 0;
+  const oy = o.oy ?? 0;
+  const lw = (k, min = 1) => Math.max(min, T * k);
+  const [x0, y0] = p.path[0];
+  const [x1, y1] = p.path.at(-1);
+  const ax = ox + (x0 + 0.5) * T;
+  const ay = oy + (y0 + 0.5) * T;
+  const bx = ox + (x1 + 0.5) * T;
+  const by = oy + (y1 + 0.5) * T;
+  const len = Math.hypot(bx - ax, by - ay);
+  const live = p.ok || p.end === 'land';
+  const color = live ? p.color : 'rgba(244,239,228,.6)';
+  g.save();
+  g.lineCap = 'round';
+  // the arc bows up the screen (a lob), more for a longer flight
+  if (len > 1) {
+    const ux = (bx - ax) / len;
+    const uy = (by - ay) / len;
+    let nx = -uy;
+    let ny = ux;
+    if (ny > 0 || (ny === 0 && nx > 0)) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const bow = Math.min(T * 0.8, Math.max(T * 0.4, len * 0.3)); // (a hand-off to the next square still reads as a lob)
+    const cx = (ax + bx) / 2 + nx * bow;
+    const cy = (ay + by) / 2 + ny * bow;
+    const start = T * 0.32; // leave the carrier's dot, and stop short of the target's
+    const end = p.ok ? T * 0.42 : T * 0.18;
+    const k0 = Math.min(0.45, start / len);
+    const k1 = Math.max(0.55, 1 - end / len);
+    const at = (t) => [(1 - t) * (1 - t) * ax + 2 * (1 - t) * t * cx + t * t * bx, (1 - t) * (1 - t) * ay + 2 * (1 - t) * t * cy + t * t * by];
+    g.strokeStyle = color;
+    g.lineWidth = lw(live ? 0.075 : 0.05, 2);
+    if (!live) g.setLineDash([lw(0.04, 1), lw(0.14, 5)]);
+    if (o.glow && live) {
+      g.shadowColor = color;
+      g.shadowBlur = T * 0.35;
+    }
+    g.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const [x, y] = at(k0 + ((k1 - k0) * i) / 24);
+      if (i) g.lineTo(x, y);
+      else g.moveTo(x, y);
+    }
+    g.stroke();
+    // an arrowhead where it arrives
+    if (live) {
+      const [hx, hy] = at(k1);
+      const [qx, qy] = at(k1 - 0.06);
+      const a = Math.atan2(hy - qy, hx - qx);
+      const s = T * 0.16;
+      g.setLineDash([]);
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(hx + Math.cos(a) * s, hy + Math.sin(a) * s);
+      g.lineTo(hx + Math.cos(a + 2.4) * s, hy + Math.sin(a + 2.4) * s);
+      g.lineTo(hx + Math.cos(a - 2.4) * s, hy + Math.sin(a - 2.4) * s);
+      g.closePath();
+      g.fill();
+    }
+  }
+  g.shadowBlur = 0;
+  g.setLineDash([]);
+  if (p.ok) {
+    // caught: a ring round the teammate
+    g.strokeStyle = color;
+    g.lineWidth = lw(0.06, 2);
+    if (o.glow) {
+      g.shadowColor = color;
+      g.shadowBlur = T * 0.4;
+    }
+    g.beginPath();
+    g.arc(bx, by, T * 0.46, 0, Math.PI * 2);
+    g.stroke();
+  } else if (p.end === 'land') {
+    // on the floor: a dashed ring where it lands, and a small flag in it
+    g.strokeStyle = color;
+    g.lineWidth = lw(0.05, 1.5);
+    g.setLineDash([lw(0.1, 3), lw(0.08, 3)]);
+    g.beginPath();
+    g.arc(bx, by, T * 0.36, 0, Math.PI * 2);
+    g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(bx - T * 0.08, by - T * 0.16);
+    g.lineTo(bx + T * 0.18, by - T * 0.07);
+    g.lineTo(bx - T * 0.08, by + T * 0.02);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = color;
+    g.lineWidth = lw(0.035, 1);
+    g.beginPath();
+    g.moveTo(bx - T * 0.08, by - T * 0.16);
+    g.lineTo(bx - T * 0.08, by + T * 0.16);
+    g.stroke();
+  } else if (p.end !== 'none') {
+    // knocked down, into a pit, over the edge, or into a wall: a cross where it stops
+    const k = T * 0.15;
+    const cx = p.end === 'wall' ? (ax + bx) / 2 + (p.dir != null ? [0, 1, 0, -1][p.dir] * T * 0.45 : 0) : bx;
+    const cy = p.end === 'wall' ? (ay + by) / 2 + (p.dir != null ? [-1, 0, 1, 0][p.dir] * T * 0.45 : 0) : by;
+    g.strokeStyle = C.laser;
+    g.lineWidth = lw(0.07, 2);
+    g.beginPath();
+    g.moveTo(cx - k, cy - k);
+    g.lineTo(cx + k, cy + k);
+    g.moveTo(cx + k, cy - k);
+    g.lineTo(cx - k, cy + k);
+    g.stroke();
   }
   g.restore();
 }
